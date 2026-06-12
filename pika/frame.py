@@ -23,8 +23,8 @@ class Frame(amqp_object.AMQPObject):
     def __init__(self, frame_type: int, channel_number: int) -> None:
         """Create a new instance of a frame
 
-        :param int frame_type: The frame type
-        :param int channel_number: The channel number for the frame
+        :param frame_type: The frame type
+        :param channel_number: The channel number for the frame
 
         """
         self.frame_type = frame_type
@@ -33,9 +33,9 @@ class Frame(amqp_object.AMQPObject):
     def _marshal(self, pieces: list[bytes]) -> bytes:
         """Create the full AMQP wire protocol frame data representation
 
+        :param pieces: Encoded AMQP frame fragments to assemble
         :rtype: bytes
 
-        :param list[bytes] pieces: Encoded AMQP frame fragments to assemble
         """
         payload = b''.join(pieces)
         return struct.pack('>BHI', self.frame_type, self.channel_number,
@@ -61,8 +61,8 @@ class Method(Frame, Generic[_MethodT]):
     def __init__(self, channel_number: int, method: _MethodT) -> None:
         """Create a new instance of a frame
 
-        :param int channel_number: The channel number for the frame
-        :param pika.Spec.Class.Method method: The AMQP Class.Method
+        :param channel_number: The channel number for the frame
+        :param method: The AMQP Class.Method
 
         """
         Frame.__init__(self, spec.FRAME_METHOD, channel_number)
@@ -90,9 +90,9 @@ class Header(Frame):
                  props: spec.BasicProperties) -> None:
         """Create a new instance of a AMQP ContentHeader object
 
-        :param int channel_number: The channel number for the frame
-        :param int body_size: The number of bytes for the body
-        :param pika.spec.BasicProperties props: Basic.Properties object
+        :param channel_number: The channel number for the frame
+        :param body_size: The number of bytes for the body
+        :param props: Basic.Properties object
 
         """
         Frame.__init__(self, spec.FRAME_HEADER, channel_number)
@@ -120,8 +120,8 @@ class Body(Frame):
 
     def __init__(self, channel_number: int, fragment: bytes) -> None:
         """
-        :param int channel_number: The channel number for the frame
-        :param bytes fragment: The fragment of the body
+        :param channel_number: The channel number for the frame
+        :param fragment: The fragment of the body
         """
         Frame.__init__(self, spec.FRAME_BODY, channel_number)
         self.fragment = fragment
@@ -170,9 +170,9 @@ class ProtocolHeader(amqp_object.AMQPObject):
         """Construct a Protocol Header frame object for the specified AMQP
         version
 
-        :param int major: Major version number
-        :param int minor: Minor version number
-        :param int revision: Revision
+        :param major: Major version number
+        :param minor: Minor version number
+        :param revision: Revision
 
         """
         self.frame_type = -1
@@ -195,7 +195,7 @@ def decode_frame(data_in: bytes) -> tuple[int, Frame | ProtocolHeader | None]:
     """Receives raw socket data and attempts to turn it into a frame.
     Returns the number of bytes consumed from the stream and the frame.
 
-    :param bytes data_in: The raw data stream
+    :param data_in: The raw data stream
     :rtype: tuple(int, Frame|ProtocolHeader)
     :raises: pika.exceptions.InvalidFrameError
 

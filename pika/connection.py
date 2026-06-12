@@ -201,7 +201,7 @@ class Parameters:
     @channel_max.setter
     def channel_max(self, value: int) -> None:
         """
-        :param int value: max preferred number of channels, between 1 and
+        :param value: max preferred number of channels, between 1 and
            `channel.MAX_CHANNELS`, inclusive
 
         """
@@ -253,7 +253,7 @@ class Parameters:
     @connection_attempts.setter
     def connection_attempts(self, value: int) -> None:
         """
-        :param int value: number of socket connection attempts of at least 1.
+        :param value: number of socket connection attempts of at least 1.
             See also `retry_delay`.
 
         """
@@ -306,7 +306,7 @@ class Parameters:
     @frame_max.setter
     def frame_max(self, value: int) -> None:
         """
-        :param int value: desired maximum AMQP frame size to use between
+        :param value: desired maximum AMQP frame size to use between
             `spec.FRAME_MIN_SIZE` and `spec.FRAME_MAX_SIZE`, inclusive
 
         """
@@ -338,7 +338,7 @@ class Parameters:
     def heartbeat(
         self, value: None | (int | Callable[[Connection, float], int])) -> None:
         """
-        :param int|None|callable value: Controls AMQP heartbeat timeout negotiation
+        :param value: Controls AMQP heartbeat timeout negotiation
             during connection tuning. An integer value always overrides the value
             proposed by broker. Use 0 to deactivate heartbeats and None to always
             accept the broker's proposal. If a callable is given, it will be called
@@ -367,7 +367,7 @@ class Parameters:
     @host.setter
     def host(self, value: str) -> None:
         """
-        :param str value: hostname or ip address of broker
+        :param value: hostname or ip address of broker
 
         """
         validators.require_string(value, 'host')
@@ -386,7 +386,7 @@ class Parameters:
     @locale.setter
     def locale(self, value: str) -> None:
         """
-        :param str value: locale value to pass to broker; e.g., "en_US"
+        :param value: locale value to pass to broker; e.g., "en_US"
 
         """
         validators.require_string(value, 'locale')
@@ -405,7 +405,7 @@ class Parameters:
     @port.setter
     def port(self, value: int) -> None:
         """
-        :param int value: port number of broker's listening socket
+        :param value: port number of broker's listening socket
 
         """
         try:
@@ -426,7 +426,7 @@ class Parameters:
     @retry_delay.setter
     def retry_delay(self, value: float) -> None:
         """
-        :param int | float value: interval between socket connection attempts;
+        :param value: interval between socket connection attempts;
             see also `connection_attempts`.
 
         """
@@ -448,7 +448,7 @@ class Parameters:
     @socket_timeout.setter
     def socket_timeout(self, value: float | None) -> None:
         """
-        :param int | float | None value: positive socket connect timeout in
+        :param value: positive socket connect timeout in
             seconds. None to disable this timeout.
 
         """
@@ -477,7 +477,7 @@ class Parameters:
     @stack_timeout.setter
     def stack_timeout(self, value: float | None) -> None:
         """
-        :param int | float | None value: positive full protocol stack
+        :param value: positive full protocol stack
             TCP/[SSL]/AMQP bring-up timeout in seconds. It's recommended to set
             this value higher than `socket_timeout`. None to disable this
             timeout.
@@ -505,10 +505,9 @@ class Parameters:
     @ssl_options.setter
     def ssl_options(self, value: SSLOptions | None) -> None:
         """
-        :param `pika.SSLOptions`|None value: None for plaintext or
+        :param value: None for plaintext or
             `pika.SSLOptions` instance for SSL/TLS. Defaults to None.
 
-        :param SSLOptions | None value: SSL options
         """
         if not isinstance(value, (SSLOptions, type(None))):
             raise TypeError(
@@ -528,7 +527,7 @@ class Parameters:
     @virtual_host.setter
     def virtual_host(self, value: str) -> None:
         """
-        :param str value: rabbitmq virtual host name
+        :param value: rabbitmq virtual host name
 
         """
         validators.require_string(value, 'virtual_host')
@@ -545,7 +544,7 @@ class Parameters:
     @tcp_options.setter
     def tcp_options(self, value: dict[str, int] | None) -> None:
         """
-        :param dict|None value: None or a dict of options to pass to the underlying
+        :param value: None or a dict of options to pass to the underlying
             socket. Currently supported are TCP_KEEPIDLE, TCP_KEEPINTVL, TCP_KEEPCNT
             and TCP_USER_TIMEOUT. Availability of these may depend on your platform.
         """
@@ -592,30 +591,30 @@ class ConnectionParameters(Parameters):
         """Create a new ConnectionParameters instance. See `Parameters` for
         default values.
 
-        :param str host: Hostname or IP Address to connect to
-        :param int port: TCP port to connect to
-        :param str virtual_host: RabbitMQ virtual host to use
-        :param pika.credentials.PlainCredentials credentials: auth credentials
-        :param int channel_max: Maximum number of channels to allow
-        :param int frame_max: The maximum byte size for an AMQP frame
-        :param int|None|callable heartbeat: Controls AMQP heartbeat timeout negotiation
+        :param host: Hostname or IP Address to connect to
+        :param port: TCP port to connect to
+        :param virtual_host: RabbitMQ virtual host to use
+        :param credentials: auth credentials
+        :param channel_max: Maximum number of channels to allow
+        :param frame_max: The maximum byte size for an AMQP frame
+        :param heartbeat: Controls AMQP heartbeat timeout negotiation
             during connection tuning. An integer value always overrides the value
             proposed by broker. Use 0 to deactivate heartbeats and None to always
             accept the broker's proposal. If a callable is given, it will be called
             with the connection instance and the heartbeat timeout proposed by broker
             as its arguments. The callback should return a non-negative integer that
             will be used to override the broker's proposal.
-        :param `pika.SSLOptions`|None ssl_options: None for plaintext or
+        :param ssl_options: None for plaintext or
             `pika.SSLOptions` instance for SSL/TLS. Defaults to None.
-        :param int connection_attempts: Maximum number of retry attempts
-        :param int|float retry_delay: Time to wait in seconds, before the next
-        :param int|float socket_timeout: Positive socket connect timeout in
+        :param connection_attempts: Maximum number of retry attempts
+        :param retry_delay: Time to wait in seconds, before the next
+        :param socket_timeout: Positive socket connect timeout in
             seconds.
-        :param int|float stack_timeout: Positive full protocol stack
+        :param stack_timeout: Positive full protocol stack
             (TCP/[SSL]/AMQP) bring-up timeout in seconds. It's recommended to
             set this value higher than `socket_timeout`.
-        :param str locale: Set the locale value
-        :param int|float|None blocked_connection_timeout: If not None,
+        :param locale: Set the locale value
+        :param blocked_connection_timeout: If not None,
             the value is a non-negative timeout, in seconds, for the
             connection to remain blocked (triggered by Connection.Blocked from
             broker); if the timeout expires before connection becomes unblocked,
@@ -740,7 +739,7 @@ class URLParameters(Parameters):
         - tcp_options:
             Set the tcp options for the underlying socket.
 
-    :param str url: The AMQP URL to connect to
+    :param url: The AMQP URL to connect to
 
     """
 
@@ -754,7 +753,7 @@ class URLParameters(Parameters):
     def __init__(self, url: str) -> None:
         """Create a new URLParameters instance.
 
-        :param str url: The URL value
+        :param url: The URL value
 
         """
         super().__init__()
@@ -818,7 +817,7 @@ class URLParameters(Parameters):
 
     def _set_url_blocked_connection_timeout(self, value: float) -> None:
         """Deserialize and apply the corresponding query string arg
-        :param float value: Raw query-string value to deserialize
+        :param value: Raw query-string value to deserialize
         """
         try:
             blocked_connection_timeout = float(value)
@@ -829,7 +828,7 @@ class URLParameters(Parameters):
 
     def _set_url_channel_max(self, value: int) -> None:
         """Deserialize and apply the corresponding query string arg
-        :param int value: Raw query-string value to deserialize
+        :param value: Raw query-string value to deserialize
         """
         try:
             channel_max = int(value)
@@ -839,13 +838,13 @@ class URLParameters(Parameters):
 
     def _set_url_client_properties(self, value: str) -> None:
         """Deserialize and apply the corresponding query string arg
-        :param str value: Raw query-string value to deserialize
+        :param value: Raw query-string value to deserialize
         """
         self.client_properties = ast.literal_eval(value)
 
     def _set_url_connection_attempts(self, value: int) -> None:
         """Deserialize and apply the corresponding query string arg
-        :param int value: Raw query-string value to deserialize
+        :param value: Raw query-string value to deserialize
         """
         try:
             connection_attempts = int(value)
@@ -856,7 +855,7 @@ class URLParameters(Parameters):
 
     def _set_url_frame_max(self, value: int) -> None:
         """Deserialize and apply the corresponding query string arg
-        :param int value: Raw query-string value to deserialize
+        :param value: Raw query-string value to deserialize
         """
         try:
             frame_max = int(value)
@@ -866,7 +865,7 @@ class URLParameters(Parameters):
 
     def _set_url_heartbeat(self, value: int) -> None:
         """Deserialize and apply the corresponding query string arg
-        :param int value: Raw query-string value to deserialize
+        :param value: Raw query-string value to deserialize
         """
         try:
             heartbeat_timeout = int(value)
@@ -876,13 +875,13 @@ class URLParameters(Parameters):
 
     def _set_url_locale(self, value: str) -> None:
         """Deserialize and apply the corresponding query string arg
-        :param str value: Raw query-string value to deserialize
+        :param value: Raw query-string value to deserialize
         """
         self.locale = value
 
     def _set_url_retry_delay(self, value: float) -> None:
         """Deserialize and apply the corresponding query string arg
-        :param float value: Raw query-string value to deserialize
+        :param value: Raw query-string value to deserialize
         """
         try:
             retry_delay = float(value)
@@ -892,7 +891,7 @@ class URLParameters(Parameters):
 
     def _set_url_socket_timeout(self, value: float) -> None:
         """Deserialize and apply the corresponding query string arg
-        :param float value: Raw query-string value to deserialize
+        :param value: Raw query-string value to deserialize
         """
         try:
             socket_timeout = float(value)
@@ -902,7 +901,7 @@ class URLParameters(Parameters):
 
     def _set_url_stack_timeout(self, value: float) -> None:
         """Deserialize and apply the corresponding query string arg
-        :param float value: Raw query-string value to deserialize
+        :param value: Raw query-string value to deserialize
         """
         try:
             stack_timeout = float(value)
@@ -913,7 +912,7 @@ class URLParameters(Parameters):
     def _set_url_ssl_options(self, value: str) -> None:
         """Deserialize and apply the corresponding query string arg
 
-        :param str value: Raw query-string value to deserialize
+        :param value: Raw query-string value to deserialize
         """
         opts = ast.literal_eval(value)
         if opts is None:
@@ -961,7 +960,7 @@ class URLParameters(Parameters):
 
     def _set_url_tcp_options(self, value: str) -> None:
         """Deserialize and apply the corresponding query string arg
-        :param str value: Raw query-string value to deserialize
+        :param value: Raw query-string value to deserialize
         """
         self.tcp_options = ast.literal_eval(value)
 
@@ -979,8 +978,8 @@ class SSLOptions:
                  context: ssl.SSLContext,
                  server_hostname: str | None = None) -> None:
         """
-        :param ssl.SSLContext context: SSLContext instance
-        :param str|None server_hostname: SSLContext.wrap_socket, used to enable
+        :param context: SSLContext instance
+        :param server_hostname: SSLContext.wrap_socket, used to enable
             SNI
         """
         if not isinstance(context, ssl.SSLContext):
@@ -1034,9 +1033,9 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         Available Parameters classes are the ConnectionParameters class and
         URLParameters class.
 
-        :param pika.connection.Parameters parameters: Read-only connection
+        :param parameters: Read-only connection
             parameters.
-        :param callable on_open_callback: Called when the connection is opened:
+        :param on_open_callback: Called when the connection is opened:
             on_open_callback(connection)
         :param on_open_error_callback: Callback (or None) with signature
             ``(Connection, Exception) -> Any``; called if the connection
@@ -1049,7 +1048,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
             either an instance of `exceptions.ConnectionClosed` if closed by
             user or broker or exception of another type that describes the cause
             of connection failure.
-        :param bool internal_connection_workflow: True for autonomous connection
+        :param internal_connection_workflow: True for autonomous connection
             establishment which is default; False for externally-managed
             connection workflow via the `create_connection()` factory.
 
@@ -1190,7 +1189,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         a fully-open connection was closed by user or broker or exception of
         another type that describes the cause of connection closure/failure.
 
-        :param callable callback: Callback to call on close, having the signature:
+        :param callback: Callback to call on close, having the signature:
             callback(pika.connection.Connection, exception)
 
         """
@@ -1214,7 +1213,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
 
         See also `ConnectionParameters.blocked_connection_timeout`.
 
-        :param callable callback: Callback to call on `Connection.Blocked`,
+        :param callback: Callback to call on `Connection.Blocked`,
             having the signature `callback(connection, pika.frame.Method)`,
             where the method frame's `method` member is of type
             `pika.spec.Connection.Blocked`
@@ -1234,7 +1233,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         connection gets unblocked (`Connection.Unblocked` frame is received from
         RabbitMQ) letting publishers know it's ok to start publishing again.
 
-        :param callable callback: Callback to call on
+        :param callback: Callback to call on
             `Connection.Unblocked`, having the signature
             `callback(connection, pika.frame.Method)`, where the method frame's
             `method` member is of type `pika.spec.Connection.Unblocked`
@@ -1251,7 +1250,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         """Add a callback notification when the connection has opened. The
         callback will be passed the connection instance as its only arg.
 
-        :param callable callback: Callback to call when open
+        :param callback: Callback to call when open
 
         """
         validators.require_callback(callback)
@@ -1266,9 +1265,9 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         The callback method should accept the connection instance that could not
         connect, and either a string or an exception as its second arg.
 
-        :param callable callback: Callback to call when can't connect, having
+        :param callback: Callback to call when can't connect, having
             the signature _(Connection, Exception)
-        :param bool remove_default: Remove default exception raising callback
+        :param remove_default: Remove default exception raising callback
 
         """
         validators.require_callback(callback)
@@ -1287,9 +1286,9 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         specify but it is recommended that you let Pika manage the channel
         numbers.
 
-        :param int channel_number: The channel number to use, defaults to the
+        :param channel_number: The channel number to use, defaults to the
                                    next available.
-        :param callable on_open_callback: The callback when the channel is
+        :param on_open_callback: The callback when the channel is
             opened.  The callback will be invoked with the `Channel` instance
             as its only argument.
         :rtype: pika.channel.Channel
@@ -1321,9 +1320,9 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         It is used when secrets have an expiration date and need to be renewed, like OAuth 2 tokens.
         Pass a callback to be notified of the response from the server.
 
-        :param string new_secret: The new secret
-        :param string reason: The reason for the secret update
-        :param callable callback: Callback to call on
+        :param new_secret: The new secret
+        :param reason: The reason for the secret update
+        :param callback: Callback to call on
             `Connection.UpdateSecretOk`, having the signature
             `callback(pika.frame.Method)`, where the method frame's
             `method` member is of type `pika.spec.Connection.UpdateSecretOk`
@@ -1347,8 +1346,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         have active consumers will attempt to send a Basic.Cancel to RabbitMQ
         to cleanly stop the delivery of messages prior to closing the channel.
 
-        :param int reply_code: The code number for the close
-        :param str reply_text: The text reason for the close
+        :param reply_code: The code number for the close
+        :param reply_text: The text reason for the close
 
         :raises pika.exceptions.ConnectionWrongStateError: if connection is
             closed or closing.
@@ -1488,8 +1487,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         specified number of seconds have elapsed, using a timer, or a
         thread, or similar.
 
-        :param float|int delay: The number of seconds to wait to call callback
-        :param callable callback: The callback will be called without args.
+        :param delay: The number of seconds to wait to call callback
+        :param callback: The callback will be called without args.
         :returns: Handle that can be passed to `_adapter_remove_timeout()` to
             cancel the callback.
         :rtype: object
@@ -1516,7 +1515,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
          other manipulations of the connection must be performed from the
          connection's thread.
 
-        :param callable callback: The callback method; must be callable.
+        :param callback: The callback method; must be callable.
 
         """
         raise NotImplementedError
@@ -1553,7 +1552,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
 
         Subclasses must override this
 
-        :param bytes data:
+        :param data:
 
         """
         raise NotImplementedError
@@ -1561,7 +1560,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
     def _add_channel_callbacks(self, channel_number: int) -> None:
         """Add the appropriate callbacks for the specified channel number.
 
-        :param int channel_number: The channel number for the callbacks
+        :param channel_number: The channel number for the callbacks
 
         """
 
@@ -1587,7 +1586,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         """Invoked when starting a connection to make sure it's a supported
         protocol.
 
-        :param pika.frame.Method value: The frame to check
+        :param value: The frame to check
         :raises ProtocolVersionMismatch:
 
         """
@@ -1627,8 +1626,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         """Initiate graceful closing of channels that are in OPEN or OPENING
         states, passing reply_code and reply_text.
 
-        :param int reply_code: The code for why the channels are being closed
-        :param str reply_text: The text reason for why the channels are closing
+        :param reply_code: The code for why the channels are being closed
+        :param reply_text: The text reason for why the channels are closing
 
         """
         assert self.is_open, str(self)
@@ -1644,8 +1643,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         """Create a new channel using the specified channel number and calling
         back the method specified by on_open_callback
 
-        :param int channel_number: The channel number to use
-        :param callable on_open_callback: The callback when the channel is
+        :param channel_number: The channel number to use
+        :param on_open_callback: The callback when the channel is
             opened.  The callback will be invoked with the `Channel` instance
             as its only argument.
 
@@ -1680,7 +1679,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
     def _deliver_frame_to_channel(self, value: frame.Frame) -> None:
         """Deliver the frame to the channel specified in the frame.
 
-        :param pika.frame.Method value: The frame to deliver
+        :param value: The frame to deliver
 
         """
         if value.channel_number not in self._channels:
@@ -1712,7 +1711,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
     ) -> tuple[str, bytes | None]:
         """Get credentials for authentication.
 
-        :param pika.frame.MethodFrame method_frame: The Connection.Start frame
+        :param method_frame: The Connection.Start frame
         :rtype: tuple(str, bytes|None)
 
         """
@@ -1728,7 +1727,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         """Return true if there are any callbacks pending for the specified
         frame.
 
-        :param pika.frame.Method value: The frame to check
+        :param value: The frame to check
         :rtype: int|None
 
         """
@@ -1737,7 +1736,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
     def _is_method_frame(self, value: frame.Frame) -> bool:
         """Returns true if the frame is a method frame.
 
-        :param pika.frame.Frame value: The frame to evaluate
+        :param value: The frame to evaluate
         :rtype: bool
 
         """
@@ -1748,7 +1747,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
 
         :rtype: bool
 
-        :param frame.Frame value: Frame to inspect
+        :param value: Frame to inspect
         """
         return isinstance(value, frame.ProtocolHeader)
 
@@ -1772,7 +1771,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         sent. If connection is closing and no more channels remain, proceed to
         `_on_close_ready`.
 
-        :param pika.channel.Channel channel: channel instance
+        :param channel: channel instance
 
         """
         try:
@@ -1836,9 +1835,9 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
             method_frame: frame.Method[spec.Connection.Blocked]) -> None:
         """Handle Connection.Blocked notification from RabbitMQ broker
 
-        :param pika.frame.Method method_frame: method frame having `method`
+        :param method_frame: method frame having `method`
             member of type `pika.spec.Connection.Blocked`
-        :param Connection _connection: The connection instance (unused)
+        :param _connection: The connection instance (unused)
         """
         LOGGER.warning('Received %s from broker', method_frame)
 
@@ -1859,9 +1858,9 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
             method_frame: frame.Method[spec.Connection.Unblocked]) -> None:
         """Handle Connection.Unblocked notification from RabbitMQ broker
 
-        :param pika.frame.Method method_frame: method frame having `method`
+        :param method_frame: method frame having `method`
             member of type `pika.spec.Connection.Blocked`
-        :param Connection _connection: The connection instance (unused)
+        :param _connection: The connection instance (unused)
         """
         LOGGER.info('Received %s from broker', method_frame)
 
@@ -1879,7 +1878,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         """Called when the connection is closed remotely via Connection.Close
         frame from broker.
 
-        :param pika.frame.Method method_frame: The Connection.Close frame
+        :param method_frame: The Connection.Close frame
 
         """
         LOGGER.debug('_on_connection_close_from_broker: frame=%s', method_frame)
@@ -1895,7 +1894,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
             self, method_frame: frame.Method[spec.Connection.CloseOk]) -> None:
         """Called when Connection.CloseOk is received from remote.
 
-        :param pika.frame.Method method_frame: The Connection.CloseOk frame
+        :param method_frame: The Connection.CloseOk frame
 
         """
         LOGGER.debug('_on_connection_close_ok: frame=%s', method_frame)
@@ -1909,8 +1908,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
 
         :raises Exception: the given error
 
-        :param Connection _connection_unused: The connection instance (unused)
-        :param Exception error: The exception that caused the failure
+        :param _connection_unused: The connection instance (unused)
+        :param error: The exception that caused the failure
         """
         raise error
 
@@ -1920,7 +1919,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         This is called once we have tuned the connection with the server and
         called the Connection.Open on the server and it has replied with
         Connection.Ok.
-        :param frame.Method[spec.Connection.OpenOk] method_frame: Server response frame
+        :param method_frame: Server response frame
         """
         self._opened = True
 
@@ -1937,7 +1936,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         """This is called as a callback once we have received a Connection.Start
         from the server.
 
-        :param pika.frame.Method method_frame: The frame received
+        :param method_frame: The frame received
         :raises UnexpectedFrameError:
 
         """
@@ -1961,8 +1960,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         returns the other one. If both are positive integers, returns the
         smallest one.
 
-        :param int client_value: The client value
-        :param int server_value: The server value
+        :param client_value: The client value
+        :param server_value: The server value
         :rtype: int
 
         """
@@ -2017,7 +2016,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         monitor if required, send our TuneOk and then the Connection. Open rpc
         call on channel 0.
 
-        :param pika.frame.Method method_frame: The frame received
+        :param method_frame: The frame received
 
         """
         self._set_connection_state(self.CONNECTION_TUNE)
@@ -2060,7 +2059,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         """This is called by our Adapter, passing in the data from the socket.
         As long as we have buffer try and map out frame data.
 
-        :param str data_in: The data that is available to read
+        :param data_in: The data that is available to read
 
         """
         self._frame_buffer += data_in
@@ -2194,7 +2193,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         """Process the callbacks for the frame if the frame is a method frame
         and if it has any callbacks pending.
 
-        :param pika.frame.Method frame_value: The frame to process
+        :param frame_value: The frame to process
         :rtype: bool
 
         """
@@ -2212,8 +2211,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         self, frame_value: (frame.Frame | frame.ProtocolHeader)) -> None:
         """Process an inbound frame from the socket.
 
-        :param pika.frame.Frame|pika.frame.Method frame_value: The frame to
-            process
+        :param frame_value: The frame to process
 
         """
         # Will receive a frame type of -1 if protocol version mismatch
@@ -2258,8 +2256,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         """Remove the callbacks for the specified channel number and list of
         method frames.
 
-        :param int channel_number: The channel number to remove the callback on
-        :param sequence method_classes: The method classes (derived from
+        :param channel_number: The channel number to remove the callback on
+        :param method_classes: The method classes (derived from
             `pika.amqp_object.Method`) for the callbacks
 
         """
@@ -2277,10 +2275,10 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         acceptable_replies lists out what responses we'll process from the
         server with the specified callback.
 
-        :param int channel_number: The channel number for the RPC call
-        :param pika.amqp_object.Method method: The method frame to call
-        :param callable callback: The callback for the RPC response
-        :param list acceptable_replies: The replies this RPC call expects
+        :param channel_number: The channel number for the RPC call
+        :param method: The method frame to call
+        :param callback: The callback for the RPC response
+        :param acceptable_replies: The replies this RPC call expects
 
         """
         # Validate that acceptable_replies is a list or None
@@ -2300,8 +2298,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
     def _send_connection_close(self, reply_code: int, reply_text: str) -> None:
         """Send a Connection.Close method frame.
 
-        :param int reply_code: The reason for the close
-        :param str reply_text: The text reason for the close
+        :param reply_code: The reason for the close
+        :param reply_text: The text reason for the close
 
         """
         self._rpc(0, spec.Connection.Close(reply_code, reply_text, 0, 0),
@@ -2317,8 +2315,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
                                   response: bytes | None) -> None:
         """Send a Connection.StartOk frame
 
-        :param str authentication_type: The auth type value
-        :param str response: The encoded value to send
+        :param authentication_type: The auth type value
+        :param response: The encoded value to send
 
         """
         self._send_method(
@@ -2340,8 +2338,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         """This appends the fully generated frame to send to the broker to the
         output buffer which will be then sent via the connection adapter.
 
-        :param pika.frame.Frame|pika.frame.ProtocolHeader frame_value: The
-            frame to write
+        :param frame_value: The frame to write
         :raises exceptions.ConnectionClosed:
 
         """
@@ -2361,9 +2358,9 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
     ) -> None:
         """Constructs a RPC method frame and then sends it to the broker.
 
-        :param int channel_number: The channel number for the frame
-        :param pika.amqp_object.Method method: The method to send
-        :param tuple content: If set, is a content frame, is tuple of
+        :param channel_number: The channel number for the frame
+        :param method: The method to send
+        :param content: If set, is a content frame, is tuple of
                               properties and body.
 
         """
@@ -2377,9 +2374,9 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
                       content: tuple[spec.BasicProperties, bytes]) -> None:
         """Publish a message.
 
-        :param int channel_number: The channel number for the frame
-        :param pika.object.Method method_frame: The method frame to send
-        :param tuple content: A content frame, which is tuple of properties and
+        :param channel_number: The channel number for the frame
+        :param method_frame: The method frame to send
+        :param content: A content frame, which is tuple of properties and
                               body.
 
         """
@@ -2408,7 +2405,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
     def _set_connection_state(self, connection_state: int) -> None:
         """Set the connection state.
 
-        :param int connection_state: The connection state to set
+        :param connection_state: The connection state to set
 
         """
         LOGGER.debug('New Connection state: %s (prev=%s)',
@@ -2421,7 +2418,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
             self, method_frame: frame.Method[spec.Connection.Start]) -> None:
         """Set the server properties and capabilities
 
-        :param spec.connection.Start method_frame: The Connection.Start frame
+        :param method_frame: The Connection.Start frame
 
         """
         self.server_properties = method_frame.method.server_properties  # pyright: ignore[reportAttributeAccessIssue]
@@ -2436,7 +2433,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         counter that keeps track of how many bytes have been read/used from the
         socket.
 
-        :param int byte_count: The number of bytes consumed
+        :param byte_count: The number of bytes consumed
 
         """
         self._frame_buffer = self._frame_buffer[byte_count:]
@@ -2446,7 +2443,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
                                  marshaled_frames: Sequence[bytes]) -> None:
         """Output list of marshaled frames to buffer and update stats
 
-        :param list marshaled_frames: A list of frames marshaled to bytes
+        :param marshaled_frames: A list of frames marshaled to bytes
 
         """
         for marshaled_frame in marshaled_frames:

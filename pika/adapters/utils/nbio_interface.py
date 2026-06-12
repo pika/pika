@@ -109,7 +109,7 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
               the connection it is more efficient to use the
               `ioloop.call_later()` method with a delay of 0.
 
-        :param callable callback: The callback method; must be callable.
+        :param callback: The callback method; must be callable.
         """
         raise NotImplementedError
 
@@ -123,8 +123,8 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
         If two are scheduled for the same time, it's undefined which one will
         be called first.
 
-        :param float delay: The number of seconds to wait to call callback
-        :param callable callback: The callback method
+        :param delay: The number of seconds to wait to call callback
+        :param callback: The callback method
         :returns: A handle that can be used to cancel the request.
         :rtype: AbstractTimerReference
 
@@ -144,17 +144,17 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
 
         See `socket.getaddrinfo()` for the standard args.
 
-        :param callable on_done: user callback that takes the return value of
+        :param on_done: user callback that takes the return value of
             `socket.getaddrinfo()` upon successful completion or exception upon
             failure (check for `BaseException`) as its only arg. It will not be
             called if the operation was cancelled.
         :rtype: AbstractIOReference
-        :param str host: Hostname or IP address
-        :param int port: TCP port number
-        :param int family: Socket address family (e.g. ``socket.AF_INET``)
-        :param int socktype: Socket type (e.g. ``socket.SOCK_STREAM``)
-        :param int proto: Protocol number (0 for default)
-        :param int flags: :func:`socket.getaddrinfo` flags
+        :param host: Hostname or IP address
+        :param port: TCP port number
+        :param family: Socket address family (e.g. ``socket.AF_INET``)
+        :param socktype: Socket type (e.g. ``socket.SOCK_STREAM``)
+        :param proto: Protocol number (0 for default)
+        :param flags: :func:`socket.getaddrinfo` flags
         """
         raise NotImplementedError
 
@@ -172,13 +172,13 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
             DNS resolution. Implementations can use `socket.inet_pton()` to
             verify the address.
 
-        :param socket.socket sock: non-blocking socket that needs to be
+        :param sock: non-blocking socket that needs to be
             connected via `socket.socket.connect()`
-        :param tuple resolved_addr: resolved destination address/port two-tuple
+        :param resolved_addr: resolved destination address/port two-tuple
             as per `socket.socket.connect()`, except that the first element must
             be an actual IP address that's consistent with the given socket's
             address family.
-        :param callable on_done: user callback that takes None upon successful
+        :param on_done: user callback that takes None upon successful
             completion or exception (check for `BaseException`) upon error as
             its only arg. It will not be called if the operation was cancelled.
 
@@ -204,26 +204,26 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
 
         NOTE: This method takes ownership of the socket.
 
-        :param callable protocol_factory: called without args, returns an
+        :param protocol_factory: called without args, returns an
             instance with the `AbstractStreamProtocol` interface. The protocol's
             `connection_made(transport)` method will be called to link it to
             the transport after remaining connection activity (e.g., SSL session
             establishment), if any, is completed successfully.
-        :param socket.socket sock: Already-connected, non-blocking
+        :param sock: Already-connected, non-blocking
             `socket.SOCK_STREAM` socket to be used by the transport. We take
             ownership of this socket.
-        :param callable on_done: User callback
+        :param on_done: User callback
             `on_done(BaseException | (transport, protocol))` to be notified when
             the asynchronous operation completes. An exception arg indicates
             failure (check for `BaseException`); otherwise the two-tuple will
             contain the linked transport/protocol pair having
             AbstractStreamTransport and AbstractStreamProtocol interfaces
             respectively.
-        :param None | ssl.SSLContext ssl_context: if None, this will proceed as
+        :param ssl_context: if None, this will proceed as
             a plaintext connection; otherwise, if not None, SSL session
             establishment will be performed prior to linking the transport and
             protocol.
-        :param str | None server_hostname: For use during SSL session
+        :param server_hostname: For use during SSL session
             establishment to match against the target server's certificate. The
             value `None` disables this check (which is a huge security risk)
         :rtype: AbstractIOReference
@@ -337,7 +337,7 @@ class AbstractStreamProtocol(
     def connection_made(self, transport: AbstractStreamTransport):
         """Introduces transport to protocol after transport is connected.
 
-        :param AbstractStreamTransport transport:
+        :param transport:
         :raises Exception: Exception-based exception on error
         """
         raise NotImplementedError
@@ -349,7 +349,7 @@ class AbstractStreamProtocol(
         NOTE: `connection_made()` and `connection_lost()` are each called just
         once and in that order. All other callbacks are called between them.
 
-        :param BaseException | None error: An exception (check for
+        :param error: An exception (check for
             `BaseException`) indicates connection failure. None indicates that
             connection was closed on this side, such as when it's aborted or
             when `AbstractStreamProtocol.eof_received()` returns a result that
@@ -431,7 +431,7 @@ class AbstractStreamTransport(
     def write(self, data: bytes) -> None:
         """Buffer the given data until it can be sent asynchronously.
 
-        :param bytes data:
+        :param data:
         :raises ValueError: if called with empty data
         :raises Exception: Exception-based exception on error
         """
@@ -462,7 +462,7 @@ class AbstractStreamTransport(
     #     See `asyncio.WriteTransport.get_write_buffer_limits()` for more details
     #     about the args.
     #
-    #     :param int high: non-negative high-water mark.
-    #     :param int low: non-negative low-water mark.
+    #     :param high: non-negative high-water mark.
+    #     :param low: non-negative low-water mark.
     #     """
     #     raise NotImplementedError

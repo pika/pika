@@ -85,9 +85,9 @@ class ConnectionClosed(AMQPConnectionError):
     def __init__(self, reply_code: int, reply_text: str) -> None:
         """
 
-        :param int reply_code: reply-code that was used in user's or broker's
+        :param reply_code: reply-code that was used in user's or broker's
             `Connection.Close` method. NEW in v1.0.0
-        :param str reply_text: reply-text that was used in user's or broker's
+        :param reply_text: reply-text that was used in user's or broker's
             `Connection.Close` method. Human-readable string corresponding to
             `reply_code`. NEW in v1.0.0
         """
@@ -147,10 +147,10 @@ class ChannelClosed(AMQPChannelError):
     def __init__(self, reply_code: int, reply_text: str) -> None:
         """
 
-        :param int reply_code: reply-code that was used in user's or broker's
+        :param reply_code: reply-code that was used in user's or broker's
             `Channel.Close` method. One of the AMQP-defined Channel Errors.
             NEW in v1.0.0
-        :param str reply_text: reply-text that was used in user's or broker's
+        :param reply_text: reply-text that was used in user's or broker's
             `Channel.Close` method. Human-readable string corresponding to
             `reply_code`;
             NEW in v1.0.0
@@ -223,8 +223,7 @@ class UnroutableError(AMQPChannelError):
 
     def __init__(self, messages: Sequence[ReturnedMessage]) -> None:
         """
-        :param sequence(blocking_connection.ReturnedMessage) messages: Sequence
-            of returned unroutable messages
+        :param messages: Sequence of returned unroutable messages
         """
         super().__init__(f"{len(messages)} unroutable message(s) returned")
 
@@ -243,8 +242,7 @@ class NackError(AMQPChannelError):
 
     def __init__(self, messages: Sequence[ReturnedMessage]) -> None:
         """
-        :param sequence(blocking_connection.ReturnedMessage) messages: Sequence
-            of returned unroutable messages
+        :param messages: Sequence of returned unroutable messages
         """
         super().__init__(f"{len(messages)} message(s) NACKed")
 

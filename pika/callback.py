@@ -24,8 +24,7 @@ def name_or_value(value: AMQPValue) -> str:
     """Will take Frame objects, classes, etc and attempt to return a valid
     string identifier for them.
 
-    :param pika.amqp_object.AMQPObject|pika.frame.Frame|int|str value: The
-        value to sanitize
+    :param value: The value to sanitize
     :rtype: str
 
     """
@@ -140,13 +139,13 @@ class CallbackManager:
         CallbackManager will restrict processing of the callback to only
         the calling function/object that you specify.
 
-        :param str|int prefix: Categorize the callback
-        :param str|dict key: The key for the callback
-        :param callable callback: The callback to call
-        :param bool one_shot: Remove this callback after it is called
-        :param object only_caller: Only allow one_caller value to call the
+        :param prefix: Categorize the callback
+        :param key: The key for the callback
+        :param callback: The callback to call
+        :param one_shot: Remove this callback after it is called
+        :param only_caller: Only allow one_caller value to call the
                                    event that fires the callback.
-        :param dict arguments: Arguments to validate when processing
+        :param arguments: Arguments to validate when processing
         :rtype: tuple(prefix, key)
 
         """
@@ -201,8 +200,8 @@ class CallbackManager:
     def pending(self, prefix: _Prefix, key: AMQPValue) -> int | None:
         """Return count of callbacks for a given prefix or key or None
 
-        :param str|int prefix: Categorize the callback
-        :param object|str|int key: The key for the callback
+        :param prefix: Categorize the callback
+        :param key: The key for the callback
         :rtype: None or int
 
         """
@@ -219,11 +218,11 @@ class CallbackManager:
         require a specific function to call CallbackManager.process will
         not be processed.
 
-        :param str|int prefix: Categorize the callback
-        :param object|str|int key: The key for the callback
-        :param object caller: Who is firing the event
-        :param list args: Any optional arguments
-        :param dict keywords: Optional keyword arguments
+        :param prefix: Categorize the callback
+        :param key: The key for the callback
+        :param caller: Who is firing the event
+        :param args: Any optional arguments
+        :param keywords: Optional keyword arguments
         :rtype: bool
 
         """
@@ -261,10 +260,10 @@ class CallbackManager:
         the callback itself. If you only pass in prefix and key, all
         callbacks for that prefix and key will be removed.
 
-        :param str or int prefix: The prefix for keeping track of callbacks with
-        :param str key: The callback key
-        :param callable callback_value: The method defined to call on callback
-        :param dict arguments: Optional arguments to check
+        :param prefix: The prefix for keeping track of callbacks with
+        :param key: The callback key
+        :param callback_value: The method defined to call on callback
+        :param arguments: Optional arguments to check
         :rtype: bool
 
         """
@@ -293,8 +292,8 @@ class CallbackManager:
     def remove_all(self, prefix: _Prefix, key: AMQPValue) -> None:
         """Remove all callbacks for the specified prefix and key.
 
-        :param str prefix: The prefix for keeping track of callbacks with
-        :param str key: The callback key
+        :param prefix: The prefix for keeping track of callbacks with
+        :param key: The callback key
 
         """
         del self._stack[prefix][key]
@@ -306,8 +305,8 @@ class CallbackManager:
         the callback_dict. We expect this to be a frame passed in to *args for
         process or passed in as a list from remove.
 
-        :param dict callback_dict: The callback dictionary to evaluate against
-        :param list args: The arguments passed in as a list
+        :param callback_dict: The callback dictionary to evaluate against
+        :param args: The arguments passed in as a list
 
         :rtype: bool
         """
@@ -327,13 +326,13 @@ class CallbackManager:
                        arguments: dict[str, Any] | None) -> dict[str, Any]:
         """Return the callback dictionary.
 
-        :param callable callback: The callback to call
-        :param bool one_shot: Remove this callback after it is called
-        :param object only_caller: Only allow one_caller value to call the
+        :param callback: The callback to call
+        :param one_shot: Remove this callback after it is called
+        :param only_caller: Only allow one_caller value to call the
                                    event that fires the callback.
+        :param arguments: arguments to attach to the callback dict
         :rtype: dict
 
-        :param dict[str, Any] | None arguments: arguments to attach to the callback dict
         """
         value = {
             self.CALLBACK: callback,
@@ -350,8 +349,8 @@ class CallbackManager:
                                key: AMQPValue | None = None) -> None:
         """Remove empty dict nodes in the callback stack.
 
-        :param str or int prefix: The prefix for keeping track of callbacks with
-        :param str key: The callback key
+        :param prefix: The prefix for keeping track of callbacks with
+        :param key: The callback key
 
         """
         if key and key in self._stack[prefix] and not self._stack[prefix][key]:
@@ -364,8 +363,8 @@ class CallbackManager:
                               expectation: dict[str, Any]) -> bool:
         """Checks an dict to see if it has attributes that meet the expectation.
 
-        :param dict value: The dict to evaluate
-        :param dict expectation: The values to check against
+        :param value: The dict to evaluate
+        :param expectation: The values to check against
         :rtype: bool
 
         """
@@ -382,8 +381,8 @@ class CallbackManager:
         """Checks an object to see if it has attributes that meet the
         expectation.
 
-        :param object value: The object to evaluate
-        :param dict expectation: The values to check against
+        :param value: The object to evaluate
+        :param expectation: The values to check against
         :rtype: bool
 
         """
@@ -402,9 +401,9 @@ class CallbackManager:
                                  caller: _Caller, args: list[Any]) -> bool:
         """Returns True if the callback should be processed.
 
-        :param dict callback_dict: The callback configuration
-        :param object caller: Who is firing the event
-        :param list args: Any optional arguments
+        :param callback_dict: The callback configuration
+        :param caller: Who is firing the event
+        :param args: Any optional arguments
         :rtype: bool
 
         """
@@ -421,9 +420,9 @@ class CallbackManager:
         """Process the one-shot callback, decrementing the use counter and
         removing it from the stack if it's now been fully used.
 
-        :param str or int prefix: The prefix for keeping track of callbacks with
-        :param str key: The callback key
-        :param dict callback_dict: The callback dict to process
+        :param prefix: The prefix for keeping track of callbacks with
+        :param key: The callback key
+        :param callback_dict: The callback dict to process
 
         """
         LOGGER.debug('Processing use of oneshot callback')

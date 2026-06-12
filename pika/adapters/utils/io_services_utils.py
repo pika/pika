@@ -105,9 +105,9 @@ class SocketConnectionMixin:
         """Implement
         :py:meth:`.nbio_interface.AbstractIOServices.connect_socket()`.
 
-        :param socket.socket sock: non-blocking socket to connect
-        :param tuple resolved_addr: resolved destination address/port two-tuple
-        :param callable on_done: user callback called upon completion
+        :param sock: non-blocking socket to connect
+        :param resolved_addr: resolved destination address/port two-tuple
+        :param on_done: user callback called upon completion
         :rtype: _AsyncServiceAsyncHandle
 
         """
@@ -139,11 +139,11 @@ class StreamingConnectionMixin:
         """Implement
         :py:meth:`.nbio_interface.AbstractIOServices.create_streaming_connection()`.
 
-        :param callable protocol_factory: factory to create protocol instance
-        :param socket.socket sock: connected socket
-        :param callable on_done: completion callback
-        :param ssl.SSLContext | None ssl_context: SSL context (optional)
-        :param str | None server_hostname: server hostname for SSL (optional)
+        :param protocol_factory: factory to create protocol instance
+        :param sock: connected socket
+        :param on_done: completion callback
+        :param ssl_context: SSL context (optional)
+        :param server_hostname: server hostname for SSL (optional)
         :rtype: AbstractIOReference
 
         """
@@ -209,12 +209,12 @@ class _AsyncSocketConnector:
                  sock: socket.socket, resolved_addr: tuple[str, int],
                  on_done: Callable[[BaseException | None], None]) -> None:
         """
-        :param AbstractIOServices | AbstractFileDescriptorServices nbio:
-        :param socket.socket sock: non-blocking socket that needs to be
+        :param nbio:
+        :param sock: non-blocking socket that needs to be
             connected via `socket.socket.connect()`
-        :param tuple resolved_addr: resolved destination address/port two-tuple
+        :param resolved_addr: resolved destination address/port two-tuple
             which is compatible with the given's socket's address family
-        :param callable on_done: user callback that takes None upon successful
+        :param on_done: user callback that takes None upon successful
             completion or exception upon error (check for `BaseException`) as
             its only arg. It will not be called if the operation was cancelled.
         :raises ValueError: if host portion of `resolved_addr` is not an IP
@@ -293,7 +293,7 @@ class _AsyncSocketConnector:
         """Advance to COMPLETED state, remove socket watcher, and invoke user's
         completion callback.
 
-        :param BaseException | None result: value to pass in user's callback
+        :param result: value to pass in user's callback
 
         """
         _LOGGER.debug('_AsyncSocketConnector._report_completion(%r); %s',
@@ -408,12 +408,12 @@ class _AsyncStreamConnector:
         See `AbstractIOServices.create_streaming_connection()` for detailed
         documentation of the corresponding args.
 
-        :param AbstractIOServices | AbstractFileDescriptorServices nbio:
-        :param callable protocol_factory:
-        :param socket.socket sock:
-        :param ssl.SSLContext | None ssl_context:
-        :param str | None server_hostname:
-        :param callable on_done:
+        :param nbio:
+        :param protocol_factory:
+        :param sock:
+        :param ssl_context:
+        :param server_hostname:
+        :param on_done:
 
         """
         check_callback_arg(protocol_factory, 'protocol_factory')
@@ -458,7 +458,7 @@ class _AsyncStreamConnector:
     def _cleanup(self, close: bool) -> None:
         """Cancel pending async operations, if any
 
-        :param bool close: close the socket if true
+        :param close: close the socket if true
         """
         _LOGGER.debug('_AsyncStreamConnector._cleanup(%r)', close)
 
@@ -541,7 +541,7 @@ class _AsyncStreamConnector:
         """Advance to COMPLETED state, cancel async operation(s), and invoke
         user's completion callback.
 
-        :param BaseException | tuple result: value to pass in user's callback.
+        :param result: value to pass in user's callback.
             `tuple(transport, protocol)` on success, exception on error
 
         """
@@ -769,11 +769,11 @@ class _AsyncTransportBase(AbstractStreamTransport):
     ) -> None:
         """
 
-        :param socket.socket | ssl.SSLSocket sock: connected socket
-        :param pika.adapters.utils.nbio_interface.AbstractStreamProtocol protocol:
+        :param sock: connected socket
+        :param protocol:
             corresponding protocol in this transport/protocol pairing; the
             protocol already had its `connection_made()` method called.
-        :param AbstractIOServices | AbstractFileDescriptorServices nbio:
+        :param nbio:
 
         """
         _LOGGER.debug('_AsyncTransportBase.__init__: %s', sock)
@@ -817,7 +817,7 @@ class _AsyncTransportBase(AbstractStreamTransport):
     def _buffer_tx_data(self, data: bytes) -> None:
         """Buffer the given data until it can be sent asynchronously.
 
-        :param bytes data:
+        :param data:
         :raises ValueError: if called with empty data
 
         """
@@ -972,7 +972,7 @@ class _AsyncTransportBase(AbstractStreamTransport):
         call to the protocol's `connection_lost()` method. No flushing of
         output buffers will take place.
 
-        :param BaseException | None error: None if being canceled by user,
+        :param error: None if being canceled by user,
             including via falsie return value from protocol.eof_received;
             otherwise the exception corresponding to the the failed connection.
         """
@@ -1028,7 +1028,7 @@ class _AsyncTransportBase(AbstractStreamTransport):
         by us in order to avoid reentry into user code from user's API call into
         the transport.
 
-        :param BaseException | None error: None if being canceled by user;
+        :param error: None if being canceled by user;
             otherwise the exception corresponding to the the failed connection.
         """
         _LOGGER.debug('Concluding transport shutdown: state=%s; error=%r',
@@ -1072,11 +1072,11 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
     ) -> None:
         """
 
-        :param socket.socket sock: non-blocking connected socket
-        :param pika.adapters.utils.nbio_interface.AbstractStreamProtocol protocol:
+        :param sock: non-blocking connected socket
+        :param protocol:
             corresponding protocol in this transport/protocol pairing; the
             protocol already had its `connection_made()` method called.
-        :param AbstractIOServices | AbstractFileDescriptorServices nbio:
+        :param nbio:
 
         """
         super().__init__(sock, protocol, nbio)
@@ -1090,7 +1090,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
     def write(self, data: bytes) -> None:
         """Buffer the given data until it can be sent asynchronously.
 
-        :param bytes data:
+        :param data:
         :raises ValueError: if called with empty data
 
         """
@@ -1226,11 +1226,11 @@ class _AsyncSSLTransport(_AsyncTransportBase):
     ) -> None:
         """
 
-        :param ssl.SSLSocket sock: non-blocking connected socket
-        :param pika.adapters.utils.nbio_interface.AbstractStreamProtocol protocol:
+        :param sock: non-blocking connected socket
+        :param protocol:
             corresponding protocol in this transport/protocol pairing; the
             protocol already had its `connection_made()` method called.
-        :param AbstractIOServices | AbstractFileDescriptorServices nbio:
+        :param nbio:
 
         """
         super().__init__(sock, protocol, nbio)
@@ -1248,7 +1248,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
     def write(self, data: bytes) -> None:
         """Buffer the given data until it can be sent asynchronously.
 
-        :param bytes data:
+        :param data:
         :raises ValueError: if called with empty data
 
         """

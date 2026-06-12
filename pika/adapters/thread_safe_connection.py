@@ -93,8 +93,8 @@ class ThreadSafeChannel:
         failing dispatch does not prevent subsequent dispatches from being
         processed.
 
-        :param str label: Human-readable name of the callback for log lines.
-        :param callable callback: The user callback.
+        :param label: Human-readable name of the callback for log lines.
+        :param callback: The user callback.
         :param args: Positional arguments forwarded to *callback*.
         """
         try:
@@ -125,8 +125,8 @@ class ThreadSafeChannel:
     def _unregister_waiter(self, ready: Event,
                            error: list[BaseException | None]) -> None:
         """Remove a waiter from the blocking list.
-        :param Event ready: Threading event signalling that the RPC response has arrived
-        :param list[BaseException|None] error: list containing an exception if the RPC response was an error, or None if it was successful
+        :param ready: Threading event signalling that the RPC response has arrived
+        :param error: list containing an exception if the RPC response was an error, or None if it was successful
         """
         with self._wrapper._channel_waiters_lock:
             try:
@@ -148,8 +148,8 @@ class ThreadSafeChannel:
         the broker's response frame and must be accepted as a keyword
         argument named ``callback``.
 
-        :param str method_name: Human-readable name for timeout messages.
-        :param callable channel_method: Bound method on the raw channel.
+        :param method_name: Human-readable name for timeout messages.
+        :param channel_method: Bound method on the raw channel.
         :param timeout: Seconds to wait.
         :returns: The broker response frame.
         :raises TimeoutError: if *timeout* expires.
@@ -201,7 +201,7 @@ class ThreadSafeChannel:
 
         Safe to call from any thread simultaneously.
 
-        :param callable on_publish: Optional callback invoked on the
+        :param on_publish: Optional callback invoked on the
             **IOLoop thread** immediately after the publish frame is
             written successfully, with the delivery tag (int) as its
             sole argument.  Only meaningful when publisher confirms are
@@ -210,7 +210,7 @@ class ThreadSafeChannel:
             :meth:`~ThreadSafeConnection.add_callback_threadsafe`
             callback).
         :raises Exception: if the connection is already closed.
-        :param bool mandatory: If True, return unroutable messages to the publisher
+        :param mandatory: If True, return unroutable messages to the publisher
         """
         self._check_not_closed()
 
@@ -240,8 +240,8 @@ class ThreadSafeChannel:
         Safe to call from any thread simultaneously.
 
         :raises Exception: if the connection is already closed.
-        :param int delivery_tag: Server-assigned delivery tag
-        :param bool multiple: If True, apply to all messages up to and including this delivery tag
+        :param delivery_tag: Server-assigned delivery tag
+        :param multiple: If True, apply to all messages up to and including this delivery tag
         """
         self._check_not_closed()
 
@@ -264,9 +264,9 @@ class ThreadSafeChannel:
         Safe to call from any thread simultaneously.
 
         :raises Exception: if the connection is already closed.
-        :param int delivery_tag: Server-assigned delivery tag
-        :param bool multiple: If True, apply to all messages up to and including this delivery tag
-        :param bool requeue: If True, requeue the message on the broker
+        :param delivery_tag: Server-assigned delivery tag
+        :param multiple: If True, apply to all messages up to and including this delivery tag
+        :param requeue: If True, requeue the message on the broker
         """
         self._check_not_closed()
 
@@ -287,8 +287,8 @@ class ThreadSafeChannel:
         Safe to call from any thread simultaneously.
 
         :raises Exception: if the connection is already closed.
-        :param int delivery_tag: Server-assigned delivery tag
-        :param bool requeue: If True, requeue the message on the broker
+        :param delivery_tag: Server-assigned delivery tag
+        :param requeue: If True, requeue the message on the broker
         """
         self._check_not_closed()
 
@@ -311,9 +311,9 @@ class ThreadSafeChannel:
 
         Safe to call from any thread.
 
-        :param int prefetch_size: Prefetch window in octets (0 = no limit).
-        :param int prefetch_count: Prefetch window in whole messages (0 = no limit).
-        :param bool global_qos: Apply QoS to all consumers on the channel.
+        :param prefetch_size: Prefetch window in octets (0 = no limit).
+        :param prefetch_count: Prefetch window in whole messages (0 = no limit).
+        :param global_qos: Apply QoS to all consumers on the channel.
         :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
@@ -342,8 +342,8 @@ class ThreadSafeChannel:
 
         Safe to call from any thread.
 
-        :param str queue: The queue to get a message from.
-        :param bool auto_ack: Do not require acknowledgement.
+        :param queue: The queue to get a message from.
+        :param auto_ack: Do not require acknowledgement.
         :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
@@ -418,7 +418,7 @@ class ThreadSafeChannel:
 
         Safe to call from any thread.
 
-        :param callable callback:
+        :param callback:
             ``callback(method_frame)`` where *method_frame* contains a
             :class:`pika.spec.Basic.Cancel`.
         :raises Exception: if the connection is already closed.
@@ -459,7 +459,7 @@ class ThreadSafeChannel:
 
         Safe to call from any thread.
 
-        :param callable callback:
+        :param callback:
             ``callback(channel, method, properties, body)`` where
             *channel* is this :class:`ThreadSafeChannel`, *method* is a
             :class:`pika.spec.Basic.Return`, *properties* is a
@@ -502,7 +502,7 @@ class ThreadSafeChannel:
 
         Safe to call from any thread.
 
-        :param callable ack_nack_callback:
+        :param ack_nack_callback:
             ``callback(method_frame)`` called for each Basic.Ack or
             Basic.Nack received from the broker.
         :param timeout: Seconds to wait for the response.
@@ -555,11 +555,11 @@ class ThreadSafeChannel:
 
         Safe to call from any thread.
 
-        :param str queue: Queue to consume from.
-        :param callable on_message_callback:
+        :param queue: Queue to consume from.
+        :param on_message_callback:
             ``callback(channel, method, properties, body)``
-        :param bool auto_ack: Disable manual acknowledgement.
-        :param bool exclusive: Request exclusive consumer access.
+        :param auto_ack: Disable manual acknowledgement.
+        :param exclusive: Request exclusive consumer access.
         :param consumer_tag: Client-provided tag; generated if omitted.
         :param arguments: Additional AMQP arguments.
         :param timeout: Seconds to wait for the response.
@@ -600,7 +600,7 @@ class ThreadSafeChannel:
 
         Safe to call from any thread.
 
-        :param str consumer_tag: Tag returned by :meth:`basic_consume`.
+        :param consumer_tag: Tag returned by :meth:`basic_consume`.
         :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
@@ -635,10 +635,10 @@ class ThreadSafeChannel:
         :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
-        :param bool passive: If True, only check whether the queue or exchange exists
-        :param bool durable: If True, the queue survives broker restart
-        :param bool exclusive: If True, restrict access to the current connection
-        :param bool auto_delete: If True, delete the queue or exchange when no longer in use
+        :param passive: If True, only check whether the queue or exchange exists
+        :param durable: If True, the queue survives broker restart
+        :param exclusive: If True, restrict access to the current connection
+        :param auto_delete: If True, delete the queue or exchange when no longer in use
         """
         return self._blocking_rpc(
             'queue_declare',
@@ -665,12 +665,12 @@ class ThreadSafeChannel:
 
         Safe to call from any thread.
 
-        :param str exchange: The exchange name.
-        :param str exchange_type: The exchange type (direct, fanout, topic, headers).
-        :param bool passive: Only check if the exchange exists.
-        :param bool durable: Survive broker restart.
-        :param bool auto_delete: Delete when no queues are bound.
-        :param bool internal: Can only be published to by other exchanges.
+        :param exchange: The exchange name.
+        :param exchange_type: The exchange type (direct, fanout, topic, headers).
+        :param passive: Only check if the exchange exists.
+        :param durable: Survive broker restart.
+        :param auto_delete: Delete when no queues are bound.
+        :param internal: Can only be published to by other exchanges.
         :param arguments: Custom arguments for the exchange.
         :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
@@ -703,8 +703,8 @@ class ThreadSafeChannel:
 
         Safe to call from any thread.
 
-        :param str queue: The queue to bind.
-        :param str exchange: The exchange to bind to.
+        :param queue: The queue to bind.
+        :param exchange: The exchange to bind to.
         :param routing_key: The routing key to bind on.
             Defaults to the queue name.
         :param arguments: Custom arguments for the binding.
@@ -736,7 +736,7 @@ class ThreadSafeChannel:
 
         Safe to call from any thread.
 
-        :param str queue: The queue to unbind.
+        :param queue: The queue to unbind.
         :param exchange: The exchange to unbind from.
         :param routing_key: The routing key to unbind.
             Defaults to the queue name.
@@ -768,9 +768,9 @@ class ThreadSafeChannel:
 
         Safe to call from any thread.
 
-        :param str queue: The queue to delete.
-        :param bool if_unused: Only delete if the queue has no consumers.
-        :param bool if_empty: Only delete if the queue is empty.
+        :param queue: The queue to delete.
+        :param if_unused: Only delete if the queue has no consumers.
+        :param if_empty: Only delete if the queue is empty.
         :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
@@ -793,7 +793,7 @@ class ThreadSafeChannel:
 
         Safe to call from any thread.
 
-        :param str queue: The queue to purge.
+        :param queue: The queue to purge.
         :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
@@ -819,9 +819,9 @@ class ThreadSafeChannel:
 
         Safe to call from any thread.
 
-        :param str destination: The destination exchange to bind.
-        :param str source: The source exchange to bind to.
-        :param str routing_key: The routing key to bind on.
+        :param destination: The destination exchange to bind.
+        :param source: The source exchange to bind to.
+        :param routing_key: The routing key to bind on.
         :param arguments: Custom arguments for the binding.
         :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
@@ -851,9 +851,9 @@ class ThreadSafeChannel:
 
         Safe to call from any thread.
 
-        :param str destination: The destination exchange to unbind.
-        :param str source: The source exchange to unbind from.
-        :param str routing_key: The routing key to unbind.
+        :param destination: The destination exchange to unbind.
+        :param source: The source exchange to unbind from.
+        :param routing_key: The routing key to unbind.
         :param arguments: Custom arguments for the unbinding.
         :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
@@ -882,7 +882,7 @@ class ThreadSafeChannel:
         Safe to call from any thread.
 
         :param exchange: The exchange name.
-        :param bool if_unused: Only delete if the exchange has no bindings.
+        :param if_unused: Only delete if the exchange has no bindings.
         :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
@@ -911,8 +911,8 @@ class ThreadSafeChannel:
         If the channel is already closed or closing, returns immediately.
         Safe to call from any thread.
 
-        :param int reply_code: Close reason code to send to the broker.
-        :param str reply_text: Close reason text to send to the broker.
+        :param reply_code: Close reason code to send to the broker.
+        :param reply_text: Close reason text to send to the broker.
         :param timeout: Seconds to wait for Channel.CloseOk
             before treating the channel as closed regardless.  Defaults to
             10 seconds.  Pass ``None`` to wait indefinitely.
@@ -965,8 +965,8 @@ class ThreadSafeChannel:
 
         Safe to call from any thread.
 
-        :param int reply_code: Close reason code to send to the broker.
-        :param str reply_text: Close reason text to send to the broker.
+        :param reply_code: Close reason code to send to the broker.
+        :param reply_text: Close reason text to send to the broker.
         :param timeout: Seconds to wait for Channel.CloseOk
             before treating the channel as closed regardless.  Defaults to
             10 seconds.  Pass ``None`` to wait indefinitely.
@@ -1355,7 +1355,7 @@ class ThreadSafeConnection:
         Safe to call from any thread.  Exposed so callers can schedule
         arbitrary work without going through the wrapper methods.
 
-        :param callable callback: Zero-argument callable.
+        :param callback: Zero-argument callable.
         """
         self._connection.ioloop.add_callback_threadsafe(callback)
 
@@ -1376,7 +1376,7 @@ class ThreadSafeConnection:
 
         Safe to call from any thread.
 
-        :param callable callback:
+        :param callback:
             ``callback(connection, method_frame)`` where *connection* is
             this :class:`ThreadSafeConnection` and *method_frame* contains
             a :class:`pika.spec.Connection.Blocked`.
@@ -1399,7 +1399,7 @@ class ThreadSafeConnection:
 
         Safe to call from any thread.
 
-        :param callable callback:
+        :param callback:
             ``callback(connection, method_frame)`` where *connection* is
             this :class:`ThreadSafeConnection` and *method_frame* contains
             a :class:`pika.spec.Connection.Unblocked`.
@@ -1415,7 +1415,7 @@ class ThreadSafeConnection:
         Wraps the user callback so it dispatches on the connection work
         pool, then schedules registration with the underlying
         :class:`pika.connection.Connection` on the IOLoop thread.
-        :param str raw_method_name: Unqualified AMQP method name (e.g. ``"Basic.Publish"``)
+        :param raw_method_name: Unqualified AMQP method name (e.g. ``"Basic.Publish"``)
         """
         with self._channel_waiters_lock:
             if self._closed_reason is not None:

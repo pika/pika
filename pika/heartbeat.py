@@ -26,8 +26,8 @@ class HeartbeatChecker:
         calculate an interval at which a heartbeat frame is sent to the broker.
         The interval is equal to the timeout value divided by two.
 
-        :param pika.connection.Connection: Connection object
-        :param int timeout: Connection idle timeout. If no activity occurs on the
+        :param connection: Connection object
+        :param timeout: Connection idle timeout. If no activity occurs on the
                             connection nor heartbeat frames received during the
                             timeout window the connection will be closed. The
                             interval used to send heartbeats is calculated from

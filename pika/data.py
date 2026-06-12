@@ -15,8 +15,8 @@ def encode_short_string(pieces: list[bytes], value: str) -> int:
     """Encode a string value as short string and append it to pieces list
     returning the size of the encoded value.
 
-    :param list pieces: Already encoded values
-    :param str value: String value to encode
+    :param pieces: Already encoded values
+    :param value: String value to encode
     :rtype: int
 
     """
@@ -45,8 +45,8 @@ def encode_short_string(pieces: list[bytes], value: str) -> int:
 def decode_short_string(encoded: bytes, offset: int) -> tuple[str | bytes, int]:
     """Decode a short string value from ``encoded`` data at ``offset``.
 
-    :param bytes encoded: encoded data
-    :param int offset: starting offset in the encoded data
+    :param encoded: encoded data
+    :param offset: starting offset in the encoded data
     :returns: tuple of (decoded value, new offset)
     :rtype: tuple[Union[str, bytes], int]
     """
@@ -65,8 +65,8 @@ def encode_table(pieces: list[bytes], table: dict[str, Any] | None) -> int:
     """Encode a dict as an AMQP table appending the encded table to the
     pieces list passed in.
 
-    :param list pieces: Already encoded frame pieces
-    :param dict table: The dict to encode
+    :param pieces: Already encoded frame pieces
+    :param table: The dict to encode
     :rtype: int
 
     """
@@ -87,8 +87,8 @@ def encode_value(pieces: list[bytes], value: Any) -> int:
     """Encode the value passed in and append it to the pieces list returning
     the the size of the encoded value.
 
-    :param list pieces: Already encoded values
-    :param any value: The value to encode
+    :param pieces: Already encoded values
+    :param value: The value to encode
     :rtype: int
 
     """
@@ -150,8 +150,8 @@ def decode_table(encoded: bytes,
     """Decode the AMQP table passed in from the encoded value returning the
     decoded result and the number of bytes read plus the offset.
 
-    :param bytes encoded: The binary encoded data to decode
-    :param int offset: The starting byte offset
+    :param encoded: The binary encoded data to decode
+    :param offset: The starting byte offset
     :rtype: tuple
 
     """
@@ -170,8 +170,8 @@ def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:
     """Decode the value passed in returning the decoded value and the number
     of bytes read in addition to the starting offset.
 
-    :param bytes encoded: The binary encoded data to decode
-    :param int offset: The starting byte offset
+    :param encoded: The binary encoded data to decode
+    :param offset: The starting byte offset
     :rtype: tuple
     :raises: pika.exceptions.InvalidFieldTypeException
 
