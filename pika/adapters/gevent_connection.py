@@ -115,7 +115,9 @@ class GeventConnection(BaseConnection):
         :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
         :param connection_configs: One or more connection parameter objects
         :param on_done: Callback to report when connection workflow is done
-        :param custom_ioloop: Optional custom Gevent ILoop to use for the connection workflow; if None, a new _GeventSelectorIOLoop will be created
+        :param custom_ioloop: Optional custom Gevent ILoop to use for the
+            connection workflow; if None, a new _GeventSelectorIOLoop will be
+            created
         :param workflow: Optional connection workflow instance to use
         """
         custom_ioloop = (custom_ioloop or

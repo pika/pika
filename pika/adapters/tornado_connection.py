@@ -97,7 +97,8 @@ class TornadoConnection(base_connection.BaseConnection):
 
         :param connection_configs: One or more connection parameter objects
         :param on_done:  Callback to report when connection workflow is done
-        :param custom_ioloop: Optional custom IOLoop or nbio interface to use for the connection workflow
+        :param custom_ioloop: Optional custom IOLoop or nbio interface to use
+            for the connection workflow
         :param workflow: Optional connection workflow instance to use
         """
         nbio = selector_ioloop_adapter.SelectorIOServicesAdapter(

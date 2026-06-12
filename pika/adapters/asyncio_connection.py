@@ -90,7 +90,8 @@ class AsyncioConnection(base_connection.BaseConnection):
         :param connection_configs: One or more connection parameter objects
         :param on_done: Callback to report when connection workflow is done
         :param custom_ioloop: Optional custom event loop to use for the connection workflow
-        :param workflow: Optional connection workflow instance to use; if None, a default workflow will be created
+        :param workflow: Optional connection workflow instance to use; if None,
+            a default workflow will be created
         """
         nbio = _AsyncioIOServicesAdapter(custom_ioloop)
 
