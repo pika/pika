@@ -201,6 +201,11 @@ class ThreadSafeChannel:
 
         Safe to call from any thread simultaneously.
 
+        :param exchange: The exchange to publish to.
+        :param routing_key: The routing key to publish with.
+        :param body: The message body to publish.
+        :param properties: Properties for the message.
+        :param mandatory: If True, return unroutable messages to the publisher
         :param on_publish: Optional callback invoked on the
             **IOLoop thread** immediately after the publish frame is
             written successfully, with the delivery tag (int) as its
@@ -210,7 +215,6 @@ class ThreadSafeChannel:
             :meth:`~ThreadSafeConnection.add_callback_threadsafe`
             callback).
         :raises Exception: if the connection is already closed.
-        :param mandatory: If True, return unroutable messages to the publisher
         """
         self._check_not_closed()
 
@@ -239,9 +243,9 @@ class ThreadSafeChannel:
 
         Safe to call from any thread simultaneously.
 
-        :raises Exception: if the connection is already closed.
         :param delivery_tag: Server-assigned delivery tag
         :param multiple: If True, apply to all messages up to and including this delivery tag
+        :raises Exception: if the connection is already closed.
         """
         self._check_not_closed()
 

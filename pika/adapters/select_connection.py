@@ -159,6 +159,7 @@ class SelectConnection(BaseConnection):
 
         def connection_factory(params) -> SelectConnection:
             """Connection factory.
+            :param params: Connection parameters
             :rtype: Self
             """
             if params is None:
