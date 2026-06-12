@@ -1833,9 +1833,9 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
             method_frame: frame.Method[spec.Connection.Blocked]) -> None:
         """Handle Connection.Blocked notification from RabbitMQ broker
 
+        :param _connection: The connection instance (unused)
         :param method_frame: method frame having `method`
             member of type `pika.spec.Connection.Blocked`
-        :param _connection: The connection instance (unused)
         """
         LOGGER.warning('Received %s from broker', method_frame)
 
@@ -1856,9 +1856,9 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
             method_frame: frame.Method[spec.Connection.Unblocked]) -> None:
         """Handle Connection.Unblocked notification from RabbitMQ broker
 
+        :param _connection: The connection instance (unused)
         :param method_frame: method frame having `method`
             member of type `pika.spec.Connection.Blocked`
-        :param _connection: The connection instance (unused)
         """
         LOGGER.info('Received %s from broker', method_frame)
 

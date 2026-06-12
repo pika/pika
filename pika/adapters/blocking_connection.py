@@ -1802,17 +1802,17 @@ class BlockingChannel:
         This method has one additional parameter alternate_event_sink over the
         args described in `basic_consume`.
 
-        :param alternate_event_sink: if specified, _ConsumerDeliveryEvt
-            and _ConsumerCancellationEvt objects will be diverted to this
-            callback instead of being deposited in the channel's
-            `_pending_events` container. Signature:
-            alternate_event_sink(evt)
         :param queue: Queue name
         :param auto_ack: If True, the broker acknowledges messages automatically
         :param exclusive: If True, restrict access to the current connection
         :param consumer_tag: if specified, only the consumer with the given tag will be cancelled
         :param arguments: Custom key/value pair arguments for the consumer
         :param on_message_callback: Callback for delivered messages
+        :param alternate_event_sink: if specified, _ConsumerDeliveryEvt
+            and _ConsumerCancellationEvt objects will be diverted to this
+            callback instead of being deposited in the channel's
+            `_pending_events` container. Signature:
+            alternate_event_sink(evt)
 
         :raises pika.exceptions.DuplicateConsumerTag: if consumer with given
             consumer_tag is already present.
