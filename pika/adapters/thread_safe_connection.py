@@ -985,7 +985,7 @@ class ThreadSafeChannel:
             LOGGER.debug('channel abort() suppressed error', exc_info=True)
 
     @property
-    def next_publish_seq_no(self):
+    def next_publish_seq_no(self) -> int | None:
         """The delivery tag that will be assigned to the next published message.
 
         Returns ``None`` if publisher confirms have not been enabled via
