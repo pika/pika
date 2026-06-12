@@ -116,7 +116,7 @@ class SelectConnection(BaseConnection):
             either an instance of `exceptions.ConnectionClosed` if closed by
             user or broker or exception of another type that describes the cause
             of connection failure.
-        :param Type: `None | IOLoop | nbio_interface.AbstractIOServices`.
+        :param custom_ioloop: Provide a custom I/O Loop object.
         :param internal_connection_workflow: True for autonomous connection
             establishment which is default; False for externally-managed
             connection workflow via the `create_connection()` factory.
