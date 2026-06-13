@@ -41,7 +41,7 @@ def time_now() -> float:
 def as_bytes(value: str | bytes) -> bytes:
     """Returns value as bytes.
 
-    :param value: string or bytes value to convert
+    :param value: value to convert
     :rtype: bytes
     """
     if not isinstance(value, bytes):
@@ -86,9 +86,9 @@ def nonblocking_socketpair(
     Returns a pair of sockets in the manner of socketpair with the additional
     feature that they will be non-blocking.
 
-    :param int family: socket family (default AF_INET)
-    :param int socket_type: socket type (default SOCK_STREAM)
-    :param int proto: socket protocol (default 0)
+    :param family: socket family (default AF_INET)
+    :param socket_type: socket type (default SOCK_STREAM)
+    :param proto: socket protocol (default 0)
     :returns: a pair of connected non-blocking sockets
     :rtype: tuple[socket.socket, socket.socket]
     """

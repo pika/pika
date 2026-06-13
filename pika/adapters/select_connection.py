@@ -102,8 +102,8 @@ class SelectConnection(BaseConnection):
                  internal_connection_workflow: bool = True) -> None:
         """Create a new instance of the Connection object.
 
-        :param pika.connection.Parameters parameters: Connection parameters
-        :param callable on_open_callback: Method to call on connection open
+        :param parameters: Connection parameters
+        :param on_open_callback: Method to call on connection open
         :param on_open_error_callback: Callback (or None) with signature
             ``(Connection, BaseException) -> None``; called if the connection
             can't be established or connection establishment is interrupted by
@@ -116,8 +116,7 @@ class SelectConnection(BaseConnection):
             user or broker or exception of another type that describes the cause
             of connection failure.
         :param custom_ioloop: Provide a custom I/O Loop object.
-            Type: `None | IOLoop | nbio_interface.AbstractIOServices`.
-        :param bool internal_connection_workflow: True for autonomous connection
+        :param internal_connection_workflow: True for autonomous connection
             establishment which is default; False for externally-managed
             connection workflow via the `create_connection()` factory.
         :raises RuntimeError:
@@ -149,11 +148,19 @@ class SelectConnection(BaseConnection):
         """Implement
         :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
 
+        :param connection_configs: One or more connection parameter objects
+        :param on_done: Callback to report when connection workflow is done
+        :param custom_ioloop: Optional custom IOLoop or nbio interface to use
+            for the connection workflow
+        :param workflow: Optional connection workflow instance to use; if None,
+            a default workflow will be created
         """
         nbio = SelectorIOServicesAdapter(custom_ioloop or IOLoop())
 
-        def connection_factory(params):
-            """Connection factory."""
+        def connection_factory(params) -> SelectConnection:
+            """Connection factory.
+            :param params: Connection parameters
+            """
             if params is None:
                 raise ValueError('Expected pika.connection.Parameters '
                                  'instance, but got None in params arg.')
@@ -185,10 +192,10 @@ class _Timeout:
         'deadline',
     )
 
-    def __init__(self, deadline: float, callback: Callable[[], None]):
+    def __init__(self, deadline: float, callback: Callable[[], None]) -> None:
         """
-        :param float deadline: timer expiration as non-negative epoch number
-        :param callable callback: callback to call when timeout expires
+        :param deadline: timer expiration as non-negative epoch number
+        :param callback: callback to call when timeout expires
         :raises ValueError, TypeError:
         """
 
@@ -272,9 +279,9 @@ class _Timer:
         NOTE: you may cancel the timer before dispatch of the callback. Timer
             Manager cancels the timer upon dispatch of the callback.
 
-        :param float delay: Non-negative number of seconds from now until
+        :param delay: Non-negative number of seconds from now until
             expiration
-        :param callable callback: The callback method, having the signature
+        :param callback: The callback method, having the signature
             `callback()`
 
         :rtype: _Timeout
@@ -304,7 +311,7 @@ class _Timer:
     def remove_timeout(self, timeout: _Timeout) -> None:
         """Cancel the timeout
 
-        :param _Timeout timeout: The timer to cancel
+        :param timeout: The timer to cancel
 
         """
         # NOTE removing from the heap is difficult, so we just deactivate the
@@ -476,8 +483,8 @@ class IOLoop(AbstractSelectorIOLoop):
         from the time of call on best-effort basis. Returns a handle to the
         timeout.
 
-        :param float delay: The number of seconds to wait to call callback
-        :param callable callback: The callback method
+        :param delay: The number of seconds to wait to call callback
+        :param callback: The callback method
         :returns: handle to the created timeout that may be passed to
             `remove_timeout()`
         :rtype: object
@@ -504,7 +511,7 @@ class IOLoop(AbstractSelectorIOLoop):
         ioloop that is running in a different thread via
         `ioloop.add_callback_threadsafe(ioloop.stop)`
 
-        :param callable callback: The callback method
+        :param callback: The callback method
 
         """
         if not callable(callback):
@@ -554,10 +561,10 @@ class IOLoop(AbstractSelectorIOLoop):
                     events: int) -> None:
         """Start watching the given file descriptor for events
 
-        :param int fd: The file descriptor
-        :param callable handler: When requested event(s) occur,
+        :param fd: The file descriptor
+        :param handler: When requested event(s) occur,
             `handler(fd, events)` will be called.
-        :param int events: The event mask using READ, WRITE, ERROR.
+        :param events: The event mask using READ, WRITE, ERROR.
 
         """
         self._poller.add_handler(fd, handler, events)
@@ -565,8 +572,8 @@ class IOLoop(AbstractSelectorIOLoop):
     def update_handler(self, fd: int, events: int) -> None:
         """Changes the events we watch for
 
-        :param int fd: The file descriptor
-        :param int events: The event mask using READ, WRITE, ERROR
+        :param fd: The file descriptor
+        :param events: The event mask using READ, WRITE, ERROR
 
         """
         self._poller.update_handler(fd, events)
@@ -574,7 +581,7 @@ class IOLoop(AbstractSelectorIOLoop):
     def remove_handler(self, fd: int) -> None:
         """Stop watching the given file descriptor for events
 
-        :param int fd: The file descriptor
+        :param fd: The file descriptor
 
         """
         self._poller.remove_handler(fd)
@@ -741,9 +748,9 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
                     events: int) -> None:
         """Add a new fileno to the set to be monitored
 
-        :param int fileno: The file descriptor
-        :param callable handler: What is called when an event happens
-        :param int events: The event mask using READ, WRITE, ERROR
+        :param fileno: The file descriptor
+        :param handler: What is called when an event happens
+        :param events: The event mask using READ, WRITE, ERROR
 
         """
         assert self._fd_handlers is not None
@@ -757,8 +764,8 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
     def update_handler(self, fileno: int, events: int) -> None:
         """Set the events to the current events
 
-        :param int fileno: The file descriptor
-        :param int events: The event mask using READ, WRITE, ERROR
+        :param fileno: The file descriptor
+        :param events: The event mask using READ, WRITE, ERROR
 
         """
         # Record the change
@@ -773,7 +780,7 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
     def remove_handler(self, fileno: int) -> None:
         """Remove a file descriptor from the set
 
-        :param int fileno: The file descriptor
+        :param fileno: The file descriptor
 
         """
         assert self._fd_handlers is not None
@@ -794,8 +801,8 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         """Set the handler's events to the given events; internal to
         `_PollerBase`.
 
-        :param int fileno: The file descriptor
-        :param int events: The event mask (READ, WRITE, ERROR)
+        :param fileno: The file descriptor
+        :param events: The event mask (READ, WRITE, ERROR)
 
         :returns: a 2-tuple (events_cleared, events_set)
         :rtype: tuple
@@ -898,8 +905,8 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         register the file descriptor with the polling object. The request must
         be ignored if the poller is not activated.
 
-        :param int fileno: The file descriptor
-        :param int events: The event mask (READ, WRITE, ERROR)
+        :param fileno: The file descriptor
+        :param events: The event mask (READ, WRITE, ERROR)
         """
         raise NotImplementedError
 
@@ -910,10 +917,10 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         modify an already registered file descriptor. The request must be
         ignored if the poller is not activated.
 
-        :param int fileno: The file descriptor
-        :param int events: absolute events (READ, WRITE, ERROR)
-        :param int events_to_clear: The events to clear (READ, WRITE, ERROR)
-        :param int events_to_set: The events to set (READ, WRITE, ERROR)
+        :param fileno: The file descriptor
+        :param events: absolute events (READ, WRITE, ERROR)
+        :param events_to_clear: The events to clear (READ, WRITE, ERROR)
+        :param events_to_set: The events to set (READ, WRITE, ERROR)
         """
         raise NotImplementedError
 
@@ -923,8 +930,8 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         unregister the file descriptor being tracked by the polling object. The
         request must be ignored if the poller is not activated.
 
-        :param int fileno: The file descriptor
-        :param int events_to_clear: The events to clear (READ, WRITE, ERROR)
+        :param fileno: The file descriptor
+        :param events_to_clear: The events to clear (READ, WRITE, ERROR)
         """
         raise NotImplementedError
 
@@ -939,7 +946,7 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         fileno during processing of another callback and not generate
         spurious callbacks on it.
 
-        :param dict fd_event_map: Map of fds to events received on them.
+        :param fd_event_map: Map of fds to events received on them.
         """
         assert self._processing_fd_event_map is not None
         assert self._fd_events is not None
@@ -978,8 +985,8 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         """ Read the interrupt byte(s). We ignore the event mask as we can ony
         get here if there's data to be read on our fd.
 
-        :param int _interrupt_fd: (unused) The file descriptor to read from
-        :param int _events: (unused) The events generated for this fd
+        :param _interrupt_fd: (unused) The file descriptor to read from
+        :param _events: (unused) The events generated for this fd
         """
         assert self._r_interrupt is not None
         try:
@@ -1051,8 +1058,8 @@ class SelectPoller(_PollerBase):
         register the file descriptor with the polling object. The request must
         be ignored if the poller is not activated.
 
-        :param int fileno: The file descriptor
-        :param int events: The event mask using READ, WRITE, ERROR
+        :param fileno: The file descriptor
+        :param events: The event mask using READ, WRITE, ERROR
         """
         # It's a no op in SelectPoller
 
@@ -1062,10 +1069,10 @@ class SelectPoller(_PollerBase):
         modify an already registered file descriptor. The request must be
         ignored if the poller is not activated.
 
-        :param int fileno: The file descriptor
-        :param int events: absolute events (READ, WRITE, ERROR)
-        :param int events_to_clear: The events to clear (READ, WRITE, ERROR)
-        :param int events_to_set: The events to set (READ, WRITE, ERROR)
+        :param fileno: The file descriptor
+        :param events: absolute events (READ, WRITE, ERROR)
+        :param events_to_clear: The events to clear (READ, WRITE, ERROR)
+        :param events_to_set: The events to set (READ, WRITE, ERROR)
         """
         # It's a no op in SelectPoller
 
@@ -1074,8 +1081,8 @@ class SelectPoller(_PollerBase):
         unregister the file descriptor being tracked by the polling object. The
         request must be ignored if the poller is not activated.
 
-        :param int fileno: The file descriptor
-        :param int events_to_clear: The events to clear (READ, WRITE, ERROR)
+        :param fileno: The file descriptor
+        :param events_to_clear: The events to clear (READ, WRITE, ERROR)
         """
         # It's a no op in SelectPoller
 
@@ -1084,7 +1091,7 @@ class KQueuePoller(_PollerBase):
     """KQueuePoller works on BSD based systems and is faster than select"""
 
     def __init__(self, get_wait_seconds: Callable[[], float | None],
-                 process_timeouts: Callable[[], None]):
+                 process_timeouts: Callable[[], None]) -> None:
         """Create an instance of the KQueuePoller
         """
         self._kqueue = None
@@ -1094,7 +1101,7 @@ class KQueuePoller(_PollerBase):
     def _map_event(kevent: Any) -> int:
         """return the event type associated with a kevent object
 
-        :param kevent kevent: a kevent object as returned by kqueue.control()
+        :param kevent: a kevent object as returned by kqueue.control()
         :rtype: int
 
         """
@@ -1159,8 +1166,8 @@ class KQueuePoller(_PollerBase):
         register the file descriptor with the polling object. The request must
         be ignored if the poller is not activated.
 
-        :param int fileno: The file descriptor
-        :param int events: The event mask using READ, WRITE, ERROR
+        :param fileno: The file descriptor
+        :param events: The event mask using READ, WRITE, ERROR
         """
         self._modify_fd_events(fileno,
                                events=events,
@@ -1173,10 +1180,10 @@ class KQueuePoller(_PollerBase):
         modify an already registered file descriptor. The request must be
         ignored if the poller is not activated.
 
-        :param int fileno: The file descriptor
-        :param int events: absolute events (READ, WRITE, ERROR)
-        :param int events_to_clear: The events to clear (READ, WRITE, ERROR)
-        :param int events_to_set: The events to set (READ, WRITE, ERROR)
+        :param fileno: The file descriptor
+        :param events: absolute events (READ, WRITE, ERROR)
+        :param events_to_clear: The events to clear (READ, WRITE, ERROR)
+        :param events_to_set: The events to set (READ, WRITE, ERROR)
         """
         if self._kqueue is None:
             return
@@ -1223,8 +1230,8 @@ class KQueuePoller(_PollerBase):
         unregister the file descriptor being tracked by the polling object. The
         request must be ignored if the poller is not activated.
 
-        :param int fileno: The file descriptor
-        :param int events_to_clear: The events to clear (READ, WRITE, ERROR)
+        :param fileno: The file descriptor
+        :param events_to_clear: The events to clear (READ, WRITE, ERROR)
         """
         self._modify_fd_events(fileno,
                                events=0,
@@ -1240,7 +1247,7 @@ class PollPoller(_PollerBase):
     POLL_TIMEOUT_MULT = 1000
 
     def __init__(self, get_wait_seconds: Callable[[], float | None],
-                 process_timeouts: Callable[[], None]):
+                 process_timeouts: Callable[[], None]) -> None:
         """Create an instance of the PollPoller
 
         """
@@ -1302,8 +1309,8 @@ class PollPoller(_PollerBase):
         register the file descriptor with the polling object. The request must
         be ignored if the poller is not activated.
 
-        :param int fileno: The file descriptor
-        :param int events: The event mask using READ, WRITE, ERROR
+        :param fileno: The file descriptor
+        :param events: The event mask using READ, WRITE, ERROR
         """
         if self._poll is not None:
             self._poll.register(fileno, events)
@@ -1314,10 +1321,10 @@ class PollPoller(_PollerBase):
         modify an already registered file descriptor. The request must be
         ignored if the poller is not activated.
 
-        :param int fileno: The file descriptor
-        :param int events: absolute events (READ, WRITE, ERROR)
-        :param int events_to_clear: The events to clear (READ, WRITE, ERROR)
-        :param int events_to_set: The events to set (READ, WRITE, ERROR)
+        :param fileno: The file descriptor
+        :param events: absolute events (READ, WRITE, ERROR)
+        :param events_to_clear: The events to clear (READ, WRITE, ERROR)
+        :param events_to_set: The events to set (READ, WRITE, ERROR)
         """
         if self._poll is not None:
             self._poll.modify(fileno, events)
@@ -1327,8 +1334,8 @@ class PollPoller(_PollerBase):
         unregister the file descriptor being tracked by the polling object. The
         request must be ignored if the poller is not activated.
 
-        :param int fileno: The file descriptor
-        :param int events_to_clear: The events to clear (READ, WRITE, ERROR)
+        :param fileno: The file descriptor
+        :param events_to_clear: The events to clear (READ, WRITE, ERROR)
         """
         if self._poll is not None:
             self._poll.unregister(fileno)

@@ -20,7 +20,7 @@ def create_log_exception_decorator(logger: logging.Logger) -> Callable[[F], F]:
     """Create a decorator that logs and reraises any exceptions that escape
     the decorated function
 
-    :param logging.Logger logger:
+    :param logger:
     :returns: the decorator
     :rtype: callable
 

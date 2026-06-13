@@ -23,38 +23,39 @@ class TornadoConnection(base_connection.BaseConnection):
     """The TornadoConnection runs on the Tornado IOLoop.
     """
 
-    def __init__(
-            self,
-            parameters: connection.Parameters | None = None,
-            on_open_callback: None |
-        (Callable[[connection.Connection], None]) = None,
-            on_open_error_callback: None |
-        (Callable[[connection.Connection, BaseException], None]) = None,
-            on_close_callback: None |
-        (Callable[[connection.Connection, BaseException], None]) = None,
-            custom_ioloop: None |
-        (ioloop.IOLoop | nbio_interface.AbstractIOServices) = None,
-            internal_connection_workflow: bool = True):
+    def __init__(self,
+                 parameters: connection.Parameters | None = None,
+                 on_open_callback: None |
+                 (Callable[[connection.Connection], None]) = None,
+                 on_open_error_callback: None |
+                 (Callable[[connection.Connection, BaseException],
+                           None]) = None,
+                 on_close_callback: None |
+                 (Callable[[connection.Connection, BaseException],
+                           None]) = None,
+                 custom_ioloop: None |
+                 (ioloop.IOLoop | nbio_interface.AbstractIOServices) = None,
+                 internal_connection_workflow: bool = True) -> None:
         """Create a new instance of the TornadoConnection class, connecting
         to RabbitMQ automatically.
 
-        :param pika.connection.Parameters|None parameters: The connection
+        :param parameters: The connection
             parameters
-        :param callable|None on_open_callback: The method to call when the
+        :param on_open_callback: The method to call when the
             connection is open
-        :param callable|None on_open_error_callback: Called if the connection
+        :param on_open_error_callback: Called if the connection
             can't be established or connection establishment is interrupted by
             `Connection.close()`:
             on_open_error_callback(Connection, exception)
-        :param callable|None on_close_callback: Called when a previously fully
+        :param on_close_callback: Called when a previously fully
             open connection is closed:
             `on_close_callback(Connection, exception)`, where `exception` is
             either an instance of `exceptions.ConnectionClosed` if closed by
             user or broker or exception of another type that describes the
             cause of connection failure
-        :param ioloop.IOLoop|nbio_interface.AbstractIOServices|None custom_ioloop:
+        :param custom_ioloop:
             Override using the global IOLoop in Tornado
-        :param bool internal_connection_workflow: True for autonomous connection
+        :param internal_connection_workflow: True for autonomous connection
             establishment which is default; False for externally-managed
             connection workflow via the `create_connection()` factory
 
@@ -94,13 +95,20 @@ class TornadoConnection(base_connection.BaseConnection):
         """Implement
         :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
 
+        :param connection_configs: One or more connection parameter objects
+        :param on_done:  Callback to report when connection workflow is done
+        :param custom_ioloop: Optional custom IOLoop or nbio interface to use
+            for the connection workflow
+        :param workflow: Optional connection workflow instance to use
         """
         nbio = selector_ioloop_adapter.SelectorIOServicesAdapter(
             custom_ioloop or ioloop.IOLoop.instance())  # type: ignore[arg-type]
 
         def connection_factory(
                 params: connection.Parameters | None) -> TornadoConnection:
-            """Connection factory."""
+            """Connection factory.
+            :param params: Connection parameters
+            """
             if params is None:
                 raise ValueError('Expected pika.connection.Parameters '
                                  'instance, but got None in params arg.')

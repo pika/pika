@@ -39,9 +39,9 @@ class PlainCredentials:
     If you pass True to erase_on_connect the credentials will not be stored
     in memory after the Connection attempt has been made.
 
-    :param str username: The username to authenticate with
-    :param str password: The password to authenticate with
-    :param bool erase_on_connect: erase credentials on connect.
+    :param username: The username to authenticate with
+    :param password: The password to authenticate with
+    :param erase_on_connect: erase credentials on connect.
 
     """
     TYPE = 'PLAIN'
@@ -49,12 +49,12 @@ class PlainCredentials:
     def __init__(self,
                  username: str,
                  password: str,
-                 erase_on_connect: bool = False):
+                 erase_on_connect: bool = False) -> None:
         """Create a new instance of PlainCredentials
 
-        :param str username: The username to authenticate with
-        :param str password: The password to authenticate with
-        :param bool erase_on_connect: erase credentials on connect.
+        :param username: The username to authenticate with
+        :param password: The password to authenticate with
+        :param erase_on_connect: erase credentials on connect.
 
         """
         self.username: str | None = username
@@ -78,7 +78,7 @@ class PlainCredentials:
             self, start: Connection.Start) -> tuple[str | None, bytes | None]:
         """Validate that this type of authentication is supported
 
-        :param spec.Connection.Start start: Connection.Start method
+        :param start: Connection.Start method
         :rtype: tuple(str|None, bytes|None)
 
         """
@@ -122,7 +122,7 @@ class ExternalCredentials:
             self, start: Connection.Start) -> tuple[str | None, bytes | None]:
         """Validate that this type of authentication is supported
 
-        :param spec.Connection.Start start: Connection.Start method
+        :param start: Connection.Start method
         :rtype: tuple(str|None, bytes|None)
 
         """

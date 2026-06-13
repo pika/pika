@@ -46,6 +46,7 @@ import pika.validators as validators
 from pika.adapters import select_connection
 from pika.adapters.utils import connection_workflow
 from pika.exchange_type import ExchangeType
+from pika.spec import Basic
 
 if TYPE_CHECKING:
     from traceback import TracebackException
@@ -65,9 +66,9 @@ class _CallbackResult:
     """
     __slots__ = ('_ready', '_value_class', '_values')
 
-    def __init__(self, value_class: Callable[..., Any] | None = None):
+    def __init__(self, value_class: Callable[..., Any] | None = None) -> None:
         """
-        :param callable value_class: only needed if the CallbackResult
+        :param value_class: only needed if the CallbackResult
                                      instance will be used with
                                      `set_value_once` and `append_element`.
                                      *args and **kwargs of the value setter
@@ -199,8 +200,8 @@ class _IoloopTimerContext:
     def __init__(self, duration: float,
                  connection: select_connection.SelectConnection) -> None:
         """
-        :param float duration: non-negative timer duration in seconds
-        :param select_connection.SelectConnection connection:
+        :param duration: non-negative timer duration in seconds
+        :param connection:
         """
         assert hasattr(connection, '_adapter_call_later'), connection
         self._duration = duration
@@ -232,7 +233,7 @@ class _TimerEvt:
     """Represents a timer created via `BlockingConnection.call_later`"""
     __slots__ = ('_callback', 'timer_id')
 
-    def __init__(self, callback: Callable[..., None]):
+    def __init__(self, callback: Callable[..., None]) -> None:
         """
         :param callback: see callback in `BlockingConnection.call_later`
         """
@@ -261,7 +262,7 @@ class _ConnectionBlockedUnblockedEvtBase(Generic[T]):
         :param callback: see callback parameter in
           `BlockingConnection.add_on_connection_blocked_callback` and
           `BlockingConnection.add_on_connection_unblocked_callback`
-        :param pika.frame.Method method_frame: with method_frame.method of type
+        :param method_frame: with method_frame.method of type
           `pika.spec.Connection.Blocked` or `pika.spec.Connection.Unblocked`
         """
         self._callback = callback
@@ -454,7 +455,6 @@ class BlockingConnection:
             parameters instance or non-empty sequence of them.
             Type: `None | pika.connection.Parameters | sequence`.
         :param impl_class: for tests/debugging only; implementation class.
-            Type: `None | SelectConnection`.
 
         :rtype: impl_class
 
@@ -511,7 +511,7 @@ class BlockingConnection:
             error: BaseException) -> BaseException:
         """Extract exception value from the last connection attempt
 
-        :param Exception error: error passed by the `AMQPConnectionWorkflow`
+        :param error: error passed by the `AMQPConnectionWorkflow`
             completion callback.
 
         :returns: Exception value from the last connection attempt
@@ -551,7 +551,7 @@ class BlockingConnection:
         #   empty outbound buffer and no waiters
         #         OR
         #   empty outbound buffer and any waiter is ready
-        def is_done():
+        def is_done() -> bool:
             return (self._closed_result.ready or
                     ((not self._impl._transport or
                       self._impl._get_write_buffer_size() == 0) and
@@ -579,7 +579,7 @@ class BlockingConnection:
         _dispatch_events method or to terminate `process_data_events`;
         BlockingConnection will honor these requests from a safe context.
 
-        :param int channel_number: positive channel number to request a call
+        :param channel_number: positive channel number to request a call
             to the channel's `_dispatch_events`; a negative channel number to
             request termination of `process_data_events`
         """
@@ -617,7 +617,7 @@ class BlockingConnection:
         """Handle expiry of a timer that was registered via
         `_adapter_call_later()`
 
-        :param _TimerEvt evt:
+        :param evt:
 
         """
         self._ready_events.append(evt)
@@ -643,10 +643,10 @@ class BlockingConnection:
     ) -> None:
         """Handle Connection.Blocked notification from RabbitMQ broker
 
-        :param callable user_callback: callback passed to
+        :param user_callback: callback passed to
            `add_on_connection_blocked_callback`
-        :param select_connection.SelectConnection _impl:
-        :param pika.frame.Method method_frame: method frame having `method`
+        :param _impl:
+        :param method_frame: method frame having `method`
             member of type `pika.spec.Connection.Blocked`
         """
         self._ready_events.append(
@@ -660,10 +660,10 @@ class BlockingConnection:
     ) -> None:
         """Handle Connection.Unblocked notification from RabbitMQ broker
 
-        :param callable user_callback: callback passed to
+        :param user_callback: callback passed to
            `add_on_connection_unblocked_callback`
-        :param select_connection.SelectConnection _impl:
-        :param pika.frame.Method method_frame: method frame having `method`
+        :param _impl:
+        :param method_frame: method frame having `method`
             member of type `pika.spec.Connection.Blocked`
         """
         self._ready_events.append(
@@ -715,7 +715,7 @@ class BlockingConnection:
 
         See also `ConnectionParameters.blocked_connection_timeout`.
 
-        :param callable callback: Callback to call on `Connection.Blocked`,
+        :param callback: Callback to call on `Connection.Blocked`,
             having the signature `callback(connection, pika.frame.Method)`,
             where connection is the `BlockingConnection` instance and the method
             frame's `method` member is of type `pika.spec.Connection.Blocked`
@@ -737,7 +737,7 @@ class BlockingConnection:
         connection gets unblocked (`Connection.Unblocked` frame is received from
         RabbitMQ) letting publishers know it's ok to start publishing again.
 
-        :param callable callback: Callback to call on Connection.Unblocked`,
+        :param callback: Callback to call on Connection.Unblocked`,
             having the signature `callback(connection, pika.frame.Method)`,
             where connection is the `BlockingConnection` instance and the method
             frame's `method` member is of type `pika.spec.Connection.Unblocked`
@@ -760,8 +760,8 @@ class BlockingConnection:
         `BlockingConnection.process_data_events()` and
         `BlockingChannel.start_consuming()`.
 
-        :param float delay: The number of seconds to wait to call callback
-        :param callable callback: The callback method with the signature
+        :param delay: The number of seconds to wait to call callback
+        :param callback: The callback method with the signature
             callback()
         :returns: Opaque timer id
         :rtype: int
@@ -802,7 +802,7 @@ class BlockingConnection:
         the connection it is more efficient to use the
         `BlockingConnection.call_later()` method with a delay of 0.
 
-        :param callable callback: The callback method; must be callable
+        :param callback: The callback method; must be callable
         :raises pika.exceptions.ConnectionWrongStateError: if connection is
             closed
         """
@@ -844,8 +844,8 @@ class BlockingConnection:
         """RabbitMQ AMQP extension - This method updates the secret used to authenticate this connection.
         It is used when secrets have an expiration date and need to be renewed, like OAuth 2 tokens.
 
-        :param string new_secret: The new secret
-        :param string reason: The reason for the secret update
+        :param new_secret: The new secret
+        :param reason: The reason for the secret update
 
         :raises pika.exceptions.ConnectionWrongStateError: if connection is
             not open.
@@ -863,8 +863,8 @@ class BlockingConnection:
         have active consumers will attempt to send a Basic.Cancel to RabbitMQ
         to cleanly stop the delivery of messages prior to closing the channel.
 
-        :param int reply_code: The code number for the close
-        :param str reply_text: The text reason for the close
+        :param reply_code: The code number for the close
+        :param reply_text: The text reason for the close
 
         :raises pika.exceptions.ConnectionWrongStateError: if called on a closed
             connection (NEW in v1.0.0)
@@ -901,7 +901,7 @@ class BlockingConnection:
         should be called periodically in order to respond to heartbeats and other
         data events. See `examples/long_running_publisher.py` for an example.
 
-        :param float time_limit: suggested upper bound on processing time in
+        :param time_limit: suggested upper bound on processing time in
             seconds. The actual blocking time depends on the granularity of the
             underlying ioloop. Zero means return as soon as possible. None means
             there is no limit on processing time and the function will block
@@ -910,7 +910,7 @@ class BlockingConnection:
         """
         with self._acquire_event_dispatch() as dispatch_acquired:
             # Check if we can actually process pending events
-            def common_terminator():
+            def common_terminator() -> bool:
                 return bool(
                     dispatch_acquired and
                     (self._channels_pending_dispatch or self._ready_events))
@@ -938,7 +938,7 @@ class BlockingConnection:
         connection will "sleep" or block the number of seconds specified in
         duration in small intervals.
 
-        :param float duration: The time to sleep in seconds
+        :param duration: The time to sleep in seconds
 
         """
         assert duration >= 0, duration
@@ -958,6 +958,7 @@ class BlockingConnection:
         specify but it is recommended that you let Pika manage the channel
         numbers.
 
+        :param channel_number: optional channel number to use
         :rtype: pika.adapters.blocking_connection.BlockingChannel
         """
         with _CallbackResult(self._OnChannelOpenedArgs) as opened_args:
@@ -1057,10 +1058,10 @@ class _ConsumerDeliveryEvt(_ChannelPendingEvt):
     def __init__(self, method: pika.spec.Basic.Deliver,
                  properties: pika.spec.BasicProperties, body: bytes) -> None:
         """
-        :param spec.Basic.Deliver method: NOTE: consumer_tag and delivery_tag
+        :param method: NOTE: consumer_tag and delivery_tag
           are valid only within source channel
-        :param spec.BasicProperties properties: message properties
-        :param bytes body: message body; empty string if no body
+        :param properties: message properties
+        :param body: message body; empty string if no body
         """
         self.method = method
         self.properties = properties
@@ -1080,7 +1081,7 @@ class _ConsumerCancellationEvt(_ChannelPendingEvt):
             self,
             method_frame: pika.frame.Method[pika.spec.Basic.Cancel]) -> None:
         """
-        :param pika.frame.Method method_frame: method frame with method of type
+        :param method_frame: method frame with method of type
             `spec.Basic.Cancel`
         """
         self.method_frame = method_frame
@@ -1089,8 +1090,9 @@ class _ConsumerCancellationEvt(_ChannelPendingEvt):
         return f'<{self.__class__.__name__} method_frame={self.method_frame!r}>'
 
     @property
-    def method(self):
-        """method of type spec.Basic.Cancel"""
+    def method(self) -> Basic.Cancel:
+        """method of type spec.Basic.Cancel
+        """
         return self.method_frame.method
 
 
@@ -1105,16 +1107,16 @@ class _ReturnedMessageEvt(_ChannelPendingEvt):
     ], None], channel: BlockingChannel, method: pika.spec.Basic.Return,
                  properties: pika.spec.BasicProperties, body: bytes) -> None:
         """
-        :param callable callback: user's callback, having the signature
+        :param callback: user's callback, having the signature
             callback(channel, method, properties, body), where
              - channel: pika.Channel
              - method: pika.spec.Basic.Return
              - properties: pika.spec.BasicProperties
              - body: bytes
-        :param pika.Channel channel:
-        :param pika.spec.Basic.Return method:
-        :param pika.spec.BasicProperties properties:
-        :param bytes body:
+        :param channel:
+        :param method:
+        :param properties:
+        :param body:
         """
         self.callback = callback
         self.channel = channel
@@ -1143,9 +1145,9 @@ class ReturnedMessage:
     def __init__(self, method: pika.spec.Basic.Return,
                  properties: pika.spec.BasicProperties, body: bytes) -> None:
         """
-        :param spec.Basic.Return method:
-        :param spec.BasicProperties properties: message properties
-        :param bytes body: message body; empty string if no body
+        :param method:
+        :param properties: message properties
+        :param body: message body; empty string if no body
         """
         self.method = method
         self.properties = properties
@@ -1169,28 +1171,30 @@ class _ConsumerInfo:
     TEARING_DOWN = 3
     CANCELLED_BY_BROKER = 4
 
-    def __init__(self,
-                 consumer_tag: str,
-                 auto_ack: bool,
-                 on_message_callback: None | (Callable[[
-                     BlockingChannel, pika.spec.Basic.Deliver, pika.spec.
-                     BasicProperties, bytes
-                 ], None]) = None,
-                 alternate_event_sink: None |
-                 (Callable[[_ChannelPendingEvt], None]) = None):
+    def __init__(
+        self,
+        consumer_tag: str,
+        auto_ack: bool,
+        on_message_callback: None | (Callable[[
+            BlockingChannel, pika.spec.Basic.Deliver, pika.spec.
+            BasicProperties, bytes
+        ], None]) = None,
+        alternate_event_sink: None |
+        (Callable[[_ChannelPendingEvt], None]) = None
+    ) -> None:
         """
         NOTE: exactly one of callback/alternate_event_sink musts be non-None.
 
-        :param str consumer_tag:
-        :param bool auto_ack: the no-ack value for the consumer
-        :param callable on_message_callback: The function for dispatching messages to
+        :param consumer_tag:
+        :param auto_ack: the no-ack value for the consumer
+        :param on_message_callback: The function for dispatching messages to
             user, having the signature:
             on_message_callback(channel, method, properties, body)
              - channel: BlockingChannel
              - method: spec.Basic.Deliver
              - properties: spec.BasicProperties
              - body: bytes
-        :param callable alternate_event_sink: if specified, _ConsumerDeliveryEvt
+        :param alternate_event_sink: if specified, _ConsumerDeliveryEvt
             and _ConsumerCancellationEvt objects will be diverted to this
             callback instead of being deposited in the channel's
             `_pending_events` container. Signature:
@@ -1236,7 +1240,7 @@ class _QueueConsumerGeneratorInfo:
         """
         :params tuple params: a three-tuple (queue, auto_ack, exclusive) that were
            used to create the queue consumer
-        :param str consumer_tag: consumer tag
+        :param consumer_tag: consumer tag
         """
         self.params = params
         self.consumer_tag = consumer_tag
@@ -1288,12 +1292,12 @@ class BlockingChannel:
     _CONSUMER_CANCELLED_CB_KEY = 'blocking_channel_consumer_cancelled'
 
     def __init__(self, channel_impl: pika.channel.Channel,
-                 connection: BlockingConnection):
+                 connection: BlockingConnection) -> None:
         """Create a new instance of the Channel
 
-        :param pika.channel.Channel channel_impl: Channel implementation object
+        :param channel_impl: Channel implementation object
             as returned from SelectConnection.channel()
-        :param BlockingConnection connection: The connection object
+        :param connection: The connection object
 
         """
         self._impl = channel_impl
@@ -1385,7 +1389,8 @@ class BlockingChannel:
 
     @property
     def connection(self) -> BlockingConnection:
-        """The channel's BlockingConnection instance"""
+        """The channel's BlockingConnection instance
+        """
         return self._connection
 
     @property
@@ -1418,7 +1423,7 @@ class BlockingChannel:
 
     _ALWAYS_READY_WAITERS = ((lambda: True),)
 
-    def _flush_output(self, *waiters: Callable[[], bool]):
+    def _flush_output(self, *waiters: Callable[[], bool]) -> None:
         """ Flush output and process input while waiting for any of the given
         callbacks to return true. The wait is aborted upon channel-close or
         connection-close.
@@ -1451,10 +1456,10 @@ class BlockingChannel:
         publisher-acknowledgements mode. Saves the info as a ReturnedMessage
         instance in self._puback_return.
 
-        :param pika.Channel channel: our self._impl channel
-        :param pika.spec.Basic.Return method:
-        :param pika.spec.BasicProperties properties: message properties
-        :param bytes body: returned message body; empty string if no body
+        :param channel: our self._impl channel
+        :param method:
+        :param properties: message properties
+        :param body: returned message body; empty string if no body
         """
         assert channel is self._impl, (channel.channel_number,
                                        self.channel_number)
@@ -1471,12 +1476,12 @@ class BlockingChannel:
 
         self._puback_return = ReturnedMessage(method, properties, body)
 
-    def _add_pending_event(self, evt: _ChannelPendingEvt):
+    def _add_pending_event(self, evt: _ChannelPendingEvt) -> None:
         """Append an event to the channel's list of events that are ready for
         dispatch to user and signal our connection that this channel is ready
         for event dispatch
 
-        :param _ChannelPendingEvt evt: an event derived from _ChannelPendingEvt
+        :param evt: an event derived from _ChannelPendingEvt
         """
         self._pending_events.append(evt)
         self.connection._request_channel_dispatch(self.channel_number)
@@ -1501,8 +1506,8 @@ class BlockingChannel:
 
         See `pika.Channel.add_on_close_callback()` for additional documentation.
 
-        :param pika.Channel _channel: (unused)
-        :param Exception reason:
+        :param _channel: (unused)
+        :param reason:
 
         """
         LOGGER.debug('_on_channel_closed: %r; %r', reason, self)
@@ -1526,7 +1531,7 @@ class BlockingChannel:
         of queue being consumed as well as failure of a HA node responsible for
         the queue being consumed.
 
-        :param pika.frame.Method method_frame: method frame with the
+        :param method_frame: method frame with the
             `spec.Basic.Cancel` method
 
         """
@@ -1546,13 +1551,13 @@ class BlockingChannel:
     def _on_consumer_message_delivery(self, _channel: pika.channel.Channel,
                                       method: pika.spec.Basic.Deliver,
                                       properties: pika.spec.BasicProperties,
-                                      body: bytes):
+                                      body: bytes) -> None:
         """Called by impl when a message is delivered for a consumer
 
-        :param Channel _channel: The implementation channel object
-        :param spec.Basic.Deliver method:
-        :param pika.spec.BasicProperties properties: message properties
-        :param bytes body: delivered message body; empty string if no body
+        :param _channel: The implementation channel object
+        :param method:
+        :param properties: message properties
+        :param body: delivered message body; empty string if no body
         """
         evt = _ConsumerDeliveryEvt(method, properties, body)
 
@@ -1622,8 +1627,8 @@ class BlockingChannel:
               reply_text: str = "Normal shutdown") -> None:
         """Will invoke a clean shutdown of the channel with the AMQP Broker.
 
-        :param int reply_code: The reply code to close the channel with
-        :param str reply_text: The reply text to close the channel with
+        :param reply_code: The reply code to close the channel with
+        :param reply_text: The reply text to close the channel with
 
         """
         LOGGER.debug('Channel.close(%s, %s)', reply_code, reply_text)
@@ -1652,7 +1657,7 @@ class BlockingChannel:
 
         https://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow
 
-        :param bool active: Turn flow on (True) or off (False)
+        :param active: Turn flow on (True) or off (False)
         :returns: True if broker will start or continue sending; False if not
         :rtype: bool
 
@@ -1671,7 +1676,7 @@ class BlockingChannel:
         is sent by the broker. The callback function should receive a method
         frame parameter.
 
-        :param callable callback: a callable for handling broker's Basic.Cancel
+        :param callback: a callable for handling broker's Basic.Cancel
             notification with the call signature: callback(method_frame)
             where method_frame is of type `pika.frame.Method` with method of
             type `spec.Basic.Cancel`
@@ -1691,7 +1696,7 @@ class BlockingChannel:
         """Pass a callback function that will be called when a published
         message is rejected and returned by the server via `Basic.Return`.
 
-        :param callable callback: The method to call on callback with the
+        :param callback: The method to call on callback with the
             signature callback(channel, method, properties, body), where
             - channel: pika.Channel
             - method: pika.spec.Basic.Return
@@ -1712,7 +1717,7 @@ class BlockingChannel:
                       auto_ack: bool = False,
                       exclusive: bool = False,
                       consumer_tag: str | None = None,
-                      arguments: dict[str, Any] | None = None):
+                      arguments: dict[str, Any] | None = None) -> str:
         """Sends the AMQP command Basic.Consume to the broker and binds messages
         for the consumer_tag to the consumer callback. If you do not pass in
         a consumer_tag, one will be automatically generated for you. Returns
@@ -1726,22 +1731,22 @@ class BlockingChannel:
         For more information about Basic.Consume, see:
         https://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
 
-        :param str queue: The queue from which to consume
-        :param callable on_message_callback: Required function for dispatching messages
+        :param queue: The queue from which to consume
+        :param on_message_callback: Required function for dispatching messages
             to user, having the signature:
             on_message_callback(channel, method, properties, body)
             - channel: BlockingChannel
             - method: spec.Basic.Deliver
             - properties: spec.BasicProperties
             - body: bytes
-        :param bool auto_ack: if set to True, automatic acknowledgement mode will be used
+        :param auto_ack: if set to True, automatic acknowledgement mode will be used
                               (see https://www.rabbitmq.com/confirms.html). This corresponds
                               with the 'no_ack' parameter in the basic.consume AMQP 0.9.1
                               method
-        :param bool exclusive: Don't allow other consumers on the queue
-        :param str consumer_tag: You may specify your own consumer tag; if left
+        :param exclusive: Don't allow other consumers on the queue
+        :param consumer_tag: You may specify your own consumer tag; if left
           empty, a consumer tag will be generated automatically
-        :param dict arguments: Custom key/value pair arguments for the consumer
+        :param arguments: Custom key/value pair arguments for the consumer
         :returns: consumer tag
         :rtype: str
         :raises pika.exceptions.DuplicateConsumerTag: if consumer with given
@@ -1757,18 +1762,20 @@ class BlockingChannel:
                                         consumer_tag=consumer_tag,
                                         arguments=arguments)
 
-    def _basic_consume_impl(self,
-                            queue: str,
-                            auto_ack: bool,
-                            exclusive: bool,
-                            consumer_tag: str | None,
-                            arguments: dict[str, Any] | None = None,
-                            on_message_callback: None | (Callable[[
-                                BlockingChannel, pika.spec.Basic.Deliver, pika.
-                                spec.BasicProperties, bytes
-                            ], None]) = None,
-                            alternate_event_sink: None |
-                            (Callable[[_ChannelPendingEvt], None]) = None):
+    def _basic_consume_impl(
+        self,
+        queue: str,
+        auto_ack: bool,
+        exclusive: bool,
+        consumer_tag: str | None,
+        arguments: dict[str, Any] | None = None,
+        on_message_callback: None | (Callable[[
+            BlockingChannel, pika.spec.Basic.Deliver, pika.spec.
+            BasicProperties, bytes
+        ], None]) = None,
+        alternate_event_sink: None |
+        (Callable[[_ChannelPendingEvt], None]) = None
+    ) -> str:
         """The low-level implementation used by `basic_consume` and `consume`.
         See `basic_consume` docstring for more info.
 
@@ -1778,7 +1785,13 @@ class BlockingChannel:
         This method has one additional parameter alternate_event_sink over the
         args described in `basic_consume`.
 
-        :param callable alternate_event_sink: if specified, _ConsumerDeliveryEvt
+        :param queue: Queue name
+        :param auto_ack: If True, the broker acknowledges messages automatically
+        :param exclusive: If True, restrict access to the current connection
+        :param consumer_tag: if specified, only the consumer with the given tag will be cancelled
+        :param arguments: Custom key/value pair arguments for the consumer
+        :param on_message_callback: Callback for delivered messages
+        :param alternate_event_sink: if specified, _ConsumerDeliveryEvt
             and _ConsumerCancellationEvt objects will be diverted to this
             callback instead of being deposited in the channel's
             `_pending_events` container. Signature:
@@ -1786,7 +1799,6 @@ class BlockingChannel:
 
         :raises pika.exceptions.DuplicateConsumerTag: if consumer with given
             consumer_tag is already present.
-
         """
         if (on_message_callback is None) == (alternate_event_sink is None):
             raise ValueError(
@@ -1855,7 +1867,7 @@ class BlockingChannel:
         a auto_ack=True consumer, this method will return any pending messages
         that arrived before broker confirmed the cancellation.
 
-        :param str consumer_tag: Identifier for the consumer; the result of
+        :param consumer_tag: Identifier for the consumer; the result of
             passing a consumer_tag that was created on another channel is
             undefined (bad things will happen)
         :returns: (NEW IN pika 0.10.0) empty sequence for a auto_ack=False
@@ -1943,7 +1955,7 @@ class BlockingChannel:
         """Extract _ConsumerDeliveryEvt objects destined for the given consumer
         from pending events, discarding the _ConsumerCancellationEvt, if any
 
-        :param str consumer_tag:
+        :param consumer_tag:
 
         :returns: a (possibly empty) sequence of _ConsumerDeliveryEvt destined
             for the given consumer tag
@@ -2002,6 +2014,7 @@ class BlockingChannel:
         NOTE: pending non-ackable messages will be lost; pending ackable
         messages will be rejected.
 
+        :param consumer_tag: if specified, only the consumer with the given tag will be cancelled
         """
         if consumer_tag:
             self.basic_cancel(consumer_tag)
@@ -2038,11 +2051,11 @@ class BlockingChannel:
         will resume the existing consumer generator; however, calling with
         different parameters will result in an exception.
 
-        :param str queue: The queue name to consume
-        :param bool auto_ack: Tell the broker to not expect a ack/nack response
-        :param bool exclusive: Don't allow other consumers on the queue
-        :param dict arguments: Custom key/value pair arguments for the consumer
-        :param float inactivity_timeout: if a number is given (in
+        :param queue: The queue name to consume
+        :param auto_ack: Tell the broker to not expect a ack/nack response
+        :param exclusive: Don't allow other consumers on the queue
+        :param arguments: Custom key/value pair arguments for the consumer
+        :param inactivity_timeout: if a number is given (in
             seconds), will cause the method to yield (None, None, None) after the
             given period of inactivity; this permits for pseudo-regular maintenance
             activities to be carried out by the user while waiting for messages
@@ -2050,7 +2063,7 @@ class BlockingChannel:
             the next event arrives. NOTE that timing granularity is limited by
             the timer resolution of the underlying implementation.
             NEW in pika 0.10.0.
-        :param str consumer_tag: Specify your own consumer tag
+        :param consumer_tag: Specify your own consumer tag
 
         :yields: tuple(spec.Basic.Deliver, spec.BasicProperties, bytes)
 
@@ -2156,7 +2169,7 @@ class BlockingChannel:
         See `BlockingConnection.process_data_events()` for documentation of args
         and behavior.
 
-        :param float time_limit:
+        :param time_limit:
 
         """
         self.connection.process_data_events(time_limit=time_limit)
@@ -2235,8 +2248,8 @@ class BlockingChannel:
         confirm mode. The acknowledgement can be for a single message or a
         set of messages up to and including a specific message.
 
-        :param int delivery_tag: The server-assigned delivery tag
-        :param bool multiple: If set to True, the delivery tag is treated as
+        :param delivery_tag: The server-assigned delivery tag
+        :param multiple: If set to True, the delivery tag is treated as
                               "up to and including", so that multiple messages
                               can be acknowledged with a single method. If set
                               to False, the delivery tag refers to a single
@@ -2255,15 +2268,15 @@ class BlockingChannel:
         It can be used to interrupt and cancel large incoming messages, or
         return untreatable messages to their original queue.
 
-        :param int delivery_tag: The server-assigned delivery tag
-        :param bool multiple: If set to True, the delivery tag is treated as
+        :param delivery_tag: The server-assigned delivery tag
+        :param multiple: If set to True, the delivery tag is treated as
                               "up to and including", so that multiple messages
                               can be acknowledged with a single method. If set
                               to False, the delivery tag refers to a single
                               message. If the multiple field is 1, and the
                               delivery tag is zero, this indicates
                               acknowledgement of all outstanding messages.
-        :param bool requeue: If requeue is true, the server will attempt to
+        :param requeue: If requeue is true, the server will attempt to
                              requeue the message. If requeue is false or the
                              requeue attempt fails the messages are discarded or
                              dead-lettered.
@@ -2283,8 +2296,8 @@ class BlockingChannel:
         """Get a single message from the AMQP broker. Returns a sequence with
         the method frame, message properties, and body.
 
-        :param str queue: Name of queue from which to get a message
-        :param bool auto_ack: Tell the broker to not expect a reply
+        :param queue: Name of queue from which to get a message
+        :param auto_ack: Tell the broker to not expect a reply
         :returns: a three-tuple; (None, None, None) if the queue was empty;
             otherwise (method, properties, body); NOTE: body may be None
         :rtype: (spec.Basic.GetOk|None, spec.BasicProperties|None, bytes|None)
@@ -2325,11 +2338,11 @@ class BlockingChannel:
           synchronous implementation has no way to know how long to wait for
           the Basic.Return.
 
-        :param str exchange: The exchange to publish to
-        :param str routing_key: The routing key to bind on
-        :param bytes body: The message body; empty string if no body
-        :param pika.spec.BasicProperties properties: message properties
-        :param bool mandatory: The mandatory flag
+        :param exchange: The exchange to publish to
+        :param routing_key: The routing key to bind on
+        :param body: The message body; empty string if no body
+        :param properties: message properties
+        :param mandatory: The mandatory flag
 
         :raises UnroutableError: raised when a message published in
             publisher-acknowledgments mode (see
@@ -2398,7 +2411,7 @@ class BlockingChannel:
         following message is already held locally, rather than needing to be
         sent down the channel. Prefetching gives a performance improvement.
 
-        :param int prefetch_size:  This field specifies the prefetch window
+        :param prefetch_size:  This field specifies the prefetch window
                                    size. The server will send a message in
                                    advance if it is equal to or smaller in size
                                    than the available prefetch size (and also
@@ -2407,7 +2420,7 @@ class BlockingChannel:
                                    although other prefetch limits may still
                                    apply. The prefetch-size is ignored if the
                                    no-ack option is set in the consumer.
-        :param int prefetch_count: Specifies a prefetch window in terms of whole
+        :param prefetch_count: Specifies a prefetch window in terms of whole
                                    messages. This field may be used in
                                    combination with the prefetch-size field; a
                                    message will only be sent in advance if both
@@ -2415,7 +2428,7 @@ class BlockingChannel:
                                    and connection level) allow it. The
                                    prefetch-count is ignored if the no-ack
                                    option is set in the consumer.
-        :param bool global_qos:    Should the QoS apply to all channels on the
+        :param global_qos:    Should the QoS apply to all channels on the
                                    connection.
 
         """
@@ -2431,7 +2444,7 @@ class BlockingChannel:
         on a specified channel. Zero or more messages may be redelivered. This
         method replaces the asynchronous Recover.
 
-        :param bool requeue: If False, the message will be redelivered to the
+        :param requeue: If False, the message will be redelivered to the
                              original recipient. If True, the server will
                              attempt to requeue the message, potentially then
                              delivering it to an alternative subscriber.
@@ -2447,8 +2460,8 @@ class BlockingChannel:
         message. It can be used to interrupt and cancel large incoming messages,
         or return untreatable messages to their original queue.
 
-        :param int delivery_tag: The server-assigned delivery tag
-        :param bool requeue: If requeue is true, the server will attempt to
+        :param delivery_tag: The server-assigned delivery tag
+        :param requeue: If requeue is true, the server will attempt to
                              requeue the message. If requeue is false or the
                              requeue attempt fails the messages are discarded or
                              dead-lettered.
@@ -2501,15 +2514,15 @@ class BlockingChannel:
         exchange does not already exist, the server MUST raise a channel
         exception with reply code 404 (not found).
 
-        :param str exchange: The exchange name consists of a non-empty sequence of
+        :param exchange: The exchange name consists of a non-empty sequence of
                           these characters: letters, digits, hyphen, underscore,
                           period, or colon.
-        :param str exchange_type: The exchange type to use
-        :param bool passive: Perform a declare or just check to see if it exists
-        :param bool durable: Survive a reboot of RabbitMQ
-        :param bool auto_delete: Remove when no more queues are bound to it
-        :param bool internal: Can only be published to by other exchanges
-        :param dict arguments: Custom key/value pair arguments for the exchange
+        :param exchange_type: The exchange type to use
+        :param passive: Perform a declare or just check to see if it exists
+        :param durable: Survive a reboot of RabbitMQ
+        :param auto_delete: Remove when no more queues are bound to it
+        :param internal: Can only be published to by other exchanges
+        :param arguments: Custom key/value pair arguments for the exchange
         :returns: Method frame from the Exchange.Declare-ok response
         :rtype: `pika.frame.Method` having `method` attribute of type
             `spec.Exchange.DeclareOk`
@@ -2537,8 +2550,8 @@ class BlockingChannel:
                        ) -> pika.frame.Method[pika.spec.Exchange.DeleteOk]:
         """Delete the exchange.
 
-        :param str exchange: The exchange name
-        :param bool if_unused: only delete if the exchange is unused
+        :param exchange: The exchange name
+        :param if_unused: only delete if the exchange is unused
         :returns: Method frame from the Exchange.Delete-ok response
         :rtype: `pika.frame.Method` having `method` attribute of type
             `spec.Exchange.DeleteOk`
@@ -2562,10 +2575,10 @@ class BlockingChannel:
     ) -> pika.frame.Method[pika.spec.Exchange.BindOk]:
         """Bind an exchange to another exchange.
 
-        :param str destination: The destination exchange to bind
-        :param str source: The source exchange to bind to
-        :param str routing_key: The routing key to bind on
-        :param dict arguments: Custom key/value pair arguments for the binding
+        :param destination: The destination exchange to bind
+        :param source: The source exchange to bind to
+        :param routing_key: The routing key to bind on
+        :param arguments: Custom key/value pair arguments for the binding
         :returns: Method frame from the Exchange.Bind-ok response
         :rtype: `pika.frame.Method` having `method` attribute of type
           `spec.Exchange.BindOk`
@@ -2593,10 +2606,10 @@ class BlockingChannel:
     ) -> pika.frame.Method[pika.spec.Exchange.UnbindOk]:
         """Unbind an exchange from another exchange.
 
-        :param str destination: The destination exchange to unbind
-        :param str source: The source exchange to unbind from
-        :param str routing_key: The routing key to unbind
-        :param dict arguments: Custom key/value pair arguments for the binding
+        :param destination: The destination exchange to unbind
+        :param source: The source exchange to unbind from
+        :param routing_key: The routing key to unbind
+        :param arguments: Custom key/value pair arguments for the binding
         :returns: Method frame from the Exchange.Unbind-ok response
         :rtype: `pika.frame.Method` having `method` attribute of type
             `spec.Exchange.UnbindOk`
@@ -2631,14 +2644,14 @@ class BlockingChannel:
         one. Retrieve this auto-generated queue name from the returned
         `spec.Queue.DeclareOk` method frame.
 
-        :param str queue: The queue name; if empty string, the broker will
+        :param queue: The queue name; if empty string, the broker will
             create a unique queue name
-        :param bool passive: Only check to see if the queue exists and raise
+        :param passive: Only check to see if the queue exists and raise
           `ChannelClosed` if it doesn't
-        :param bool durable: Survive reboots of the broker
-        :param bool exclusive: Only allow access by the current connection
-        :param bool auto_delete: Delete after consumer cancels or disconnects
-        :param dict arguments: Custom key/value arguments for the queue
+        :param durable: Survive reboots of the broker
+        :param exclusive: Only allow access by the current connection
+        :param auto_delete: Delete after consumer cancels or disconnects
+        :param arguments: Custom key/value arguments for the queue
         :returns: Method frame from the Queue.Declare-ok response
         :rtype: `pika.frame.Method` having `method` attribute of type
             `spec.Queue.DeclareOk`
@@ -2665,9 +2678,9 @@ class BlockingChannel:
                     ) -> pika.frame.Method[pika.spec.Queue.DeleteOk]:
         """Delete a queue from the broker.
 
-        :param str queue: The queue to delete
-        :param bool if_unused: only delete if it's unused
-        :param bool if_empty: only delete if the queue is empty
+        :param queue: The queue to delete
+        :param if_unused: only delete if it's unused
+        :param if_empty: only delete if the queue is empty
         :returns: Method frame from the Queue.Delete-ok response
         :rtype: `pika.frame.Method` having `method` attribute of type
             `spec.Queue.DeleteOk`
@@ -2687,7 +2700,7 @@ class BlockingChannel:
                     queue: str) -> pika.frame.Method[pika.spec.Queue.PurgeOk]:
         """Purge all of the messages from the specified queue
 
-        :param str queue: The queue to purge
+        :param queue: The queue to purge
         :returns: Method frame from the Queue.Purge-ok response
         :rtype: `pika.frame.Method` having `method` attribute of type
             `spec.Queue.PurgeOk`
@@ -2709,10 +2722,10 @@ class BlockingChannel:
     ) -> pika.frame.Method[pika.spec.Queue.BindOk]:
         """Bind the queue to the specified exchange
 
-        :param str queue: The queue to bind to the exchange
-        :param str exchange: The source exchange to bind to
-        :param str routing_key: The routing key to bind on
-        :param dict arguments: Custom key/value pair arguments for the binding
+        :param queue: The queue to bind to the exchange
+        :param exchange: The source exchange to bind to
+        :param routing_key: The routing key to bind on
+        :param arguments: Custom key/value pair arguments for the binding
 
         :returns: Method frame from the Queue.Bind-ok response
         :rtype: `pika.frame.Method` having `method` attribute of type
@@ -2740,10 +2753,10 @@ class BlockingChannel:
     ) -> pika.frame.Method[pika.spec.Queue.UnbindOk]:
         """Unbind a queue from an exchange.
 
-        :param str queue: The queue to unbind from the exchange
-        :param str exchange: The source exchange to bind from
-        :param str routing_key: The routing key to unbind
-        :param dict arguments: Custom key/value pair arguments for the binding
+        :param queue: The queue to unbind from the exchange
+        :param exchange: The source exchange to bind from
+        :param routing_key: The routing key to unbind
+        :param arguments: Custom key/value pair arguments for the binding
 
         :returns: Method frame from the Queue.Unbind-ok response
         :rtype: `pika.frame.Method` having `method` attribute of type

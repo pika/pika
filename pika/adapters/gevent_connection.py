@@ -55,23 +55,22 @@ class GeventConnection(BaseConnection):
         """Create a new GeventConnection instance and connect to RabbitMQ on
         Gevent's event-loop.
 
-        :param pika.connection.Parameters|None parameters: The connection
+        :param parameters: The connection
             parameters
-        :param callable|None on_open_callback: The method to call when the
+        :param on_open_callback: The method to call when the
             connection is open
-        :param callable|None on_open_error_callback: Called if the connection
+        :param on_open_error_callback: Called if the connection
             can't be established or connection establishment is interrupted by
             `Connection.close()`:
             on_open_error_callback(Connection, exception)
-        :param callable|None on_close_callback: Called when a previously fully
+        :param on_close_callback: Called when a previously fully
             open connection is closed:
             `on_close_callback(Connection, exception)`, where `exception` is
             either an instance of `exceptions.ConnectionClosed` if closed by
             user or broker or exception of another type that describes the
             cause of connection failure
-        :param custom_ioloop: Use a custom Gevent ILoop.
-            Type: `gevent._interfaces.ILoop | nbio_interface.AbstractIOServices | None`.
-        :param bool internal_connection_workflow: True for autonomous connection
+        :param custom_ioloop: Use a custom Gevent ILoop
+        :param internal_connection_workflow: True for autonomous connection
             establishment which is default; False for externally-managed
             connection workflow via the `create_connection()` factory
         """
@@ -114,14 +113,23 @@ class GeventConnection(BaseConnection):
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
         """Implement
         :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
+        :param connection_configs: One or more connection parameter objects
+        :param on_done: Callback to report when connection workflow is done
+        :param custom_ioloop: Optional custom Gevent ILoop to use for the
+            connection workflow; if None, a new _GeventSelectorIOLoop will be
+            created
+        :param workflow: Optional connection workflow instance to use
         """
         custom_ioloop = (custom_ioloop or
                          _GeventSelectorIOLoop(gevent.get_hub()))
 
         nbio = _GeventSelectorIOServicesAdapter(custom_ioloop)
 
-        def connection_factory(params):
-            """Connection factory."""
+        def connection_factory(params) -> GeventConnection:
+            """Connection factory.
+
+            :param params: Connection parameters
+            """
             if params is None:
                 raise ValueError('Expected pika.connection.Parameters '
                                  'instance, but got None in params arg.')
@@ -206,7 +214,7 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
 
     def __init__(self, gevent_hub: gevent.hub.Hub | None = None) -> None:
         """
-        :param gevent.hub.Hub gevent_hub: Gevent hub to use.
+        :param gevent_hub: Gevent hub to use.
         """
         self._hub = gevent_hub or gevent.get_hub()
         self._io_watchers_by_fd: dict[int, Any] = {}
@@ -216,7 +224,7 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
         # For adding callbacks from other threads. See `add_callback(..)`.
         self._callback_queue = _TSafeCallbackQueue()
 
-        def run_callback_in_main_thread(fd, events):
+        def run_callback_in_main_thread(fd, events) -> None:
             """Swallow the fd and events arguments."""
             del fd
             del events
@@ -261,7 +269,7 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
         ioloop that is running in a different thread via
         `ioloop.add_callback_threadsafe(ioloop.stop)`
 
-        :param callable callback: The callback method
+        :param callback: The callback method
         """
         if gevent.get_hub() == self._hub:
             # We're in the main thread; just add the callback.
@@ -283,8 +291,8 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
         from the time of call on best-effort basis. Returns a handle to the
         timeout.
 
-        :param float delay: The number of seconds to wait to call callback
-        :param callable callback: The callback method
+        :param delay: The number of seconds to wait to call callback
+        :param callback: The callback method
         :returns: handle to the created timeout that may be passed to
             `remove_timeout()`
         :rtype: object
@@ -305,10 +313,10 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
                     events: int) -> None:
         """Start watching the given file descriptor for events
 
-        :param int fd: The file descriptor
-        :param callable handler: When requested event(s) occur,
+        :param fd: The file descriptor
+        :param handler: When requested event(s) occur,
             `handler(fd, events)` will be called.
-        :param int events: The event mask (READ|WRITE)
+        :param events: The event mask (READ|WRITE)
         """
         io_watcher = self._hub.loop.io(
             fd, events)  # pyright: ignore[reportOptionalMemberAccess]
@@ -318,8 +326,8 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
     def update_handler(self, fd: int, events: int) -> None:
         """Change the events being watched for.
 
-        :param int fd: The file descriptor
-        :param int events: The new event mask (READ|WRITE)
+        :param fd: The file descriptor
+        :param events: The new event mask (READ|WRITE)
         """
         io_watcher = self._io_watchers_by_fd[fd]
         # Save callback from the original watcher. The close the old watcher
@@ -332,7 +340,7 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
     def remove_handler(self, fd: int) -> None:
         """Stop watching the given file descriptor for events
 
-        :param int fd: The file descriptor
+        :param fd: The file descriptor
         """
         io_watcher = self._io_watchers_by_fd[fd]
         io_watcher.close()
@@ -351,6 +359,13 @@ class _GeventSelectorIOServicesAdapter(SelectorIOServicesAdapter):
                     proto: int = 0,
                     flags: int = 0) -> nbio_interface.AbstractIOReference:
         """Implement :py:meth:`.nbio_interface.AbstractIOServices.getaddrinfo()`.
+        :param host: Hostname or IP address
+        :param port: TCP port number
+        :param on_done: The callback to call with the result of getaddrinfo
+        :param family: Socket address family (e.g. ``socket.AF_INET``)
+        :param socktype: Socket type (e.g. ``socket.SOCK_STREAM``)
+        :param proto: Protocol number (0 for default)
+        :param flags: :func:`socket.getaddrinfo` flags
         """
         resolver = _GeventAddressResolver(native_loop=self._loop,
                                           host=host,
@@ -410,7 +425,7 @@ class _GeventAddressResolver:
                  on_done: Callable[..., None]) -> None:
         """Initialize the `_GeventAddressResolver`.
 
-        :param AbstractSelectorIOLoop native_loop:
+        :param native_loop:
         :param host: `see socket.getaddrinfo()`
         :param port: `see socket.getaddrinfo()`
         :param family: `see socket.getaddrinfo()`

@@ -88,8 +88,8 @@ class AbstractSelectorIOLoop:
         from the time of call on best-effort basis. Returns a handle to the
         timeout.
 
-        :param float delay: The number of seconds to wait to call callback
-        :param callable callback: The callback method
+        :param delay: The number of seconds to wait to call callback
+        :param callback: The callback method
         :returns: handle to the created timeout that may be passed to
             `remove_timeout()`
         :rtype: object
@@ -116,7 +116,7 @@ class AbstractSelectorIOLoop:
         ioloop that is running in a different thread via
         `ioloop.add_callback_threadsafe(ioloop.stop)`
 
-        :param callable callback: The callback method
+        :param callback: The callback method
 
         """
 
@@ -125,10 +125,10 @@ class AbstractSelectorIOLoop:
                     events: int) -> None:
         """Start watching the given file descriptor for events
 
-        :param int fd: The file descriptor
-        :param callable handler: When requested event(s) occur,
+        :param fd: The file descriptor
+        :param handler: When requested event(s) occur,
             `handler(fd, events)` will be called.
-        :param int events: The event mask using READ, WRITE, ERROR.
+        :param events: The event mask using READ, WRITE, ERROR.
 
         """
 
@@ -136,8 +136,8 @@ class AbstractSelectorIOLoop:
     def update_handler(self, fd: int, events: int) -> None:
         """Changes the events we watch for
 
-        :param int fd: The file descriptor
-        :param int events: The event mask using READ, WRITE, ERROR
+        :param fd: The file descriptor
+        :param events: The event mask using READ, WRITE, ERROR
 
         """
 
@@ -145,7 +145,7 @@ class AbstractSelectorIOLoop:
     def remove_handler(self, fd: int) -> None:
         """Stop watching the given file descriptor for events
 
-        :param int fd: The file descriptor
+        :param fd: The file descriptor
 
         """
 
@@ -166,9 +166,9 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
     """
 
-    def __init__(self, native_loop: AbstractSelectorIOLoop):
+    def __init__(self, native_loop: AbstractSelectorIOLoop) -> None:
         """
-        :param AbstractSelectorIOLoop native_loop: An instance compatible with
+        :param native_loop: An instance compatible with
             the `AbstractSelectorIOLoop` interface, but not necessarily derived
             from it.
         """
@@ -211,7 +211,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """
         self._loop.stop()
 
-    def add_callback_threadsafe(self, callback):
+    def add_callback_threadsafe(self, callback) -> None:
         """Implement
         :py:meth:`.nbio_interface.AbstractIOServices.add_callback_threadsafe()`.
 
@@ -221,6 +221,8 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
     def call_later(self, delay, callback: Callable[..., None]) -> _TimerHandle:
         """Implement :py:meth:`.nbio_interface.AbstractIOServices.call_later()`.
 
+        :param delay: The number of seconds to wait to call callback
+        :param callback: The callback to call after delay seconds
         """
         return _TimerHandle(self._loop.call_later(delay, callback), self._loop)
 
@@ -234,6 +236,13 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
                     flags: int = 0) -> nbio_interface.AbstractIOReference:
         """Implement :py:meth:`.nbio_interface.AbstractIOServices.getaddrinfo()`.
 
+        :param host: Hostname or IP address
+        :param port: TCP port number
+        :param on_done: Callback to report when done
+        :param family: Socket address family (e.g. ``socket.AF_INET``)
+        :param socktype: Socket type (e.g. ``socket.SOCK_STREAM``)
+        :param proto: Protocol number (0 for default)
+        :param flags: :func:`socket.getaddrinfo` flags
         """
         return _SelectorIOLoopIOHandle(
             _AddressResolver(native_loop=self._loop,
@@ -249,6 +258,8 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """Implement
         :py:meth:`.nbio_interface.AbstractFileDescriptorServices.set_reader()`.
 
+        :param fd: File descriptor
+        :param on_readable: The callback to call when the file descriptor is readable
         """
         LOGGER.debug('SelectorIOServicesAdapter.set_reader(%s, %r)', fd,
                      on_readable)
@@ -278,6 +289,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """Implement
         :py:meth:`.nbio_interface.AbstractFileDescriptorServices.remove_reader()`.
 
+        :param fd: File descriptor
         """
         LOGGER.debug('SelectorIOServicesAdapter.remove_reader(%s)', fd)
 
@@ -310,6 +322,8 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """Implement
         :py:meth:`.nbio_interface.AbstractFileDescriptorServices.set_writer()`.
 
+        :param fd: File descriptor
+        :param on_writable: The callback to call when the file descriptor is writable
         """
         LOGGER.debug('SelectorIOServicesAdapter.set_writer(%s, %r)', fd,
                      on_writable)
@@ -342,6 +356,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """Implement
         :py:meth:`.nbio_interface.AbstractFileDescriptorServices.remove_writer()`.
 
+        :param fd: File descriptor
         """
         LOGGER.debug('SelectorIOServicesAdapter.remove_writer(%s)', fd)
 
@@ -415,7 +430,7 @@ class _FileDescriptorCallbacks:
 
     def __init__(self,
                  reader: Callable[[], None] | None = None,
-                 writer: Callable[[], None] | None = None):
+                 writer: Callable[[], None] | None = None) -> None:
         """Initialize file descriptor callbacks.
 
         :param reader: Read callback.
@@ -431,12 +446,12 @@ class _TimerHandle(nbio_interface.AbstractTimerReference):
 
     """
 
-    def __init__(self, handle: object, loop: AbstractSelectorIOLoop):
+    def __init__(self, handle: object, loop: AbstractSelectorIOLoop) -> None:
         """
 
-        :param opaque handle: timer handle from the underlying loop
+        :param handle: timer handle from the underlying loop
             implementation that may be passed to its `remove_timeout()` method
-        :param AbstractSelectorIOLoop loop: the I/O loop instance that created
+        :param loop: the I/O loop instance that created
             the timeout.
         """
         self._handle: object | None = handle
@@ -489,7 +504,7 @@ class _AddressResolver:
                  on_done: Callable[..., None]) -> None:
         """
 
-        :param AbstractSelectorIOLoop native_loop:
+        :param native_loop:
         :param host: `see socket.getaddrinfo()`
         :param port: `see socket.getaddrinfo()`
         :param family: `see socket.getaddrinfo()`

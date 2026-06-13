@@ -43,8 +43,8 @@ class Method(AMQPObject):
         """If the method is a content frame, set the properties and body to
         be carried as attributes of the class.
 
-        :param pika.frame.Properties properties: AMQP Basic Properties
-        :param bytes body: The message body
+        :param properties: AMQP Basic Properties
+        :param body: The message body
 
         """
         self._properties = properties
@@ -77,8 +77,8 @@ class Method(AMQPObject):
     def decode(self, encoded: bytes, offset: int = 0) -> Method:
         """Decode the method from a binary format.
 
-        :param bytes encoded: The encoded method data
-        :param int offset: The offset to start decoding from
+        :param encoded: The encoded method data
+        :param offset: The offset to start decoding from
 
         :rtype: Method
         """

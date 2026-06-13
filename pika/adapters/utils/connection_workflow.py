@@ -52,17 +52,17 @@ class AMQPConnectorPhaseErrorBase(AMQPConnectorException):
 
     """
 
-    def __init__(self, exception: BaseException, *args: Any):
+    def __init__(self, exception: BaseException, *args: Any) -> None:
         """
 
-        :param BaseException exception: error that occurred while waiting for a
+        :param exception: error that occurred while waiting for a
             subclass-specific protocol bring-up phase to complete.
         :param args: args for parent class
         """
         super().__init__(*args)
         self.exception = exception
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'{self.__class__.__name__}: {self.exception!r}'
 
 
@@ -95,9 +95,9 @@ class AMQPConnectionWorkflowFailed(AMQPConnectorException):
 
     """
 
-    def __init__(self, exceptions: Sequence[BaseException], *args: Any):
+    def __init__(self, exceptions: Sequence[BaseException], *args: Any) -> None:
         """
-        :param sequence exceptions: Exceptions that occurred during the
+        :param exceptions: Exceptions that occurred during the
             workflow.
         :param args: args to pass to base class
 
@@ -128,15 +128,15 @@ class AMQPConnector:
     def __init__(self,
                  conn_factory: Callable[[pika.connection.Parameters],
                                         nbio_interface.AbstractStreamProtocol],
-                 nbio: nbio_interface.AbstractIOServices):
+                 nbio: nbio_interface.AbstractIOServices) -> None:
         """
 
-        :param callable conn_factory: A function that takes
+        :param conn_factory: A function that takes
             `pika.connection.Parameters` as its only arg and returns a brand new
             `pika.connection.Connection`-based adapter instance each time it is
             called. The factory must instantiate the connection with
             `internal_connection_workflow=False`.
-        :param pika.adapters.utils.nbio_interface.AbstractIOServices nbio:
+        :param nbio:
 
         """
         self._conn_factory: Callable[
@@ -166,10 +166,10 @@ class AMQPConnector:
     ) -> None:
         """Asynchronously perform a single TCP/[SSL]/AMQP connection attempt.
 
-        :param tuple addr_record: a single resolved address record compatible
+        :param addr_record: a single resolved address record compatible
             with `socket.getaddrinfo()` format.
-        :param pika.connection.Parameters conn_params:
-        :param callable on_done: Function to call upon completion of the
+        :param conn_params: Connection parameters to use for this connection.
+        :param on_done: Function to call upon completion of the
             workflow: `on_done(pika.connection.Connection | BaseException)`. If
             exception, it's going to be one of the following:
                 `AMQPConnectorSocketConnectError`
@@ -309,7 +309,7 @@ class AMQPConnector:
         self, result: (pika.connection.Connection | BaseException)) -> None:
         """Clean up and invoke client's `on_done` callback.
 
-        :param pika.connection.Connection | BaseException result: value to pass
+        :param result: value to pass
             to user's `on_done` callback.
         """
         if isinstance(result, BaseException):
@@ -390,7 +390,7 @@ class AMQPConnector:
         Reports AMQPConnectorSocketConnectError if TCP socket connection
             failed.
 
-        :param None|BaseException exc: None on success; exception object on
+        :param exc: None on success; exception object on
             failure
 
         """
@@ -445,7 +445,7 @@ class AMQPConnector:
         Reports AMQPConnectorTransportSetupError if transport ([SSL]) setup
             failed.
 
-        :param sequence|BaseException result: On success, a two-tuple
+        :param result: On success, a two-tuple
             (transport, protocol); on failure, exception instance.
 
         """
@@ -486,9 +486,8 @@ class AMQPConnector:
 
         Reports AMQPConnectorAMQPHandshakeError if AMQP handshake failed.
 
-        :param pika.connection.Connection connection:
-        :param BaseException | None error: None on success, otherwise
-            failure
+        :param connection: AMQP connection instance from the callback.
+        :param error: None on success, otherwise failure
 
         """
         assert self._conn_params is not None
@@ -550,15 +549,15 @@ class AbstractAMQPConnectionWorkflow(
         """Asynchronously perform the workflow until success or all retries
         are exhausted. Called by the adapter.
 
-        :param sequence connection_configs: A sequence of one or more
+        :param connection_configs: A sequence of one or more
             `pika.connection.Parameters`-based objects. Will attempt to connect
             using each config in the given order.
-        :param callable connector_factory: call it without args to obtain a new
+        :param connector_factory: call it without args to obtain a new
             instance of `AMQPConnector` for each connection attempt.
             See `AMQPConnector` for details.
         :param native_loop: Native I/O loop passed by app to the adapter or
             obtained by the adapter by default.
-        :param callable on_done: Function to call upon completion of the
+        :param on_done: Function to call upon completion of the
             workflow:
             `on_done(pika.connection.Connection |
                      AMQPConnectionWorkflowFailed |
@@ -613,10 +612,10 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
 
     def __init__(self, _until_first_amqp_attempt: bool = False) -> None:
         """
-        :param int | float retry_pause: Non-negative number of seconds to wait
+        :param retry_pause: Non-negative number of seconds to wait
             before retrying the config sequence. Meaningful only if retries is
             greater than 0. Defaults to 2 seconds.
-        :param bool _until_first_amqp_attempt: INTERNAL USE ONLY; ends workflow
+        :param _until_first_amqp_attempt: INTERNAL USE ONLY; ends workflow
             after first AMQP handshake attempt, regardless of outcome (success
             or failure). The automatic connection logic in
             `pika.connection.Connection` enables this because it's not
@@ -667,7 +666,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         directly because `AbstractIOServices` is private to Pika
         implementation and its interface may change without notice.
 
-        :param pika.adapters.utils.nbio_interface.AbstractIOServices nbio:
+        :param nbio:
 
         """
         self._nbio = nbio
@@ -685,6 +684,19 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         as the overall number of connection attempts of the entire
         `connection_configs` sequence and pause between each sequence.
 
+        :param connection_configs: A sequence of one or more
+            `pika.connection.Parameters`-based objects.
+        :param connector_factory: call it without args to obtain a new
+            instance of `AMQPConnector` for each connection attempt. See
+            `AMQPConnector` for details.
+        :param native_loop: Native I/O loop passed by app to the adapter or
+            obtained by the adapter by default.
+        :param on_done: Function to call upon completion of the workflow.
+            Signature: `on_done(pika.connection.Connection |
+            AMQPConnectionWorkflowFailed |
+            AMQPConnectionWorkflowAborted)`. `Connection`-based adapter on
+            success, `AMQPConnectionWorkflowFailed` on failure,
+            `AMQPConnectionWorkflowAborted` if workflow was aborted.
         """
         if self._state != self._STATE_INIT:
             raise AMQPConnectorWrongState(
@@ -775,8 +787,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
     ) -> None:
         """Clean up and invoke client's `on_done` callback.
 
-        :param pika.connection.Connection | AMQPConnectionWorkflowFailed result:
-            value to pass to user's `on_done` callback.
+        :param result: value to pass to user's `on_done` callback.
         """
         if isinstance(result, BaseException):
             _LOG.error('AMQPConnectionWorkflow - reporting failure: %r', result)
@@ -794,7 +805,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         with the first Parameters object in self._connection_configs. If out of
         attempts, report `AMQPConnectionWorkflowFailed`.
 
-        :param bool first: if True, don't delay; otherwise delay next attempt by
+        :param first: if True, don't delay; otherwise delay next attempt by
             `self._retry_pause` seconds.
         """
         self._task_ref = None
@@ -858,7 +869,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         self, addrinfos_or_exc: (list[ADDRESS_INFO] | BaseException)) -> None:
         """Handles completion callback from asynchronous `getaddrinfo()`.
 
-        :param list | BaseException addrinfos_or_exc: resolved address records
+        :param addrinfos_or_exc: resolved address records
             returned by `getaddrinfo()` or an exception object from failure.
         """
         assert self._connection_errors is not None
@@ -908,7 +919,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         conn_or_exc: (pika.connection.Connection | BaseException)) -> None:
         """Handle completion of connection attempt by `AMQPConnector`.
 
-        :param pika.connection.Connection | BaseException conn_or_exc: See
+        :param conn_or_exc: See
             `AMQPConnector.start()` for exception details.
 
         """
