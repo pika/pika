@@ -1,4 +1,4 @@
-"""Pika specific exceptions"""
+"""Pika specific exceptions."""
 
 from __future__ import annotations
 
@@ -98,16 +98,12 @@ class ConnectionClosed(AMQPConnectionError):
 
     @property
     def reply_code(self) -> int:
-        """ NEW in v1.0.0
-
-        """
+        """NEW in v1.0.0 :rtype: int."""
         return self.args[0]
 
     @property
     def reply_text(self) -> str:
-        """ NEW in v1.0.0
-
-        """
+        """NEW in v1.0.0 :rtype: str."""
         return self.args[1]
 
 
@@ -138,9 +134,7 @@ class ChannelWrongStateError(AMQPChannelError):
 
 
 class ChannelClosed(AMQPChannelError):
-    """The channel closed by client or by broker
-
-    """
+    """The channel closed by client or by broker."""
 
     def __init__(self, reply_code: int, reply_text: str) -> None:
         """
@@ -161,32 +155,28 @@ class ChannelClosed(AMQPChannelError):
 
     @property
     def reply_code(self) -> int:
-        """ NEW in v1.0.0
-
-        """
+        """NEW in v1.0.0 :rtype: int."""
         return self.args[0]
 
     @property
     def reply_text(self) -> str:
-        """ NEW in v1.0.0
-
-        """
+        """NEW in v1.0.0 :rtype: str."""
         return self.args[1]
 
 
 class ChannelClosedByBroker(ChannelClosed):
-    """`Channel.Close` from broker; may be passed as reason to channel's
-    on-closed callback of non-blocking connection adapters or raised by
-    `BlockingConnection`.
+    """
+    `Channel.Close` from broker; may be passed as reason to channel's on-closed callback of non-
+    blocking connection adapters or raised by `BlockingConnection`.
 
     NEW in v1.0.0
     """
 
 
 class ChannelClosedByClient(ChannelClosed):
-    """Channel closed by client upon receipt of `Channel.CloseOk`; may be passed
-    as reason to channel's on-closed callback of non-blocking connection
-    adapters, but not raised by `BlockingConnection`.
+    """
+    Channel closed by client upon receipt of `Channel.CloseOk`; may be passed as reason to channel's
+    on-closed callback of non-blocking connection adapters, but not raised by `BlockingConnection`.
 
     NEW in v1.0.0
     """
@@ -207,14 +197,13 @@ class ConsumerCancelled(AMQPChannelError):
 
 
 class UnroutableError(AMQPChannelError):
-    """Exception containing one or more unroutable messages returned by broker
-    via Basic.Return.
+    """
+    Exception containing one or more unroutable messages returned by broker via Basic.Return.
 
     Used by BlockingChannel.
 
-    In publisher-acknowledgements mode, this is raised upon receipt of Basic.Ack
-    from broker; in the event of Basic.Nack from broker, `NackError` is raised
-    instead
+    In publisher-acknowledgements mode, this is raised upon receipt of Basic.Ack from broker; in the
+    event of Basic.Nack from broker, `NackError` is raised instead
     """
 
     def __init__(self, messages: Sequence[ReturnedMessage]) -> None:
@@ -230,8 +219,9 @@ class UnroutableError(AMQPChannelError):
 
 
 class NackError(AMQPChannelError):
-    """This exception is raised when a message published in
-    publisher-acknowledgements mode is Nack'ed by the broker.
+    """
+    This exception is raised when a message published in publisher-acknowledgements mode is Nack'ed
+    by the broker.
 
     Used by BlockingChannel.
     """
@@ -309,11 +299,10 @@ class ChannelError(Exception):
 
 
 class ReentrancyError(Exception):
-    """The requested operation would result in unsupported recursion or
-    reentrancy.
+    """
+    The requested operation would result in unsupported recursion or reentrancy.
 
     Used by BlockingConnection/BlockingChannel
-
     """
 
 

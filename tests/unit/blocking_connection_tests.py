@@ -1,7 +1,5 @@
-"""
-Tests for pika.adapters.blocking_connection.BlockingConnection
+"""Tests for pika.adapters.blocking_connection.BlockingConnection."""
 
-"""
 import sys
 import unittest
 from unittest import mock
@@ -30,7 +28,7 @@ class SelectConnectionTemplate(
 
 
 class BlockingConnectionTests(unittest.TestCase):
-    """TODO: test properties"""
+    """TODO: test properties."""
 
     @patch.object(blocking_connection.select_connection,
                   'SelectConnection',

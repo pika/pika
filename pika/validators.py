@@ -1,12 +1,11 @@
-"""
-Common validation functions
-"""
+"""Common validation functions."""
+
 from typing import Any, Callable, Optional
 
 
 def require_string(value: Any, value_name: str) -> None:
-    """Require that value is a string
-
+    """
+    Require that value is a string.
 
     :param value: The value to validate
     :param value_name: Human-readable name of the value, used in error messages
@@ -18,8 +17,8 @@ def require_string(value: Any, value_name: str) -> None:
 
 def require_callback(callback: Callable[..., Any],
                      callback_name: str = 'callback') -> None:
-    """Require that callback is callable and is not None
-
+    """
+    Require that callback is callable and is not None.
 
     :param callback: The callback to validate
     :param callback_name: Human-readable name of the callback, used in error messages
@@ -31,12 +30,12 @@ def require_callback(callback: Callable[..., Any],
 
 
 def rpc_completion_callback(callback: Optional[Callable[..., Any]]) -> bool:
-    """Verify callback is callable if not None
+    """
+    Verify callback is callable if not None.
 
     :param callback: RPC completion callback, or None if no callback is expected (i.e. nowait=True)
     :returns: boolean indicating nowait
     :raises: TypeError
-
     """
     if callback is None:
         # No callback means we will not expect a response
@@ -50,8 +49,10 @@ def rpc_completion_callback(callback: Optional[Callable[..., Any]]) -> bool:
 
 
 def zero_or_greater(name: str, value: int) -> None:
-    """Verify that value is zero or greater. If not, 'name'
-    will be used in error message
+    """
+    Verify that value is zero or greater.
+
+    If not, 'name' will be used in error message
 
     :param name: value name to use in error message
     :param value: value to check

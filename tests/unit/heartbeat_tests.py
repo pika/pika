@@ -1,7 +1,5 @@
-"""
-Tests for pika.heartbeat
+"""Tests for pika.heartbeat."""
 
-"""
 import unittest
 from unittest import mock
 
@@ -10,9 +8,8 @@ from pika import connection, frame, heartbeat
 
 
 class ConstructableConnection(connection.Connection):
-    """Adds dummy overrides for `Connection`'s abstract methods so
-    that we can instantiate and test it.
-
+    """Adds dummy overrides for `Connection`'s abstract methods so that we can instantiate and test
+    it.
     """
 
     def _adapter_connect_stream(self):

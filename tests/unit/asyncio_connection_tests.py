@@ -1,6 +1,4 @@
-"""
-Tests for pika.adapters.asyncio_connection
-"""
+"""Tests for pika.adapters.asyncio_connection."""
 
 import asyncio
 import threading

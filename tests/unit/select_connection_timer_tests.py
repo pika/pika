@@ -1,7 +1,4 @@
-"""
-Tests for SelectConnection _Timer and _Timeout classes
-
-"""
+"""Tests for SelectConnection _Timer and _Timeout classes."""
 
 import math
 import unittest
@@ -34,7 +31,7 @@ class ChildTimeout(select_connection._Timeout):
 
 
 class TimeoutClassTests(unittest.TestCase):
-    """Test select_connection._Timeout class"""
+    """Test select_connection._Timeout class."""
 
     def test_properties(self):
         now = _now()
@@ -224,7 +221,7 @@ class TimeoutClassTests(unittest.TestCase):
 
 
 class TimerClassTests(unittest.TestCase):
-    """Test select_connection._Timer class"""
+    """Test select_connection._Timer class."""
 
     def test_close_empty(self):
         timer = select_connection._Timer()

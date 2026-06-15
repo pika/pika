@@ -1,7 +1,4 @@
-"""Base test classes for async_adapter_tests.py
-
-"""
-from __future__ import annotations
+"""Base test classes for async_adapter_tests.py."""
 
 import functools
 import logging
@@ -29,14 +26,12 @@ run_test_in_thread_with_timeout = create_run_in_thread_decorator(TEST_TIMEOUT *
 
 
 def make_stop_on_error_with_self(the_self=None):
-    """Create a decorator that stops test if the decorated method exits
-    with exception and causes the test to fail by re-raising that exception
-    after ioloop exits.
+    """
+    Create a decorator that stops test if the decorated method exits with exception and causes the
+    test to fail by re-raising that exception after ioloop exits.
 
-    :param None | AsyncTestCase the_self: if None, will use the first arg of
-        decorated method if it is an instance of AsyncTestCase, raising
-        exception otherwise.
-
+    :param None | AsyncTestCase the_self: if None, will use the first arg of     decorated method if
+    it is an instance of AsyncTestCase, raising     exception otherwise.
     """
 
     def stop_on_error_with_self_decorator(fun):
@@ -89,19 +84,30 @@ class AsyncTestCase(unittest.TestCase):
         self._public_stop_error_in = None  # exception passed to our stop()
         super().setUp()
 
-    def new_connection_params(
-            self) -> pika.ConnectionParameters | pika.URLParameters:
+    def new_connection_params(self):
+        """
+        :rtype: pika.ConnectionParameters
+
+        """
         if enable_tls():
             return self._new_tls_connection_params()
         return self._new_plaintext_connection_params()
 
-    def _new_tls_connection_params(self) -> pika.URLParameters:
+    def _new_tls_connection_params(self):
+        """
+        :rtype: pika.ConnectionParameters
+
+        """
         self.logger.info('testing using TLS/SSL connection to port 5671')
         url = 'amqps://localhost:5671/%2F?ssl_options=%7B%27ca_certs%27%3A%27tests%2Fcerts%2Fca_certificate.pem%27%2C%27keyfile%27%3A%27tests%2Fcerts%2Fclient_key.pem%27%2C%27certfile%27%3A%27tests%2Fcerts%2Fclient_certificate.pem%27%7D'
         return pika.URLParameters(url)
 
     @staticmethod
-    def _new_plaintext_connection_params() -> pika.ConnectionParameters:
+    def _new_plaintext_connection_params():
+        """
+        :rtype: pika.ConnectionParameters
+
+        """
         return pika.ConnectionParameters(host='127.0.0.1', port=5672)
 
     def tearDown(self):
@@ -114,7 +120,7 @@ class AsyncTestCase(unittest.TestCase):
         return method_desc
 
     def begin(self, channel):
-        """Extend to start the actual tests on the channel"""
+        """Extend to start the actual tests on the channel."""
         self.fail("AsyncTestCase.begin_test not extended")
 
     def start(self, adapter, ioloop_factory):
@@ -145,17 +151,18 @@ class AsyncTestCase(unittest.TestCase):
             self.connection = None
 
     def stop_ioloop_only(self):
-        """Request stopping of the connection's ioloop to end the test without
-        closing the connection
+        """Request stopping of the connection's ioloop to end the test without closing the
+        connection.
         """
         self._safe_remove_test_timeout()
         self.connection._nbio.stop()
 
     def stop(self, error=None):
-        """close the connection and stop the ioloop
+        """
+        Close the connection and stop the ioloop.
 
-        :param None | Exception error: if not None, will raise the given
-            exception after ioloop exits.
+        :param None | Exception error: if not None, will raise the given     exception after ioloop
+        exits.
         """
         if error is not None:
             if self._public_stop_error_in is None:
@@ -194,7 +201,7 @@ class AsyncTestCase(unittest.TestCase):
             self.connection._nbio.stop()
 
     def on_closed(self, connection, error):
-        """called when the connection has finished closing"""
+        """Called when the connection has finished closing."""
         self.logger.info('on_closed: %r %r', connection, error)
         self._conn_closed_reason = error
         self._stop()
@@ -213,7 +220,7 @@ class AsyncTestCase(unittest.TestCase):
         self.begin(channel)
 
     def on_timeout(self):
-        """called when stuck waiting for connection to close"""
+        """Called when stuck waiting for connection to close."""
         self.logger.error('%s timed out; on_timeout called at %s', self,
                           datetime.now(timezone.utc))
         self.timeout = None  # the dispatcher should have removed it
@@ -285,14 +292,13 @@ class AsyncAdapters:
 
     @run_test_in_thread_with_timeout
     def test_with_select_default(self):
-        """SelectConnection:DefaultPoller"""
+        """SelectConnection:DefaultPoller."""
         with mock.patch.multiple(select_connection, SELECT_TYPE=None):
             self.start(adapters.SelectConnection, select_connection.IOLoop)
 
     @run_test_in_thread_with_timeout
     def test_with_select_select(self):
-        """SelectConnection:select"""
-
+        """SelectConnection:select."""
         with mock.patch.multiple(select_connection, SELECT_TYPE='select'):
             self.start(adapters.SelectConnection, select_connection.IOLoop)
 
@@ -301,31 +307,28 @@ class AsyncAdapters:
         "poll not supported")
     @run_test_in_thread_with_timeout
     def test_with_select_poll(self):
-        """SelectConnection:poll"""
-
+        """SelectConnection:poll."""
         with mock.patch.multiple(select_connection, SELECT_TYPE='poll'):
             self.start(adapters.SelectConnection, select_connection.IOLoop)
 
     @unittest.skipIf(not hasattr(select, 'epoll'), "epoll not supported")
     @run_test_in_thread_with_timeout
     def test_with_select_epoll(self):
-        """SelectConnection:epoll"""
-
+        """SelectConnection:epoll."""
         with mock.patch.multiple(select_connection, SELECT_TYPE='epoll'):
             self.start(adapters.SelectConnection, select_connection.IOLoop)
 
     @unittest.skipIf(not hasattr(select, 'kqueue'), "kqueue not supported")
     @run_test_in_thread_with_timeout
     def test_with_select_kqueue(self):
-        """SelectConnection:kqueue"""
-
+        """SelectConnection:kqueue."""
         with mock.patch.multiple(select_connection, SELECT_TYPE='kqueue'):
             self.start(adapters.SelectConnection, select_connection.IOLoop)
 
     @unittest.skipIf(pika._utils.ON_WINDOWS, "Windows not supported")
     @run_test_in_thread_with_timeout
     def test_with_gevent(self):
-        """GeventConnection"""
+        """GeventConnection."""
         import gevent
 
         from pika.adapters.gevent_connection import GeventConnection, _GeventSelectorIOLoop
@@ -337,7 +340,7 @@ class AsyncAdapters:
 
     @run_test_in_thread_with_timeout
     def test_with_tornado(self):
-        """TornadoConnection"""
+        """TornadoConnection."""
         import tornado.ioloop
 
         from pika.adapters.tornado_connection import TornadoConnection
@@ -346,7 +349,7 @@ class AsyncAdapters:
 
     @run_test_in_thread_with_timeout
     def test_with_asyncio(self):
-        """AsyncioConnection"""
+        """AsyncioConnection."""
         import asyncio
 
         from pika.adapters.asyncio_connection import AsyncioConnection

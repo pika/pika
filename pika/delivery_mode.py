@@ -2,7 +2,8 @@ from enum import IntEnum
 
 
 class DeliveryMode(IntEnum):
-    """Enum for specifying the message delivery mode.
+    """
+    Enum for specifying the message delivery mode.
 
     Inherits from :class:`enum.IntEnum` so members are usable wherever an
     integer is expected, including the wire encoder for

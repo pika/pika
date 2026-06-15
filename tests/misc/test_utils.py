@@ -1,4 +1,4 @@
-"""Acceptance test utils"""
+"""Acceptance test utils."""
 
 import functools
 import logging
@@ -9,9 +9,9 @@ import pika._utils
 
 
 def retry_assertion(timeout_sec, retry_interval_sec=0.1):
-    """Creates a decorator that retries the decorated function or
-    method only upon `AssertionError` exception at the given retry interval
-    not to exceed the overall given timeout.
+    """
+    Creates a decorator that retries the decorated function or method only upon `AssertionError`
+    exception at the given retry interval not to exceed the overall given timeout.
 
     :param float timeout_sec: overall timeout in seconds
     :param float retry_interval_sec: amount of time to sleep
@@ -31,12 +31,11 @@ def retry_assertion(timeout_sec, retry_interval_sec=0.1):
     """
 
     def retry_assertion_decorator(func):
-        """Decorator"""
+        """Decorator."""
 
         @functools.wraps(func)
         def retry_assertion_wrap(*args, **kwargs):
-            """The wrapper"""
-
+            """The wrapper."""
             num_attempts = 0
             start_time = pika._utils.time_now()
 

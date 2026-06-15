@@ -1,7 +1,5 @@
-"""
-Tests for pika.adapters.blocking_connection.BlockingChannel
+"""Tests for pika.adapters.blocking_connection.BlockingChannel."""
 
-"""
 import unittest
 from collections import deque
 from unittest import mock

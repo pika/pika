@@ -1,6 +1,5 @@
-"""
-Tests for pika.channel.Channel
-"""
+"""Tests for pika.channel.Channel."""
+
 import collections
 import logging
 import sys
@@ -12,10 +11,13 @@ from pika import channel, connection, exceptions, frame, spec
 
 
 class ConnectionTemplate(connection.Connection):
-    """Template for using as mock spec_set for the pika Connection class. It
-    defines members accessed by the code under test that would be defined in
-    the base class's constructor.
     """
+    Template for using as mock spec_set for the pika Connection class.
+
+    It defines members accessed by the code under test that would be defined in the base class's
+    constructor.
+    """
+
     callbacks = None
 
     _adapter_connect_stream = connection.Connection._adapter_connect_stream

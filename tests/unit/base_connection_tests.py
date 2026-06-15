@@ -1,7 +1,4 @@
-"""
-Tests for pika.base_connection.BaseConnection
-
-"""
+"""Tests for pika.base_connection.BaseConnection."""
 
 import socket
 import unittest
@@ -19,9 +16,8 @@ except AttributeError:
 
 
 class ConstructibleBaseConnection(base_connection.BaseConnection):
-    """Adds dummy overrides for `BaseConnection`'s abstract methods so
-    that we can instantiate and test it.
-
+    """Adds dummy overrides for `BaseConnection`'s abstract methods so that we can instantiate and
+    test it.
     """
 
     @classmethod

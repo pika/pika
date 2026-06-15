@@ -22,15 +22,11 @@ class TestGetNativeIOLoop(unittest.TestCase,
 
 """
 
-from pika.adapters.utils import nbio_interface
 from tests.wrappers.threaded_test_wrapper import run_in_thread_with_timeout
 
 
 class IOServicesTestStubs:
-    """Provides a stub test method for each combination of parameters we wish to
-    test
-
-    """
+    """Provides a stub test method for each combination of parameters we wish to test."""
 
     # Overridden by framework-specific test methods
     _nbio_factory = None
@@ -38,32 +34,35 @@ class IOServicesTestStubs:
     _use_ssl = None
 
     def start(self):
-        """Subclasses must override to run the test. This method is called
-        from a thread.
+        """
+        Subclasses must override to run the test.
 
+        This method is called from a thread.
         """
         raise NotImplementedError
 
-    def create_nbio(self) -> nbio_interface.AbstractIOServices:
-        """Create the configured AbstractIOServices adaptation and schedule
-        it to be closed automatically when the test terminates.
+    def create_nbio(self):
+        """
+        Create the configured AbstractIOServices adaptation and schedule it to be closed
+        automatically when the test terminates.
 
         :param unittest.TestCase self:
-
+        :rtype: pika.adapters.utils.nbio_interface.AbstractIOServices
         """
         nbio = self._nbio_factory()
         self.addCleanup(nbio.close)
         return nbio
 
     def _run_start(self, nbio_factory, native_loop, use_ssl=False):
-        """Called by framework-specific test stubs to initialize test paramters
-        and execute the `self.start()` method.
+        """
+        Called by framework-specific test stubs to initialize test paramters and execute the
+        `self.start()` method.
 
-        :param nbio_interface.AbstractIOServices _() nbio_factory: function
-            to call to create an instance of `AbstractIOServices` adaptation.
+        :param nbio_interface.AbstractIOServices _() nbio_factory: function to call to create an
+            instance of `AbstractIOServices` adaptation.
         :param native_loop: native loop implementation instance
-        :param bool use_ssl: Whether to test with SSL instead of Plaintext
-            transport. Defaults to Plaintext.
+        :param bool use_ssl: Whether to test with SSL instead of Plaintext transport. Defaults to
+            Plaintext.
         """
         self._nbio_factory = nbio_factory
         self._native_loop = native_loop

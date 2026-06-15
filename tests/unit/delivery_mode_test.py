@@ -1,6 +1,5 @@
-"""
-Tests for pika.delivery_mode
-"""
+"""Tests for pika.delivery_mode."""
+
 import struct
 import unittest
 
@@ -17,12 +16,12 @@ class DeliveryModeTests(unittest.TestCase):
         self.assertEqual(DeliveryMode.Persistent.value, 2)
 
     def test_delivery_mode_is_int(self):
-        """DeliveryMode members must be usable as integers.
+        """
+        DeliveryMode members must be usable as integers.
 
-        Required for compatibility with the wire encoder, which calls
-        ``struct.pack('B', delivery_mode)``.  ``struct.pack`` requires
-        ``__index__()`` on its argument; a plain ``Enum`` does not satisfy
-        this and a publish would raise ``struct.error: required argument
+        Required for compatibility with the wire encoder, which calls ``struct.pack('B',
+        delivery_mode)``.  ``struct.pack`` requires ``__index__()`` on its argument; a plain
+        ``Enum`` does not satisfy this and a publish would raise ``struct.error: required argument
         is not an integer``.
         """
         self.assertEqual(int(DeliveryMode.Transient), 1)
@@ -43,9 +42,11 @@ class DeliveryModeTests(unittest.TestCase):
         self.assertEqual(struct.pack('B', DeliveryMode.Persistent), b'\x02')
 
     def test_basic_properties_encode_with_enum(self):
-        """A ``BasicProperties`` constructed with a ``DeliveryMode`` enum
-        member must encode without error.  This exercises the real
-        publish path that broke when ``DeliveryMode`` was a plain enum.
+        """
+        A ``BasicProperties`` constructed with a ``DeliveryMode`` enum member must encode without
+        error.
+
+        This exercises the real publish path that broke when ``DeliveryMode`` was a plain enum.
         """
         props = BasicProperties(delivery_mode=DeliveryMode.Persistent)
         encoded = b''.join(props.encode())
@@ -63,8 +64,8 @@ class DeliveryModeTests(unittest.TestCase):
         self.assertGreater(len(encoded), 0)
 
     def test_basic_properties_round_trip_with_enum(self):
-        """Encoding a ``BasicProperties`` with a ``DeliveryMode`` enum
-        member and decoding it must recover the integer value.
+        """Encoding a ``BasicProperties`` with a ``DeliveryMode`` enum member and decoding it must
+        recover the integer value.
         """
         original = BasicProperties(delivery_mode=DeliveryMode.Persistent)
         encoded = b''.join(original.encode())
@@ -76,9 +77,7 @@ class DeliveryModeTests(unittest.TestCase):
         self.assertEqual(decoded.delivery_mode, DeliveryMode.Persistent)
 
     def test_basic_properties_round_trip_with_integer(self):
-        """Encoding with an integer literal and decoding must recover the
-        same integer.
-        """
+        """Encoding with an integer literal and decoding must recover the same integer."""
         original = BasicProperties(delivery_mode=1)
         encoded = b''.join(original.encode())
         decoded = BasicProperties()
@@ -86,9 +85,8 @@ class DeliveryModeTests(unittest.TestCase):
         self.assertEqual(decoded.delivery_mode, 1)
 
     def test_basic_properties_encode_rejects_non_integer(self):
-        """A ``BasicProperties`` constructed with a non-integer
-        delivery_mode (e.g. a string) must raise at encode time so callers
-        passing the wrong type get a useful diagnostic.
+        """A ``BasicProperties`` constructed with a non-integer delivery_mode (e.g. a string) must
+        raise at encode time so callers passing the wrong type get a useful diagnostic.
         """
         props = BasicProperties(delivery_mode='persistent')  # type: ignore
         with self.assertRaises((struct.error, TypeError)):

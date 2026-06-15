@@ -1,12 +1,11 @@
-"""Using Pika with a Twisted reactor.
+"""
+Using Pika with a Twisted reactor.
 
-The interfaces in this module are Deferred-based when possible. This means that
-the connection.channel() method and most of the channel methods return
-Deferreds instead of taking a callback argument and that basic_consume()
-returns a Twisted DeferredQueue where messages from the server will be
-stored. Refer to the docstrings for TwistedProtocolConnection.channel() and the
+The interfaces in this module are Deferred-based when possible. This means that the
+connection.channel() method and most of the channel methods return Deferreds instead of taking a
+callback argument and that basic_consume() returns a Twisted DeferredQueue where messages from the
+server will be stored. Refer to the docstrings for TwistedProtocolConnection.channel() and the
 TwistedChannel class for details.
-
 """
 
 from __future__ import annotations
@@ -41,10 +40,9 @@ LOGGER = logging.getLogger(__name__)
 
 
 class ClosableDeferredQueue(defer.DeferredQueue):
-    """
-    Like the normal Twisted DeferredQueue, but after close() is called with an
-    exception instance all pending Deferreds are errbacked and further attempts
-    to call get() or put() return a Failure wrapping that exception.
+    """Like the normal Twisted DeferredQueue, but after close() is called with an exception instance
+    all pending Deferreds are errbacked and further attempts to call get() or put() return a Failure
+    wrapping that exception.
     """
 
     def __init__(self,
@@ -56,8 +54,8 @@ class ClosableDeferredQueue(defer.DeferredQueue):
     def put(self, obj: Any) -> None | (  # type: ignore[override]
             defer.Deferred[Any]):
         """
-        Like the original :meth:`DeferredQueue.put` method, but returns an
-        errback if the queue is closed.
+        Like the original :meth:`DeferredQueue.put` method, but returns an errback if the queue is
+        closed.
 
         :param obj: Object to put into the queue
         """
@@ -69,13 +67,12 @@ class ClosableDeferredQueue(defer.DeferredQueue):
 
     def get(self) -> defer.Deferred[Any]:
         """
-        Returns a Deferred that will fire with the next item in the queue, when
-        it's available.
+        Returns a Deferred that will fire with the next item in the queue, when it's available.
 
         The Deferred will errback if the queue is closed.
 
         :returns: Deferred that fires with the next item.
-
+        :rtype: Deferred
         """
         if self.closed:
             LOGGER.error('Impossible to get from the queue, it is closed.')
@@ -83,7 +80,8 @@ class ClosableDeferredQueue(defer.DeferredQueue):
         return defer.DeferredQueue.get(self)
 
     def close(self, reason: Exception | None) -> None:
-        """Closes the queue.
+        """
+        Closes the queue.
 
         Errback the pending calls to :meth:`get()`.
 
@@ -103,16 +101,16 @@ ReceivedMessage = namedtuple("ReceivedMessage",
 
 
 class TwistedChannel:
-    """A wrapper around Pika's Channel.
+    """
+    A wrapper around Pika's Channel.
 
-    Channel methods that normally take a callback argument are wrapped to
-    return a Deferred that fires with whatever would be passed to the callback.
-    If the channel gets closed, all pending Deferreds are errbacked with a
-    ChannelClosed exception. The returned Deferreds fire with whatever
-    arguments the callback to the original method would receive.
+    Channel methods that normally take a callback argument are wrapped to return a Deferred that
+    fires with whatever would be passed to the callback. If the channel gets closed, all pending
+    Deferreds are errbacked with a ChannelClosed exception. The returned Deferreds fire with
+    whatever arguments the callback to the original method would receive.
 
-    Some methods like basic_consume and basic_get are wrapped in a special way,
-    see their docstrings for details.
+    Some methods like basic_consume and basic_get are wrapped in a special way, see their docstrings
+    for details.
     """
 
     def __init__(self, channel: channel.Channel) -> None:
@@ -166,15 +164,13 @@ class TwistedChannel:
         self, method_frame: pika.frame.Method[pika.spec.Basic.Cancel]
     ) -> (pika.frame.Method[pika.spec.Basic.Cancel] |
           pika.frame.Method[pika.spec.Basic.CancelOk]):
-        """Called by impl when broker cancels consumer via Basic.Cancel.
+        """
+        Called by impl when broker cancels consumer via Basic.Cancel.
 
-        This is a RabbitMQ-specific feature. The circumstances include deletion
-        of queue being consumed as well as failure of a HA node responsible for
-        the queue being consumed.
+        This is a RabbitMQ-specific feature. The circumstances include deletion of queue being
+        consumed as well as failure of a HA node responsible for the queue being consumed.
 
-        :param method_frame: method frame with the
-            `spec.Basic.Cancel` method
-
+        :param method_frame: method frame with the `spec.Basic.Cancel` method
         """
         return self._on_consumer_cancelled(method_frame)
 
@@ -183,12 +179,11 @@ class TwistedChannel:
                       pika.frame.Method[pika.spec.Basic.CancelOk])
     ) -> (pika.frame.Method[pika.spec.Basic.Cancel] |
           pika.frame.Method[pika.spec.Basic.CancelOk]):
-        """Called when the broker cancels a consumer via Basic.Cancel or when
-        the broker responds to a Basic.Cancel request by Basic.CancelOk.
+        """
+        Called when the broker cancels a consumer via Basic.Cancel or when the broker responds to a
+        Basic.Cancel request by Basic.CancelOk.
 
-        :param frame: method frame with the
-            `spec.Basic.Cancel` or `spec.Basic.CancelOk` method
-
+        :param frame: method frame with the `spec.Basic.Cancel` or `spec.Basic.CancelOk` method
         """
         consumer_tag = frame.method.consumer_tag
         if consumer_tag not in self._consumers:
@@ -209,7 +204,9 @@ class TwistedChannel:
     def _on_getempty(
             self,
             _method_frame: pika.frame.Method[pika.spec.Basic.Get]) -> None:
-        """Callback the Basic.Get deferred with None.
+        """
+        Callback the Basic.Get deferred with None.
+
         :param _method_frame: Method frame from Basic.Get response (unused)
         """
         if self._basic_get_deferred is None:
@@ -220,10 +217,10 @@ class TwistedChannel:
 
     def _wrap_channel_method(self,
                              name: str) -> Callable[..., defer.Deferred[Any]]:
-        """Wrap Pika's Channel method to make it return a Deferred that fires
-        when the method completes and errbacks if the channel gets closed. If
-        the original method's callback would receive more than one argument,
-        the Deferred fires with a tuple of argument values.
+        """
+        Wrap Pika's Channel method to make it return a Deferred that fires when the method completes
+        and errbacks if the channel gets closed. If the original method's callback would receive
+        more than one argument, the Deferred fires with a tuple of argument values.
 
         :param name: Attribute name to look up on the underlying channel
         """
@@ -241,8 +238,8 @@ class TwistedChannel:
             def single_argument(*args) -> None:
                 """
                 Make sure that the deferred is called with a single argument.
-                In case the original callback fires with more than one, convert
-                to a tuple.
+
+                In case the original callback fires with more than one, convert to a tuple.
                 """
                 if len(args) > 1:
                     d.callback(tuple(args))
@@ -275,26 +272,28 @@ class TwistedChannel:
 
     @property
     def is_closed(self) -> bool:
-        """Returns True if the channel is closed.
+        """
+        Returns True if the channel is closed.
 
-
+        :rtype: bool
         """
         return self._channel.is_closed
 
     @property
     def is_closing(self) -> bool:
-        """Returns True if client-initiated closing of the channel is in
-        progress.
+        """
+        Returns True if client-initiated closing of the channel is in progress.
 
-
+        :rtype: bool
         """
         return self._channel.is_closing
 
     @property
     def is_open(self) -> bool:
-        """Returns True if the channel is open.
+        """
+        Returns True if the channel is open.
 
-
+        :rtype: bool
         """
         return self._channel.is_open
 
@@ -310,13 +309,12 @@ class TwistedChannel:
 
     def callback_deferred(self, deferred: defer.Deferred[Any],
                           replies: list[type[amqp_object.Method]]) -> None:
-        """Pass in a Deferred and a list replies from the RabbitMQ broker which
-        you'd like the Deferred to be callbacked on with the frame as callback
-        value.
+        """
+        Pass in a Deferred and a list replies from the RabbitMQ broker which you'd like the Deferred
+        to be callbacked on with the frame as callback value.
 
         :param deferred: The Deferred to callback
         :param replies: The replies to callback on
-
         """
         self._channel.add_callback(deferred.callback, replies)
 
@@ -324,8 +322,9 @@ class TwistedChannel:
 
     def add_on_return_callback(
             self, callback: Callable[[ReceivedMessage], None]) -> None:
-        """Pass a callback function that will be called when a published
-        message is rejected and returned by the server via `Basic.Return`.
+        """
+        Pass a callback function that will be called when a published message is rejected and
+        returned by the server via `Basic.Return`.
 
         :param callback: The method to call on callback with the
             message as only argument. The message is a named tuple with
@@ -345,22 +344,19 @@ class TwistedChannel:
                 )))
 
     def basic_ack(self, delivery_tag: int = 0, multiple: bool = False) -> None:
-        """Acknowledge one or more messages. When sent by the client, this
-        method acknowledges one or more messages delivered via the Deliver or
-        Get-Ok methods. When sent by server, this method acknowledges one or
-        more messages published with the Publish method on a channel in
-        confirm mode. The acknowledgement can be for a single message or a
-        set of messages up to and including a specific message.
+        """
+        Acknowledge one or more messages.
+
+        When sent by the client, this method acknowledges one or more messages delivered via the
+        Deliver or Get-Ok methods. When sent by server, this method acknowledges one or more
+        messages published with the Publish method on a channel in confirm mode. The acknowledgement
+        can be for a single message or a set of messages up to and including a specific message.
 
         :param delivery_tag: int/long The server-assigned delivery tag
-        :param multiple: If set to True, the delivery tag is treated as
-                              "up to and including", so that multiple messages
-                              can be acknowledged with a single method. If set
-                              to False, the delivery tag refers to a single
-                              message. If the multiple field is 1, and the
-                              delivery tag is zero, this indicates
-                              acknowledgement of all outstanding messages.
-
+        :param multiple: If set to True, the delivery tag is treated as "up to and including", so
+            that multiple messages can be acknowledged with a single method. If set to False, the
+            delivery tag refers to a single message. If the multiple field is 1, and the delivery
+            tag is zero, this indicates acknowledgement of all outstanding messages.
         """
         return self._channel.basic_ack(delivery_tag=delivery_tag,
                                        multiple=multiple)
@@ -370,24 +366,24 @@ class TwistedChannel:
         consumer_tag: str = ''
     ) -> defer.Deferred[(pika.frame.Method[pika.spec.Basic.CancelOk] |
                          pika.frame.Method[pika.spec.Basic.Cancel])]:
-        """This method cancels a consumer. This does not affect already
-        delivered messages, but it does mean the server will not send any more
-        messages for that consumer. The client may receive an arbitrary number
-        of messages in between sending the cancel method and receiving the
-        cancel-ok reply. It may also be sent from the server to the client in
-        the event of the consumer being unexpectedly cancelled (i.e. cancelled
-        for any reason other than the server receiving the corresponding
-        basic.cancel from the client). This allows clients to be notified of
-        the loss of consumers due to events such as queue deletion.
+        """
+        This method cancels a consumer.
 
-        This method wraps :meth:`Channel.basic_cancel
-        <pika.channel.Channel.basic_cancel>` and closes any deferred queue
-        associated with that consumer.
+        This does not affect already delivered messages, but it does mean the server will not send
+        any more messages for that consumer. The client may receive an arbitrary number of messages
+        in between sending the cancel method and receiving the cancel-ok reply. It may also be sent
+        from the server to the client in the event of the consumer being unexpectedly cancelled
+        (i.e. cancelled for any reason other than the server receiving the corresponding
+        basic.cancel from the client). This allows clients to be notified of the loss of consumers
+        due to events such as queue deletion.
+
+        This method wraps :meth:`Channel.basic_cancel <pika.channel.Channel.basic_cancel>` and
+        closes any deferred queue associated with that consumer.
 
         :param consumer_tag: Identifier for the consumer
         :returns: Deferred that fires on the Basic.CancelOk response
+        :rtype: Deferred
         :raises ValueError:
-
         """
         wrapped = self._wrap_channel_method('basic_cancel')
         d = wrapped(consumer_tag=consumer_tag)
@@ -400,7 +396,8 @@ class TwistedChannel:
             exclusive: bool = False,
             consumer_tag: str | None = None,
             arguments: dict[str, Any] | None = None) -> defer.Deferred[Any]:
-        """Consume from a server queue.
+        """
+        Consume from a server queue.
 
         Sends the AMQP 0-9-1 command Basic.Consume to the broker and binds
         messages for the consumer_tag to a
@@ -433,7 +430,7 @@ class TwistedChannel:
             - method: pika.spec.Basic.Deliver
             - properties: pika.spec.BasicProperties
             - body: bytes
-
+        :rtype: Deferred
         """
         if self._closed:
             return defer.fail(self._closed)
@@ -451,9 +448,7 @@ class TwistedChannel:
             d.callback((queue_obj, consumer_tag))
 
         def on_message_callback(_channel, method, properties, body) -> None:
-            """Add the ReceivedMessage to the queue, while replacing the
-            channel implementation.
-            """
+            """Add the ReceivedMessage to the queue, while replacing the channel implementation."""
             queue_obj.put(
                 ReceivedMessage(
                     channel=self,
@@ -480,7 +475,8 @@ class TwistedChannel:
     def basic_get(self,
                   queue: str,
                   auto_ack: bool = False) -> defer.Deferred[Any]:
-        """Get a single message from the AMQP broker.
+        """
+        Get a single message from the AMQP broker.
 
         Will return If the queue is empty, it will return None.
         If you want to
@@ -505,8 +501,8 @@ class TwistedChannel:
              - properties: pika.spec.BasicProperties
              - body: bytes
             If the queue is empty, None will be returned.
+        :rtype: Deferred
         :raises pika.exceptions.DuplicateGetOkCallback:
-
         """
         if self._basic_get_deferred is not None:
             raise exceptions.DuplicateGetOkCallback()
@@ -537,23 +533,20 @@ class TwistedChannel:
                    delivery_tag: int = 0,
                    multiple: bool = False,
                    requeue: bool = True) -> None:
-        """This method allows a client to reject one or more incoming messages.
-        It can be used to interrupt and cancel large incoming messages, or
-        return untreatable messages to their original queue.
+        """
+        This method allows a client to reject one or more incoming messages.
+
+        It can be used to interrupt and cancel large incoming messages, or return untreatable
+        messages to their original queue.
 
         :param delivery_tag: int/long The server-assigned delivery tag
-        :param multiple: If set to True, the delivery tag is treated as
-                              "up to and including", so that multiple messages
-                              can be acknowledged with a single method. If set
-                              to False, the delivery tag refers to a single
-                              message. If the multiple field is 1, and the
-                              delivery tag is zero, this indicates
-                              acknowledgement of all outstanding messages.
-        :param requeue: If requeue is true, the server will attempt to
-                             requeue the message. If requeue is false or the
-                             requeue attempt fails the messages are discarded
-                             or dead-lettered.
-
+        :param multiple: If set to True, the delivery tag is treated as "up to and including", so
+            that multiple messages can be acknowledged with a single method. If set to False, the
+            delivery tag refers to a single message. If the multiple field is 1, and the delivery
+            tag is zero, this indicates acknowledgement of all outstanding messages.
+        :param requeue: If requeue is true, the server will attempt to requeue the message. If
+            requeue is false or the requeue attempt fails the messages are discarded or dead-
+            lettered.
         """
         return self._channel.basic_nack(
             delivery_tag=delivery_tag,
@@ -567,11 +560,11 @@ class TwistedChannel:
                       body: bytes,
                       properties: spec.BasicProperties | None = None,
                       mandatory: bool = False) -> defer.Deferred[Any]:
-        """Publish to the channel with the given exchange, routing key and body.
+        """
+        Publish to the channel with the given exchange, routing key and body.
 
-        This method wraps :meth:`Channel.basic_publish
-        <pika.channel.Channel.basic_publish>`, but makes sure the channel is
-        not closed before publishing.
+        This method wraps :meth:`Channel.basic_publish <pika.channel.Channel.basic_publish>`, but
+        makes sure the channel is not closed before publishing.
 
         For more information on basic_publish and what the parameters do, see:
 
@@ -582,16 +575,13 @@ class TwistedChannel:
         :param body: The message body
         :param properties: Basic.properties
         :param mandatory: The mandatory flag
-        :returns: A Deferred that fires with the result of the channel's
-            basic_publish.
-        :raises UnroutableError: raised when a message published in
-            publisher-acknowledgments mode (see
-            `BlockingChannel.confirm_delivery`) is returned via `Basic.Return`
-            followed by `Basic.Ack`.
-        :raises NackError: raised when a message published in
-            publisher-acknowledgements mode is Nack'ed by the broker. See
-            `BlockingChannel.confirm_delivery`.
-
+        :returns: A Deferred that fires with the result of the channel's basic_publish.
+        :rtype: Deferred
+        :raises UnroutableError: raised when a message published in publisher-acknowledgments mode
+            (see `BlockingChannel.confirm_delivery`) is returned via `Basic.Return` followed by
+            `Basic.Ack`.
+        :raises NackError: raised when a message published in publisher-acknowledgements mode is
+            Nack'ed by the broker. See `BlockingChannel.confirm_delivery`.
         """
         if self._closed:
             return defer.fail(self._closed)
@@ -613,35 +603,27 @@ class TwistedChannel:
                   prefetch_size: int = 0,
                   prefetch_count: int = 0,
                   global_qos: bool = False) -> defer.Deferred[Any]:
-        """Specify quality of service. This method requests a specific quality
-        of service. The QoS can be specified for the current channel or for all
-        channels on the connection. The client can request that messages be
-        sent in advance so that when the client finishes processing a message,
-        the following message is already held locally, rather than needing to
-        be sent down the channel. Prefetching gives a performance improvement.
+        """
+        Specify quality of service.
 
-        :param prefetch_size:  This field specifies the prefetch window
-                                   size. The server will send a message in
-                                   advance if it is equal to or smaller in size
-                                   than the available prefetch size (and also
-                                   falls into other prefetch limits). May be
-                                   set to zero, meaning "no specific limit",
-                                   although other prefetch limits may still
-                                   apply. The prefetch-size is ignored by
-                                   consumers who have enabled the no-ack
-                                   option.
-        :param prefetch_count: Specifies a prefetch window in terms of
-                                   whole messages. This field may be used in
-                                   combination with the prefetch-size field; a
-                                   message will only be sent in advance if both
-                                   prefetch windows (and those at the channel
-                                   and connection level) allow it. The
-                                   prefetch-count is ignored by consumers who
-                                   have enabled the no-ack option.
-        :param global_qos:    Should the QoS apply to all channels on the
-                                   connection.
+        This method requests a specific quality of service. The QoS can be specified for the current
+        channel or for all channels on the connection. The client can request that messages be sent
+        in advance so that when the client finishes processing a message, the following message is
+        already held locally, rather than needing to be sent down the channel. Prefetching gives a
+        performance improvement.
+
+        :param prefetch_size: This field specifies the prefetch window size. The server will send a
+            message in advance if it is equal to or smaller in size than the available prefetch size
+            (and also falls into other prefetch limits). May be set to zero, meaning "no specific
+            limit", although other prefetch limits may still apply. The prefetch-size is ignored by
+            consumers who have enabled the no-ack option.
+        :param prefetch_count: Specifies a prefetch window in terms of whole messages. This field
+            may be used in combination with the prefetch-size field; a message will only be sent in
+            advance if both prefetch windows (and those at the channel and connection level) allow
+            it. The prefetch-count is ignored by consumers who have enabled the no-ack option.
+        :param global_qos: Should the QoS apply to all channels on the connection.
         :returns: Deferred that fires on the Basic.QosOk response
-
+        :rtype: Deferred
         """
         return self._wrap_channel_method("basic_qos")(
             prefetch_size=prefetch_size,
@@ -650,61 +632,61 @@ class TwistedChannel:
         )
 
     def basic_reject(self, delivery_tag: int, requeue: bool = True) -> None:
-        """Reject an incoming message. This method allows a client to reject a
-        message. It can be used to interrupt and cancel large incoming
-        messages, or return untreatable messages to their original queue.
+        """
+        Reject an incoming message.
+
+        This method allows a client to reject a message. It can be used to interrupt and cancel
+        large incoming messages, or return untreatable messages to their original queue.
 
         :param delivery_tag: int/long The server-assigned delivery tag
-        :param requeue: If requeue is true, the server will attempt to
-                             requeue the message. If requeue is false or the
-                             requeue attempt fails the messages are discarded
-                             or dead-lettered.
+        :param requeue: If requeue is true, the server will attempt to requeue the message. If
+            requeue is false or the requeue attempt fails the messages are discarded or dead-
+            lettered.
         :raises TypeError:
-
         """
         return self._channel.basic_reject(delivery_tag=delivery_tag,
                                           requeue=requeue)
 
     def basic_recover(self, requeue: bool = False) -> defer.Deferred[Any]:
-        """This method asks the server to redeliver all unacknowledged messages
-        on a specified channel. Zero or more messages may be redelivered. This
-        method replaces the asynchronous Recover.
+        """
+        This method asks the server to redeliver all unacknowledged messages on a specified channel.
+        Zero or more messages may be redelivered. This method replaces the asynchronous Recover.
 
-        :param requeue: If False, the message will be redelivered to the
-                             original recipient. If True, the server will
-                             attempt to requeue the message, potentially then
-                             delivering it to an alternative subscriber.
+        :param requeue: If False, the message will be redelivered to the original recipient. If
+            True, the server will attempt to requeue the message, potentially then delivering it to
+            an alternative subscriber.
         :returns: Deferred that fires on the Basic.RecoverOk response
-
+        :rtype: Deferred
         """
         return self._wrap_channel_method("basic_recover")(requeue=requeue)
 
     def close(self,
               reply_code: int = 0,
               reply_text: str = "Normal shutdown") -> None:
-        """Invoke a graceful shutdown of the channel with the AMQP Broker.
+        """
+        Invoke a graceful shutdown of the channel with the AMQP Broker.
 
-        If channel is OPENING, transition to CLOSING and suppress the incoming
-        Channel.OpenOk, if any.
+        If channel is OPENING, transition to CLOSING and suppress the incoming Channel.OpenOk, if
+        any.
 
         :param reply_code: The reason code to send to broker
         :param reply_text: The reason text to send to broker
-
         :raises ChannelWrongStateError: if channel is closed or closing
-
         """
         return self._channel.close(reply_code=reply_code, reply_text=reply_text)
 
     def confirm_delivery(self) -> defer.Deferred[Any]:
-        """Turn on Confirm mode in the channel. Pass in a callback to be
-        notified by the Broker when a message has been confirmed as received or
+        """
+        Turn on Confirm mode in the channel.
+
+        Pass in a callback to be notified by the Broker when a message has been confirmed as received or
         rejected (Basic.Ack, Basic.Nack) from the broker to the publisher.
 
         For more information see:
             https://www.rabbitmq.com/confirms.html#publisher-confirms
 
         :returns: Deferred that fires on the Confirm.SelectOk response
-
+        :rtype: Deferred
         """
         if self._delivery_confirmation:
             LOGGER.error('confirm_delivery: confirmation was already enabled.')
@@ -728,17 +710,15 @@ class TwistedChannel:
         self, method_frame: (pika.frame.Method[pika.spec.Basic.Ack] |
                              pika.frame.Method[pika.spec.Basic.Nack])
     ) -> None:
-        """Invoked by pika when RabbitMQ responds to a Basic.Publish RPC
-        command, passing in either a Basic.Ack or Basic.Nack frame with
-        the delivery tag of the message that was published. The delivery tag
-        is an integer counter indicating the message number that was sent
-        on the channel via Basic.Publish. Here we're just doing house keeping
-        to keep track of stats and remove message numbers that we expect
-        a delivery confirmation of from the list used to keep track of messages
-        that are pending confirmation.
+        """
+        Invoked by pika when RabbitMQ responds to a Basic.Publish RPC command, passing in either a
+        Basic.Ack or Basic.Nack frame with the delivery tag of the message that was published. The
+        delivery tag is an integer counter indicating the message number that was sent on the
+        channel via Basic.Publish. Here we're just doing house keeping to keep track of stats and
+        remove message numbers that we expect a delivery confirmation of from the list used to keep
+        track of messages that are pending confirmation.
 
         :param method_frame: Basic.Ack or Basic.Nack frame
-
         """
         delivery_tag = method_frame.method.delivery_tag
         if delivery_tag not in self._deliveries:
@@ -783,15 +763,15 @@ class TwistedChannel:
                                     method: spec.Basic.Return,
                                     properties: spec.BasicProperties,
                                     body: bytes) -> None:
-        """Called as the result of Basic.Return from broker in
-        publisher-acknowledgements mode. Saves the info as a ReturnedMessage
-        instance in self._puback_return.
+        """
+        Called as the result of Basic.Return from broker in publisher-acknowledgements mode.
+
+        Saves the info as a ReturnedMessage instance in self._puback_return.
 
         :param channel: our self._impl channel
         :param method:
         :param properties: message properties
         :param body: returned message body; empty string if no body
-
         """
         assert isinstance(method, spec.Basic.Return), method
         assert isinstance(properties, spec.BasicProperties), properties
@@ -814,7 +794,8 @@ class TwistedChannel:
             source: str,
             routing_key: str = '',
             arguments: dict[str, Any] | None = None) -> defer.Deferred[Any]:
-        """Bind an exchange to another exchange.
+        """
+        Bind an exchange to another exchange.
 
         :param destination: The destination exchange to bind
         :param source: The source exchange to bind to
@@ -822,7 +803,7 @@ class TwistedChannel:
         :param arguments: Custom key/value pair arguments for the binding
         :raises ValueError:
         :returns: Deferred that fires on the Exchange.BindOk response
-
+        :rtype: Deferred
         """
         return self._wrap_channel_method("exchange_bind")(
             destination=destination,
@@ -840,9 +821,9 @@ class TwistedChannel:
             auto_delete: bool = False,
             internal: bool = False,
             arguments: dict[str, Any] | None = None) -> defer.Deferred[Any]:
-        """This method creates an exchange if it does not already exist, and if
-        the exchange exists, verifies that it is of the correct and expected
-        class.
+        """
+        This method creates an exchange if it does not already exist, and if the exchange exists,
+        verifies that it is of the correct and expected class.
 
         If passive set, the server will reply with Declare-Ok if the exchange
         already exists with the same name, and raise an error if not and if the
@@ -860,8 +841,8 @@ class TwistedChannel:
         :param internal: Can only be published to by other exchanges
         :param arguments: Custom key/value pair arguments for the exchange
         :returns: Deferred that fires on the Exchange.DeclareOk response
+        :rtype: Deferred
         :raises ValueError:
-
         """
         return self._wrap_channel_method("exchange_declare")(
             exchange=exchange,
@@ -876,13 +857,14 @@ class TwistedChannel:
     def exchange_delete(self,
                         exchange: str | None = None,
                         if_unused: bool = False) -> defer.Deferred[Any]:
-        """Delete the exchange.
+        """
+        Delete the exchange.
 
         :param exchange: The exchange name
         :param if_unused: only delete if the exchange is unused
         :returns: Deferred that fires on the Exchange.DeleteOk response
+        :rtype: Deferred
         :raises ValueError:
-
         """
         return self._wrap_channel_method("exchange_delete")(
             exchange=exchange,
@@ -895,15 +877,16 @@ class TwistedChannel:
             source: str,
             routing_key: str = '',
             arguments: dict[str, Any] | None = None) -> defer.Deferred[Any]:
-        """Unbind an exchange from another exchange.
+        """
+        Unbind an exchange from another exchange.
 
         :param destination: The destination exchange to unbind
         :param source: The source exchange to unbind from
         :param routing_key: The routing key to unbind
         :param arguments: Custom key/value pair arguments for the binding
         :returns: Deferred that fires on the Exchange.UnbindOk response
+        :rtype: Deferred
         :raises ValueError:
-
         """
         return self._wrap_channel_method("exchange_unbind")(
             destination=destination,
@@ -913,22 +896,23 @@ class TwistedChannel:
         )
 
     def flow(self, active: bool = True) -> defer.Deferred[Any]:
-        """Turn Channel flow control off and on.
+        """
+        Turn Channel flow control off and on.
 
-        Returns a Deferred that will fire with a bool indicating the channel
-        flow state. For more information, please reference:
+        Returns a Deferred that will fire with a bool indicating the channel flow state. For more
+        information, please reference:
 
         https://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow
 
         :param active: Turn flow on or off
         :returns: Deferred that fires with the channel flow state
+        :rtype: Deferred
         :raises ValueError:
-
         """
         return self._wrap_channel_method("flow")(active=active)
 
     def open(self) -> None:
-        """Open the channel"""
+        """Open the channel."""
         return self._channel.open()
 
     def queue_bind(
@@ -937,15 +921,16 @@ class TwistedChannel:
             exchange: str,
             routing_key: str | None = None,
             arguments: dict[str, Any] | None = None) -> defer.Deferred[Any]:
-        """Bind the queue to the specified exchange
+        """
+        Bind the queue to the specified exchange.
 
         :param queue: The queue to bind to the exchange
         :param exchange: The source exchange to bind to
         :param routing_key: The routing key to bind on
         :param arguments: Custom key/value pair arguments for the binding
         :returns: Deferred that fires on the Queue.BindOk response
+        :rtype: Deferred
         :raises ValueError:
-
         """
         return self._wrap_channel_method("queue_bind")(
             queue=queue,
@@ -962,8 +947,10 @@ class TwistedChannel:
             exclusive: bool = False,
             auto_delete: bool = False,
             arguments: dict[str, Any] | None = None) -> defer.Deferred[Any]:
-        """Declare queue, create if needed. This method creates or checks a
-        queue. When creating a new queue the client can specify various
+        """
+        Declare queue, create if needed.
+
+        This method creates or checks a queue. When creating a new queue the client can specify various
         properties that control the durability of the queue and its contents,
         and the level of sharing for the queue.
 
@@ -978,8 +965,8 @@ class TwistedChannel:
         :param auto_delete: Delete after consumer cancels or disconnects
         :param arguments: Custom key/value arguments for the queue
         :returns: Deferred that fires on the Queue.DeclareOk response
+        :rtype: Deferred
         :raises ValueError:
-
         """
         return self._wrap_channel_method("queue_declare")(
             queue=queue,
@@ -994,19 +981,18 @@ class TwistedChannel:
                      queue: str,
                      if_unused: bool = False,
                      if_empty: bool = False) -> defer.Deferred[Any]:
-        """Delete a queue from the broker.
+        """
+        Delete a queue from the broker.
 
-
-        This method wraps :meth:`Channel.queue_delete
-        <pika.channel.Channel.queue_delete>`, and removes the reference to the
-        queue object after it gets deleted on the server.
+        This method wraps :meth:`Channel.queue_delete <pika.channel.Channel.queue_delete>`, and
+        removes the reference to the queue object after it gets deleted on the server.
 
         :param queue: The queue to delete
         :param if_unused: only delete if it's unused
         :param if_empty: only delete if the queue is empty
         :returns: Deferred that fires on the Queue.DeleteOk response
+        :rtype: Deferred
         :raises ValueError:
-
         """
         wrapped = self._wrap_channel_method('queue_delete')
         d = wrapped(queue=queue, if_unused=if_unused, if_empty=if_empty)
@@ -1025,12 +1011,13 @@ class TwistedChannel:
         return d.addCallback(_clear_consumer, queue)
 
     def queue_purge(self, queue: str) -> defer.Deferred[Any]:
-        """Purge all of the messages from the specified queue
+        """
+        Purge all of the messages from the specified queue.
 
         :param queue: The queue to purge
         :returns: Deferred that fires on the Queue.PurgeOk response
+        :rtype: Deferred
         :raises ValueError:
-
         """
         return self._wrap_channel_method("queue_purge")(queue=queue)
 
@@ -1040,15 +1027,16 @@ class TwistedChannel:
             exchange: str | None,
             routing_key: str | None = None,
             arguments: dict[str, Any] | None = None) -> defer.Deferred[Any]:
-        """Unbind a queue from an exchange.
+        """
+        Unbind a queue from an exchange.
 
         :param queue: The queue to unbind from the exchange
         :param exchange: The source exchange to bind from
         :param routing_key: The routing key to unbind
         :param arguments: Custom key/value pair arguments for the binding
         :returns: Deferred that fires on the Queue.UnbindOk response
+        :rtype: Deferred
         :raises ValueError:
-
         """
         return self._wrap_channel_method("queue_unbind")(
             queue=queue,
@@ -1058,43 +1046,47 @@ class TwistedChannel:
         )
 
     def tx_commit(self) -> defer.Deferred[Any]:
-        """Commit a transaction.
+        """
+        Commit a transaction.
 
         :returns: Deferred that fires on the Tx.CommitOk response
+        :rtype: Deferred
         :raises ValueError:
-
         """
         return self._wrap_channel_method("tx_commit")()
 
     def tx_rollback(self) -> defer.Deferred[Any]:
-        """Rollback a transaction.
+        """
+        Rollback a transaction.
 
         :returns: Deferred that fires on the Tx.RollbackOk response
+        :rtype: Deferred
         :raises ValueError:
-
         """
         return self._wrap_channel_method("tx_rollback")()
 
     def tx_select(self) -> defer.Deferred[Any]:
-        """Select standard transaction mode. This method sets the channel to use
-        standard transactions. The client must use this method at least once on
-        a channel before using the Commit or Rollback methods.
+        """
+        Select standard transaction mode.
+
+        This method sets the channel to use standard transactions. The client must use this method
+        at least once on a channel before using the Commit or Rollback methods.
 
         :returns: Deferred that fires on the Tx.SelectOk response
+        :rtype: Deferred
         :raises ValueError:
-
         """
         return self._wrap_channel_method("tx_select")()
 
 
 class _TwistedConnectionAdapter(pika.connection.Connection):
-    """A Twisted-specific implementation of a Pika Connection.
+    """
+    A Twisted-specific implementation of a Pika Connection.
 
     NOTE: since `base_connection.BaseConnection`'s primary responsibility is
     management of the transport, we use `pika.connection.Connection` directly
     as our base class because this adapter uses a different transport
     management strategy.
-
     """
 
     def __init__(self,
@@ -1179,24 +1171,24 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
 
     def connection_made(
             self, transport: twisted.internet.interfaces.ITransport) -> None:
-        """Introduces transport to protocol after transport is connected.
+        """
+        Introduces transport to protocol after transport is connected.
 
         :param transport:
         :raises Exception: Exception-based exception on error
-
         """
         self._transport = transport
         # Let connection know that stream is available
         self._on_stream_connected()
 
     def connection_lost(self, error: Any) -> None:
-        """Called upon loss or closing of TCP connection.
+        """
+        Called upon loss or closing of TCP connection.
 
         NOTE: `connection_made()` and `connection_lost()` are each called just
         once and in that order. All other callbacks are called between them.
 
         :param error: A Twisted Failure instance wrapping an exception.
-
         """
         self._transport = None
         error = error.value  # drop the Failure wrapper
@@ -1208,18 +1200,20 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
         self._on_stream_terminated(error)
 
     def data_received(self, data: bytes) -> None:
-        """Called to deliver incoming data from the server to the protocol.
+        """
+        Called to deliver incoming data from the server to the protocol.
 
         :param data: Non-empty data bytes.
         :raises Exception: Exception-based exception on error
-
         """
         self._on_data_available(data)
 
 
 class TwistedProtocolConnection(protocol.Protocol):
-    """A Pika-specific implementation of a Twisted Protocol. Allows using
-    Twisted's non-blocking connectTCP/connectSSL methods for connecting to the
+    """
+    A Pika-specific implementation of a Twisted Protocol.
+
+    Allows using Twisted's non-blocking connectTCP/connectSSL methods for connecting to the
     server.
 
     TwistedProtocolConnection objects have a `ready` instance variable that's a
@@ -1234,7 +1228,6 @@ class TwistedProtocolConnection(protocol.Protocol):
     connect callbacks, you have to implement that within Twisted. Also remember
     that the host, port and ssl values of the connection parameters are ignored
     because, yet again, it's Twisted who manages the connection.
-
     """
 
     def __init__(self,
@@ -1262,16 +1255,14 @@ class TwistedProtocolConnection(protocol.Protocol):
 
     def channel(self,
                 channel_number: int | None = None) -> Deferred[TwistedChannel]:
-        """Create a new channel with the next available channel number or pass
-        in a channel number to use. Must be non-zero if you would like to
-        specify but it is recommended that you let Pika manage the channel
-        numbers.
+        """
+        Create a new channel with the next available channel number or pass in a channel number to
+        use. Must be non-zero if you would like to specify but it is recommended that you let Pika
+        manage the channel numbers.
 
-        :param channel_number: The channel number to use, defaults to the
-                                   next available.
-        :returns: a Deferred that fires with an instance of a wrapper around
-            the Pika Channel class.
-
+        :param channel_number: The channel number to use, defaults to the next available.
+        :returns: a Deferred that fires with an instance of a wrapper around the Pika Channel class.
+        :rtype: Deferred
         """
         d: defer.Deferred[Any] = defer.Deferred()
         self._impl.channel(channel_number, d.callback)
@@ -1324,8 +1315,7 @@ class TwistedProtocolConnection(protocol.Protocol):
         self
     ) -> (TwistedProtocolConnection | defer.Deferred[TwistedProtocolConnection]
          ):
-        """This method will be called when the underlying connection is ready.
-        """
+        """This method will be called when the underlying connection is ready."""
         return self
 
     def _on_connection_ready(self,
@@ -1365,9 +1355,7 @@ class TwistedProtocolConnection(protocol.Protocol):
 
 
 class _TimerHandle(nbio_interface.AbstractTimerReference):
-    """This module's adaptation of `nbio_interface.AbstractTimerReference`.
-
-    """
+    """This module's adaptation of `nbio_interface.AbstractTimerReference`."""
 
     def __init__(self, handle: twisted.internet.base.DelayedCall) -> None:
         """

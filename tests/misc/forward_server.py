@@ -18,12 +18,12 @@ import pika._utils
 
 
 def buffer(object_, offset, size):
-    """array etc. have the buffer protocol"""
+    """Array etc. have the buffer protocol."""
     return object_[offset:offset + size]
 
 
 def _trace(fmt, *args):
-    """Format and output the text to stderr"""
+    """Format and output the text to stderr."""
     print((fmt % args) + "\n", end="", file=sys.stderr)
 
 
@@ -125,12 +125,13 @@ class ForwardServer:
 
     @property
     def running(self):
-        """Property: True if ForwardServer is active"""
+        """Property: True if ForwardServer is active."""
         return self._subproc is not None
 
     @property
     def server_address_family(self):
-        """Property: Get listening socket's address family
+        """
+        Property: Get listening socket's address family.
 
         NOTE: undefined before server starts and after it shuts down
         """
@@ -140,8 +141,9 @@ class ForwardServer:
 
     @property
     def server_address(self):
-        """ Property: Get listening socket's address; the returned value
-        depends on the listening socket's address family
+        """
+        Property: Get listening socket's address; the returned value depends on the listening
+        socket's address family.
 
         NOTE: undefined before server starts and after it shuts down
         """
@@ -150,19 +152,21 @@ class ForwardServer:
         return self._server_addr
 
     def __enter__(self):
-        """ Context manager entry. Starts the forwarding server
+        """
+        Context manager entry.
 
-        :returns: self
+        Starts the forwarding server
+                :returns: self
         """
         return self.start()
 
     def __exit__(self, *args):
-        """ Context manager exit; stops the forwarding server
-        """
+        """Context manager exit; stops the forwarding server."""
         self.stop()
 
     def start(self):
-        """ Start the server
+        """
+        Start the server.
 
         NOTE: The context manager is the recommended way to use
         ForwardServer. start()/stop() are alternatives to the context manager
@@ -211,7 +215,8 @@ class ForwardServer:
         return self
 
     def stop(self):
-        """Stop the server
+        """
+        Stop the server.
 
         NOTE: The context manager is the recommended way to use
         ForwardServer. start()/stop() are alternatives to the context manager
@@ -241,7 +246,8 @@ class ForwardServer:
 def _run_server(local_addr, local_addr_family, local_socket_type,
                 local_linger_args, remote_addr, remote_addr_family,
                 remote_socket_type, queue):
-    """ Run the server; executed in the subprocess
+    """
+    Run the server; executed in the subprocess.
 
     :param local_addr: listening address
     :param local_addr_family: listening address family; one of socket.AF_*
@@ -269,7 +275,7 @@ def _run_server(local_addr, local_addr_family, local_socket_type,
     # isn't derived from `object`, which prevents `super` from working properly
     class _ThreadedTCPServer(socketserver.ThreadingMixIn,
                              socketserver.TCPServer):
-        """Threaded streaming server for forwarding"""
+        """Threaded streaming server for forwarding."""
 
         # Override TCPServer's class members
         address_family = local_addr_family
@@ -302,8 +308,10 @@ def _run_server(local_addr, local_addr_family, local_socket_type,
 # NOTE: we add `object` to the base classes because `StreamRequestHandler` isn't
 # derived from `object`, which prevents `super` from working properly
 class _TCPHandler(socketserver.StreamRequestHandler):
-    """TCP/IP session handler instantiated by TCPServer upon incoming
-    connection. Implements forwarding/echo of the incoming connection.
+    """
+    TCP/IP session handler instantiated by TCPServer upon incoming connection.
+
+    Implements forwarding/echo of the incoming connection.
     """
 
     _SOCK_RX_BUF_SIZE = 16 * 1024
@@ -337,7 +345,7 @@ class _TCPHandler(socketserver.StreamRequestHandler):
                          server=server)
 
     def handle(self):
-        """Connect to remote and forward data between local and remote"""
+        """Connect to remote and forward data between local and remote."""
         local_sock = self.connection
 
         if self._local_linger_args is not None:
@@ -359,8 +367,8 @@ class _TCPHandler(socketserver.StreamRequestHandler):
             # Echo set-up
             # NOTE: Use pika._utils.nonblocking_socketpair() since
             # socket.socketpair() isn't available on Windows under python 2 yet.
-            remote_dest_sock, remote_src_sock = \
-                    pika._utils.nonblocking_socketpair()
+            remote_dest_sock, remote_src_sock = pika._utils.nonblocking_socketpair(
+            )
             # We rely on blocking I/O
             remote_dest_sock.setblocking(True)
             remote_src_sock.setblocking(True)
@@ -392,7 +400,7 @@ class _TCPHandler(socketserver.StreamRequestHandler):
                     remote_src_sock.close()
 
     def _forward(self, src_sock, dest_sock):
-        """Forward from src_sock to dest_sock"""
+        """Forward from src_sock to dest_sock."""
         src_peername = src_sock.getpeername()
 
         _trace("%s forwarding from %s to %s", datetime.now(timezone.utc),
@@ -464,18 +472,14 @@ class _TCPHandler(socketserver.StreamRequestHandler):
 
 
 def echo(port=0):
-    """ This function implements a simple echo server for testing the
-    Forwarder class.
+    """
+    This function implements a simple echo server for testing the Forwarder class.
 
-    :param int port: port number on which to listen
-
-    We run this function and it prints out the listening socket binding.
-    Then, we run Forwarder and point it at this echo "server".
-    Then, we run telnet and point it at forwarder and see if whatever we
-    type gets echoed back to us.
-
-    This function waits for the client to connect and exits after the client
-    closes the connection
+    :param int port: port number on which to listen We run this function and it prints out the
+        listening socket binding. Then, we run Forwarder and point it at this echo "server". Then,
+        we run telnet and point it at forwarder and see if whatever we type gets echoed back to us.
+        This function waits for the client to connect and exits after the client closes the
+        connection
     """
     lsock = socket.socket()
     lsock.bind(("", port))
@@ -505,8 +509,7 @@ def echo(port=0):
 
 
 def _safe_shutdown_socket(sock, how=socket.SHUT_RDWR):
-    """ Shutdown a socket, suppressing ENOTCONN
-    """
+    """Shutdown a socket, suppressing ENOTCONN."""
     try:
         sock.shutdown(how)
     except pika._utils.SOCKET_ERROR as exc:

@@ -1,7 +1,5 @@
-"""
-Tests for pika.adapters.tornado_connection
+"""Tests for pika.adapters.tornado_connection."""
 
-"""
 import unittest
 from unittest import mock
 

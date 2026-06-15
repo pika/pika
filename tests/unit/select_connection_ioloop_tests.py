@@ -1,7 +1,4 @@
-"""
-Tests for SelectConnection IOLoops
-
-"""
+"""Tests for SelectConnection IOLoops."""
 
 import errno
 import functools
@@ -38,7 +35,7 @@ POLLPRI = getattr(select, 'POLLPRI', 0) or 2
 
 
 def _trace_stderr(fmt, *args):
-    """Format and output the text to stderr"""
+    """Format and output the text to stderr."""
     print((fmt % args) + "\n", end="", file=sys.stderr)
 
 
@@ -99,10 +96,7 @@ class IOLoopBaseTest(unittest.TestCase):
         return f'{method_desc} ({self.SELECT_POLLER})'
 
     def start(self):
-        """Setup timeout handler for detecting 'no-activity'
-        and start polling.
-
-        """
+        """Setup timeout handler for detecting 'no-activity' and start polling."""
         fail_timer = self.ioloop.call_later(self.TIMEOUT, self.on_timeout)
         self.addCleanup(self.ioloop.remove_timeout, fail_timer)
         self.ioloop.start()
@@ -111,13 +105,14 @@ class IOLoopBaseTest(unittest.TestCase):
         self.ioloop._poller.deactivate_poller.assert_called_once_with()
 
     def on_timeout(self):
-        """Called when stuck waiting for connection to close"""
+        """Called when stuck waiting for connection to close."""
         self.ioloop.stop()  # force the ioloop to stop
         self.fail('Test timed out')
 
 
 class IOLoopCloseClosesSubordinateObjectsTestSelect(IOLoopBaseTest):
-    """ Test ioloop being closed """
+    """Test ioloop being closed."""
+
     SELECT_POLLER = 'select'
 
     def test_start(self):
@@ -132,7 +127,8 @@ class IOLoopCloseClosesSubordinateObjectsTestSelect(IOLoopBaseTest):
 
 
 class IOLoopCloseAfterStartReturnsTest(IOLoopBaseTest):
-    """ Test IOLoop.close() after normal return from start(). """
+    """Test IOLoop.close() after normal return from start()."""
+
     SELECT_POLLER = 'select'
 
     def test_start(self):
@@ -143,7 +139,8 @@ class IOLoopCloseAfterStartReturnsTest(IOLoopBaseTest):
 
 
 class IOLoopStartReentrancyNotAllowedTestSelect(IOLoopBaseTest):
-    """ Test calling IOLoop.start() while arleady in start() raises exception. """
+    """Test calling IOLoop.start() while arleady in start() raises exception."""
+
     SELECT_POLLER = 'select'
 
     def test_start(self):
@@ -164,7 +161,8 @@ class IOLoopStartReentrancyNotAllowedTestSelect(IOLoopBaseTest):
 
 
 class IOLoopCloseBeforeStartReturnsTestSelect(IOLoopBaseTest):
-    """ Test calling IOLoop.close() before return from start() raises exception. """
+    """Test calling IOLoop.close() before return from start() raises exception."""
+
     SELECT_POLLER = 'select'
 
     def test_start(self):
@@ -185,11 +183,12 @@ class IOLoopCloseBeforeStartReturnsTestSelect(IOLoopBaseTest):
 
 
 class IOLoopThreadStopTestSelect(IOLoopBaseTest):
-    """ Test ioloop being stopped by another Thread. """
+    """Test ioloop being stopped by another Thread."""
+
     SELECT_POLLER = 'select'
 
     def test_start(self):
-        """Starts a thread that stops ioloop after a while and start polling"""
+        """Starts a thread that stops ioloop after a while and start polling."""
         timer = threading.Timer(
             0.1, lambda: self.ioloop.add_callback_threadsafe(self.ioloop.stop))
         self.addCleanup(timer.cancel)
@@ -200,23 +199,27 @@ class IOLoopThreadStopTestSelect(IOLoopBaseTest):
 @unittest.skipIf(not POLL_SUPPORTED, 'poll not supported')
 class IOLoopThreadStopTestPoll(IOLoopThreadStopTestSelect):
     """Same as IOLoopThreadStopTestSelect but uses 'poll' syscall."""
+
     SELECT_POLLER = 'poll'
 
 
 @unittest.skipIf(not EPOLL_SUPPORTED, 'epoll not supported')
 class IOLoopThreadStopTestEPoll(IOLoopThreadStopTestSelect):
     """Same as IOLoopThreadStopTestSelect but uses 'epoll' syscall."""
+
     SELECT_POLLER = 'epoll'
 
 
 @unittest.skipIf(not KQUEUE_SUPPORTED, 'kqueue not supported')
 class IOLoopThreadStopTestKqueue(IOLoopThreadStopTestSelect):
     """Same as IOLoopThreadStopTestSelect but uses 'kqueue' syscall."""
+
     SELECT_POLLER = 'kqueue'
 
 
 class IOLoopAddCallbackAfterCloseDoesNotRaiseTestSelect(IOLoopBaseTest):
-    """ Test ioloop add_callback_threadsafe() after ioloop close doesn't raise exception. """
+    """Test ioloop add_callback_threadsafe() after ioloop close doesn't raise exception."""
+
     SELECT_POLLER = 'select'
 
     def test_start(self):
@@ -233,19 +236,16 @@ class IOLoopAddCallbackAfterCloseDoesNotRaiseTestSelect(IOLoopBaseTest):
 @unittest.skipIf(platform.python_implementation() == 'PyPy',
                  'test is flaky on PyPy')
 class IOLoopTimerTestSelect(IOLoopBaseTest):
-    """Set a bunch of very short timers to fire in reverse order and check
-    that they fire in order of time, not
-
+    """Set a bunch of very short timers to fire in reverse order and check that they fire in order
+    of time, not.
     """
+
     NUM_TIMERS = 5
     TIMER_INTERVAL = 0.25
     SELECT_POLLER = 'select'
 
     def set_timers(self):
-        """Set timers that timers that fires in succession with the specified
-        interval.
-
-        """
+        """Set timers that timers that fires in succession with the specified interval."""
         self.timer_stack = []
         for i in range(self.NUM_TIMERS, 0, -1):
             deadline = i * self.TIMER_INTERVAL
@@ -259,10 +259,7 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
         self.start()
 
     def on_timer(self, val):
-        """A timeout handler that verifies that the given parameter matches
-        what is expected.
-
-        """
+        """A timeout handler that verifies that the given parameter matches what is expected."""
         self.assertEqual(val, self.timer_stack.pop())
         if not self.timer_stack:
             self.ioloop.stop()
@@ -272,9 +269,8 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
         self.start_test()
 
     def test_timer_for_deleting_itself(self):
-        """Verifies that an attempt to delete a timeout within the
-        corresponding handler generates no exceptions.
-
+        """Verifies that an attempt to delete a timeout within the corresponding handler generates
+        no exceptions.
         """
         self.timer_stack = []
         handle_holder = []
@@ -295,10 +291,11 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
         self.ioloop.stop()
 
     def test_timer_delete_another(self):
-        """Verifies that an attempt by a timeout handler to delete another,
-        that  is ready to run, cancels the execution of the latter without
-        generating an exception. This should pose no issues.
+        """
+        Verifies that an attempt by a timeout handler to delete another, that  is ready to run,
+        cancels the execution of the latter without generating an exception.
 
+        This should pose no issues.
         """
         holder_for_target_timer = []
         self.ioloop.call_later(
@@ -313,18 +310,18 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
         self.assertTrue(self.concluded)
 
     def _on_timer_delete_another(self, holder):
-        """A timeout handler that tries to remove another timeout handler
-        that is ready to run. This should pose no issues.
+        """
+        A timeout handler that tries to remove another timeout handler that is ready to run.
 
+        This should pose no issues.
         """
         target_timer = holder[0]
         self.ioloop.remove_timeout(target_timer)
         self.deleted_another_timer = True
 
         def _on_timer_conclude():
-            """A timeout handler that is called to verify outcome of calling
-            or not calling of previously set handlers.
-
+            """A timeout handler that is called to verify outcome of calling or not calling of
+            previously set handlers.
             """
             self.concluded = True
             self.assertTrue(self.deleted_another_timer)
@@ -340,28 +337,30 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
 
 @unittest.skipIf(not POLL_SUPPORTED, 'poll not supported')
 class IOLoopTimerTestPoll(IOLoopTimerTestSelect):
-    """Same as IOLoopTimerTestSelect but uses 'poll' syscall"""
+    """Same as IOLoopTimerTestSelect but uses 'poll' syscall."""
+
     SELECT_POLLER = 'poll'
 
 
 @unittest.skipIf(not EPOLL_SUPPORTED, 'epoll not supported')
 class IOLoopTimerTestEPoll(IOLoopTimerTestSelect):
-    """Same as IOLoopTimerTestSelect but uses 'epoll' syscall"""
+    """Same as IOLoopTimerTestSelect but uses 'epoll' syscall."""
+
     SELECT_POLLER = 'epoll'
 
 
 @unittest.skipIf(not KQUEUE_SUPPORTED, 'kqueue not supported')
 class IOLoopTimerTestKqueue(IOLoopTimerTestSelect):
-    """Same as IOLoopTimerTestSelect but uses 'kqueue' syscall"""
+    """Same as IOLoopTimerTestSelect but uses 'kqueue' syscall."""
+
     SELECT_POLLER = 'kqueue'
 
 
 class IOLoopSleepTimerTestSelect(IOLoopTimerTestSelect):
-    """Sleep until all the timers should have passed and check they still
-        fire in deadline order"""
+    """Sleep until all the timers should have passed and check they still fire in deadline order."""
 
     def start_test(self):
-        """ Setup timers, sleep and start polling """
+        """Setup timers, sleep and start polling."""
         self.set_timers()
         time.sleep(self.NUM_TIMERS * self.TIMER_INTERVAL)
         self.start()
@@ -369,24 +368,28 @@ class IOLoopSleepTimerTestSelect(IOLoopTimerTestSelect):
 
 @unittest.skipIf(not POLL_SUPPORTED, 'poll not supported')
 class IOLoopSleepTimerTestPoll(IOLoopSleepTimerTestSelect):
-    """Same as IOLoopSleepTimerTestSelect but uses 'poll' syscall"""
+    """Same as IOLoopSleepTimerTestSelect but uses 'poll' syscall."""
+
     SELECT_POLLER = 'poll'
 
 
 @unittest.skipIf(not EPOLL_SUPPORTED, 'epoll not supported')
 class IOLoopSleepTimerTestEPoll(IOLoopSleepTimerTestSelect):
-    """Same as IOLoopSleepTimerTestSelect but uses 'epoll' syscall"""
+    """Same as IOLoopSleepTimerTestSelect but uses 'epoll' syscall."""
+
     SELECT_POLLER = 'epoll'
 
 
 @unittest.skipIf(not KQUEUE_SUPPORTED, 'kqueue not supported')
 class IOLoopSleepTimerTestKqueue(IOLoopSleepTimerTestSelect):
-    """Same as IOLoopSleepTimerTestSelect but uses 'kqueue' syscall"""
+    """Same as IOLoopSleepTimerTestSelect but uses 'kqueue' syscall."""
+
     SELECT_POLLER = 'kqueue'
 
 
 class IOLoopSocketBaseSelect(IOLoopBaseTest):
     """A base class for setting up a communicating pair of sockets."""
+
     SELECT_POLLER = 'select'
     READ_SIZE = 1024
 
@@ -408,7 +411,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         super().tearDown()
 
     def create_accept_socket(self):
-        """Create a socket and setup 'accept' handler"""
+        """Create a socket and setup 'accept' handler."""
         listen_sock = socket.socket()
         listen_sock.setblocking(0)
         listen_sock.bind(('localhost', 0))
@@ -418,7 +421,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         self.ioloop.add_handler(fd_, self.do_accept, self.ioloop.READ)
 
     def create_write_socket(self, on_connected):
-        """ Create a pair of socket and setup 'connected' handler """
+        """Create a pair of socket and setup 'connected' handler."""
         write_sock = socket.socket()
         write_sock.setblocking(0)
         err = write_sock.connect_ex(self.listen_addr)
@@ -429,7 +432,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         return write_sock
 
     def do_accept(self, fd_, events):
-        """ Create socket from the given fd_ and setup 'read' handler """
+        """Create socket from the given fd_ and setup 'read' handler."""
         self.assertEqual(events, self.ioloop.READ)
         listen_sock = self.sock_map[fd_]
         read_sock, _ = listen_sock.accept()
@@ -437,23 +440,29 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         self.ioloop.add_handler(fd_, self.do_read, self.ioloop.READ)
 
     def connected(self, _fd, _events):
-        """ Create socket from given _fd and respond to 'connected'.
-            Implemenation is subclass's responsibility. """
+        """
+        Create socket from given _fd and respond to 'connected'.
+
+        Implemenation is subclass's responsibility.
+        """
         self.fail("IOLoopSocketBase.connected not extended")
 
     def do_read(self, fd_, events):
-        """ read from fd and check the received content """
+        """Read from fd and check the received content."""
         self.assertEqual(events, self.ioloop.READ)
         # NOTE Use socket.recv instead of os.read for Windows compatibility
         self.verify_message(self.sock_map[fd_].recv(self.READ_SIZE))
 
     def verify_message(self, _msg):
-        """ See if 'msg' matches what is expected. This is a stub.
-            Real implementation is subclass's responsibility """
+        """
+        See if 'msg' matches what is expected.
+
+        This is a stub. Real implementation is subclass's responsibility
+        """
         self.fail("IOLoopSocketBase.verify_message not extended")
 
     def on_timeout(self):
-        """called when stuck waiting for connection to close"""
+        """Called when stuck waiting for connection to close."""
         # force the ioloop to stop
         self.ioloop.stop()
         self.fail('Test timed out')
@@ -461,30 +470,32 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
 
 @unittest.skipIf(not POLL_SUPPORTED, 'poll not supported')
 class IOLoopSocketBasePoll(IOLoopSocketBaseSelect):
-    """Same as IOLoopSocketBaseSelect but uses 'poll' syscall"""
+    """Same as IOLoopSocketBaseSelect but uses 'poll' syscall."""
+
     SELECT_POLLER = 'poll'
 
 
 @unittest.skipIf(not EPOLL_SUPPORTED, 'epoll not supported')
 class IOLoopSocketBaseEPoll(IOLoopSocketBaseSelect):
-    """Same as IOLoopSocketBaseSelect but uses 'epoll' syscall"""
+    """Same as IOLoopSocketBaseSelect but uses 'epoll' syscall."""
+
     SELECT_POLLER = 'epoll'
 
 
 @unittest.skipIf(not KQUEUE_SUPPORTED, 'kqueue not supported')
 class IOLoopSocketBaseKqueue(IOLoopSocketBaseSelect):
-    """ Same as IOLoopSocketBaseSelect but uses 'kqueue' syscall """
+    """Same as IOLoopSocketBaseSelect but uses 'kqueue' syscall."""
+
     SELECT_POLLER = 'kqueue'
 
 
 class IOLoopSimpleMessageTestCaseSelect(IOLoopSocketBaseSelect):
-    """Test read/write by creating a pair of sockets, writing to one
-    end and reading from the other
-
+    """Test read/write by creating a pair of sockets, writing to one end and reading from the
+    other.
     """
 
     def start(self):
-        """Create a pair of sockets and poll"""
+        """Create a pair of sockets and poll."""
         self.create_write_socket(self.connected)
         super().start()
 
@@ -496,42 +507,45 @@ class IOLoopSimpleMessageTestCaseSelect(IOLoopSocketBaseSelect):
         self.ioloop.update_handler(fd, 0)
 
     def verify_message(self, msg):
-        """Make sure we get what is expected and stop polling """
+        """Make sure we get what is expected and stop polling."""
         self.assertEqual(msg, b'X')
         self.ioloop.stop()
 
     def test_start(self):
-        """Simple message Test"""
+        """Simple message Test."""
         self.start()
 
 
 @unittest.skipIf(not POLL_SUPPORTED, 'poll not supported')
 class IOLoopSimpleMessageTestCasetPoll(IOLoopSimpleMessageTestCaseSelect):
-    """Same as IOLoopSimpleMessageTestCaseSelect but uses 'poll' syscall"""
+    """Same as IOLoopSimpleMessageTestCaseSelect but uses 'poll' syscall."""
+
     SELECT_POLLER = 'poll'
 
 
 @unittest.skipIf(not EPOLL_SUPPORTED, 'epoll not supported')
 class IOLoopSimpleMessageTestCasetEPoll(IOLoopSimpleMessageTestCaseSelect):
-    """Same as IOLoopSimpleMessageTestCaseSelect but uses 'epoll' syscall"""
+    """Same as IOLoopSimpleMessageTestCaseSelect but uses 'epoll' syscall."""
+
     SELECT_POLLER = 'epoll'
 
 
 @unittest.skipIf(not KQUEUE_SUPPORTED, 'kqueue not supported')
 class IOLoopSimpleMessageTestCasetKqueue(IOLoopSimpleMessageTestCaseSelect):
-    """Same as IOLoopSimpleMessageTestCaseSelect but uses 'kqueue' syscall"""
+    """Same as IOLoopSimpleMessageTestCaseSelect but uses 'kqueue' syscall."""
+
     SELECT_POLLER = 'kqueue'
 
 
 class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
-    """ Tests if EINTR is properly caught and polling gets resumed. """
+    """Tests if EINTR is properly caught and polling gets resumed."""
+
     SELECT_POLLER = 'select'
     MSG_CONTENT = b'hello'
 
     @staticmethod
     def signal_handler(signum, interrupted_stack):
-        """A signal handler that gets called in response to
-           os.kill(signal.SIGUSR1)."""
+        """A signal handler that gets called in response to os.kill(signal.SIGUSR1)."""
 
     def _eintr_read_handler(self, fileno, events):
         """Read from within poll loop that gets receives eintr error."""
@@ -546,8 +560,7 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
         self._eintr_read_handler_is_called = True
 
     def _eintr_test_fail(self):
-        """This function gets called when eintr-test failed to get
-           _eintr_read_handler called."""
+        """This function gets called when eintr-test failed to get _eintr_read_handler called."""
         self.poller.stop()
         self.fail('Eintr-test timed out')
 
@@ -558,9 +571,12 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
             self,
             is_resumable_mock,
             is_resumable_raw=pika.adapters.select_connection._is_resumable):
-        """Test that poll() is properly restarted after receiving EINTR error.
-           Class of an exception raised to signal the error differs in one
-           implementation of polling mechanism and another."""
+        """
+        Test that poll() is properly restarted after receiving EINTR error.
+
+        Class of an exception raised to signal the error differs in one implementation of polling
+        mechanism and another.
+        """
         if threading.current_thread() is not threading.main_thread():
             self.skipTest("signal.signal() requires the main thread")
 
@@ -581,8 +597,8 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
 
         self.ioloop.call_later(self.TIMEOUT, self._eintr_test_fail)
 
-        original_signal_handler = \
-            signal.signal(signal.SIGUSR1, self.signal_handler)
+        original_signal_handler = signal.signal(signal.SIGUSR1,
+                                                self.signal_handler)
         self.addCleanup(signal.signal, signal.SIGUSR1, original_signal_handler)
 
         tmr_k = threading.Timer(0.1,
@@ -599,19 +615,22 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
 
 @unittest.skipIf(not POLL_SUPPORTED, 'poll not supported')
 class IOLoopEintrTestCasePoll(IOLoopEintrTestCaseSelect):
-    """Same as IOLoopEintrTestCaseSelect but uses poll syscall"""
+    """Same as IOLoopEintrTestCaseSelect but uses poll syscall."""
+
     SELECT_POLLER = 'poll'
 
 
 @unittest.skipIf(not EPOLL_SUPPORTED, 'epoll not supported')
 class IOLoopEintrTestCaseEPoll(IOLoopEintrTestCaseSelect):
-    """Same as IOLoopEINTRrTestCaseSelect but uses epoll syscall"""
+    """Same as IOLoopEINTRrTestCaseSelect but uses epoll syscall."""
+
     SELECT_POLLER = 'epoll'
 
 
 @unittest.skipIf(not KQUEUE_SUPPORTED, 'kqueue not supported')
 class IOLoopEintrTestCaseKqueue(IOLoopEintrTestCaseSelect):
-    """Same as IOLoopEINTRTestCaseSelect but uses kqueue syscall"""
+    """Same as IOLoopEINTRTestCaseSelect but uses kqueue syscall."""
+
     SELECT_POLLER = 'kqueue'
 
 
@@ -672,26 +691,28 @@ class PollerTestCaseSelect(unittest.TestCase):
 
 @unittest.skipIf(not POLL_SUPPORTED, 'poll not supported')
 class PollerTestCasePoll(PollerTestCaseSelect):
-    """Same as PollerTestCaseSelect but uses poll syscall"""
+    """Same as PollerTestCaseSelect but uses poll syscall."""
+
     SELECT_POLLER = 'poll'
 
 
 @unittest.skipIf(not EPOLL_SUPPORTED, 'epoll not supported')
 class PollerTestCaseEPoll(PollerTestCaseSelect):
-    """Same as PollerTestCaseSelect but uses epoll syscall"""
+    """Same as PollerTestCaseSelect but uses epoll syscall."""
+
     SELECT_POLLER = 'epoll'
 
 
 @unittest.skipIf(not KQUEUE_SUPPORTED, 'kqueue not supported')
 class PollerTestCaseKqueue(PollerTestCaseSelect):
-    """Same as PollerTestCaseSelect but uses kqueue syscall"""
+    """Same as PollerTestCaseSelect but uses kqueue syscall."""
+
     SELECT_POLLER = 'kqueue'
 
 
 class DefaultPollerSocketEventsTestCase(unittest.TestCase):
-    """This test suite outputs diagnostic information usful for debugging the
-    IOLoop poller's fd watcher
-
+    """This test suite outputs diagnostic information usful for debugging the IOLoop poller's fd
+    watcher.
     """
 
     DEFAULT_TEST_TIMEOUT = 15
@@ -703,14 +724,12 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
     ERROR = IOLOOP_CLS.ERROR
 
     def create_ioloop_with_timeout(self):
-        """Create IOLoop with test timeout and schedule cleanup to close it
-
-        """
+        """Create IOLoop with test timeout and schedule cleanup to close it."""
         ioloop = select_connection.IOLoop()
         self.addCleanup(ioloop.close)
 
         def _on_test_timeout():
-            """Called when test times out"""
+            """Called when test times out."""
             LOGGER.info('%s TIMED OUT (%s)', datetime.now(timezone.utc), self)
             self.fail('Test timed out')
 
@@ -719,20 +738,17 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
         return ioloop
 
     def create_nonblocking_tcp_socket(self):
-        """Create a TCP stream socket and schedule cleanup to close it
-
-        """
+        """Create a TCP stream socket and schedule cleanup to close it."""
         sock = socket.socket()
         sock.setblocking(False)
         self.addCleanup(sock.close)
         return sock
 
     def create_nonblocking_socketpair(self):
-        """Creates a non-blocking socket pair and schedules cleanup to close
-        them
+        """
+        Creates a non-blocking socket pair and schedules cleanup to close them.
 
         :returns: two-tuple of connected non-blocking sockets
-
         """
         pair = pika._utils.nonblocking_socketpair()
         self.addCleanup(pair[0].close)
@@ -740,11 +756,10 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
         return pair
 
     def create_blocking_socketpair(self):
-        """Creates a blocking socket pair and schedules cleanup to close
-        them
+        """
+        Creates a blocking socket pair and schedules cleanup to close them.
 
         :returns: two-tuple of connected non-blocking sockets
-
         """
         pair = self.create_nonblocking_socketpair()
         pair[0].setblocking(True)
@@ -753,9 +768,8 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
 
     @staticmethod
     def safe_connect_nonblocking_socket(sock, addr_pair):
-        """Initiate socket connection, suppressing EINPROGRESS/EWOULDBLOCK
-        :param socket.socket sock
-        :param addr_pair: two tuple of address string and port integer
+        """Initiate socket connection, suppressing EINPROGRESS/EWOULDBLOCK :param socket.socket sock
+        :param addr_pair: two tuple of address string and port integer.
         """
         try:
             sock.connect(addr_pair)
@@ -781,8 +795,10 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
     def which_events_are_set_with_varying_eventmasks(self, sock,
                                                      requested_eventmasks,
                                                      msg_prefix):
-        """Common logic for which_events_are_set_* tests. Runs the event loop
-        while varying eventmasks at each socket event callback
+        """
+        Common logic for which_events_are_set_* tests.
+
+        Runs the event loop while varying eventmasks at each socket event callback
 
         :param sock: socket to watch for events
         :param requested_eventmasks: a mutable list of eventmasks to apply after
@@ -1031,24 +1047,22 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
 
 @mock.patch.multiple(select_connection, SELECT_TYPE='select')
 class SelectPollerSocketEventsTestCase(DefaultPollerSocketEventsTestCase):
-    """Runs `DefaultPollerSocketEventsTestCase` tests with forced use of
-    SelectPoller
-    """
+    """Runs `DefaultPollerSocketEventsTestCase` tests with forced use of SelectPoller."""
 
 
 @unittest.skipIf(not POLL_SUPPORTED, 'poll not supported')
 @mock.patch.multiple(select_connection, SELECT_TYPE='poll')
 class PollPollerSocketEventsTestCase(DefaultPollerSocketEventsTestCase):
-    """Same as DefaultPollerSocketEventsTestCase but uses poll syscall"""
+    """Same as DefaultPollerSocketEventsTestCase but uses poll syscall."""
 
 
 @unittest.skipIf(not EPOLL_SUPPORTED, 'epoll not supported')
 @mock.patch.multiple(select_connection, SELECT_TYPE='epoll')
 class EpollPollerSocketEventsTestCase(DefaultPollerSocketEventsTestCase):
-    """Same as DefaultPollerSocketEventsTestCase but uses epoll syscall"""
+    """Same as DefaultPollerSocketEventsTestCase but uses epoll syscall."""
 
 
 @unittest.skipIf(not KQUEUE_SUPPORTED, 'kqueue not supported')
 @mock.patch.multiple(select_connection, SELECT_TYPE='kqueue')
 class KqueuePollerSocketEventsTestCase(DefaultPollerSocketEventsTestCase):
-    """Same as DefaultPollerSocketEventsTestCase but uses kqueue syscall"""
+    """Same as DefaultPollerSocketEventsTestCase but uses kqueue syscall."""

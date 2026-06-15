@@ -1,8 +1,7 @@
-"""
-Test `pika.connection.Parameters`, `pika.connection.ConnectionParameters`, and
+"""Test `pika.connection.Parameters`, `pika.connection.ConnectionParameters`, and
 `pika.connection.URLParameters`
-
 """
+
 import copy
 import ssl
 import unittest
@@ -87,11 +86,11 @@ class ParametersTestsBase(unittest.TestCase):
         return defaults
 
     def assert_default_parameter_values(self, params):
-        """Assert that the given parameters object has the default parameter
-        values.
+        """
+        Assert that the given parameters object has the default parameter values.
 
-        :param pika.connection.Parameters params: Verify that the given params
-            instance has all default property values
+        :param pika.connection.Parameters params: Verify that the given params instance has all
+            default property values
         """
         for name, expected_value in self.get_default_properties().items():
             value = getattr(params, name)
@@ -498,7 +497,7 @@ class ConnectionParametersTests(ParametersTestsBase):
         self.assertIsNone(params.socket_timeout)
 
     def test_good_connection_parameters(self):
-        """make sure connection kwargs get set correctly"""
+        """Make sure connection kwargs get set correctly."""
         kwargs = {
             'blocked_connection_timeout': 10.5,
             'channel_max': 3,
@@ -549,7 +548,7 @@ class ConnectionParametersTests(ParametersTestsBase):
         self.assertIs(parameters.heartbeat, heartbeat_callback)
 
     def test_bad_type_connection_parameters(self):
-        """test connection kwargs type checks throw errors for bad input"""
+        """Test connection kwargs type checks throw errors for bad input."""
         kwargs = {
             'host': 'https://www.test.com',
             'port': 5678,
@@ -637,9 +636,10 @@ class URLParametersTests(ParametersTestsBase):
 
     def test_ssl_default_protocol_version_fallback(self):
         """
-        This test does not set protocol_version option in ssl_options. Instead,
-        it relies on connection.URLParameters class to setup the default, and
-        then it asserts the protocol is what we expected (auto or TLSv1_2)
+        This test does not set protocol_version option in ssl_options.
+
+        Instead, it relies on connection.URLParameters class to setup the default, and then it
+        asserts the protocol is what we expected (auto or TLSv1_2)
         """
         params = connection.URLParameters(
             'amqps://foo.bar/some-vhost?ssl_options=%7B%27ca_certs%27%3A%27tests%2Fcerts%2Fca_certificate.pem%27%7D'
@@ -655,7 +655,7 @@ class URLParametersTests(ParametersTestsBase):
         self.assertEqual(params.port, params.DEFAULT_PORT)
 
     def test_good_parameters(self):
-        """test for the different query stings checked by process url"""
+        """Test for the different query stings checked by process url."""
         query_args = {
             'blocked_connection_timeout': 10.5,
             'channel_max': 3,

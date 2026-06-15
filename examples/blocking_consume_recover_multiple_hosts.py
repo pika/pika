@@ -1,7 +1,6 @@
 """
-This module implements a client that connects to multiple RabbitMQ brokers
-distributed across different ports (5672, 5673, 5674) and consumes messages
-from a shared queue.
+This module implements a client that connects to multiple RabbitMQ brokers distributed across
+different ports (5672, 5673, 5674) and consumes messages from a shared queue.
 
 The process follows these main steps:
 

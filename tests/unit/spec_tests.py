@@ -1,7 +1,5 @@
-"""
-Tests for pika.spec
+"""Tests for pika.spec."""
 
-"""
 import unittest
 
 from pika import spec
