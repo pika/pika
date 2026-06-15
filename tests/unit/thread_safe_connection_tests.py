@@ -439,7 +439,8 @@ class ThreadSafeChannelTests(unittest.TestCase):
         def execute_and_fire(cb):
             close_callbacks = []
             raw_ch.add_on_close_callback.side_effect = close_callbacks.append
-            raw_ch.close.side_effect = lambda reply_code, reply_text: close_callbacks[0](raw_ch, ChannelClosedByClient(reply_code, reply_text))
+            raw_ch.close.side_effect = lambda reply_code, reply_text: close_callbacks[
+                0](raw_ch, ChannelClosedByClient(reply_code, reply_text))
             cb()
 
         wrapper.add_callback_threadsafe.side_effect = execute_and_fire
@@ -671,7 +672,8 @@ class ConsumerWorkPoolTests(unittest.TestCase):
                 # Second call: channel close
                 close_callbacks = []
                 raw_ch.add_on_close_callback.side_effect = close_callbacks.append
-                raw_ch.close.side_effect = lambda reply_code, reply_text: close_callbacks[-1](raw_ch, ChannelClosedByClient(reply_code, reply_text))
+                raw_ch.close.side_effect = lambda reply_code, reply_text: close_callbacks[
+                    -1](raw_ch, ChannelClosedByClient(reply_code, reply_text))
                 cb()
 
         wrapper.add_callback_threadsafe.side_effect = execute_and_fire
