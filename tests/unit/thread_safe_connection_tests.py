@@ -1567,7 +1567,8 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
 
         def execute_scheduled(cb):
             mock_raw_ch = MagicMock()
-            mock_conn.channel.side_effect = lambda on_open_callback: on_open_callback(mock_raw_ch)
+            mock_conn.channel.side_effect = lambda on_open_callback: on_open_callback(
+                mock_raw_ch)
             cb()
 
         mock_ioloop.add_callback_threadsafe.side_effect = execute_scheduled
@@ -1583,7 +1584,8 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
 
         def execute_scheduled(cb):
             mock_raw_ch = MagicMock()
-            mock_conn.channel.side_effect = lambda on_open_callback: on_open_callback(mock_raw_ch)
+            mock_conn.channel.side_effect = lambda on_open_callback: on_open_callback(
+                mock_raw_ch)
             cb()
 
         mock_ioloop.add_callback_threadsafe.side_effect = execute_scheduled
