@@ -1,7 +1,5 @@
-"""
-Tests for pika.callback
+"""Tests for pika.callback."""
 
-"""
 from __future__ import annotations
 
 import logging

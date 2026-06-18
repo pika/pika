@@ -1,6 +1,4 @@
-"""
-Test of `pika.diagnostic_utils`
-"""
+"""Test of `pika.diagnostic_utils`"""
 
 import logging
 import unittest

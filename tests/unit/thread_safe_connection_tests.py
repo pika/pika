@@ -1,4 +1,5 @@
-"""Tests for pika.adapters.thread_safe_connection"""
+"""Tests for pika.adapters.thread_safe_connection."""
+
 import threading
 import unittest
 from unittest.mock import MagicMock, patch
@@ -50,8 +51,9 @@ class ThreadSafeChannelTests(unittest.TestCase):
         )
 
     def test_basic_publish_callback_swallows_channel_wrong_state_error(self):
-        """ChannelWrongStateError inside the scheduled callback must not
-        propagate to the IOLoop — that would crash the IOLoop thread."""
+        """ChannelWrongStateError inside the scheduled callback must not propagate to the IOLoop —
+        that would crash the IOLoop thread.
+        """
         from pika.exceptions import ChannelWrongStateError
         ch, raw_ch, wrapper = self._make_channel()
         raw_ch.basic_publish.side_effect = ChannelWrongStateError(
@@ -62,8 +64,9 @@ class ThreadSafeChannelTests(unittest.TestCase):
         raw_ch.basic_publish.assert_called_once()
 
     def test_on_publish_not_called_when_confirms_not_enabled(self):
-        """on_publish callback is ignored when confirm_delivery has not been
-        called (_next_publish_seq_no is None)."""
+        """on_publish callback is ignored when confirm_delivery has not been called
+        (_next_publish_seq_no is None).
+        """
         ch, raw_ch, wrapper = self._make_channel()
         on_publish = MagicMock()
         ch.basic_publish(exchange='ex',
@@ -76,8 +79,9 @@ class ThreadSafeChannelTests(unittest.TestCase):
         on_publish.assert_not_called()
 
     def test_on_publish_called_with_delivery_tag_when_confirms_enabled(self):
-        """After confirms are armed, on_publish receives monotonically
-        increasing delivery tags starting at 1."""
+        """After confirms are armed, on_publish receives monotonically increasing delivery tags
+        starting at 1.
+        """
         ch, _raw_ch, wrapper = self._make_channel()
         ch._next_publish_seq_no = 0  # simulate confirm_delivery success
         tags = []
@@ -99,8 +103,9 @@ class ThreadSafeChannelTests(unittest.TestCase):
         self.assertEqual(tags, [1, 2, 3])
 
     def test_on_publish_not_called_when_publish_raises(self):
-        """If the raw basic_publish raises, the tag is not consumed and
-        on_publish is not invoked."""
+        """If the raw basic_publish raises, the tag is not consumed and on_publish is not
+        invoked.
+        """
         from pika.exceptions import ChannelWrongStateError
         ch, raw_ch, wrapper = self._make_channel()
         ch._next_publish_seq_no = 0
@@ -116,9 +121,12 @@ class ThreadSafeChannelTests(unittest.TestCase):
         self.assertEqual(ch._next_publish_seq_no, 0)
 
     def test_seq_no_increments_without_on_publish_when_confirms_enabled(self):
-        """The delivery tag counter advances on every successful publish
-        when confirms are armed, regardless of whether on_publish is
-        provided.  This matches the RabbitMQ Java and .NET client behavior."""
+        """
+        The delivery tag counter advances on every successful publish when confirms are armed,
+        regardless of whether on_publish is provided.
+
+        This matches the RabbitMQ Java and .NET client behavior.
+        """
         ch, _raw_ch, wrapper = self._make_channel()
         ch._next_publish_seq_no = 0
         ch.basic_publish(exchange='ex', routing_key='rk', body=b'x')
@@ -431,8 +439,8 @@ class ThreadSafeChannelTests(unittest.TestCase):
         def execute_and_fire(cb):
             close_callbacks = []
             raw_ch.add_on_close_callback.side_effect = close_callbacks.append
-            raw_ch.close.side_effect = lambda reply_code, reply_text: \
-                close_callbacks[0](raw_ch, ChannelClosedByClient(reply_code, reply_text))
+            raw_ch.close.side_effect = lambda reply_code, reply_text: close_callbacks[
+                0](raw_ch, ChannelClosedByClient(reply_code, reply_text))
             cb()
 
         wrapper.add_callback_threadsafe.side_effect = execute_and_fire
@@ -540,8 +548,9 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_callback_runs_on_worker_thread_not_ioloop(self):
-        """on_message_callback must execute on the pool thread, not the
-        thread that invoked the wrapped callback (which is the IOLoop thread)."""
+        """on_message_callback must execute on the pool thread, not the thread that invoked the
+        wrapped callback (which is the IOLoop thread).
+        """
         ch, raw_ch, wrapper = self._make_channel()
         mock_frame = MagicMock()
         mock_frame.method.consumer_tag = 'ctag1'
@@ -598,8 +607,9 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         self.assertEqual(order, list(range(10)))
 
     def test_callback_exception_does_not_kill_pool(self):
-        """An exception in a delivery callback must not prevent subsequent
-        deliveries from being processed."""
+        """An exception in a delivery callback must not prevent subsequent deliveries from being
+        processed.
+        """
         ch, raw_ch, wrapper = self._make_channel()
         mock_frame = MagicMock()
         mock_frame.method.consumer_tag = 'ctag1'
@@ -629,7 +639,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         self.assertEqual(delivered, ['explode', 'after'])
 
     def test_channel_close_waits_for_pending_callbacks(self):
-        """close() must wait for in-flight callbacks to complete before returning."""
+        """Close() must wait for in-flight callbacks to complete before returning."""
         import time
 
         from pika.exceptions import ChannelClosedByClient
@@ -662,8 +672,8 @@ class ConsumerWorkPoolTests(unittest.TestCase):
                 # Second call: channel close
                 close_callbacks = []
                 raw_ch.add_on_close_callback.side_effect = close_callbacks.append
-                raw_ch.close.side_effect = lambda reply_code, reply_text: \
-                    close_callbacks[-1](raw_ch, ChannelClosedByClient(reply_code, reply_text))
+                raw_ch.close.side_effect = lambda reply_code, reply_text: close_callbacks[
+                    -1](raw_ch, ChannelClosedByClient(reply_code, reply_text))
                 cb()
 
         wrapper.add_callback_threadsafe.side_effect = execute_and_fire
@@ -881,8 +891,9 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         wrapper.add_callback_threadsafe.assert_not_called()
 
     def test_return_listener_exception_is_logged_not_lost(self):
-        """An exception raised inside a return listener must be logged
-        (not silently dropped on an unobserved Future)."""
+        """An exception raised inside a return listener must be logged (not silently dropped on an
+        unobserved Future).
+        """
         ch, raw_ch, wrapper = self._make_channel()
 
         def boom(channel, method, properties, body):
@@ -955,8 +966,9 @@ class ConsumerWorkPoolTests(unittest.TestCase):
             f'Expected "publisher confirm callback" in logs, got: {cm.output}')
 
     def test_confirm_delivery_arms_publish_seq_no_counter(self):
-        """After confirm_delivery succeeds, _next_publish_seq_no is 0
-        (armed) so subsequent publishes will track tags."""
+        """After confirm_delivery succeeds, _next_publish_seq_no is 0 (armed) so subsequent
+        publishes will track tags.
+        """
         ch, raw_ch, wrapper = self._make_channel()
         self.assertIsNone(ch._next_publish_seq_no)
         ok_frame = MagicMock()
@@ -974,8 +986,9 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         self.assertEqual(ch._next_publish_seq_no, 0)
 
     def test_confirm_delivery_is_idempotent(self):
-        """Calling confirm_delivery a second time returns the cached
-        Confirm.SelectOk without sending a frame or resetting the counter."""
+        """Calling confirm_delivery a second time returns the cached Confirm.SelectOk without
+        sending a frame or resetting the counter.
+        """
         ch, raw_ch, wrapper = self._make_channel()
         ok_frame = MagicMock()
 
@@ -1099,7 +1112,7 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
         self.assertIn('basic_cancel', str(ctx.exception))
 
     def test_channel_close_does_not_raise_on_timeout(self):
-        """close() should log and continue, not raise TimeoutError."""
+        """Close() should log and continue, not raise TimeoutError."""
         ch, raw_ch, wrapper = self._make_channel()
         raw_ch.is_closed = False
         raw_ch.is_closing = False
@@ -1166,7 +1179,7 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
         self.assertEqual(wrapper._blocking_waiters, [])
 
     def test_close_timeout_unregisters_waiter(self):
-        """close() timeout must not leak a waiter."""
+        """Close() timeout must not leak a waiter."""
         ch, raw_ch, wrapper = self._make_channel()
         raw_ch.is_closed = False
         raw_ch.is_closing = False
@@ -1183,11 +1196,11 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
 
 
 class BlockingRPCPassthroughTests(unittest.TestCase):
-    """Cover the eight thin RPC method wrappers that delegate to _blocking_rpc.
+    """
+    Cover the eight thin RPC method wrappers that delegate to _blocking_rpc.
 
-    Each method's only logic is to forward arguments to the raw channel via
-    self._blocking_rpc and return its result.  These tests verify the success
-    path of each wrapper end-to-end.
+    Each method's only logic is to forward arguments to the raw channel via self._blocking_rpc and
+    return its result.  These tests verify the success path of each wrapper end-to-end.
     """
 
     def _make_channel(self):
@@ -1278,7 +1291,8 @@ class BlockingRPCPassthroughTests(unittest.TestCase):
 
 
 class BlockingRPCErrorPathTests(unittest.TestCase):
-    """Cover the two error paths inside ThreadSafeChannel._blocking_rpc:
+    """
+    Cover the two error paths inside ThreadSafeChannel._blocking_rpc:
 
     * channel_method itself raises during _invoke (connection already
       torn down on the IOLoop thread).
@@ -1308,8 +1322,9 @@ class BlockingRPCErrorPathTests(unittest.TestCase):
         self.assertIs(ctx.exception, boom)
 
     def test_channel_close_during_rpc_propagates_reason(self):
-        """Channel-close callback firing before _on_ok must surface the close
-        reason to the blocked caller."""
+        """Channel-close callback firing before _on_ok must surface the close reason to the blocked
+        caller.
+        """
         ch, raw_ch, wrapper = self._make_channel()
         reason = Exception('channel closed by broker')
         captured_close_cb = {}
@@ -1333,8 +1348,7 @@ class BlockingRPCErrorPathTests(unittest.TestCase):
 
 
 class BasicGetTests(unittest.TestCase):
-    """Cover ThreadSafeChannel.basic_get success, empty, error and
-    channel-close paths."""
+    """Cover ThreadSafeChannel.basic_get success, empty, error and channel-close paths."""
 
     def _make_channel(self):
         raw_ch = MagicMock()
@@ -1459,8 +1473,7 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
 
 
 class CallbackRegistrationFailureTests(unittest.TestCase):
-    """Cover the LOGGER.warning branches when raw-channel registration
-    methods raise."""
+    """Cover the LOGGER.warning branches when raw-channel registration methods raise."""
 
     def _make_channel(self):
         raw_ch = MagicMock()
@@ -1496,8 +1509,9 @@ class CallbackRegistrationFailureTests(unittest.TestCase):
                       mock_logger.warning.call_args[0][0])
 
     def test_publisher_confirm_drops_when_pool_shut_down(self):
-        """The wrapped ack/nack callback logs and drops if the consumer pool
-        has been shut down by the time the broker delivers the confirm."""
+        """The wrapped ack/nack callback logs and drops if the consumer pool has been shut down by
+        the time the broker delivers the confirm.
+        """
         ch, _raw_ch, _wrapper = self._make_channel()
         # Capture the wrapped callback by short-circuiting _blocking_rpc.
         captured = {}
@@ -1553,8 +1567,8 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
 
         def execute_scheduled(cb):
             mock_raw_ch = MagicMock()
-            mock_conn.channel.side_effect = lambda on_open_callback: \
-                on_open_callback(mock_raw_ch)
+            mock_conn.channel.side_effect = lambda on_open_callback: on_open_callback(
+                mock_raw_ch)
             cb()
 
         mock_ioloop.add_callback_threadsafe.side_effect = execute_scheduled
@@ -1563,14 +1577,15 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         self.assertIn(ch, conn._channels)
 
     def test_connection_close_shuts_down_channel_pools(self):
-        """Pool shutdown happens after ioloop.start() returns, not inside
-        _on_connection_closed (which runs on the IOLoop thread)."""
+        """Pool shutdown happens after ioloop.start() returns, not inside _on_connection_closed
+        (which runs on the IOLoop thread).
+        """
         conn, mock_conn, mock_ioloop = self._make_connection()
 
         def execute_scheduled(cb):
             mock_raw_ch = MagicMock()
-            mock_conn.channel.side_effect = lambda on_open_callback: \
-                on_open_callback(mock_raw_ch)
+            mock_conn.channel.side_effect = lambda on_open_callback: on_open_callback(
+                mock_raw_ch)
             cb()
 
         mock_ioloop.add_callback_threadsafe.side_effect = execute_scheduled
@@ -1640,8 +1655,9 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         self.assertTrue(ch._pool_shutdown)
 
     def test_init_raises_timeout_error(self):
-        """Constructor must raise TimeoutError if connection is not established
-        within the specified timeout."""
+        """Constructor must raise TimeoutError if connection is not established within the specified
+        timeout.
+        """
         with patch('pika.adapters.thread_safe_connection.SelectConnection'
                   ) as MockSelectConn:
             mock_conn = MagicMock()
@@ -1664,8 +1680,10 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
             mock_ioloop.add_callback_threadsafe.assert_called()
 
     def test_init_failure_shuts_down_connection_pool(self):
-        """If SelectConnection construction raises, the connection-event
-        pool must be shut down before __init__ propagates the exception.
+        """
+        If SelectConnection construction raises, the connection-event pool must be shut down before
+        __init__ propagates the exception.
+
         Otherwise its worker thread leaks for the lifetime of the process.
         """
         boom = RuntimeError('boom')
@@ -1700,8 +1718,9 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
                 captured[0].submit(lambda: None)
 
     def test_init_timeout_joins_ioloop_thread(self):
-        """When __init__ raises TimeoutError it must wait for the IOLoop
-        thread to exit so consumer/connection pools are shut down."""
+        """When __init__ raises TimeoutError it must wait for the IOLoop thread to exit so
+        consumer/connection pools are shut down.
+        """
         with patch('pika.adapters.thread_safe_connection.SelectConnection'
                   ) as MockSelectConn:
             mock_conn = MagicMock()
@@ -1748,7 +1767,7 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
                 self.fail('Expected TimeoutError')
 
     def test_channel_raises_timeout_error(self):
-        """channel() must raise TimeoutError if Channel.OpenOk never arrives."""
+        """Channel() must raise TimeoutError if Channel.OpenOk never arrives."""
         conn, mock_conn, mock_ioloop = self._make_connection()
 
         def never_respond(cb):
@@ -1764,7 +1783,7 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         self.assertIn('channel open', str(ctx.exception))
 
     def test_channel_timeout_unregisters_waiter(self):
-        """channel() timeout must not leak a waiter."""
+        """Channel() timeout must not leak a waiter."""
         conn, mock_conn, mock_ioloop = self._make_connection()
 
         def never_respond(cb):
@@ -1779,12 +1798,12 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         self.assertEqual(conn._blocking_waiters, [])
 
     def test_channel_raises_if_connection_closes_during_open(self):
-        """channel() must raise (not return a leaked channel) if the
-        connection closes between Channel.OpenOk and the caller waking.
+        """
+        Channel() must raise (not return a leaked channel) if the connection closes between
+        Channel.OpenOk and the caller waking.
 
-        Without the race guard, a ThreadSafeChannel would be appended to
-        _channels after _shutdown_all_consumer_pools() had already run,
-        leaking the per-channel consumer pool.
+        Without the race guard, a ThreadSafeChannel would be appended to _channels after
+        _shutdown_all_consumer_pools() had already run, leaking the per-channel consumer pool.
         """
         conn, mock_conn, mock_ioloop = self._make_connection()
         mock_raw_ch = MagicMock()
@@ -2071,8 +2090,9 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         self.assertEqual(conn._blocking_waiters, [])
 
     def test_close_safe_close_suppresses_connection_wrong_state_error(self):
-        """_safe_close must swallow ConnectionWrongStateError so it does not
-        propagate through the IOLoop and crash the IOLoop thread."""
+        """_safe_close must swallow ConnectionWrongStateError so it does not propagate through the
+        IOLoop and crash the IOLoop thread.
+        """
         from pika.exceptions import ConnectionWrongStateError
         conn, mock_conn, _ = self._make_connection()
         conn._ioloop_thread = MagicMock()
@@ -2238,8 +2258,9 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         conn._shutdown_connection_pool()  # second call must be a no-op
 
     def test_close_force_stop_shuts_down_connection_pool(self):
-        """When close() force-stops the IOLoop, the connection pool must be
-        shut down so no callback worker thread is left dangling."""
+        """When close() force-stops the IOLoop, the connection pool must be shut down so no callback
+        worker thread is left dangling.
+        """
         conn, _mock_conn, _ = self._make_connection()
         conn._ioloop_thread = MagicMock()
         # First join() returns with thread still alive, second returns dead
@@ -2248,8 +2269,9 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         self.assertTrue(conn._connection_pool_shutdown)
 
     def test_connection_event_listener_exception_is_logged_not_lost(self):
-        """A blocked-listener exception must be logged, not silently lost
-        on an unobserved Future."""
+        """A blocked-listener exception must be logged, not silently lost on an unobserved
+        Future.
+        """
         import concurrent.futures
         conn, mock_conn, mock_ioloop = self._make_connection()
         conn._connection_work_pool = concurrent.futures.ThreadPoolExecutor(
@@ -2292,8 +2314,9 @@ class ConnectionInitErrorPathTests(unittest.TestCase):
     """Cover the IOLoop-thread error paths in ThreadSafeConnection.__init__."""
 
     def test_ioloop_crash_before_open_propagates_to_init(self):
-        """If ioloop.start() raises before on_open_callback fires, __init__
-        must surface the exception (it cannot silently hang forever)."""
+        """If ioloop.start() raises before on_open_callback fires, __init__ must surface the
+        exception (it cannot silently hang forever).
+        """
         crash = RuntimeError('IOLoop crashed before open')
         with patch('pika.adapters.thread_safe_connection.SelectConnection'
                   ) as MockSelectConn:
@@ -2309,8 +2332,9 @@ class ConnectionInitErrorPathTests(unittest.TestCase):
         self.assertIs(ctx.exception, crash)
 
     def test_on_connection_open_error_invokes_user_callback(self):
-        """When the broker rejects the open, the user-supplied
-        on_open_error_callback must be called with the error."""
+        """When the broker rejects the open, the user-supplied on_open_error_callback must be called
+        with the error.
+        """
         error = Exception('refused')
         captured = {}
         user_cb = MagicMock()
@@ -2342,8 +2366,7 @@ class ConnectionInitErrorPathTests(unittest.TestCase):
 
 
 class ConnectionCloseFromIOLoopTests(unittest.TestCase):
-    """Cover the close-from-IOLoop-thread path in
-    ThreadSafeConnection.close()."""
+    """Cover the close-from-IOLoop-thread path in ThreadSafeConnection.close()."""
 
     def _make_connection(self):
         with patch('pika.adapters.thread_safe_connection.SelectConnection'
@@ -2368,9 +2391,9 @@ class ConnectionCloseFromIOLoopTests(unittest.TestCase):
         return conn, mock_conn, mock_ioloop
 
     def test_close_from_ioloop_thread_suppresses_connection_close_error(self):
-        """When close() runs on the IOLoop thread and connection.close()
-        raises (e.g. already closing), the exception must be swallowed and
-        logged, not propagated."""
+        """When close() runs on the IOLoop thread and connection.close() raises (e.g. already
+        closing), the exception must be swallowed and logged, not propagated.
+        """
         conn, mock_conn, _ = self._make_connection()
         # Make `current_thread() is self._ioloop_thread` true.
         conn._ioloop_thread = threading.current_thread()
@@ -2382,8 +2405,9 @@ class ConnectionCloseFromIOLoopTests(unittest.TestCase):
 
 
 class ConnectionEventRegistrationFailureTests(unittest.TestCase):
-    """Cover the LOGGER.warning branch when the raw connection's
-    blocked/unblocked registration method raises."""
+    """Cover the LOGGER.warning branch when the raw connection's blocked/unblocked registration
+    method raises.
+    """
 
     def _make_connection(self):
         with patch('pika.adapters.thread_safe_connection.SelectConnection'
@@ -2422,8 +2446,9 @@ class ConnectionEventRegistrationFailureTests(unittest.TestCase):
 
 
 class ChannelOpenExceptionPathTests(unittest.TestCase):
-    """Cover the exception path inside ThreadSafeConnection.channel() when
-    the inner connection.channel() call itself raises."""
+    """Cover the exception path inside ThreadSafeConnection.channel() when the inner
+    connection.channel() call itself raises.
+    """
 
     def _make_connection(self):
         with patch('pika.adapters.thread_safe_connection.SelectConnection'

@@ -1,7 +1,5 @@
-"""
-Tests for pika.channel.ContentFrameAssembler
+"""Tests for pika.channel.ContentFrameAssembler."""
 
-"""
 import marshal
 import unittest
 

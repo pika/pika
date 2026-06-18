@@ -1,7 +1,5 @@
-"""
-Tests for pika.credentials
+"""Tests for pika.credentials."""
 
-"""
 import unittest
 from unittest import mock
 

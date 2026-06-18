@@ -1,11 +1,10 @@
 """
-codegen.py generates pika/spec.py
+codegen.py generates pika/spec.py.
 
-The required spec json file can be found at
-https://github.com/rabbitmq/rabbitmq-server
-.
+The required spec json file can be found at https://github.com/rabbitmq/rabbitmq-server .
 
-After cloning it run the following to generate a spec.py file:
+After cloning it run the following to generate a spec.py
+file:
 python ./utils/codegen.py ../rabbitmq-server
 """
 
@@ -284,12 +283,14 @@ def generate(specPath):
 
     def fieldInitList(prefix, fields):
         if fields:
-            return ''.join([f"{prefix}self.{pyize(f.name)} = {pyize(f.name)}\n" \
-                            for f in fields])
+            return ''.join([
+                f"{prefix}self.{pyize(f.name)} = {pyize(f.name)}\n"
+                for f in fields
+            ])
         else:
             return f'{prefix}pass\n'
-
-    print("""\"\"\"
+    print(\
+          """\"\"\"
 AMQP Specification
 ==================
 This module implements the constants and classes that comprise AMQP protocol
@@ -306,7 +307,8 @@ import struct
 from pika import amqp_object
 from pika import data
 
-""")
+"""
+    )
 
     print("PROTOCOL_VERSION = (%d, %d, %d)" %
           (spec.major, spec.minor, spec.revision))

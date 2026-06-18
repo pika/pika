@@ -1,4 +1,5 @@
-"""Handle AMQP Heartbeats"""
+"""Handle AMQP Heartbeats."""
+
 import logging
 
 import pika.exceptions
@@ -8,31 +9,31 @@ LOGGER = logging.getLogger(__name__)
 
 
 class HeartbeatChecker:
-    """Sends heartbeats to the broker. The provided timeout is used to
-    determine if the connection is stale - no received heartbeats or
+    """
+    Sends heartbeats to the broker.
+
+    The provided timeout is used to determine if the connection is stale - no received heartbeats or
     other activity will close the connection. See the parameter list for more
     details.
-
     """
+
     _STALE_CONNECTION = "No activity or too many missed heartbeats in the last %i seconds"
 
     def __init__(self, connection, timeout) -> None:
-        """Create an object that will check for activity on the provided
-        connection as well as receive heartbeat frames from the broker. The
-        timeout parameter defines a window within which this activity must
-        happen. If not, the connection is considered dead and closed.
+        """
+        Create an object that will check for activity on the provided connection as well as receive
+        heartbeat frames from the broker. The timeout parameter defines a window within which this
+        activity must happen. If not, the connection is considered dead and closed.
 
-        The value must be >= 1. The value passed for timeout is also used to
-        calculate an interval at which a heartbeat frame is sent to the broker.
-        The interval is equal to the timeout value divided by two.
+        The value must be >= 1. The value passed for timeout is also used to calculate an interval
+        at which a heartbeat frame is sent to the broker. The interval is equal to the timeout value
+        divided by two.
 
         :param connection: Connection object
-        :param timeout: Connection idle timeout. If no activity occurs on the
-                            connection nor heartbeat frames received during the
-                            timeout window the connection will be closed. The
-                            interval used to send heartbeats is calculated from
-                            this value by dividing it by two.
-
+        :param timeout: Connection idle timeout. If no activity occurs on the connection nor
+            heartbeat frames received during the timeout window the connection will be closed. The
+            interval used to send heartbeats is calculated from this value by dividing it by two.
+        :rtype: None
         """
         if timeout < 1:
             raise ValueError(f'timeout must >= 1, but got {timeout!r}')
@@ -82,39 +83,40 @@ class HeartbeatChecker:
 
     @property
     def bytes_received_on_connection(self) -> int:
-        """Return the number of bytes received by the connection bytes object.
+        """
+        Return the number of bytes received by the connection bytes object.
 
-
+        :rtype: int
         """
         return self._connection.bytes_received
 
     @property
     def connection_is_idle(self) -> bool:
-        """Returns true if the byte count hasn't changed in enough intervals
-        to trip the max idle threshold.
+        """
+        Returns true if the byte count hasn't changed in enough intervals to trip the max idle
+        threshold.
 
-
+        :rtype: bool
         """
         return self._idle_byte_intervals > 0
 
     def received(self) -> None:
-        """Called when a heartbeat is received"""
+        """Called when a heartbeat is received."""
         LOGGER.debug('Received heartbeat frame')
         self._heartbeat_frames_received += 1
 
     def _send_heartbeat(self) -> None:
-        """Invoked by a timer to send a heartbeat when we need to.
-
-        """
+        """Invoked by a timer to send a heartbeat when we need to."""
         LOGGER.debug('Sending heartbeat frame')
         self._send_heartbeat_frame()
         self._start_send_timer()
 
     def _check_heartbeat(self) -> None:
-        """Invoked by a timer to check for broker heartbeats. Checks to see
-        if we've missed any heartbeats and disconnect our connection if it's
-        been idle too long.
+        """
+        Invoked by a timer to check for broker heartbeats.
 
+        Checks to see if we've missed any heartbeats and disconnect our connection if it's been idle
+        too long.
         """
         if self._has_received_data:
             self._idle_byte_intervals = 0
@@ -134,7 +136,7 @@ class HeartbeatChecker:
         self._start_check_timer()
 
     def stop(self) -> None:
-        """Stop the heartbeat checker"""
+        """Stop the heartbeat checker."""
         if self._send_timer:
             LOGGER.debug('Removing timer for next heartbeat send interval')
             self._connection._adapter_remove_timeout(self._send_timer)
@@ -158,24 +160,24 @@ class HeartbeatChecker:
 
     @property
     def _has_received_data(self) -> bool:
-        """Returns True if the connection has received data.
+        """
+        Returns True if the connection has received data.
 
-
+        :rtype: bool
         """
         return self._bytes_received != self.bytes_received_on_connection
 
     @staticmethod
     def _new_heartbeat_frame() -> frame.Heartbeat:
-        """Return a new heartbeat frame.
+        """
+        Return a new heartbeat frame.
 
-
+        :rtype: pika.frame.Heartbeat
         """
         return frame.Heartbeat()
 
     def _send_heartbeat_frame(self) -> None:
-        """Send a heartbeat frame on the connection.
-
-        """
+        """Send a heartbeat frame on the connection."""
         LOGGER.debug('Sending heartbeat frame')
         self._connection._send_frame(self._new_heartbeat_frame())
         self._heartbeat_frames_sent += 1
@@ -197,9 +199,8 @@ class HeartbeatChecker:
             self._check_interval, self._check_heartbeat)
 
     def _update_counters(self) -> None:
-        """Update the internal counters for bytes sent and received and the
-        number of frames received
-
+        """Update the internal counters for bytes sent and received and the number of frames
+        received.
         """
         self._bytes_sent = self._connection.bytes_sent
         self._bytes_received = self._connection.bytes_received

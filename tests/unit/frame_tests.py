@@ -1,7 +1,5 @@
-"""
-Tests for pika.frame
+"""Tests for pika.frame."""
 
-"""
 import unittest
 
 from pika import DeliveryMode, exceptions, frame, spec

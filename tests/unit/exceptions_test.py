@@ -1,7 +1,5 @@
-"""
-Tests for pika.exceptions
+"""Tests for pika.exceptions."""
 
-"""
 import unittest
 from unittest.mock import MagicMock
 

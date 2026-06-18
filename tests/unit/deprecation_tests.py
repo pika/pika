@@ -1,8 +1,9 @@
 """
-Tests that adapters slated for removal in Pika 2.0 emit a DeprecationWarning
-on instantiation. See https://github.com/pika/pika/issues/1608.
+Tests that adapters slated for removal in Pika 2.0 emit a DeprecationWarning on instantiation.
 
+See https://github.com/pika/pika/issues/1608.
 """
+
 import sys
 import unittest
 import warnings
@@ -30,8 +31,8 @@ except ImportError:
 
 
 class DeprecationTestCase(unittest.TestCase):
-    """Base class with a helper to instantiate an adapter and assert that it
-    emits a single, well-formed DeprecationWarning.
+    """Base class with a helper to instantiate an adapter and assert that it emits a single, well-
+    formed DeprecationWarning.
     """
 
     def assert_deprecated(self, adapter_name, factory):

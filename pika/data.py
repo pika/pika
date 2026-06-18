@@ -1,4 +1,5 @@
-"""AMQP Table Encoding/Decoding"""
+"""AMQP Table Encoding/Decoding."""
+
 from __future__ import annotations
 
 import calendar
@@ -12,12 +13,13 @@ from pika._utils import as_bytes
 
 
 def encode_short_string(pieces: list[bytes], value: str) -> int:
-    """Encode a string value as short string and append it to pieces list
-    returning the size of the encoded value.
+    """
+    Encode a string value as short string and append it to pieces list returning the size of the
+    encoded value.
 
     :param pieces: Already encoded values
     :param value: String value to encode
-
+    :rtype: int
     """
     encoded_value = as_bytes(value)
     length = len(encoded_value)
@@ -42,11 +44,13 @@ def encode_short_string(pieces: list[bytes], value: str) -> int:
 
 
 def decode_short_string(encoded: bytes, offset: int) -> tuple[str | bytes, int]:
-    """Decode a short string value from ``encoded`` data at ``offset``.
+    """
+    Decode a short string value from ``encoded`` data at ``offset``.
 
     :param encoded: encoded data
     :param offset: starting offset in the encoded data
     :returns: tuple of (decoded value, new offset)
+    :rtype: tuple[Union[str, bytes], int]
     """
     length = struct.unpack_from('B', encoded, offset)[0]
     offset += 1
@@ -60,12 +64,12 @@ def decode_short_string(encoded: bytes, offset: int) -> tuple[str | bytes, int]:
 
 
 def encode_table(pieces: list[bytes], table: dict[str, Any] | None) -> int:
-    """Encode a dict as an AMQP table appending the encded table to the
-    pieces list passed in.
+    """
+    Encode a dict as an AMQP table appending the encded table to the pieces list passed in.
 
     :param pieces: Already encoded frame pieces
     :param table: The dict to encode
-
+    :rtype: int
     """
     table = table or {}
     length_index = len(pieces)
@@ -81,14 +85,14 @@ def encode_table(pieces: list[bytes], table: dict[str, Any] | None) -> int:
 
 
 def encode_value(pieces: list[bytes], value: Any) -> int:
-    """Encode the value passed in and append it to the pieces list returning
-    the the size of the encoded value.
+    """
+    Encode the value passed in and append it to the pieces list returning the the size of the
+    encoded value.
 
     :param pieces: Already encoded values
     :param value: The value to encode
-
+    :rtype: int
     """
-
     if isinstance(value, str):
         value = as_bytes(value)
         pieces.append(struct.pack('>cI', b'S', len(value)))
@@ -143,12 +147,13 @@ def encode_value(pieces: list[bytes], value: Any) -> int:
 
 def decode_table(encoded: bytes,
                  offset: int) -> tuple[dict[str | bytes, Any], int]:
-    """Decode the AMQP table passed in from the encoded value returning the
-    decoded result and the number of bytes read plus the offset.
+    """
+    Decode the AMQP table passed in from the encoded value returning the decoded result and the
+    number of bytes read plus the offset.
 
     :param encoded: The binary encoded data to decode
     :param offset: The starting byte offset
-
+    :rtype: tuple
     """
     result = {}
     tablesize = struct.unpack_from('>I', encoded, offset)[0]
@@ -162,13 +167,14 @@ def decode_table(encoded: bytes,
 
 
 def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:
-    """Decode the value passed in returning the decoded value and the number
-    of bytes read in addition to the starting offset.
+    """
+    Decode the value passed in returning the decoded value and the number of bytes read in addition
+    to the starting offset.
 
     :param encoded: The binary encoded data to decode
     :param offset: The starting byte offset
+    :rtype: tuple
     :raises: pika.exceptions.InvalidFieldTypeException
-
     """
     # Slice to get bytes
     kind = encoded[offset:offset + 1]

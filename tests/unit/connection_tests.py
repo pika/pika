@@ -1,7 +1,4 @@
-"""
-Tests for pika.connection.Connection
-
-"""
+"""Tests for pika.connection.Connection."""
 
 import platform
 import random
@@ -13,13 +10,12 @@ from pika import channel, connection, credentials, exceptions, frame, spec
 
 
 def dummy_callback():
-    """Callback method to use in tests"""
+    """Callback method to use in tests."""
 
 
 class ConstructibleConnection(connection.Connection):
-    """Adds dummy overrides for `Connection`'s abstract methods so
-    that we can instantiate and test it.
-
+    """Adds dummy overrides for `Connection`'s abstract methods so that we can instantiate and test
+    it.
     """
 
     def _adapter_connect_stream(self):
@@ -124,7 +120,7 @@ class ConnectionTests(unittest.TestCase):
 
     @mock.patch('pika.connection.Connection._send_method')
     def test_update_secret_sends_method(self, send_method):
-        """make sure it sends the update secret method"""
+        """Make sure it sends the update secret method."""
         new_secret = mock.Mock()
         reason = mock.Mock()
         self.connection.connection_state = self.connection.CONNECTION_OPEN
@@ -134,7 +130,7 @@ class ConnectionTests(unittest.TestCase):
 
     @mock.patch('pika.connection.Connection._send_method')
     def test_update_secret_adds_callback_on_update_secret_ok(self, send_method):
-        """make sure the on update secret ok callback is added"""
+        """Make sure the on update secret ok callback is added."""
         self.connection.connection_state = self.connection.CONNECTION_OPEN
         self.connection.callbacks = mock.Mock(spec=self.connection.callbacks)
         new_secret = mock.Mock()
@@ -158,10 +154,7 @@ class ConnectionTests(unittest.TestCase):
 
     @mock.patch('pika.connection.Connection._on_close_ready')
     def test_on_channel_cleanup_with_closing_channels(self, on_close_ready):
-        """if connection is closing but closing channels remain, do not call \
-        _on_close_ready
-
-        """
+        r"""If connection is closing but closing channels remain, do not call \ _on_close_ready."""
         self.channel.is_open = False
         self.channel.is_closing = True
         self.channel.is_closed = False
@@ -194,13 +187,13 @@ class ConnectionTests(unittest.TestCase):
 
     @mock.patch('pika.connection.Connection._on_close_ready')
     def test_on_channel_cleanup_non_closing_state(self, on_close_ready):
-        """if connection isn't closing _on_close_ready should not be called"""
+        """If connection isn't closing _on_close_ready should not be called."""
         self.connection._on_channel_cleanup(mock.Mock())
         self.assertFalse(on_close_ready.called,
                          '_on_close_ready should not have been called')
 
     def test_on_stream_terminated_cleans_up(self):
-        """_on_stream_terminated cleans up heartbeat, adapter, and channels"""
+        """_on_stream_terminated cleans up heartbeat, adapter, and channels."""
         heartbeat = mock.Mock()
         self.connection._heartbeat_checker = heartbeat
         self.connection._adapter_disconnect_stream = mock.Mock()
@@ -215,7 +208,7 @@ class ConnectionTests(unittest.TestCase):
         self.assertTrue(self.connection.is_closed)
 
     def test_on_stream_terminated_invokes_connection_closed_callback(self):
-        """_on_stream_terminated invokes `Connection.ON_CONNECTION_CLOSED` callbacks"""
+        """_on_stream_terminated invokes `Connection.ON_CONNECTION_CLOSED` callbacks."""
         self.connection.callbacks.process = mock.Mock(
             wraps=self.connection.callbacks.process)
 
@@ -234,8 +227,9 @@ class ConnectionTests(unittest.TestCase):
 
     def test_on_stream_terminated_invokes_protocol_on_connection_error_and_closed(
             self):
-        """_on_stream_terminated invokes `ON_CONNECTION_ERROR` with \
-        `IncompatibleProtocolError` and `ON_CONNECTION_CLOSED` callbacks"""
+        r"""_on_stream_terminated invokes `ON_CONNECTION_ERROR` with \ `IncompatibleProtocolError`
+        and `ON_CONNECTION_CLOSED` callbacks.
+        """
         with mock.patch.object(self.connection.callbacks, 'process'):
 
             self.connection._adapter_disconnect_stream = mock.Mock()
@@ -259,8 +253,9 @@ class ConnectionTests(unittest.TestCase):
 
     def test_on_stream_terminated_invokes_auth_on_connection_error_and_closed(
             self):
-        """_on_stream_terminated invokes `ON_CONNECTION_ERROR` with \
-        `ProbableAuthenticationError` and `ON_CONNECTION_CLOSED` callbacks"""
+        r"""_on_stream_terminated invokes `ON_CONNECTION_ERROR` with \ `ProbableAuthenticationError`
+        and `ON_CONNECTION_CLOSED` callbacks.
+        """
         with mock.patch.object(self.connection.callbacks, 'process'):
 
             self.connection._adapter_disconnect_stream = mock.Mock()
@@ -285,8 +280,9 @@ class ConnectionTests(unittest.TestCase):
 
     def test_on_stream_terminated_invokes_access_denied_on_connection_error_and_closed(
             self):
-        """_on_stream_terminated invokes `ON_CONNECTION_ERROR` with \
-        `ProbableAccessDeniedError` and `ON_CONNECTION_CLOSED` callbacks"""
+        r"""_on_stream_terminated invokes `ON_CONNECTION_ERROR` with \ `ProbableAccessDeniedError`
+        and `ON_CONNECTION_CLOSED` callbacks.
+        """
         with mock.patch.object(self.connection.callbacks, 'process'):
 
             self.connection._adapter_disconnect_stream = mock.Mock()
@@ -310,7 +306,7 @@ class ConnectionTests(unittest.TestCase):
 
     @mock.patch('pika.connection.Connection._adapter_connect_stream')
     def test_new_conn_should_use_first_channel(self, connect):
-        """_next_channel_number in new conn should always be 1"""
+        """_next_channel_number in new conn should always be 1."""
         with mock.patch.object(ConstructibleConnection,
                                '_adapter_connect_stream'):
             conn = ConstructibleConnection()
@@ -318,7 +314,7 @@ class ConnectionTests(unittest.TestCase):
         self.assertEqual(1, conn._next_channel_number())
 
     def test_next_channel_number_returns_lowest_unused(self):
-        """_next_channel_number must return lowest available channel number"""
+        """_next_channel_number must return lowest available channel number."""
         for channel_num in range(1, 50):
             self.connection._channels[channel_num] = True
         expectation = random.randint(5, 49)
@@ -326,7 +322,7 @@ class ConnectionTests(unittest.TestCase):
         self.assertEqual(self.connection._next_channel_number(), expectation)
 
     def test_add_callbacks(self):
-        """make sure the callback adding works"""
+        """Make sure the callback adding works."""
         self.connection.callbacks = mock.Mock(spec=self.connection.callbacks)
         for test_method, expected_key in (
             (self.connection.add_on_open_callback,
@@ -339,14 +335,14 @@ class ConnectionTests(unittest.TestCase):
                 0, expected_key, dummy_callback, False)
 
     def test_add_on_close_callback(self):
-        """make sure the add on close callback is added"""
+        """Make sure the add on close callback is added."""
         self.connection.callbacks = mock.Mock(spec=self.connection.callbacks)
         self.connection.add_on_open_callback(dummy_callback)
         self.connection.callbacks.add.assert_called_once_with(
             0, self.connection.ON_CONNECTION_OPEN_OK, dummy_callback, False)
 
     def test_add_on_open_error_callback(self):
-        """make sure the add on open error callback is added"""
+        """Make sure the add on open error callback is added."""
         self.connection.callbacks = mock.Mock(spec=self.connection.callbacks)
         # Test with remove default first (also checks default is True)
         self.connection.add_on_open_error_callback(dummy_callback)
@@ -357,7 +353,7 @@ class ConnectionTests(unittest.TestCase):
             0, self.connection.ON_CONNECTION_ERROR, dummy_callback, False)
 
     def test_channel(self):
-        """test the channel method"""
+        """Test the channel method."""
         self.connection._next_channel_number = mock.Mock(return_value=42)
         test_channel = mock.Mock(spec=channel.Channel)
         self.connection._create_channel = mock.Mock(return_value=test_channel)
@@ -401,7 +397,9 @@ class ConnectionTests(unittest.TestCase):
 
     def test_connect_no_adapter_connect_from_constructor_with_external_workflow(
             self):
-        """check that adapter connection is not happening in constructor with external connection workflow."""
+        """Check that adapter connection is not happening in constructor with external connection
+        workflow.
+        """
         with mock.patch.object(
                 ConstructibleConnection,
                 '_adapter_connect_stream') as adapter_connect_stack_mock:
@@ -412,7 +410,7 @@ class ConnectionTests(unittest.TestCase):
         self.assertEqual(conn.connection_state, conn.CONNECTION_INIT)
 
     def test_client_properties(self):
-        """make sure client properties has some important keys"""
+        """Make sure client properties has some important keys."""
         client_props = self.connection._client_properties
         self.assertTrue(isinstance(client_props, dict))
         for required_key in ('product', 'platform', 'capabilities',
@@ -465,7 +463,7 @@ class ConnectionTests(unittest.TestCase):
         self.assertDictEqual(conn._client_properties, expectation)
 
     def test_close_channels(self):
-        """test closing all channels"""
+        """Test closing all channels."""
         self.connection.connection_state = self.connection.CONNECTION_OPEN
         self.connection.callbacks = mock.Mock(spec=self.connection.callbacks)
 
@@ -503,7 +501,7 @@ class ConnectionTests(unittest.TestCase):
 
     @mock.patch('pika.frame.ProtocolHeader')
     def test_on_stream_connected(self, frame_protocol_header):
-        """make sure the _on_stream_connected() sets the state and sends a frame"""
+        """Make sure the _on_stream_connected() sets the state and sends a frame."""
         self.connection.connection_state = self.connection.CONNECTION_INIT
         self.connection._adapter_connect = mock.Mock(return_value=None)
         self.connection._send_frame = mock.Mock()
@@ -515,7 +513,7 @@ class ConnectionTests(unittest.TestCase):
         self.connection._send_frame.assert_called_once_with('frame object')
 
     def test_on_connection_start(self):
-        """make sure starting a connection sets the correct class vars"""
+        """Make sure starting a connection sets the correct class vars."""
         method_frame = mock.Mock()
         method_frame.method = mock.Mock()
         method_frame.method.mechanisms = str(credentials.PlainCredentials.TYPE)
@@ -546,7 +544,7 @@ class ConnectionTests(unittest.TestCase):
                        spec_set=connection.Connection._adapter_emit_data)
     def test_on_connection_tune(self, _adapter_emit_data, method,
                                 heartbeat_checker):
-        """make sure _on_connection_tune tunes the connection params"""
+        """Make sure _on_connection_tune tunes the connection params."""
         heartbeat_checker.return_value = 'hearbeat obj'
         self.connection._flush_outbound = mock.Mock()
         marshal = mock.Mock(return_value='ab')
@@ -645,7 +643,7 @@ class ConnectionTests(unittest.TestCase):
         self.assertEqual(60, self.connection.params.heartbeat)
 
     def test_on_connection_close_from_broker_passes_correct_exception(self):
-        """make sure connection close from broker passes correct exception"""
+        """Make sure connection close from broker passes correct exception."""
         method_frame = mock.Mock()
         method_frame.method = mock.Mock(spec=spec.Connection.Close)
         method_frame.method.reply_code = 1
@@ -663,7 +661,7 @@ class ConnectionTests(unittest.TestCase):
         self.assertEqual(exc.reply_text, 'hello')
 
     def test_on_connection_close_ok(self):
-        """make sure _on_connection_close_ok terminates connection"""
+        """Make sure _on_connection_close_ok terminates connection."""
         method_frame = mock.Mock()
         method_frame.method = mock.Mock(spec=spec.Connection.CloseOk)
         self.connection._terminate_stream = mock.Mock()
@@ -675,7 +673,7 @@ class ConnectionTests(unittest.TestCase):
 
     @mock.patch('pika.frame.decode_frame')
     def test_on_data_available(self, decode_frame):
-        """test on data available and process frame"""
+        """Test on data available and process frame."""
         data_in = ['data']
         self.connection._frame_buffer = ['old_data']
         for frame_type in (frame.Method, spec.Basic.Deliver, frame.Heartbeat):

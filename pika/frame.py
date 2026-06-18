@@ -1,4 +1,5 @@
 """Frame objects that do the frame demarshaling and marshaling."""
+
 from __future__ import annotations
 
 import logging
@@ -13,63 +14,71 @@ _MethodT = TypeVar('_MethodT', bound=amqp_object.Method)
 
 
 class Frame(amqp_object.AMQPObject):
-    """Base Frame object mapping. Defines a behavior for all child classes for
-    assignment of core attributes and implementation of the a core _marshal
-    method which child classes use to create the binary AMQP frame.
-
     """
+    Base Frame object mapping.
+
+    Defines a behavior for all child classes for assignment of core attributes and implementation of
+    the a core _marshal method which child classes use to create the binary AMQP frame.
+    """
+
     NAME = 'Frame'
 
     def __init__(self, frame_type: int, channel_number: int) -> None:
-        """Create a new instance of a frame
+        """
+        Create a new instance of a frame.
 
         :param frame_type: The frame type
         :param channel_number: The channel number for the frame
-
         """
         self.frame_type = frame_type
         self.channel_number = channel_number
 
     def _marshal(self, pieces: list[bytes]) -> bytes:
-        """Create the full AMQP wire protocol frame data representation
+        """
+        Create the full AMQP wire protocol frame data representation.
 
         :param pieces: Encoded AMQP frame fragments to assemble
-
+        :rtype: bytes
         """
         payload = b''.join(pieces)
         return struct.pack('>BHI', self.frame_type, self.channel_number,
                            len(payload)) + payload + bytes((spec.FRAME_END,))
 
     def marshal(self) -> bytes:
-        """To be ended by child classes
+        """
+        To be ended by child classes.
 
         :raises NotImplementedError
-
+        :rtype: bytes
         """
         raise NotImplementedError
 
 
 class Method(Frame, Generic[_MethodT]):
-    """Base Method frame object mapping. AMQP method frames are mapped on top
-    of this class for creating or accessing their data and attributes.
-
     """
+    Base Method frame object mapping.
+
+    AMQP method frames are mapped on top of this class for creating or accessing their data and
+    attributes.
+    """
+
     NAME = 'METHOD'
 
     def __init__(self, channel_number: int, method: _MethodT) -> None:
-        """Create a new instance of a frame
+        """
+        Create a new instance of a frame.
 
         :param channel_number: The channel number for the frame
         :param method: The AMQP Class.Method
-
         """
         Frame.__init__(self, spec.FRAME_METHOD, channel_number)
         self.method = method
 
     def marshal(self) -> bytes:
-        """Return the AMQP binary encoded value of the frame
+        """
+        Return the AMQP binary encoded value of the frame.
 
-
+        :rtype: bytes
         """
         pieces = self.method.encode()
         pieces.insert(0, struct.pack('>I', self.method.INDEX))
@@ -77,29 +86,33 @@ class Method(Frame, Generic[_MethodT]):
 
 
 class Header(Frame):
-    """Header frame object mapping. AMQP content header frames are mapped
-    on top of this class for creating or accessing their data and attributes.
-
     """
+    Header frame object mapping.
+
+    AMQP content header frames are mapped on top of this class for creating or accessing their data
+    and attributes.
+    """
+
     NAME = 'Header'
 
     def __init__(self, channel_number: int, body_size: int,
                  props: spec.BasicProperties) -> None:
-        """Create a new instance of a AMQP ContentHeader object
+        """
+        Create a new instance of a AMQP ContentHeader object.
 
         :param channel_number: The channel number for the frame
         :param body_size: The number of bytes for the body
         :param props: Basic.Properties object
-
         """
         Frame.__init__(self, spec.FRAME_HEADER, channel_number)
         self.body_size = body_size
         self.properties = props
 
     def marshal(self) -> bytes:
-        """Return the AMQP binary encoded value of the frame
+        """
+        Return the AMQP binary encoded value of the frame.
 
-
+        :rtype: bytes
         """
         pieces = self.properties.encode()
         pieces.insert(
@@ -108,10 +121,13 @@ class Header(Frame):
 
 
 class Body(Frame):
-    """Body frame object mapping class. AMQP content body frames are mapped on
-    to this base class for getting/setting of attributes/data.
-
     """
+    Body frame object mapping class.
+
+    AMQP content body frames are mapped on to this base class for getting/setting of
+    attributes/data.
+    """
+
     NAME = 'Body'
 
     def __init__(self, channel_number: int, fragment: bytes) -> None:
@@ -123,51 +139,54 @@ class Body(Frame):
         self.fragment = fragment
 
     def marshal(self) -> bytes:
-        """Return the AMQP binary encoded value of the frame
+        """
+        Return the AMQP binary encoded value of the frame.
 
-
+        :rtype: bytes
         """
         return self._marshal([self.fragment])
 
 
 class Heartbeat(Frame):
-    """Heartbeat frame object mapping class. AMQP Heartbeat frames are mapped
-    on to this class for a common access structure to the attributes/data
-    values.
-
     """
+    Heartbeat frame object mapping class.
+
+    AMQP Heartbeat frames are mapped on to this class for a common access structure to the
+    attributes/data values.
+    """
+
     NAME = 'Heartbeat'
 
     def __init__(self) -> None:
-        """Create a new instance of the Heartbeat frame"""
+        """Create a new instance of the Heartbeat frame."""
         Frame.__init__(self, spec.FRAME_HEARTBEAT, 0)
 
     def marshal(self) -> bytes:
-        """Return the AMQP binary encoded value of the frame
+        """
+        Return the AMQP binary encoded value of the frame.
 
-
+        :rtype: bytes
         """
         return self._marshal([])
 
 
 class ProtocolHeader(amqp_object.AMQPObject):
-    """AMQP Protocol header frame class which provides a pythonic interface
-    for creating AMQP Protocol headers
-
+    """AMQP Protocol header frame class which provides a pythonic interface for creating AMQP
+    Protocol headers.
     """
+
     NAME = 'ProtocolHeader'
 
     def __init__(self,
                  major: int | None = None,
                  minor: int | None = None,
                  revision: int | None = None) -> None:
-        """Construct a Protocol Header frame object for the specified AMQP
-        version
+        """
+        Construct a Protocol Header frame object for the specified AMQP version.
 
         :param major: Major version number
         :param minor: Minor version number
         :param revision: Revision
-
         """
         self.frame_type = -1
         self.major = major or spec.PROTOCOL_VERSION[0]
@@ -175,22 +194,24 @@ class ProtocolHeader(amqp_object.AMQPObject):
         self.revision = revision or spec.PROTOCOL_VERSION[2]
 
     def marshal(self) -> bytes:
-        """Return the full AMQP wire protocol frame data representation of the
-        ProtocolHeader frame
+        """
+        Return the full AMQP wire protocol frame data representation of the ProtocolHeader frame.
 
-
+        :rtype: bytes
         """
         return b'AMQP' + struct.pack('BBBB', 0, self.major, self.minor,
                                      self.revision)
 
 
 def decode_frame(data_in: bytes) -> tuple[int, Frame | ProtocolHeader | None]:
-    """Receives raw socket data and attempts to turn it into a frame.
+    """
+    Receives raw socket data and attempts to turn it into a frame.
+
     Returns the number of bytes consumed from the stream and the frame.
 
     :param data_in: The raw data stream
+    :rtype: tuple(int, Frame|ProtocolHeader)
     :raises: pika.exceptions.InvalidFrameError
-
     """
     # Look to see if it's a protocol header frame
     try:

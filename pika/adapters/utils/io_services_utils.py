@@ -1,7 +1,5 @@
-"""Utilities for implementing `nbio_interface.AbstractIOServices` for
-pika connection adapters.
+"""Utilities for implementing `nbio_interface.AbstractIOServices` for pika connection adapters."""
 
-"""
 from __future__ import annotations
 
 import collections
@@ -46,36 +44,36 @@ _log_exceptions = pika.diagnostic_utils.create_log_exception_decorator(_LOGGER)
 
 
 def check_callback_arg(callback: Any, name: str) -> None:
-    """Raise TypeError if callback is not callable
+    """
+    Raise TypeError if callback is not callable.
 
     :param callback: callback to check
     :param name: Name to include in exception text
     :raises TypeError:
-
+    :rtype: None
     """
     if not callable(callback):
         raise TypeError(f'{name} must be callable, but got {callback!r}')
 
 
 def check_fd_arg(fd: int) -> None:
-    """Raise TypeError if file descriptor is not an integer
+    """
+    Raise TypeError if file descriptor is not an integer.
 
     :param fd: file descriptor
     :raises TypeError:
-
+    :rtype: None
     """
     if not isinstance(fd, numbers.Integral):
         raise TypeError(f'Paramter must be a file descriptor, but got {fd!r}')
 
 
 def _retry_on_sigint(func):
-    """Function decorator for retrying on SIGINT.
-
-    """
+    """Function decorator for retrying on SIGINT."""
 
     @functools.wraps(func)
     def retry_sigint_wrap(*args, **kwargs):
-        """Wrapper for decorated function"""
+        """Wrapper for decorated function."""
         while True:
             try:
                 return func(*args, **kwargs)
@@ -106,6 +104,7 @@ class SocketConnectionMixin:
         :param sock: non-blocking socket to connect
         :param resolved_addr: resolved destination address/port two-tuple
         :param on_done: user callback called upon completion
+        :rtype: _AsyncServiceAsyncHandle
 
         """
         return _AsyncSocketConnector(nbio=cast(
@@ -141,6 +140,7 @@ class StreamingConnectionMixin:
         :param on_done: completion callback
         :param ssl_context: SSL context (optional)
         :param server_hostname: server hostname for SSL (optional)
+        :rtype: AbstractIOReference
 
         """
         try:
@@ -167,9 +167,7 @@ class StreamingConnectionMixin:
 
 
 class _AsyncServiceAsyncHandle(AbstractIOReference):
-    """This module's adaptation of `.nbio_interface.AbstractIOReference`
-
-    """
+    """This module's adaptation of `.nbio_interface.AbstractIOReference`"""
 
     def __init__(self, subject: Any) -> None:
         """
@@ -179,18 +177,21 @@ class _AsyncServiceAsyncHandle(AbstractIOReference):
         self._cancel = subject.cancel
 
     def cancel(self) -> bool:
-        """Cancel pending operation
+        """
+        Cancel pending operation.
 
         :returns: False if was already done or cancelled; True otherwise
-
+        :rtype: bool
         """
         return self._cancel()
 
 
 class _AsyncSocketConnector:
-    """Connects the given non-blocking socket asynchronously using
-    `.nbio_interface.AbstractFileDescriptorServices` and basic
-    `.nbio_interface.AbstractIOServices`. Used for implementing
+    """
+    Connects the given non-blocking socket asynchronously using
+    `.nbio_interface.AbstractFileDescriptorServices` and basic `.nbio_interface.AbstractIOServices`.
+
+    Used for implementing
     `.nbio_interface.AbstractIOServices.connect_socket()`.
     """
 
@@ -239,16 +240,16 @@ class _AsyncSocketConnector:
 
     @_log_exceptions
     def _cleanup(self) -> None:
-        """Remove socket watcher, if any
-
-        """
+        """Remove socket watcher, if any."""
         if self._watching_socket_events:
             self._watching_socket_events = False
             self._nbio.remove_writer(self._sock.fileno())
 
     def start(self) -> AbstractIOReference:
-        """Start asynchronous connection establishment.
+        """
+        Start asynchronous connection establishment.
 
+        :rtype: AbstractIOReference
         """
         assert self._state == self._STATE_NOT_STARTED, (
             '_AsyncSocketConnector.start(): expected _STATE_NOT_STARTED',
@@ -263,11 +264,11 @@ class _AsyncSocketConnector:
         return _AsyncServiceAsyncHandle(self)
 
     def cancel(self) -> bool:
-        """Cancel pending connection request without calling user's completion
-        callback.
+        """
+        Cancel pending connection request without calling user's completion callback.
 
         :returns: False if was already done or cancelled; True otherwise
-
+        :rtype: bool
         """
         if self._state == self._STATE_ACTIVE:
             self._state = self._STATE_CANCELED
@@ -283,11 +284,10 @@ class _AsyncSocketConnector:
 
     @_log_exceptions
     def _report_completion(self, result: BaseException | None) -> None:
-        """Advance to COMPLETED state, remove socket watcher, and invoke user's
-        completion callback.
+        """
+        Advance to COMPLETED state, remove socket watcher, and invoke user's completion callback.
 
         :param result: value to pass in user's callback
-
         """
         _LOGGER.debug('_AsyncSocketConnector._report_completion(%r); %s',
                       result, self._sock)
@@ -306,9 +306,8 @@ class _AsyncSocketConnector:
 
     @_log_exceptions
     def _start_async(self) -> None:
-        """Called as callback from I/O loop to kick-start the workflow, so it's
-        safe to call user's completion callback from here, if needed
-
+        """Called as callback from I/O loop to kick-start the workflow, so it's safe to call user's
+        completion callback from here, if needed.
         """
         if self._state != self._STATE_ACTIVE:
             # Must have been canceled by user before we were called
@@ -345,9 +344,10 @@ class _AsyncSocketConnector:
 
     @_log_exceptions
     def _on_writable(self) -> None:
-        """Called when socket connects or fails to. Check for predicament and
-        invoke user's completion callback.
+        """
+        Called when socket connects or fails to.
 
+        Check for predicament and invoke user's completion callback.
         """
         if self._state != self._STATE_ACTIVE:
             # This should never happen since we remove the watcher upon
@@ -373,12 +373,14 @@ class _AsyncSocketConnector:
 
 
 class _AsyncStreamConnector:
-    """Performs asynchronous SSL session establishment, if requested, on the
-    already-connected socket and links the streaming transport to protocol.
+    """
+    Performs asynchronous SSL session establishment, if requested, on the already-connected socket
+    and links the streaming transport to protocol.
+
     Used for implementing
     `.nbio_interface.AbstractIOServices.create_streaming_connection()`.
-
     """
+
     _STATE_NOT_STARTED = 0  # start() not called yet
     _STATE_ACTIVE = 1  # start() called and kicked off the workflow
     _STATE_CANCELED = 2  # workflow terminated by cancel() request
@@ -395,11 +397,10 @@ class _AsyncStreamConnector:
                             BaseException)], None]
     ) -> None:
         """
-        NOTE: We take ownership of the given socket upon successful completion
-        of the constructor.
+        NOTE: We take ownership of the given socket upon successful completion of the constructor.
 
-        See `AbstractIOServices.create_streaming_connection()` for detailed
-        documentation of the corresponding args.
+        See `AbstractIOServices.create_streaming_connection()` for detailed documentation of the
+        corresponding args.
 
         :param nbio:
         :param protocol_factory:
@@ -407,7 +408,6 @@ class _AsyncStreamConnector:
         :param ssl_context:
         :param server_hostname:
         :param on_done:
-
         """
         check_callback_arg(protocol_factory, 'protocol_factory')
         check_callback_arg(on_done, 'on_done')
@@ -449,7 +449,8 @@ class _AsyncStreamConnector:
 
     @_log_exceptions
     def _cleanup(self, close: bool) -> None:
-        """Cancel pending async operations, if any
+        """
+        Cancel pending async operations, if any.
 
         :param close: close the socket if true
         """
@@ -486,8 +487,10 @@ class _AsyncStreamConnector:
             self._on_done = None
 
     def start(self) -> AbstractIOReference:
-        """Kick off the workflow
+        """
+        Kick off the workflow.
 
+        :rtype: AbstractIOReference
         """
         _LOGGER.debug('_AsyncStreamConnector.start(); %s', self._sock)
 
@@ -505,11 +508,11 @@ class _AsyncStreamConnector:
         return _AsyncServiceAsyncHandle(self)
 
     def cancel(self) -> bool:
-        """Cancel pending connection request without calling user's completion
-        callback.
+        """
+        Cancel pending connection request without calling user's completion callback.
 
         :returns: False if was already done or cancelled; True otherwise
-
+        :rtype: bool
         """
         if self._state == self._STATE_ACTIVE:
             self._state = self._STATE_CANCELED
@@ -529,12 +532,12 @@ class _AsyncStreamConnector:
         (BaseException | tuple[nbio_interface.AbstractStreamTransport,
                                nbio_interface.AbstractStreamProtocol])
     ) -> None:
-        """Advance to COMPLETED state, cancel async operation(s), and invoke
-        user's completion callback.
+        """
+        Advance to COMPLETED state, cancel async operation(s), and invoke user's completion
+        callback.
 
-        :param result: value to pass in user's callback.
-            `tuple(transport, protocol)` on success, exception on error
-
+        :param result: value to pass in user's callback. `tuple(transport, protocol)` on success,
+            exception on error
         """
         _LOGGER.debug('_AsyncStreamConnector._report_completion(%r); %s',
                       result, self._sock)
@@ -562,9 +565,8 @@ class _AsyncStreamConnector:
 
     @_log_exceptions
     def _start_async(self) -> None:
-        """Called as callback from I/O loop to kick-start the workflow, so it's
-        safe to call user's completion callback from here if needed
-
+        """Called as callback from I/O loop to kick-start the workflow, so it's safe to call user's
+        completion callback from here if needed.
         """
         _LOGGER.debug('_AsyncStreamConnector._start_async(); %s', self._sock)
 
@@ -601,9 +603,8 @@ class _AsyncStreamConnector:
 
     @_log_exceptions
     def _linkup(self) -> None:
-        """Connection is ready: instantiate and link up transport and protocol,
-        and invoke user's completion callback.
-
+        """Connection is ready: instantiate and link up transport and protocol, and invoke user's
+        completion callback.
         """
         _LOGGER.debug('_AsyncStreamConnector._linkup()')
 
@@ -665,9 +666,7 @@ class _AsyncStreamConnector:
 
     @_log_exceptions
     def _do_ssl_handshake(self) -> None:
-        """Perform asynchronous SSL handshake on the already wrapped socket
-
-        """
+        """Perform asynchronous SSL handshake on the already wrapped socket."""
         _LOGGER.debug('_AsyncStreamConnector._do_ssl_handshake()')
 
         if self._state != self._STATE_ACTIVE:
@@ -730,9 +729,7 @@ class _AsyncStreamConnector:
 
 
 class _AsyncTransportBase(AbstractStreamTransport):
-    """Base class for `_AsyncPlaintextTransport` and `_AsyncSSLTransport`.
-
-    """
+    """Base class for `_AsyncPlaintextTransport` and `_AsyncSSLTransport`."""
 
     _STATE_ACTIVE = 1
     _STATE_FAILED = 2  # connection failed
@@ -745,9 +742,7 @@ class _AsyncTransportBase(AbstractStreamTransport):
     _MAX_CONSUME_BYTES = 1024 * 100
 
     class RxEndOfFile(OSError):
-        """We raise this internally when EOF (empty read) is detected on input.
-
-        """
+        """We raise this internally when EOF (empty read) is detected on input."""
 
         def __init__(self) -> None:
             super().__init__(-1, 'End of input stream (EOF)')
@@ -779,9 +774,11 @@ class _AsyncTransportBase(AbstractStreamTransport):
         self._tx_buffered_byte_count = 0
 
     def abort(self) -> None:
-        """Close connection abruptly without waiting for pending I/O to
-        complete. Will invoke the corresponding protocol's `connection_lost()`
-        method asynchronously (not in context of the abort() call).
+        """
+        Close connection abruptly without waiting for pending I/O to complete.
+
+        Will invoke the corresponding protocol's `connection_lost()` method asynchronously (not in
+        context of the abort() call).
 
         :raises Exception: Exception-based exception on error
         """
@@ -791,8 +788,10 @@ class _AsyncTransportBase(AbstractStreamTransport):
         self._initiate_abort(None)
 
     def get_protocol(self) -> nbio_interface.AbstractStreamProtocol:
-        """Return the protocol linked to this transport.
+        """
+        Return the protocol linked to this transport.
 
+        :rtype: pika.adapters.utils.nbio_interface.AbstractStreamProtocol
         """
         assert self._protocol is not None
         return self._protocol
@@ -800,15 +799,16 @@ class _AsyncTransportBase(AbstractStreamTransport):
     def get_write_buffer_size(self) -> int:
         """
         :returns: Current size of output data buffered by the transport
+        :rtype: int
         """
         return self._tx_buffered_byte_count
 
     def _buffer_tx_data(self, data: bytes) -> None:
-        """Buffer the given data until it can be sent asynchronously.
+        """
+        Buffer the given data until it can be sent asynchronously.
 
         :param data:
         :raises ValueError: if called with empty data
-
         """
         if not data:
             _LOGGER.error('write() called with empty data: state=%s; %s',
@@ -825,20 +825,18 @@ class _AsyncTransportBase(AbstractStreamTransport):
         self._tx_buffered_byte_count += len(data)
 
     def _consume(self) -> None:
-        """Utility method for use by subclasses to ingest data from socket and
-        dispatch it to protocol's `data_received()` method socket-specific
-        "try again" exception, per-event data consumption limit is reached,
-        transport becomes inactive, or a fatal failure.
+        """
+        Utility method for use by subclasses to ingest data from socket and dispatch it to
+        protocol's `data_received()` method socket-specific "try again" exception, per-event data
+        consumption limit is reached, transport becomes inactive, or a fatal failure.
 
-        Consumes up to `self._MAX_CONSUME_BYTES` to prevent event starvation or
-        until state becomes inactive (e.g., `protocol.data_received()` callback
-        aborts the transport)
+        Consumes up to `self._MAX_CONSUME_BYTES` to prevent event starvation or until state becomes
+        inactive (e.g., `protocol.data_received()` callback aborts the transport)
 
-        :raises: Whatever the corresponding `sock.recv()` raises except the
-                 socket error with errno.EINTR
+        :raises: Whatever the corresponding `sock.recv()` raises except the socket error with
+            errno.EINTR
         :raises: Whatever the `protocol.data_received()` callback raises
         :raises _AsyncTransportBase.RxEndOfFile: upon shutdown of input stream
-
         """
         assert self._sock is not None
         assert self._protocol is not None
@@ -865,14 +863,14 @@ class _AsyncTransportBase(AbstractStreamTransport):
                 raise
 
     def _produce(self) -> None:
-        """Utility method for use by subclasses to emit data from tx_buffers.
-        This method sends chunks from `tx_buffers` until all chunks are
-        exhausted or sending is interrupted by an exception. Maintains integrity
-        of `self.tx_buffers`.
+        """
+        Utility method for use by subclasses to emit data from tx_buffers.
 
-        :raises: whatever the corresponding `sock.send()` raises except the
-                 socket error with errno.EINTR
+        This method sends chunks from `tx_buffers` until all chunks are exhausted or sending is
+        interrupted by an exception. Maintains integrity of `self.tx_buffers`.
 
+        :raises: whatever the corresponding `sock.send()` raises except the socket error with
+            errno.EINTR
         """
         while self._tx_buffers:
             num_bytes_sent = self._sigint_safe_send(self._sock,
@@ -893,14 +891,15 @@ class _AsyncTransportBase(AbstractStreamTransport):
     @_retry_on_sigint
     def _sigint_safe_recv(sock: socket.socket | ssl.SSLSocket,
                           max_bytes: int) -> bytes:
-        """Receive data from socket, retrying on SIGINT.
+        """
+        Receive data from socket, retrying on SIGINT.
 
         :param sock: stream or SSL socket
         :param max_bytes: maximum number of bytes to receive
         :returns: received data or empty bytes uppon end of file
-        :raises: whatever the corresponding `sock.recv()` raises except socket
-                 error with errno.EINTR
-
+        :rtype: bytes
+        :raises: whatever the corresponding `sock.recv()` raises except socket error with
+            errno.EINTR
         """
         return sock.recv(max_bytes)
 
@@ -908,22 +907,21 @@ class _AsyncTransportBase(AbstractStreamTransport):
     @_retry_on_sigint
     def _sigint_safe_send(sock: socket.socket | ssl.SSLSocket,
                           data: bytes) -> int:
-        """Send data to socket, retrying on SIGINT.
+        """
+        Send data to socket, retrying on SIGINT.
 
         :param sock: stream or SSL socket
         :param data: data bytes to send
         :returns: number of bytes actually sent
-        :raises: whatever the corresponding `sock.send()` raises except socket
-                 error with errno.EINTR
-
+        :rtype: int
+        :raises: whatever the corresponding `sock.send()` raises except socket error with
+            errno.EINTR
         """
         return sock.send(data)
 
     @_log_exceptions
     def _deactivate(self) -> None:
-        """Unregister the transport from I/O events
-
-        """
+        """Unregister the transport from I/O events."""
         if self._state == self._STATE_ACTIVE:
             _LOGGER.info('Deactivating transport: state=%s; %s', self._state,
                          self._sock)
@@ -935,9 +933,8 @@ class _AsyncTransportBase(AbstractStreamTransport):
 
     @_log_exceptions
     def _close_and_finalize(self) -> None:
-        """Close the transport's socket and unlink the transport it from
-        references to other assets (protocol, etc.)
-
+        """Close the transport's socket and unlink the transport it from references to other assets
+        (protocol, etc.)
         """
         if self._state != self._STATE_COMPLETED:
             _LOGGER.info('Closing transport socket and unlinking: state=%s; %s',
@@ -955,13 +952,13 @@ class _AsyncTransportBase(AbstractStreamTransport):
 
     @_log_exceptions
     def _initiate_abort(self, error: BaseException | None) -> None:
-        """Initiate asynchronous abort of the transport that concludes with a
-        call to the protocol's `connection_lost()` method. No flushing of
-        output buffers will take place.
+        """
+        Initiate asynchronous abort of the transport that concludes with a call to the protocol's
+        `connection_lost()` method. No flushing of output buffers will take place.
 
-        :param error: None if being canceled by user,
-            including via falsie return value from protocol.eof_received;
-            otherwise the exception corresponding to the the failed connection.
+        :param error: None if being canceled by user, including via falsie return value from
+            protocol.eof_received; otherwise the exception corresponding to the the failed
+            connection.
         """
         _LOGGER.info(
             '_AsyncTransportBase._initate_abort(): Initiating abrupt '
@@ -1010,13 +1007,13 @@ class _AsyncTransportBase(AbstractStreamTransport):
     @_log_exceptions
     def _connection_lost_notify_async(self,
                                       error: BaseException | None) -> None:
-        """Handle aborting of transport either due to socket error or user-
-        initiated `abort()` call. Must be called from an I/O loop callback owned
-        by us in order to avoid reentry into user code from user's API call into
-        the transport.
+        """
+        Handle aborting of transport either due to socket error or user- initiated `abort()` call.
+        Must be called from an I/O loop callback owned by us in order to avoid reentry into user
+        code from user's API call into the transport.
 
-        :param error: None if being canceled by user;
-            otherwise the exception corresponding to the the failed connection.
+        :param error: None if being canceled by user; otherwise the exception corresponding to the
+            the failed connection.
         """
         _LOGGER.debug('Concluding transport shutdown: state=%s; error=%r',
                       self._state, error)
@@ -1046,10 +1043,7 @@ class _AsyncTransportBase(AbstractStreamTransport):
 
 
 class _AsyncPlaintextTransport(_AsyncTransportBase):
-    """Implementation of `nbio_interface.AbstractStreamTransport` for a
-    plaintext connection.
-
-    """
+    """Implementation of `nbio_interface.AbstractStreamTransport` for a plaintext connection."""
 
     def __init__(
         self, sock: socket.socket | ssl.SSLSocket,
@@ -1075,11 +1069,11 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
         self._nbio.set_reader(self._sock.fileno(), self._on_socket_readable)
 
     def write(self, data: bytes) -> None:
-        """Buffer the given data until it can be sent asynchronously.
+        """
+        Buffer the given data until it can be sent asynchronously.
 
         :param data:
         :raises ValueError: if called with empty data
-
         """
         if self._state != self._STATE_ACTIVE:
             _LOGGER.debug(
@@ -1106,10 +1100,9 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
 
     @_log_exceptions
     def _on_socket_readable(self) -> None:
-        """Ingest data from socket and dispatch it to protocol until exception
-        occurs (typically EAGAIN or EWOULDBLOCK), per-event data consumption
-        limit is reached, transport becomes inactive, or failure.
-
+        """Ingest data from socket and dispatch it to protocol until exception occurs (typically
+        EAGAIN or EWOULDBLOCK), per-event data consumption limit is reached, transport becomes
+        inactive, or failure.
         """
         if self._state != self._STATE_ACTIVE:
             _LOGGER.debug(
@@ -1162,9 +1155,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
 
     @_log_exceptions
     def _on_socket_writable(self) -> None:
-        """Handle writable socket notification
-
-        """
+        """Handle writable socket notification."""
         if self._state != self._STATE_ACTIVE:
             _LOGGER.debug(
                 'Ignoring writability notification due to inactive '
@@ -1200,10 +1191,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
 
 
 class _AsyncSSLTransport(_AsyncTransportBase):
-    """Implementation of `.nbio_interface.AbstractStreamTransport` for an SSL
-    connection.
-
-    """
+    """Implementation of `.nbio_interface.AbstractStreamTransport` for an SSL connection."""
 
     def __init__(
         self, sock: ssl.SSLSocket,
@@ -1233,11 +1221,11 @@ class _AsyncSSLTransport(_AsyncTransportBase):
         self._nbio.add_callback_threadsafe(self._on_socket_readable)
 
     def write(self, data: bytes) -> None:
-        """Buffer the given data until it can be sent asynchronously.
+        """
+        Buffer the given data until it can be sent asynchronously.
 
         :param data:
         :raises ValueError: if called with empty data
-
         """
         if self._state != self._STATE_ACTIVE:
             _LOGGER.debug(
@@ -1265,9 +1253,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
 
     @_log_exceptions
     def _on_socket_readable(self) -> None:
-        """Handle readable socket indication
-
-        """
+        """Handle readable socket indication."""
         if self._state != self._STATE_ACTIVE:
             _LOGGER.debug(
                 'Ignoring readability notification due to inactive '
@@ -1287,9 +1273,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
 
     @_log_exceptions
     def _on_socket_writable(self) -> None:
-        """Handle writable socket notification
-
-        """
+        """Handle writable socket notification."""
         if self._state != self._STATE_ACTIVE:
             _LOGGER.debug(
                 'Ignoring writability notification due to inactive '
@@ -1309,15 +1293,14 @@ class _AsyncSSLTransport(_AsyncTransportBase):
 
     @_log_exceptions
     def _consume(self) -> None:
-        """[override] Ingest data from socket and dispatch it to protocol until
-        exception occurs (typically ssl.SSLError with
-        SSL_ERROR_WANT_READ/WRITE), per-event data consumption limit is reached,
-        transport becomes inactive, or failure.
+        """
+        [override] Ingest data from socket and dispatch it to protocol until exception occurs
+        (typically ssl.SSLError with SSL_ERROR_WANT_READ/WRITE), per-event data consumption limit is
+        reached, transport becomes inactive, or failure.
 
         Update consumer/producer registration.
 
-        :raises Exception: error that signals that connection needs to be
-            aborted
+        :raises Exception: error that signals that connection needs to be aborted
         """
         assert self._nbio is not None
         assert self._sock is not None
@@ -1385,15 +1368,13 @@ class _AsyncSSLTransport(_AsyncTransportBase):
 
     @_log_exceptions
     def _produce(self) -> None:
-        """[override] Emit data from tx_buffers all chunks are exhausted or
-        sending is interrupted by an exception (typically ssl.SSLError with
-        SSL_ERROR_WANT_READ/WRITE).
+        """
+        [override] Emit data from tx_buffers all chunks are exhausted or sending is interrupted by
+        an exception (typically ssl.SSLError with SSL_ERROR_WANT_READ/WRITE).
 
         Update consumer/producer registration.
 
-        :raises Exception: error that signals that connection needs to be
-            aborted
-
+        :raises Exception: error that signals that connection needs to be aborted
         """
         assert self._nbio is not None
         assert self._sock is not None

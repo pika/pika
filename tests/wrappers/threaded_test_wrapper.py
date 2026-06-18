@@ -1,8 +1,4 @@
-"""
-Implements run_in_thread_with_timeout decorator for running tests that might
-deadlock.
-
-"""
+"""Implements run_in_thread_with_timeout decorator for running tests that might deadlock."""
 
 import functools
 import os
@@ -63,11 +59,13 @@ run_in_thread_with_timeout = create_run_in_thread_decorator()
 
 
 class _ThreadedTestWrapper:
-    """Runs user's function in a thread. Then wait on the
-    thread to terminate up to the given `test_timeout` seconds, raising
-    `AssertionError` if user's function exits with exception or times out.
-
     """
+    Runs user's function in a thread.
+
+    Then wait on the thread to terminate up to the given `test_timeout` seconds, raising
+    `AssertionError` if user's function exits with exception or times out.
+    """
+
     # We use the saved member when printing to facilitate patching by our
     # self-tests
     _stderr = sys.stderr
@@ -97,14 +95,15 @@ class _ThreadedTestWrapper:
         self._exc_info = None
 
     def kick_off(self):
-        """Run user's function in a thread. Then wait on the
-        thread to terminate up to self._test_timeout seconds, raising
+        """
+        Run user's function in a thread.
+
+        Then wait on the thread to terminate up to self._test_timeout seconds, raising
         `AssertionError` if user's function exits with exception or times out.
 
-        :return: the value returned by function if function exited without
-            exception and didn't time out
-        :raises AssertionError: if user's function timed out or exited with
-            exception.
+        :return: the value returned by function if function exited without exception and didn't time
+            out
+        :raises AssertionError: if user's function timed out or exited with exception.
         """
         try:
             runner = threading.Thread(target=self._thread_entry)
@@ -131,11 +130,11 @@ class _ThreadedTestWrapper:
             self._fun = None
 
     def _thread_entry(self):
-        """Our test-execution thread entry point that calls the test's `start()`
-        method.
+        """
+        Our test-execution thread entry point that calls the test's `start()` method.
 
-        Here, we catch all exceptions from `start()`, save the `exc_info` for
-        processing by `_kick_off()`, and print the stack trace to `sys.stderr`.
+        Here, we catch all exceptions from `start()`, save the `exc_info` for processing by
+        `_kick_off()`, and print the stack trace to `sys.stderr`.
         """
         try:
             self._fun_result = self._fun()

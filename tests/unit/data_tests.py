@@ -1,7 +1,5 @@
-"""
-pika.data tests
+"""pika.data tests."""
 
-"""
 import datetime
 import decimal
 import struct
@@ -92,10 +90,11 @@ class DataTests(unittest.TestCase):
         self.assertEqual(byte_count, 233)
 
     def test_decode_signed_long_negative(self):
-        """Verify that type tag 'l' decodes as signed 64-bit (fixes #1531).
+        """
+        Verify that type tag 'l' decodes as signed 64-bit (fixes #1531).
 
-        RabbitMQ encodes negative longs (e.g. x-delay after delivery)
-        with type tag 'l' and signed 64-bit representation.
+        RabbitMQ encodes negative longs (e.g. x-delay after delivery) with type tag 'l' and signed
+        64-bit representation.
         """
         # Table with x-delay = -30000 encoded as signed 64-bit 'l'
         input = (b'\x00\x00\x00\x10'

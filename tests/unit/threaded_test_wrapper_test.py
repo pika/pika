@@ -1,7 +1,4 @@
-"""
-Tests for threaded_test_wrapper.py
-
-"""
+"""Tests for threaded_test_wrapper.py."""
 
 import sys
 import threading
@@ -15,15 +12,10 @@ from tests.wrappers.threaded_test_wrapper import _ThreadedTestWrapper, run_in_th
 
 
 class ThreadedTestWrapperSelfChecks(unittest.TestCase):
-    """Tests for threaded_test_wrapper.py.
-
-    """
+    """Tests for threaded_test_wrapper.py."""
 
     def start(self):
-        """Each of the tests in this test case patches this method to run its
-        own test
-
-        """
+        """Each of the tests in this test case patches this method to run its own test."""
         raise NotImplementedError
 
     def test_propagation_of_failure_from_test_execution_thread(self):

@@ -1,6 +1,5 @@
-"""
-Test for io_services_test_stubs.py
-"""
+"""Test for io_services_test_stubs.py."""
+
 from __future__ import annotations
 
 import pika._utils

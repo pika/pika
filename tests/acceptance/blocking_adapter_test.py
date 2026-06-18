@@ -1,4 +1,5 @@
-"""blocking adapter test"""
+"""Blocking adapter test."""
+
 import functools
 import logging
 import socket
@@ -57,8 +58,9 @@ class BlockingTestCaseBase(unittest.TestCase):
         return connection
 
     def _instrument_io_loop_exception_leak_detection(self, connection):
-        """Instrument the given connection to detect and fail test when
-        an exception is leaked through the I/O loop
+        """
+        Instrument the given connection to detect and fail test when an exception is leaked through
+        the I/O loop.
 
         NOTE: BlockingConnection's underlying asynchronous connection adapter
         (SelectConnection) uses callbacks to communicate with its user (
@@ -99,7 +101,7 @@ class BlockingTestCaseBase(unittest.TestCase):
                         real_process_timeouts)
 
     def _on_test_timeout(self):
-        """Called when test times out"""
+        """Called when test times out."""
         LOGGER.info('%s TIMED OUT (%s)', datetime.now(timezone.utc), self)
         self.fail('Test timed out')
 
@@ -113,7 +115,7 @@ class BlockingTestCaseBase(unittest.TestCase):
 class TestCreateAndCloseConnection(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection: Create and close connection"""
+        """BlockingConnection: Create and close connection."""
         connection = self._connect()
         self.assertIsInstance(connection, pika.BlockingConnection)
         self.assertTrue(connection.is_open)
@@ -129,9 +131,7 @@ class TestCreateAndCloseConnection(BlockingTestCaseBase):
 class TestCreateConnectionWithNoneSocketAndStackTimeouts(BlockingTestCaseBase):
 
     def test(self):
-        """ BlockingConnection: create a connection with socket and stack timeouts both None
-
-        """
+        """BlockingConnection: create a connection with socket and stack timeouts both None."""
         params = pika.URLParameters(DEFAULT_URL)
         params.socket_timeout = None
         params.stack_timeout = None
@@ -143,9 +143,7 @@ class TestCreateConnectionWithNoneSocketAndStackTimeouts(BlockingTestCaseBase):
 class TestCreateConnectionFromTwoConfigsFirstUnreachable(BlockingTestCaseBase):
 
     def test(self):
-        """ BlockingConnection: create a connection from two configs, first unreachable
-
-        """
+        """BlockingConnection: create a connection from two configs, first unreachable."""
         # Reserve a port for use in connect
         sock = socket.socket()
         self.addCleanup(sock.close)
@@ -167,9 +165,8 @@ class TestCreateConnectionFromTwoConfigsFirstUnreachable(BlockingTestCaseBase):
 class TestCreateConnectionFromTwoUnreachableConfigs(BlockingTestCaseBase):
 
     def test(self):
-        """ BlockingConnection: creating a connection from two unreachable \
-        configs raises AMQPConnectionError
-
+        r"""BlockingConnection: creating a connection from two unreachable \ configs raises
+        AMQPConnectionError.
         """
         # Reserve a port for use in connect
         sock = socket.socket()
@@ -190,7 +187,7 @@ class TestCreateConnectionFromTwoUnreachableConfigs(BlockingTestCaseBase):
 class TestMultiCloseConnectionRaisesWrongState(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection: Close connection twice raises ConnectionWrongStateError"""
+        """BlockingConnection: Close connection twice raises ConnectionWrongStateError."""
         connection = self._connect()
         self.assertIsInstance(connection, pika.BlockingConnection)
         self.assertTrue(connection.is_open)
@@ -209,7 +206,7 @@ class TestMultiCloseConnectionRaisesWrongState(BlockingTestCaseBase):
 class TestConnectionContextManagerClosesConnection(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection: connection context manager closes connection"""
+        """BlockingConnection: connection context manager closes connection."""
         with self._connect() as connection:
             self.assertIsInstance(connection, pika.BlockingConnection)
             self.assertTrue(connection.is_open)
@@ -221,7 +218,7 @@ class TestConnectionContextManagerExitSurvivesClosedConnection(
         BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection: connection context manager exit survives closed connection"""
+        """BlockingConnection: connection context manager exit survives closed connection."""
         with self._connect() as connection:
             self.assertTrue(connection.is_open)
             connection.close()
@@ -234,7 +231,9 @@ class TestConnectionContextManagerClosesConnectionAndPassesOriginalException(
         BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection: connection context manager closes connection and passes original exception"""
+        """BlockingConnection: connection context manager closes connection and passes original
+        exception.
+        """
 
         class MyException(Exception):
             pass
@@ -252,7 +251,9 @@ class TestConnectionContextManagerClosesConnectionAndPassesSystemException(
         BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection: connection context manager closes connection and passes system exception"""
+        """BlockingConnection: connection context manager closes connection and passes system
+        exception.
+        """
         with self.assertRaises(SystemExit):
             with self._connect() as connection:
                 self.assertTrue(connection.is_open)
@@ -332,7 +333,7 @@ class TestUpdateSecretExpectsStrings(BlockingTestCaseBase):
 class TestInvalidExchangeTypeRaisesConnectionClosed(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection: ConnectionClosed raised when creating exchange with invalid type"""
+        """BlockingConnection: ConnectionClosed raised when creating exchange with invalid type."""
         # This test exploits behavior specific to RabbitMQ whereby the broker
         # closes the connection if an attempt is made to declare an exchange
         # with an invalid exchange type
@@ -352,7 +353,7 @@ class TestInvalidExchangeTypeRaisesConnectionClosed(BlockingTestCaseBase):
 class TestCreateAndCloseConnectionWithChannelAndConsumer(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection: Create and close connection with channel and consumer"""
+        """BlockingConnection: Create and close connection with channel and consumer."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -389,8 +390,7 @@ class TestCreateAndCloseConnectionWithChannelAndConsumer(BlockingTestCaseBase):
 class TestUsingInvalidQueueArgument(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection raises expected exception when invalid queue parameter is used
-        """
+        """BlockingConnection raises expected exception when invalid queue parameter is used."""
         connection = self._connect()
         ch = connection.channel()
         with self.assertRaises(TypeError):
@@ -400,8 +400,7 @@ class TestUsingInvalidQueueArgument(BlockingTestCaseBase):
 class TestSuddenBrokerDisconnectBeforeChannel(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection resets properly on TCP/IP drop during channel()
-        """
+        """BlockingConnection resets properly on TCP/IP drop during channel()"""
         with ForwardServer(remote_addr=(DEFAULT_PARAMS.host,
                                         DEFAULT_PARAMS.port),
                            local_linger_args=(1, 0)) as fwd:
@@ -423,8 +422,7 @@ class TestSuddenBrokerDisconnectBeforeChannel(BlockingTestCaseBase):
 class TestNoAccessToConnectionAfterConnectionLost(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection no access file descriptor after StreamLostError
-        """
+        """BlockingConnection no access file descriptor after StreamLostError."""
         with ForwardServer(remote_addr=(DEFAULT_PARAMS.host,
                                         DEFAULT_PARAMS.port),
                            local_linger_args=(1, 0)) as fwd:
@@ -450,9 +448,7 @@ class TestNoAccessToConnectionAfterConnectionLost(BlockingTestCaseBase):
 class TestConnectWithDownedBroker(BlockingTestCaseBase):
 
     def test(self):
-        """ BlockingConnection to downed broker results in AMQPConnectionError
-
-        """
+        """BlockingConnection to downed broker results in AMQPConnectionError."""
         # Reserve a port for use in connect
         sock = socket.socket()
         self.addCleanup(sock.close)
@@ -471,8 +467,7 @@ class TestConnectWithDownedBroker(BlockingTestCaseBase):
 class TestDisconnectDuringConnectionStart(BlockingTestCaseBase):
 
     def test(self):
-        """ BlockingConnection TCP/IP connection loss in CONNECTION_START
-        """
+        """BlockingConnection TCP/IP connection loss in CONNECTION_START."""
         fwd = ForwardServer(remote_addr=(DEFAULT_PARAMS.host,
                                          DEFAULT_PARAMS.port),
                             local_linger_args=(1, 0))
@@ -495,8 +490,7 @@ class TestDisconnectDuringConnectionStart(BlockingTestCaseBase):
 class TestDisconnectDuringConnectionTune(BlockingTestCaseBase):
 
     def test(self):
-        """ BlockingConnection TCP/IP connection loss in CONNECTION_TUNE
-        """
+        """BlockingConnection TCP/IP connection loss in CONNECTION_TUNE."""
         fwd = ForwardServer(remote_addr=(DEFAULT_PARAMS.host,
                                          DEFAULT_PARAMS.port),
                             local_linger_args=(1, 0))
@@ -518,8 +512,7 @@ class TestDisconnectDuringConnectionTune(BlockingTestCaseBase):
 class TestDisconnectDuringConnectionProtocol(BlockingTestCaseBase):
 
     def test(self):
-        """ BlockingConnection TCP/IP connection loss in CONNECTION_PROTOCOL
-        """
+        """BlockingConnection TCP/IP connection loss in CONNECTION_PROTOCOL."""
         fwd = ForwardServer(remote_addr=(DEFAULT_PARAMS.host,
                                          DEFAULT_PARAMS.port),
                             local_linger_args=(1, 0))
@@ -542,7 +535,7 @@ class TestDisconnectDuringConnectionProtocol(BlockingTestCaseBase):
 class TestProcessDataEvents(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection.process_data_events"""
+        """BlockingConnection.process_data_events."""
         connection = self._connect()
 
         # Try with time_limit=0
@@ -562,7 +555,7 @@ class TestProcessDataEvents(BlockingTestCaseBase):
 class TestConnectionRegisterForBlockAndUnblock(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection register for Connection.Blocked/Unblocked"""
+        """BlockingConnection register for Connection.Blocked/Unblocked."""
         connection = self._connect()
 
         # NOTE: I haven't figured out yet how to coerce RabbitMQ to emit
@@ -599,7 +592,7 @@ class TestConnectionRegisterForBlockAndUnblock(BlockingTestCaseBase):
 class TestBlockedConnectionTimeout(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection Connection.Blocked timeout """
+        """BlockingConnection Connection.Blocked timeout."""
         url = DEFAULT_URL + '&blocked_connection_timeout=0.001'
         conn = self._connect(url=url)
 
@@ -623,7 +616,7 @@ class TestBlockedConnectionTimeout(BlockingTestCaseBase):
 class TestAddCallbackThreadsafeFromSameThread(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection.add_callback_threadsafe from same thread"""
+        """BlockingConnection.add_callback_threadsafe from same thread."""
         connection = self._connect()
 
         # Test timer completion
@@ -642,7 +635,7 @@ class TestAddCallbackThreadsafeFromSameThread(BlockingTestCaseBase):
 class TestAddCallbackThreadsafeFromAnotherThread(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection.add_callback_threadsafe from another thread"""
+        """BlockingConnection.add_callback_threadsafe from another thread."""
         connection = self._connect()
 
         # Test timer completion
@@ -666,7 +659,9 @@ class TestAddCallbackThreadsafeOnClosedConnectionRaisesWrongState(
         BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection.add_callback_threadsafe on closed connection raises ConnectionWrongStateError"""
+        """BlockingConnection.add_callback_threadsafe on closed connection raises
+        ConnectionWrongStateError.
+        """
         connection = self._connect()
         connection.close()
 
@@ -677,7 +672,7 @@ class TestAddCallbackThreadsafeOnClosedConnectionRaisesWrongState(
 class TestAddTimeoutRemoveTimeout(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection.call_later and remove_timeout"""
+        """BlockingConnection.call_later and remove_timeout."""
         connection = self._connect()
 
         # Test timer completion
@@ -712,7 +707,7 @@ class TestViabilityOfMultipleTimeoutsWithSameDeadlineAndCallback(
         BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection viability of multiple timeouts with same deadline and callback"""
+        """BlockingConnection viability of multiple timeouts with same deadline and callback."""
         connection = self._connect()
 
         rx_callback = []
@@ -738,7 +733,7 @@ class TestViabilityOfMultipleTimeoutsWithSameDeadlineAndCallback(
 class TestRemoveTimeoutFromTimeoutCallback(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection.remove_timeout from timeout callback"""
+        """BlockingConnection.remove_timeout from timeout callback."""
         connection = self._connect()
 
         # Test timer completion
@@ -762,7 +757,7 @@ class TestRemoveTimeoutFromTimeoutCallback(BlockingTestCaseBase):
 class TestSleep(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection.sleep"""
+        """BlockingConnection.sleep."""
         connection = self._connect()
 
         # Try with duration=0
@@ -782,7 +777,7 @@ class TestSleep(BlockingTestCaseBase):
 class TestConnectionProperties(BlockingTestCaseBase):
 
     def test(self):
-        """Test BlockingConnection properties"""
+        """Test BlockingConnection properties."""
         connection = self._connect()
 
         self.assertTrue(connection.is_open)
@@ -803,7 +798,7 @@ class TestConnectionProperties(BlockingTestCaseBase):
 class TestCreateAndCloseChannel(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel: Create and close channel"""
+        """BlockingChannel: Create and close channel."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -822,7 +817,7 @@ class TestCreateAndCloseChannel(BlockingTestCaseBase):
 class TestExchangeDeclareAndDelete(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel: Test exchange_declare and exchange_delete"""
+        """BlockingChannel: Test exchange_declare and exchange_delete."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -853,7 +848,7 @@ class TestExchangeDeclareAndDelete(BlockingTestCaseBase):
 class TestExchangeBindAndUnbind(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel: Test exchange_bind and exchange_unbind"""
+        """BlockingChannel: Test exchange_bind and exchange_unbind."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -915,7 +910,7 @@ class TestExchangeBindAndUnbind(BlockingTestCaseBase):
 class TestQueueDeclareAndDelete(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel: Test queue_declare and queue_delete"""
+        """BlockingChannel: Test queue_declare and queue_delete."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -946,7 +941,7 @@ class TestPassiveQueueDeclareOfUnknownQueueRaisesChannelClosed(
         BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel: ChannelClosed raised when passive-declaring unknown queue"""
+        """BlockingChannel: ChannelClosed raised when passive-declaring unknown queue."""
         connection = self._connect()
         ch = connection.channel()
 
@@ -963,7 +958,7 @@ class TestPassiveQueueDeclareOfUnknownQueueRaisesChannelClosed(
 class TestQueueBindAndUnbindAndPurge(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel: Test queue_bind and queue_unbind"""
+        """BlockingChannel: Test queue_bind and queue_unbind."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -1033,7 +1028,7 @@ class TestBasicGet(BlockingTestCaseBase):
         LOGGER.info('%s TEARING DOWN (%s)', datetime.now(timezone.utc), self)
 
     def test(self):
-        """BlockingChannel.basic_get"""
+        """BlockingChannel.basic_get."""
         LOGGER.info('%s STARTED (%s)', datetime.now(timezone.utc), self)
 
         connection = self._connect()
@@ -1097,7 +1092,7 @@ class TestBasicGet(BlockingTestCaseBase):
 class TestBasicReject(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel.basic_reject"""
+        """BlockingChannel.basic_reject."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -1144,7 +1139,7 @@ class TestBasicReject(BlockingTestCaseBase):
 class TestBasicRejectNoRequeue(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel.basic_reject with requeue=False"""
+        """BlockingChannel.basic_reject with requeue=False."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -1188,7 +1183,7 @@ class TestBasicRejectNoRequeue(BlockingTestCaseBase):
 class TestBasicNack(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel.basic_nack single message"""
+        """BlockingChannel.basic_nack single message."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -1235,7 +1230,7 @@ class TestBasicNack(BlockingTestCaseBase):
 class TestBasicNackNoRequeue(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel.basic_nack with requeue=False"""
+        """BlockingChannel.basic_nack with requeue=False."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -1279,7 +1274,7 @@ class TestBasicNackNoRequeue(BlockingTestCaseBase):
 class TestBasicNackMultiple(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel.basic_nack multiple messages"""
+        """BlockingChannel.basic_nack multiple messages."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -1327,7 +1322,8 @@ class TestBasicNackMultiple(BlockingTestCaseBase):
 class TestBasicRecoverWithRequeue(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel.basic_recover with requeue=True.
+        """
+        BlockingChannel.basic_recover with requeue=True.
 
         NOTE: the requeue=False option is not supported by RabbitMQ broker as
         of this writing (using RabbitMQ 3.5.1)
@@ -1383,7 +1379,7 @@ class TestBasicRecoverWithRequeue(BlockingTestCaseBase):
 class TestTxCommit(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel.tx_commit"""
+        """BlockingChannel.tx_commit."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -1421,7 +1417,7 @@ class TestTxCommit(BlockingTestCaseBase):
 class TestTxRollback(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel.tx_commit"""
+        """BlockingChannel.tx_commit."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -1456,7 +1452,7 @@ class TestTxRollback(BlockingTestCaseBase):
 class TestBasicConsumeFromUnknownQueueRaisesChannelClosed(BlockingTestCaseBase):
 
     def test(self):
-        """ChannelClosed raised when consuming from unknown queue"""
+        """ChannelClosed raised when consuming from unknown queue."""
         connection = self._connect()
         ch = connection.channel()
 
@@ -1472,7 +1468,7 @@ class TestBasicConsumeFromUnknownQueueRaisesChannelClosed(BlockingTestCaseBase):
 class TestPublishAndBasicPublishWithPubacksUnroutable(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel.publish amd basic_publish unroutable message with pubacks"""
+        """BlockingChannel.publish amd basic_publish unroutable message with pubacks."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -1515,7 +1511,7 @@ class TestPublishAndBasicPublishWithPubacksUnroutable(BlockingTestCaseBase):
 class TestConfirmDeliveryAfterUnroutableMessage(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel.confirm_delivery following unroutable message"""
+        """BlockingChannel.confirm_delivery following unroutable message."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -1572,7 +1568,7 @@ class TestConfirmDeliveryAfterUnroutableMessage(BlockingTestCaseBase):
 class TestUnroutableMessagesReturnedInNonPubackMode(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel: unroutable messages is returned in non-puback mode"""
+        """BlockingChannel: unroutable messages is returned in non-puback mode."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -1640,7 +1636,7 @@ class TestUnroutableMessagesReturnedInNonPubackMode(BlockingTestCaseBase):
 class TestUnroutableMessageReturnedInPubackMode(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel: unroutable messages is returned in puback mode"""
+        """BlockingChannel: unroutable messages is returned in puback mode."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -1720,7 +1716,7 @@ class TestUnroutableMessageReturnedInPubackMode(BlockingTestCaseBase):
 class TestBasicPublishDeliveredWhenPendingUnroutable(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel.basic_publish msg delivered despite pending unroutable message"""
+        """BlockingChannel.basic_publish msg delivered despite pending unroutable message."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -1790,8 +1786,8 @@ class TestBasicPublishDeliveredWhenPendingUnroutable(BlockingTestCaseBase):
 class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel.basic_publish, publish, basic_consume, QoS, \
-        Basic.Cancel from broker
+        r"""BlockingChannel.basic_publish, publish, basic_consume, QoS, \ Basic.Cancel from
+        broker.
         """
         connection = self._connect()
 
@@ -1925,8 +1921,8 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
 class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel.basic_consume with ack from another thread and \
-        requesting basic_ack via add_callback_threadsafe
+        r"""BlockingChannel.basic_consume with ack from another thread and \ requesting basic_ack
+        via add_callback_threadsafe.
         """
         # This test simulates processing of a message on another thread and
         # then requesting an ACK to be dispatched on the connection's thread
@@ -2017,8 +2013,8 @@ class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
 class TestConsumeGeneratorWithAckFromAnotherThread(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel.consume and requesting basic_ack from another \
-        thread via add_callback_threadsafe
+        r"""BlockingChannel.consume and requesting basic_ack from another \ thread via
+        add_callback_threadsafe.
         """
         connection = self._connect()
 
@@ -2101,8 +2097,7 @@ class TestConsumeGeneratorWithAckFromAnotherThread(BlockingTestCaseBase):
 class TestTwoBasicConsumersOnSameChannel(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel: two basic_consume consumers on same channel
-        """
+        """BlockingChannel: two basic_consume consumers on same channel."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -2204,7 +2199,7 @@ class TestTwoBasicConsumersOnSameChannel(BlockingTestCaseBase):
 class TestBasicCancelPurgesPendingConsumerCancellationEvt(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel.basic_cancel purges pending _ConsumerCancellationEvt"""
+        """BlockingChannel.basic_cancel purges pending _ConsumerCancellationEvt."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -2255,7 +2250,7 @@ class TestBasicCancelPurgesPendingConsumerCancellationEvt(BlockingTestCaseBase):
 class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel.basic_publish without pubacks"""
+        """BlockingChannel.basic_publish without pubacks."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -2370,8 +2365,7 @@ class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
 class TestPublishFromBasicConsumeCallback(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel.basic_publish from basic_consume callback
-        """
+        """BlockingChannel.basic_publish from basic_consume callback."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -2421,8 +2415,7 @@ class TestPublishFromBasicConsumeCallback(BlockingTestCaseBase):
 class TestStopConsumingFromBasicConsumeCallback(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel.stop_consuming from basic_consume callback
-        """
+        """BlockingChannel.stop_consuming from basic_consume callback."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -2476,8 +2469,7 @@ class TestStopConsumingFromBasicConsumeCallback(BlockingTestCaseBase):
 class TestCloseChannelFromBasicConsumeCallback(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel.close from basic_consume callback
-        """
+        """BlockingChannel.close from basic_consume callback."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -2528,8 +2520,7 @@ class TestCloseChannelFromBasicConsumeCallback(BlockingTestCaseBase):
 class TestCloseConnectionFromBasicConsumeCallback(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection.close from basic_consume callback
-        """
+        """BlockingConnection.close from basic_consume callback."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -2583,8 +2574,7 @@ class TestStartConsumingRaisesChannelClosedOnSameChannelFailure(
         BlockingTestCaseBase):
 
     def test(self):
-        """start_consuming() exits with ChannelClosed exception on same channel failure
-        """
+        """start_consuming() exits with ChannelClosed exception on same channel failure."""
         connection = self._connect()
 
         # Fail test if exception leaks back ito I/O loop
@@ -2618,8 +2608,7 @@ class TestStartConsumingRaisesChannelClosedOnSameChannelFailure(
 class TestStartConsumingReturnsAfterCancelFromBroker(BlockingTestCaseBase):
 
     def test(self):
-        """start_consuming() returns after Cancel from broker
-        """
+        """start_consuming() returns after Cancel from broker."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -2650,7 +2639,7 @@ class TestStartConsumingReturnsAfterCancelFromBroker(BlockingTestCaseBase):
 class TestNonPubAckPublishAndConsumeHugeMessage(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel.publish/consume huge message"""
+        """BlockingChannel.publish/consume huge message."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -2698,7 +2687,7 @@ class TestNonPubAckPublishAndConsumeHugeMessage(BlockingTestCaseBase):
 class TestNonPubAckPublishAndConsumeManyMessages(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel non-pub-ack publish/consume many messages"""
+        """BlockingChannel non-pub-ack publish/consume many messages."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -2755,7 +2744,7 @@ class TestNonPubAckPublishAndConsumeManyMessages(BlockingTestCaseBase):
 class TestBasicCancelWithNonAckableConsumer(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel user cancels non-ackable consumer via basic_cancel"""
+        """BlockingChannel user cancels non-ackable consumer via basic_cancel."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -2813,7 +2802,7 @@ class TestBasicCancelWithNonAckableConsumer(BlockingTestCaseBase):
 class TestBasicCancelWithAckableConsumer(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel user cancels ackable consumer via basic_cancel"""
+        """BlockingChannel user cancels ackable consumer via basic_cancel."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -2866,7 +2855,7 @@ class TestBasicCancelWithAckableConsumer(BlockingTestCaseBase):
 class TestUnackedMessageAutoRestoredToQueueOnChannelClose(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel unacked message restored to q on channel close """
+        """BlockingChannel unacked message restored to q on channel close."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -2915,7 +2904,7 @@ class TestUnackedMessageAutoRestoredToQueueOnChannelClose(BlockingTestCaseBase):
 class TestNoAckMessageNotRestoredToQueueOnChannelClose(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel unacked message restored to q on channel close """
+        """BlockingChannel unacked message restored to q on channel close."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -2963,7 +2952,7 @@ class TestNoAckMessageNotRestoredToQueueOnChannelClose(BlockingTestCaseBase):
 class TestConsumeGeneratorInactivityTimeout(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel consume returns 3-tuple of None values on inactivity timeout """
+        """BlockingChannel consume returns 3-tuple of None values on inactivity timeout."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -2985,7 +2974,7 @@ class TestConsumeGeneratorInactivityTimeout(BlockingTestCaseBase):
 class TestConsumeGeneratorInterruptedByCancelFromBroker(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel consume generator is interrupted broker's Cancel """
+        """BlockingChannel consume generator is interrupted broker's Cancel."""
         connection = self._connect()
 
         self.assertTrue(connection.consumer_cancel_notify_supported)
@@ -3012,7 +3001,7 @@ class TestConsumeGeneratorCancelEncountersCancelFromBroker(
         BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel consume generator cancel called when broker's Cancel is enqueued """
+        """BlockingChannel consume generator cancel called when broker's Cancel is enqueued."""
         connection = self._connect()
 
         self.assertTrue(connection.consumer_cancel_notify_supported)
@@ -3048,8 +3037,7 @@ class TestConsumeGeneratorPassesChannelClosedOnSameChannelFailure(
         BlockingTestCaseBase):
 
     def test(self):
-        """consume() exits with ChannelClosed exception on same channel failure
-        """
+        """Consume() exits with ChannelClosed exception on same channel failure."""
         connection = self._connect()
 
         # Fail test if exception leaks back ito I/O loop
@@ -3078,7 +3066,7 @@ class TestConsumeGeneratorPassesChannelClosedOnSameChannelFailure(
 class TestChannelFlow(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel Channel.Flow activate and deactivate """
+        """BlockingChannel Channel.Flow activate and deactivate."""
         connection = self._connect()
 
         ch = connection.channel()
@@ -3112,7 +3100,7 @@ class TestChannelRaisesWrongStateWhenDeclaringQueueOnClosedChannel(
         BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection: Declaring queue on closed channel raises ChannelWrongStateError"""
+        """BlockingConnection: Declaring queue on closed channel raises ChannelWrongStateError."""
         q_name = (
             'TestChannelRaisesWrongStateWhenDeclaringQueueOnClosedChannel_q' +
             uuid.uuid1().hex)
@@ -3126,7 +3114,7 @@ class TestChannelRaisesWrongStateWhenDeclaringQueueOnClosedChannel(
 class TestChannelRaisesWrongStateWhenClosingClosedChannel(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection: Closing closed channel raises ChannelWrongStateError"""
+        """BlockingConnection: Closing closed channel raises ChannelWrongStateError."""
         channel = self._connect().channel()
         channel.close()
         with self.assertRaises(pika.exceptions.ChannelWrongStateError):
@@ -3136,7 +3124,7 @@ class TestChannelRaisesWrongStateWhenClosingClosedChannel(BlockingTestCaseBase):
 class TestChannelContextManagerClosesChannel(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection: chanel context manager exit survives closed channel"""
+        """BlockingConnection: chanel context manager exit survives closed channel."""
         with self._connect().channel() as channel:
             self.assertTrue(channel.is_open)
 
@@ -3146,7 +3134,7 @@ class TestChannelContextManagerClosesChannel(BlockingTestCaseBase):
 class TestChannelContextManagerExitSurvivesClosedChannel(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection: chanel context manager exit survives closed channel"""
+        """BlockingConnection: chanel context manager exit survives closed channel."""
         with self._connect().channel() as channel:
             self.assertTrue(channel.is_open)
             channel.close()
@@ -3159,8 +3147,9 @@ class TestChannelContextManagerDoesNotSuppressChannelClosedByBroker(
         BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection: chanel context manager doesn't suppress ChannelClosedByBroker exception"""
-
+        """BlockingConnection: chanel context manager doesn't suppress ChannelClosedByBroker
+        exception.
+        """
         exg_name = (
             "TestChannelContextManagerDoesNotSuppressChannelClosedByBroker" +
             uuid.uuid1().hex)

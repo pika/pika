@@ -1,6 +1,7 @@
 """
-This example demonstrates RabbitMQ's "Direct reply-to" usage via
-`pika.BlockingConnection`. See https://www.rabbitmq.com/direct-reply-to.html
+This example demonstrates RabbitMQ's "Direct reply-to" usage via `pika.BlockingConnection`.
+
+See https://www.rabbitmq.com/direct-reply-to.html
 for more info about this feature.
 """
 
@@ -10,13 +11,11 @@ SERVER_QUEUE = 'rpc.server.queue'
 
 
 def main():
-    """ Here, Client sends "Marco" to RPC Server, and RPC Server replies with
-    "Polo".
+    """
+    Here, Client sends "Marco" to RPC Server, and RPC Server replies with "Polo".
 
-    NOTE Normally, the server would be running separately from the client, but
-    in this very simple example both are running in the same thread and sharing
-    connection and channel.
-
+    NOTE Normally, the server would be running separately from the client, but in this very simple
+    example both are running in the same thread and sharing connection and channel.
     """
     with pika.BlockingConnection() as conn:
         channel = conn.channel()

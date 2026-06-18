@@ -1,7 +1,5 @@
-"""
-Tests for pika.exchange_type
+"""Tests for pika.exchange_type."""
 
-"""
 import unittest
 
 from pika.exchange_type import ExchangeType

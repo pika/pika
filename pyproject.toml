@@ -102,10 +102,18 @@ packages = ["pika", "pika.adapters", "pika.adapters.utils"]
 [tool.setuptools.package-data]
 "*" = ["LICENSE", "README.md"]
 
+[tool.docformatter]
+wrap-summaries = 100
+wrap-descriptions = 100
+pre-summary-newline = true
+close-quotes-on-newline = true
+force-one-line-summary = false
+
 [tool.hatch.envs.default]
 dependencies = [
     "coverage",
     "codecov",
+    "docformatter",
     "gevent",
     "pytest>=7.0.0",
     "pytest-cov",
@@ -123,6 +131,8 @@ fmt = "yapf --in-place --style google --recursive --exclude 'pika/spec.py' pika/
 fmt-check = "yapf --diff --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/ utils/"
 lint = "ruff check pika/ tests/ examples/ utils/ --fix"
 lint-check = "ruff check pika/ tests/ examples/ utils/"
+docfmt = "docformatter --in-place --recursive pika/ tests/ examples/ utils/ --exclude pika/spec.py"
+docfmt-check = "docformatter --check --diff --recursive pika/ tests/ examples/ utils/ --exclude pika/spec.py"
 typecheck = "python -m mypy"
 unit = "pytest -n auto --dist=loadscope tests/unit/ {args}"
 test = "pytest -n auto --dist=loadscope {args}"

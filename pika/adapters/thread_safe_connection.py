@@ -1,4 +1,5 @@
-"""Thread-safe connection wrapper for pika.
+"""
+Thread-safe connection wrapper for pika.
 
 Runs SelectConnection's IOLoop in a dedicated background thread so that
 all socket I/O - including writes to _tx_buffers - stays confined to one
@@ -10,6 +11,7 @@ This eliminates the ``IndexError: pop from an empty deque`` race seen when
 multiple threads call basic_publish() on a shared connection directly
 (issues #1144 and #511).
 """
+
 from __future__ import annotations
 
 import concurrent.futures
@@ -31,7 +33,8 @@ DEFAULT_RPC_TIMEOUT = 10
 
 
 class ThreadSafeChannel:
-    """Thread-safe wrapper around :class:`pika.channel.Channel`.
+    """
+    Thread-safe wrapper around :class:`pika.channel.Channel`.
 
     Every write operation is routed through the parent connection's
     ``add_callback_threadsafe`` so that ``_tx_buffers`` is only ever
@@ -75,10 +78,11 @@ class ThreadSafeChannel:
         self._confirm_select_ok = None
 
     def _check_not_closed(self) -> None:
-        """Raise if the connection is known to be closed.
+        """
+        Raise if the connection is known to be closed.
 
-        Called from fire-and-forget methods to prevent silently dropping
-        work when the connection is already gone.
+        Called from fire-and-forget methods to prevent silently dropping work when the connection is
+        already gone.
         """
         with self._wrapper._channel_waiters_lock:
             if self._wrapper._closed_reason is not None:
@@ -86,7 +90,8 @@ class ThreadSafeChannel:
 
     @staticmethod
     def _safe_dispatch(label, callback, *args) -> None:
-        """Execute *callback* on the pool worker, logging any exception.
+        """
+        Execute *callback* on the pool worker, logging any exception.
 
         Used to wrap user callbacks before submitting them to a
         :class:`concurrent.futures.ThreadPoolExecutor` so that exceptions
@@ -110,7 +115,8 @@ class ThreadSafeChannel:
             self._consumer_work_pool.shutdown(wait=True)
 
     def _register_waiter(self) -> tuple[Event, list[BaseException | None]]:
-        """Create and register a blocking waiter.
+        """
+        Create and register a blocking waiter.
 
         :returns: (ready, error) tuple for use with ``ready.wait()``
         :raises Exception: if the connection is already closed.
@@ -125,7 +131,9 @@ class ThreadSafeChannel:
 
     def _unregister_waiter(self, ready: Event,
                            error: list[BaseException | None]) -> None:
-        """Remove a waiter from the blocking list.
+        """
+        Remove a waiter from the blocking list.
+
         :param ready: Threading event signalling that the RPC response has
             arrived
         :param error: list containing an exception if the RPC response was an
@@ -139,7 +147,8 @@ class ThreadSafeChannel:
 
     def _blocking_rpc(self, method_name: str, channel_method, timeout: int,
                       *args, **kwargs) -> Any:
-        """Execute a channel RPC and block until the broker responds.
+        """
+        Execute a channel RPC and block until the broker responds.
 
         Handles the waiter lifecycle: registers the calling thread's event
         in ``_blocking_waiters``, schedules the RPC on the IOLoop thread,
@@ -200,7 +209,8 @@ class ThreadSafeChannel:
                       properties=None,
                       mandatory: bool = False,
                       on_publish=None) -> None:
-        """Schedule a publish in the IOLoop thread (fire-and-forget).
+        """
+        Schedule a publish in the IOLoop thread (fire-and-forget).
 
         Safe to call from any thread simultaneously.
 
@@ -242,7 +252,8 @@ class ThreadSafeChannel:
         self._wrapper.add_callback_threadsafe(_publish)
 
     def basic_ack(self, delivery_tag: int = 0, multiple: bool = False) -> None:
-        """Schedule an acknowledgement in the IOLoop thread (fire-and-forget).
+        """
+        Schedule an acknowledgement in the IOLoop thread (fire-and-forget).
 
         Safe to call from any thread simultaneously.
 
@@ -266,7 +277,8 @@ class ThreadSafeChannel:
                    delivery_tag: int = 0,
                    multiple: bool = False,
                    requeue: bool = True) -> None:
-        """Schedule a negative acknowledgement in the IOLoop thread (fire-and-forget).
+        """
+        Schedule a negative acknowledgement in the IOLoop thread (fire-and-forget).
 
         Safe to call from any thread simultaneously.
 
@@ -289,7 +301,8 @@ class ThreadSafeChannel:
         self._wrapper.add_callback_threadsafe(_nack)
 
     def basic_reject(self, delivery_tag: int = 0, requeue: bool = True) -> None:
-        """Schedule a rejection in the IOLoop thread (fire-and-forget).
+        """
+        Schedule a rejection in the IOLoop thread (fire-and-forget).
 
         Safe to call from any thread simultaneously.
 
@@ -325,6 +338,7 @@ class ThreadSafeChannel:
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Basic.QosOk method frame.
+        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -341,19 +355,20 @@ class ThreadSafeChannel:
                   queue,
                   auto_ack: bool = False,
                   timeout: int = DEFAULT_RPC_TIMEOUT) -> tuple[None, ...]:
-        """Get a single message from the broker and block until it arrives.
+        """
+        Get a single message from the broker and block until it arrives.
 
-        Returns a ``(method, properties, body)`` tuple if a message is
-        available, or ``(None, None, None)`` if the queue is empty.
+        Returns a ``(method, properties, body)`` tuple if a message is available, or ``(None, None,
+        None)`` if the queue is empty.
 
         Safe to call from any thread.
 
         :param queue: The queue to get a message from.
         :param auto_ack: Do not require acknowledgement.
-        :param timeout: Seconds to wait for the response.
-            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
-            Pass ``None`` to wait indefinitely.
-        :returns: ``(method, properties, body)`` or ``(None, None, None)``.
+        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+            (10 s). Pass ``None`` to wait indefinitely.
+        :returns:``(method, properties, body)`` or ``(None, None, None)``.
+        :rtype: tuple
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -407,24 +422,21 @@ class ThreadSafeChannel:
         return tuple(result)
 
     def add_on_cancel_callback(self, callback) -> None:
-        """Register a callback for server-initiated consumer cancellation.
+        """
+        Register a callback for server-initiated consumer cancellation.
 
-        The broker sends ``Basic.Cancel`` when a consumer is cancelled by
-        the server (for example, when the queue the consumer is bound to
-        is deleted).  Without registering this callback, a consumer can
-        silently stop receiving messages.
+        The broker sends ``Basic.Cancel`` when a consumer is cancelled by the server (for example,
+        when the queue the consumer is bound to is deleted).  Without registering this callback, a
+        consumer can silently stop receiving messages.
 
-        Dispatched on the per-channel worker thread (same as delivery
-        callbacks), so the callback may safely call any
-        :class:`ThreadSafeChannel` method.  The RabbitMQ Java and .NET
-        clients run this listener inline on the I/O thread; pika's
-        wrapper deliberately diverges so a slow listener cannot stall
-        heartbeats.
+        Dispatched on the per-channel worker thread (same as delivery callbacks), so the callback
+        may safely call any :class:`ThreadSafeChannel` method.  The RabbitMQ Java and .NET clients
+        run this listener inline on the I/O thread; pika's wrapper deliberately diverges so a slow
+        listener cannot stall heartbeats.
 
         Safe to call from any thread.
 
-        :param callback:
-            ``callback(method_frame)`` where *method_frame* contains a
+        :param callback:``callback(method_frame)`` where *method_frame* contains a
             :class:`pika.spec.Basic.Cancel`.
         :raises Exception: if the connection is already closed.
         """
@@ -448,27 +460,23 @@ class ThreadSafeChannel:
         self._wrapper.add_callback_threadsafe(_register)
 
     def add_on_return_callback(self, callback) -> None:
-        """Register a callback for messages returned by the broker.
+        """
+        Register a callback for messages returned by the broker.
 
-        When a message is published with ``mandatory=True`` and cannot be
-        routed to any queue, the broker returns it via a
-        :class:`pika.spec.Basic.Return`.  The *callback* receives the
+        When a message is published with ``mandatory=True`` and cannot be routed to any queue, the
+        broker returns it via a :class:`pika.spec.Basic.Return`.  The *callback* receives the
         returned message.
 
-        Dispatched on the per-channel worker thread (same as delivery
-        callbacks), so the callback may safely call any
-        :class:`ThreadSafeChannel` method.  The RabbitMQ Java and .NET
-        clients run this listener inline on the I/O thread; pika's
-        wrapper deliberately diverges so a slow listener cannot stall
-        heartbeats.
+        Dispatched on the per-channel worker thread (same as delivery callbacks), so the callback
+        may safely call any :class:`ThreadSafeChannel` method.  The RabbitMQ Java and .NET clients
+        run this listener inline on the I/O thread; pika's wrapper deliberately diverges so a slow
+        listener cannot stall heartbeats.
 
         Safe to call from any thread.
 
-        :param callback:
-            ``callback(channel, method, properties, body)`` where
-            *channel* is this :class:`ThreadSafeChannel`, *method* is a
-            :class:`pika.spec.Basic.Return`, *properties* is a
-            :class:`pika.spec.BasicProperties`, and *body* is :class:`bytes`.
+        :param callback:``callback(channel, method, properties, body)`` where *channel* is this
+            :class:`ThreadSafeChannel`, *method* is a :class:`pika.spec.Basic.Return`, *properties*
+            is a :class:`pika.spec.BasicProperties`, and *body* is :class:`bytes`.
         :raises Exception: if the connection is already closed.
         """
         self._check_not_closed()
@@ -492,7 +500,8 @@ class ThreadSafeChannel:
     def confirm_delivery(self,
                          ack_nack_callback,
                          timeout: int = DEFAULT_RPC_TIMEOUT):
-        """Enable publisher confirms and block until Confirm.SelectOk arrives.
+        """
+        Enable publisher confirms and block until Confirm.SelectOk arrives.
 
         Idempotent: calling this method more than once on the same channel
         returns the original Confirm.SelectOk without sending a frame to
@@ -514,6 +523,7 @@ class ThreadSafeChannel:
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Confirm.SelectOk method frame.
+        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -546,30 +556,28 @@ class ThreadSafeChannel:
                       consumer_tag=None,
                       arguments=None,
                       timeout: int = DEFAULT_RPC_TIMEOUT):
-        """Register a consumer and block until Basic.ConsumeOk arrives.
+        """
+        Register a consumer and block until Basic.ConsumeOk arrives.
 
-        The *on_message_callback* is dispatched on the channel's worker
-        thread, not the IOLoop thread.  All :class:`ThreadSafeChannel`
-        methods are safe to call from within the callback.
+        The *on_message_callback* is dispatched on the channel's worker thread, not the IOLoop
+        thread.  All :class:`ThreadSafeChannel` methods are safe to call from within the callback.
 
-        Because the channel uses a single worker thread, deliveries are
-        processed serially.  A callback that blocks (e.g. on a database
-        write or a call to :meth:`queue_declare`) delays subsequent
-        deliveries on the same channel until it returns.
+        Because the channel uses a single worker thread, deliveries are processed serially.  A
+        callback that blocks (e.g. on a database write or a call to :meth:`queue_declare`) delays
+        subsequent deliveries on the same channel until it returns.
 
         Safe to call from any thread.
 
         :param queue: Queue to consume from.
-        :param on_message_callback:
-            ``callback(channel, method, properties, body)``
+        :param on_message_callback:``callback(channel, method, properties, body)``
         :param auto_ack: Disable manual acknowledgement.
         :param exclusive: Request exclusive consumer access.
         :param consumer_tag: Client-provided tag; generated if omitted.
         :param arguments: Additional AMQP arguments.
-        :param timeout: Seconds to wait for the response.
-            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
-            Pass ``None`` to wait indefinitely.
+        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+            (10 s). Pass ``None`` to wait indefinitely.
         :returns: The consumer tag assigned by the broker.
+        :rtype: str
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -599,15 +607,16 @@ class ThreadSafeChannel:
     def basic_cancel(self,
                      consumer_tag,
                      timeout: int = DEFAULT_RPC_TIMEOUT) -> None:
-        """Cancel a consumer and block until Basic.CancelOk arrives.
+        """
+        Cancel a consumer and block until Basic.CancelOk arrives.
 
         Safe to call from any thread.
 
         :param consumer_tag: Tag returned by :meth:`basic_consume`.
-        :param timeout: Seconds to wait for the response.
-            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
-            Pass ``None`` to wait indefinitely.
+        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+            (10 s). Pass ``None`` to wait indefinitely.
         :returns: The Basic.CancelOk method frame.
+        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -626,7 +635,8 @@ class ThreadSafeChannel:
                       auto_delete: bool = False,
                       arguments=None,
                       timeout: int = DEFAULT_RPC_TIMEOUT) -> None:
-        """Declare a queue and block the calling thread until Queue.DeclareOk arrives.
+        """
+        Declare a queue and block the calling thread until Queue.DeclareOk arrives.
 
         Safe to call from any thread.
 
@@ -636,10 +646,10 @@ class ThreadSafeChannel:
         :param exclusive: If True, restrict access to the current connection
         :param auto_delete: If True, delete the queue or exchange when no longer in use
         :param arguments: Custom arguments for the queue declaration
-        :param timeout: Seconds to wait for the response.
-            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
-            Pass ``None`` to wait indefinitely.
+        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+            (10 s). Pass ``None`` to wait indefinitely.
         :returns: The Queue.DeclareOk method frame.
+        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -664,7 +674,8 @@ class ThreadSafeChannel:
                          internal: bool = False,
                          arguments=None,
                          timeout: int = DEFAULT_RPC_TIMEOUT) -> None:
-        """Declare an exchange and block until Exchange.DeclareOk arrives.
+        """
+        Declare an exchange and block until Exchange.DeclareOk arrives.
 
         Safe to call from any thread.
 
@@ -675,10 +686,10 @@ class ThreadSafeChannel:
         :param auto_delete: Delete when no queues are bound.
         :param internal: Can only be published to by other exchanges.
         :param arguments: Custom arguments for the exchange.
-        :param timeout: Seconds to wait for the response.
-            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
-            Pass ``None`` to wait indefinitely.
+        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+            (10 s). Pass ``None`` to wait indefinitely.
         :returns: The Exchange.DeclareOk method frame.
+        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -701,19 +712,19 @@ class ThreadSafeChannel:
                    routing_key=None,
                    arguments=None,
                    timeout: int = DEFAULT_RPC_TIMEOUT) -> None:
-        """Bind a queue to an exchange and block until Queue.BindOk arrives.
+        """
+        Bind a queue to an exchange and block until Queue.BindOk arrives.
 
         Safe to call from any thread.
 
         :param queue: The queue to bind.
         :param exchange: The exchange to bind to.
-        :param routing_key: The routing key to bind on.
-            Defaults to the queue name.
+        :param routing_key: The routing key to bind on. Defaults to the queue name.
         :param arguments: Custom arguments for the binding.
-        :param timeout: Seconds to wait for the response.
-            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
-            Pass ``None`` to wait indefinitely.
+        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+            (10 s). Pass ``None`` to wait indefinitely.
         :returns: The Queue.BindOk method frame.
+        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -733,19 +744,19 @@ class ThreadSafeChannel:
                      routing_key=None,
                      arguments=None,
                      timeout: int = DEFAULT_RPC_TIMEOUT) -> None:
-        """Unbind a queue from an exchange and block until Queue.UnbindOk arrives.
+        """
+        Unbind a queue from an exchange and block until Queue.UnbindOk arrives.
 
         Safe to call from any thread.
 
         :param queue: The queue to unbind.
         :param exchange: The exchange to unbind from.
-        :param routing_key: The routing key to unbind.
-            Defaults to the queue name.
+        :param routing_key: The routing key to unbind. Defaults to the queue name.
         :param arguments: Custom arguments for the unbinding.
-        :param timeout: Seconds to wait for the response.
-            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
-            Pass ``None`` to wait indefinitely.
+        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+            (10 s). Pass ``None`` to wait indefinitely.
         :returns: The Queue.UnbindOk method frame.
+        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -764,17 +775,18 @@ class ThreadSafeChannel:
                      if_unused: bool = False,
                      if_empty: bool = False,
                      timeout: int = DEFAULT_RPC_TIMEOUT) -> None:
-        """Delete a queue and block until Queue.DeleteOk arrives.
+        """
+        Delete a queue and block until Queue.DeleteOk arrives.
 
         Safe to call from any thread.
 
         :param queue: The queue to delete.
         :param if_unused: Only delete if the queue has no consumers.
         :param if_empty: Only delete if the queue is empty.
-        :param timeout: Seconds to wait for the response.
-            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
-            Pass ``None`` to wait indefinitely.
+        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+            (10 s). Pass ``None`` to wait indefinitely.
         :returns: The Queue.DeleteOk method frame.
+        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -788,15 +800,16 @@ class ThreadSafeChannel:
         )
 
     def queue_purge(self, queue, timeout: int = DEFAULT_RPC_TIMEOUT) -> None:
-        """Purge all messages from a queue and block until Queue.PurgeOk arrives.
+        """
+        Purge all messages from a queue and block until Queue.PurgeOk arrives.
 
         Safe to call from any thread.
 
         :param queue: The queue to purge.
-        :param timeout: Seconds to wait for the response.
-            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
-            Pass ``None`` to wait indefinitely.
+        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+            (10 s). Pass ``None`` to wait indefinitely.
         :returns: The Queue.PurgeOk method frame.
+        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -813,7 +826,8 @@ class ThreadSafeChannel:
                       routing_key: str = '',
                       arguments=None,
                       timeout: int = DEFAULT_RPC_TIMEOUT) -> None:
-        """Bind an exchange to another exchange and block until Exchange.BindOk.
+        """
+        Bind an exchange to another exchange and block until Exchange.BindOk.
 
         Safe to call from any thread.
 
@@ -821,10 +835,10 @@ class ThreadSafeChannel:
         :param source: The source exchange to bind to.
         :param routing_key: The routing key to bind on.
         :param arguments: Custom arguments for the binding.
-        :param timeout: Seconds to wait for the response.
-            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
-            Pass ``None`` to wait indefinitely.
+        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+            (10 s). Pass ``None`` to wait indefinitely.
         :returns: The Exchange.BindOk method frame.
+        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -844,7 +858,8 @@ class ThreadSafeChannel:
                         routing_key: str = '',
                         arguments=None,
                         timeout: int = DEFAULT_RPC_TIMEOUT) -> None:
-        """Unbind an exchange from another exchange and block until Exchange.UnbindOk.
+        """
+        Unbind an exchange from another exchange and block until Exchange.UnbindOk.
 
         Safe to call from any thread.
 
@@ -852,10 +867,10 @@ class ThreadSafeChannel:
         :param source: The source exchange to unbind from.
         :param routing_key: The routing key to unbind.
         :param arguments: Custom arguments for the unbinding.
-        :param timeout: Seconds to wait for the response.
-            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
-            Pass ``None`` to wait indefinitely.
+        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+            (10 s). Pass ``None`` to wait indefinitely.
         :returns: The Exchange.UnbindOk method frame.
+        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -873,16 +888,17 @@ class ThreadSafeChannel:
                         exchange=None,
                         if_unused: bool = False,
                         timeout: int = DEFAULT_RPC_TIMEOUT) -> None:
-        """Delete an exchange and block until Exchange.DeleteOk arrives.
+        """
+        Delete an exchange and block until Exchange.DeleteOk arrives.
 
         Safe to call from any thread.
 
         :param exchange: The exchange name.
         :param if_unused: Only delete if the exchange has no bindings.
-        :param timeout: Seconds to wait for the response.
-            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
-            Pass ``None`` to wait indefinitely.
+        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+            (10 s). Pass ``None`` to wait indefinitely.
         :returns: The Exchange.DeleteOk method frame.
+        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -898,21 +914,21 @@ class ThreadSafeChannel:
               reply_code: int = 0,
               reply_text: str = 'Normal shutdown',
               timeout: int = 10) -> None:
-        """Close the channel and block until the Channel.CloseOk arrives.
+        """
+        Close the channel and block until the Channel.CloseOk arrives.
 
-        Shuts down the consumer work pool after the channel is closed,
-        allowing any in-flight delivery callbacks to complete.
+        Shuts down the consumer work pool after the channel is closed, allowing any in-flight
+        delivery callbacks to complete.
 
-        If the channel is already closed or closing, returns immediately.
-        Safe to call from any thread.
+        If the channel is already closed or closing, returns immediately. Safe to call from any
+        thread.
 
         :param reply_code: Close reason code to send to the broker.
         :param reply_text: Close reason text to send to the broker.
-        :param timeout: Seconds to wait for Channel.CloseOk
-            before treating the channel as closed regardless.  Defaults to
-            10 seconds.  Pass ``None`` to wait indefinitely.
-        :raises Exception: if the connection is closed or the channel is closed
-            by the broker rather than by this client.
+        :param timeout: Seconds to wait for Channel.CloseOk before treating the channel as closed
+            regardless. Defaults to 10 seconds. Pass ``None`` to wait indefinitely.
+        :raises Exception: if the connection is closed or the channel is closed by the broker rather
+            than by this client.
         """
         ready, error = self._register_waiter()
 
@@ -952,19 +968,18 @@ class ThreadSafeChannel:
               reply_code: int = 0,
               reply_text: str = 'Normal shutdown',
               timeout: int = 10) -> None:
-        """Close the channel, swallowing any errors.
+        """
+        Close the channel, swallowing any errors.
 
-        Equivalent to :meth:`close` but never raises.  Useful in error-recovery
-        paths where the channel may already be in a bad state and the caller
-        only wants a best-effort shutdown.
+        Equivalent to :meth:`close` but never raises.  Useful in error-recovery paths where the
+        channel may already be in a bad state and the caller only wants a best-effort shutdown.
 
         Safe to call from any thread.
 
         :param reply_code: Close reason code to send to the broker.
         :param reply_text: Close reason text to send to the broker.
-        :param timeout: Seconds to wait for Channel.CloseOk
-            before treating the channel as closed regardless.  Defaults to
-            10 seconds.  Pass ``None`` to wait indefinitely.
+        :param timeout: Seconds to wait for Channel.CloseOk before treating the channel as closed
+            regardless. Defaults to 10 seconds. Pass ``None`` to wait indefinitely.
         """
         try:
             self.close(reply_code=reply_code,
@@ -975,17 +990,16 @@ class ThreadSafeChannel:
 
     @property
     def next_publish_seq_no(self) -> int | None:
-        """The delivery tag that will be assigned to the next published message.
+        """
+        The delivery tag that will be assigned to the next published message.
 
-        Returns ``None`` if publisher confirms have not been enabled via
-        :meth:`confirm_delivery`.  Once confirms are enabled, returns an
-        integer starting at 1 that increments after each successful publish,
-        matching the behavior of the RabbitMQ Java and .NET clients.
+        Returns ``None`` if publisher confirms have not been enabled via :meth:`confirm_delivery`.
+        Once confirms are enabled, returns an integer starting at 1 that increments after each
+        successful publish, matching the behavior of the RabbitMQ Java and .NET clients.
 
-        This property is safe to read from any thread, but the value is
-        only stable if no other thread is concurrently publishing (the
-        counter advances on the IOLoop thread inside the scheduled publish
-        callback).
+        This property is safe to read from any thread, but the value is only stable if no other
+        thread is concurrently publishing (the counter advances on the IOLoop thread inside the
+        scheduled publish callback).
         """
         if self._next_publish_seq_no is None:
             return None
@@ -1194,14 +1208,15 @@ class ThreadSafeConnection:
     # ------------------------------------------------------------------
 
     def channel(self, timeout: int = DEFAULT_RPC_TIMEOUT) -> ThreadSafeChannel:
-        """Open a new channel and return a :class:`ThreadSafeChannel`.
+        """
+        Open a new channel and return a :class:`ThreadSafeChannel`.
 
-        Blocks the calling thread until the channel is open.  The returned
-        channel's methods are safe to call from any thread.
+        Blocks the calling thread until the channel is open.  The returned channel's methods are
+        safe to call from any thread.
 
-        :param timeout: Seconds to wait for Channel.OpenOk.
-            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
-            Pass ``None`` to wait indefinitely.
+        :param timeout: Seconds to wait for Channel.OpenOk. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+            (10 s). Pass ``None`` to wait indefinitely.
+        :rtype: ThreadSafeChannel
         :raises Exception: if the connection is closed before the channel opens.
         :raises TimeoutError: if *timeout* expires before the channel opens.
         """
@@ -1254,25 +1269,23 @@ class ThreadSafeConnection:
         return ch
 
     def close(self, timeout: int = 10) -> None:
-        """Close the connection and block until the IOLoop thread exits.
+        """
+        Close the connection and block until the IOLoop thread exits.
 
-        Schedules a clean Connection.Close handshake and waits up to
-        *timeout* seconds for the IOLoop thread to finish.  If the thread
-        is still alive after the timeout (e.g. the broker never sends
-        Connection.CloseOk), the IOLoop is force-stopped via
-        ``add_callback_threadsafe`` and joined once more.
+        Schedules a clean Connection.Close handshake and waits up to *timeout* seconds for the
+        IOLoop thread to finish.  If the thread is still alive after the timeout (e.g. the broker
+        never sends Connection.CloseOk), the IOLoop is force-stopped via ``add_callback_threadsafe``
+        and joined once more.
 
-        Safe to call from any thread including the IOLoop thread itself
-        (e.g. from within a channel callback).  When called from the IOLoop
-        thread the close is initiated synchronously and the method returns
-        immediately without joining.
+        Safe to call from any thread including the IOLoop thread itself (e.g. from within a channel
+        callback).  When called from the IOLoop thread the close is initiated synchronously and the
+        method returns immediately without joining.
 
         Calling ``close()`` on an already-closed connection is a no-op.
 
-        :param timeout: Seconds to wait for a clean close before
-            force-stopping the IOLoop. Defaults to 10 seconds, which is
-            sufficient for a healthy broker on any reasonable network.
-            Pass ``None`` to wait indefinitely.
+        :param timeout: Seconds to wait for a clean close before force-stopping the IOLoop. Defaults
+            to 10 seconds, which is sufficient for a healthy broker on any reasonable network. Pass
+            ``None`` to wait indefinitely.
         """
         if threading.current_thread() is self._ioloop_thread:
             try:
@@ -1317,19 +1330,17 @@ class ThreadSafeConnection:
             self._shutdown_connection_pool()
 
     def abort(self, timeout: int = 10) -> None:
-        """Close the connection, swallowing any errors.
+        """
+        Close the connection, swallowing any errors.
 
-        Equivalent to :meth:`close` but never raises.  Currently
-        :meth:`close` itself does not raise (it logs a warning on
-        timeout), but ``abort`` is provided for API symmetry with
-        other AMQP 0-9-1 clients and to make error-recovery intent
-        explicit at the call site.
+        Equivalent to :meth:`close` but never raises.  Currently :meth:`close` itself does not raise
+        (it logs a warning on timeout), but ``abort`` is provided for API symmetry with other AMQP
+        0-9-1 clients and to make error-recovery intent explicit at the call site.
 
         Safe to call from any thread.
 
-        :param timeout: Seconds to wait for a clean close before
-            force-stopping the IOLoop.  Defaults to 10 seconds.
-            Pass ``None`` to wait indefinitely.
+        :param timeout: Seconds to wait for a clean close before force-stopping the IOLoop. Defaults
+            to 10 seconds. Pass ``None`` to wait indefinitely.
         """
         try:
             self.close(timeout=timeout)
@@ -1344,17 +1355,19 @@ class ThreadSafeConnection:
         return False
 
     def add_callback_threadsafe(self, callback) -> None:
-        """Schedule *callback* to run in the IOLoop thread.
+        """
+        Schedule *callback* to run in the IOLoop thread.
 
-        Safe to call from any thread.  Exposed so callers can schedule
-        arbitrary work without going through the wrapper methods.
+        Safe to call from any thread.  Exposed so callers can schedule arbitrary work without going
+        through the wrapper methods.
 
         :param callback: Zero-argument callable.
         """
         self._connection.ioloop.add_callback_threadsafe(callback)
 
     def add_on_connection_blocked_callback(self, callback) -> None:
-        """Register a callback for ``Connection.Blocked`` notifications.
+        """
+        Register a callback for ``Connection.Blocked`` notifications.
 
         RabbitMQ sends ``Connection.Blocked`` when the broker is running
         low on memory or disk.  In this state RabbitMQ stops processing
@@ -1380,7 +1393,8 @@ class ThreadSafeConnection:
             'add_on_connection_blocked_callback', callback)
 
     def add_on_connection_unblocked_callback(self, callback) -> None:
-        """Register a callback for ``Connection.Unblocked`` notifications.
+        """
+        Register a callback for ``Connection.Unblocked`` notifications.
 
         Sent by RabbitMQ once a previously blocked connection is no
         longer resource-constrained, letting publishers resume.
@@ -1404,11 +1418,11 @@ class ThreadSafeConnection:
 
     def _register_connection_event_callback(self, raw_method_name: str,
                                             callback) -> None:
-        """Register a connection-level event callback via the IOLoop.
+        """
+        Register a connection-level event callback via the IOLoop.
 
-        Wraps the user callback so it dispatches on the connection work
-        pool, then schedules registration with the underlying
-        :class:`pika.connection.Connection` on the IOLoop thread.
+        Wraps the user callback so it dispatches on the connection work pool, then schedules
+        registration with the underlying :class:`pika.connection.Connection` on the IOLoop thread.
         :param raw_method_name: Unqualified AMQP method name (e.g. ``"Basic.Publish"``)
         :param callback: User callback to dispatch on the connection work pool."
         """

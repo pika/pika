@@ -202,7 +202,7 @@ class TestCreateConnectionViaCustomConnectionWorkflow(AsyncTestCase,
                                      'AMQPConnectionWorkflow.')
 
             def _report_completion_and_cleanup(self, result):
-                """Override implementation to tag the presumed connection"""
+                """Override implementation to tag the presumed connection."""
                 result.i_was_here = MyWorkflow
                 super()._report_completion_and_cleanup(result)
 
@@ -911,7 +911,7 @@ class TestBlockedConnectionTimesOut(AsyncTestCase, AsyncAdapters):
                 spec.Connection.Blocked('Testing blocked connection timeout')))
 
     def on_closed(self, connection, error):
-        """called when the connection has finished closing"""
+        """Called when the connection has finished closing."""
         self.on_closed_error = error
         self.stop()  # acknowledge that closed connection is expected
         super().on_closed(connection, error)
@@ -951,7 +951,7 @@ class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):
         self.stop()
 
     def on_closed(self, connection, error):
-        """called when the connection has finished closing"""
+        """Called when the connection has finished closing."""
         self.on_closed_error = error
         super().on_closed(connection, error)
 
@@ -1047,8 +1047,8 @@ class TestIOLoopStopBeforeIOLoopStarts(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Test ioloop.stop() before ioloop starts causes ioloop to exit quickly."
 
     def _run_ioloop(self, *args, **kwargs):
-        """We intercept this method from AsyncTestCase in order to call
-        ioloop.stop() before AsyncTestCase starts the ioloop.
+        """We intercept this method from AsyncTestCase in order to call ioloop.stop() before
+        AsyncTestCase starts the ioloop.
         """
         # Request ioloop to stop before it starts
         my_start_time = time_now()

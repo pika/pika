@@ -1,4 +1,5 @@
-"""twisted adapter test"""
+"""Twisted adapter test."""
+
 import functools
 import unittest
 from unittest import mock
@@ -28,17 +29,19 @@ from pika.frame import Method
 
 
 class TestCase(unittest.TestCase):
-    """Imported from twisted.trial.unittest.TestCase
+    """
+    Imported from twisted.trial.unittest.TestCase.
 
-    We only want the assertFailure implementation, using the class directly
-    hides some assertion errors.
+    We only want the assertFailure implementation, using the class directly hides some assertion
+    errors.
     """
 
     def assertFailure(self, d, *expectedFailures):
         """
         Fail if C{deferred} does not errback with one of C{expectedFailures}.
-        Returns the original Deferred with callbacks added. You will need
-        to return this Deferred from your test case.
+
+        Returns the original Deferred with callbacks added. You will need to return this Deferred
+        from your test case.
         """
 
         def _cb(ignore):

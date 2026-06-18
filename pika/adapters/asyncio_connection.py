@@ -1,4 +1,5 @@
-"""Use pika with the Asyncio EventLoop"""
+"""Use pika with the Asyncio EventLoop."""
+
 from __future__ import annotations
 
 import asyncio
@@ -19,9 +20,7 @@ if sys.platform == 'win32':
 
 
 class AsyncioConnection(base_connection.BaseConnection):
-    """ The AsyncioConnection runs on the Asyncio EventLoop.
-
-    """
+    """The AsyncioConnection runs on the Asyncio EventLoop."""
 
     def __init__(
             self,
@@ -35,8 +34,8 @@ class AsyncioConnection(base_connection.BaseConnection):
             custom_ioloop: None |
         (asyncio.AbstractEventLoop | nbio_interface.AbstractIOServices) = None,
             internal_connection_workflow: bool = True) -> None:
-        """ Create a new instance of the AsyncioConnection class, connecting
-        to RabbitMQ automatically
+        """
+        Create a new instance of the AsyncioConnection class, connecting to RabbitMQ automatically.
 
         :param parameters: Connection parameters
         :param on_open_callback: The method to call when the connection
@@ -59,7 +58,6 @@ class AsyncioConnection(base_connection.BaseConnection):
         :param internal_connection_workflow: True for autonomous connection
             establishment which is default; False for externally-managed
             connection workflow via the `create_connection()` factory.
-
         """
         if isinstance(custom_ioloop, nbio_interface.AbstractIOServices):
             nbio = custom_ioloop
@@ -96,7 +94,9 @@ class AsyncioConnection(base_connection.BaseConnection):
         nbio = _AsyncioIOServicesAdapter(custom_ioloop)
 
         def connection_factory(params) -> AsyncioConnection:
-            """Connection factory.
+            """
+            Connection factory.
+
             :param params: Connection parameters
             """
             if params is None:
@@ -158,15 +158,11 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         self._loop.close()
 
     def run(self) -> None:
-        """Implement :py:meth:`.utils.nbio_interface.AbstractIOServices.run()`.
-
-        """
+        """Implement :py:meth:`.utils.nbio_interface.AbstractIOServices.run()`."""
         self._loop.run_forever()
 
     def stop(self) -> None:
-        """Implement :py:meth:`.utils.nbio_interface.AbstractIOServices.stop()`.
-
-        """
+        """Implement :py:meth:`.utils.nbio_interface.AbstractIOServices.stop()`."""
         self._loop.stop()
 
     def add_callback_threadsafe(self, callback: Callable[[], None]) -> None:
@@ -257,13 +253,13 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         on_done: Callable[[base_connection.BaseConnection | BaseException],
                           None]
     ) -> _AsyncioIOReference:
-        """Schedule the coroutine to run and return _AsyncioIOReference
+        """
+        Schedule the coroutine to run and return _AsyncioIOReference.
 
         :param coro: Coroutine to schedule.
-        :param on_done: User callback that takes the completion result
-            or exception as its only arg. It will not be called if the operation
-            was cancelled.
-
+        :param on_done: User callback that takes the completion result or exception as its only arg.
+            It will not be called if the operation was cancelled.
+        :rtype: _AsyncioIOReference which is derived from nbio_interface.AbstractIOReference
         """
         if not callable(on_done):
             raise TypeError(
@@ -274,9 +270,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
 
 class _TimerHandle(nbio_interface.AbstractTimerReference):
-    """This module's adaptation of `nbio_interface.AbstractTimerReference`.
-
-    """
+    """This module's adaptation of `nbio_interface.AbstractTimerReference`."""
 
     def __init__(self, handle: asyncio.Handle) -> None:
         """
@@ -286,8 +280,10 @@ class _TimerHandle(nbio_interface.AbstractTimerReference):
         self._handle: asyncio.Handle | None = handle
 
     def cancel(self) -> None:
-        """Cancel the timer handle.
+        """
+        Cancel the timer handle.
 
+        :rtype: None
         """
         if self._handle is not None:
             self._handle.cancel()
@@ -295,9 +291,7 @@ class _TimerHandle(nbio_interface.AbstractTimerReference):
 
 
 class _AsyncioIOReference(nbio_interface.AbstractIOReference):
-    """This module's adaptation of `nbio_interface.AbstractIOReference`.
-
-    """
+    """This module's adaptation of `nbio_interface.AbstractIOReference`."""
 
     def __init__(
         self, future: asyncio.Future,
@@ -321,7 +315,6 @@ class _AsyncioIOReference(nbio_interface.AbstractIOReference):
             """Handle completion callback from the future instance
             :param future: The future that completed
             """
-
             # NOTE: Asyncio schedules callback for cancelled futures, but pika
             # doesn't want that
             if not future.cancelled():
@@ -330,9 +323,10 @@ class _AsyncioIOReference(nbio_interface.AbstractIOReference):
         future.add_done_callback(on_done_adapter)
 
     def cancel(self) -> bool:
-        """Cancel pending operation
+        """
+        Cancel pending operation.
 
         :returns: False if was already done or cancelled; True otherwise
-
+        :rtype: bool
         """
         return self._future.cancel()

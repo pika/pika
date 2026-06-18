@@ -1,6 +1,5 @@
-"""Use pika with the Tornado IOLoop
+"""Use pika with the Tornado IOLoop."""
 
-"""
 from __future__ import annotations
 
 import logging
@@ -20,8 +19,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class TornadoConnection(base_connection.BaseConnection):
-    """The TornadoConnection runs on the Tornado IOLoop.
-    """
+    """The TornadoConnection runs on the Tornado IOLoop."""
 
     def __init__(self,
                  parameters: connection.Parameters | None = None,
@@ -36,8 +34,8 @@ class TornadoConnection(base_connection.BaseConnection):
                  custom_ioloop: None |
                  (ioloop.IOLoop | nbio_interface.AbstractIOServices) = None,
                  internal_connection_workflow: bool = True) -> None:
-        """Create a new instance of the TornadoConnection class, connecting
-        to RabbitMQ automatically.
+        """
+        Create a new instance of the TornadoConnection class, connecting to RabbitMQ automatically.
 
         :param parameters: The connection
             parameters
@@ -58,7 +56,6 @@ class TornadoConnection(base_connection.BaseConnection):
         :param internal_connection_workflow: True for autonomous connection
             establishment which is default; False for externally-managed
             connection workflow via the `create_connection()` factory
-
         """
         warnings.warn(
             "TornadoConnection is deprecated and will be removed in Pika 2.0. "
@@ -106,7 +103,9 @@ class TornadoConnection(base_connection.BaseConnection):
 
         def connection_factory(
                 params: connection.Parameters | None) -> TornadoConnection:
-            """Connection factory.
+            """
+            Connection factory.
+
             :param params: Connection parameters
             """
             if params is None:

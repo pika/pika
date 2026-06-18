@@ -1,4 +1,5 @@
-"""Basic message consumer example"""
+"""Basic message consumer example."""
+
 import functools
 import logging
 
@@ -13,7 +14,11 @@ logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
 
 
 def on_message(chan, method_frame, header_frame, body, userdata=None):
-    """Called when a message is received. Log message and ack it."""
+    """
+    Called when a message is received.
+
+    Log message and ack it.
+    """
     LOGGER.info('Delivery properties: %s, message metadata: %s', method_frame,
                 header_frame)
     LOGGER.info('Userdata: %s, message body: %s', userdata, body)

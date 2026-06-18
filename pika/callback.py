@@ -1,7 +1,5 @@
-"""Callback management class, common area for keeping track of all callbacks in
-the Pika stack.
+"""Callback management class, common area for keeping track of all callbacks in the Pika stack."""
 
-"""
 from __future__ import annotations
 
 import functools
@@ -21,11 +19,11 @@ LOGGER = logging.getLogger(__name__)
 
 
 def name_or_value(value: AMQPValue) -> str:
-    """Will take Frame objects, classes, etc and attempt to return a valid
-    string identifier for them.
+    """
+    Will take Frame objects, classes, etc and attempt to return a valid string identifier for them.
 
     :param value: The value to sanitize
-
+    :rtype: str
     """
     # Is it subclass of AMQPObject
     if isinstance(value, type) and issubclass(value, amqp_object.AMQPObject):
@@ -44,9 +42,11 @@ def name_or_value(value: AMQPValue) -> str:
 
 
 def sanitize_prefix(function: _Callback) -> _Callback:
-    """Automatically call name_or_value on the prefix passed in.
+    """
+    Automatically call name_or_value on the prefix passed in.
 
     :param function: The function to wrap
+    :rtype: _Callback
     """
 
     @functools.wraps(function)
@@ -69,11 +69,11 @@ def sanitize_prefix(function: _Callback) -> _Callback:
 
 
 def check_for_prefix_and_key(function: _Callback) -> _Callback:
-    """Automatically return false if the key or prefix is not in the callbacks
-    for the instance.
+    """
+    Automatically return false if the key or prefix is not in the callbacks for the instance.
 
     :param function: Callback to validate
-
+    :rtype: _Callback
     """
 
     @functools.wraps(function)
@@ -103,12 +103,14 @@ def check_for_prefix_and_key(function: _Callback) -> _Callback:
 
 
 class CallbackManager:
-    """CallbackManager is a global callback system designed to be a single place
-    where Pika can manage callbacks and process them. It should be referenced
-    by the CallbackManager.instance() method instead of constructing new
-    instances of it.
-
     """
+    CallbackManager is a global callback system designed to be a single place where Pika can manage
+    callbacks and process them.
+
+    It should be referenced by the CallbackManager.instance() method instead of constructing new
+    instances of it.
+    """
+
     CALLS: str = 'calls'
     ARGUMENTS: str = 'arguments'
     DUPLICATE_WARNING: str = 'Duplicate callback found for "%s:%s"'
@@ -117,7 +119,7 @@ class CallbackManager:
     ONLY_CALLER: str = 'only'
 
     def __init__(self) -> None:
-        """Create an instance of the CallbackManager"""
+        """Create an instance of the CallbackManager."""
         self._stack: dict[_Prefix, dict[AMQPValue, list[dict[str, Any]]]] = {}
 
     @sanitize_prefix
@@ -128,22 +130,22 @@ class CallbackManager:
             one_shot: bool = True,
             only_caller: _Caller | None = None,
             arguments: dict[str, Any] | None = None) -> tuple[_Prefix, Any]:
-        """Add a callback to the stack for the specified key. If the call is
-        specified as one_shot, it will be removed after being fired
+        """
+        Add a callback to the stack for the specified key.
 
-        The prefix is usually the channel number but the class is generic
-        and prefix and key may be any value. If you pass in only_caller
-        CallbackManager will restrict processing of the callback to only
-        the calling function/object that you specify.
+        If the call is specified as one_shot, it will be removed after being fired
+
+        The prefix is usually the channel number but the class is generic and prefix and key may be
+        any value. If you pass in only_caller CallbackManager will restrict processing of the
+        callback to only the calling function/object that you specify.
 
         :param prefix: Categorize the callback
         :param key: The key for the callback
         :param callback: The callback to call
         :param one_shot: Remove this callback after it is called
-        :param only_caller: Only allow one_caller value to call the
-                                   event that fires the callback.
+        :param only_caller: Only allow one_caller value to call the event that fires the callback.
         :param arguments: Arguments to validate when processing
-
+        :rtype: tuple(prefix, key)
         """
         # Prep the stack
         if prefix not in self._stack:
@@ -179,11 +181,13 @@ class CallbackManager:
 
     @sanitize_prefix
     def cleanup(self, prefix: _Prefix) -> bool:
-        """Remove all callbacks from the stack by a prefix. Returns True
-        if keys were there to be removed
+        """
+        Remove all callbacks from the stack by a prefix.
+
+        Returns True if keys were there to be removed
 
         :param prefix: The prefix for keeping track of callbacks with
-
+        :rtype: bool
         """
         LOGGER.debug('Clearing out %r from the stack', prefix)
         if prefix not in self._stack or not self._stack[prefix]:
@@ -193,11 +197,11 @@ class CallbackManager:
 
     @sanitize_prefix
     def pending(self, prefix: _Prefix, key: AMQPValue) -> int | None:
-        """Return count of callbacks for a given prefix or key or None
+        """
+        Return count of callbacks for a given prefix or key or None.
 
         :param prefix: Categorize the callback
         :param key: The key for the callback
-
         """
         if prefix not in self._stack or key not in self._stack[prefix]:
             return None
@@ -207,17 +211,18 @@ class CallbackManager:
     @check_for_prefix_and_key
     def process(self, prefix: _Prefix, key: AMQPValue, caller: _Caller, *args:
                 Any, **keywords: Any) -> bool:
-        """Run through and process all the callbacks for the specified keys.
-        Caller should be specified at all times so that callbacks which
-        require a specific function to call CallbackManager.process will
-        not be processed.
+        """
+        Run through and process all the callbacks for the specified keys.
+
+        Caller should be specified at all times so that callbacks which require a specific function
+        to call CallbackManager.process will not be processed.
 
         :param prefix: Categorize the callback
         :param key: The key for the callback
         :param caller: Who is firing the event
         :param args: Any optional arguments
         :param keywords: Optional keyword arguments
-
+        :rtype: bool
         """
         LOGGER.debug('Processing %s:%s', prefix, key)
         if prefix not in self._stack or key not in self._stack[prefix]:
@@ -249,15 +254,16 @@ class CallbackManager:
                key: AMQPValue,
                callback_value: Callable[..., Any] | None = None,
                arguments: dict[str, Any] | None = None) -> bool:
-        """Remove a callback from the stack by prefix, key and optionally
-        the callback itself. If you only pass in prefix and key, all
-        callbacks for that prefix and key will be removed.
+        """
+        Remove a callback from the stack by prefix, key and optionally the callback itself.
+
+        If you only pass in prefix and key, all callbacks for that prefix and key will be removed.
 
         :param prefix: The prefix for keeping track of callbacks with
         :param key: The callback key
         :param callback_value: The method defined to call on callback
         :param arguments: Optional arguments to check
-
+        :rtype: bool
         """
         if callback_value:
             offsets_to_remove = []
@@ -282,24 +288,25 @@ class CallbackManager:
     @sanitize_prefix
     @check_for_prefix_and_key
     def remove_all(self, prefix: _Prefix, key: AMQPValue) -> None:
-        """Remove all callbacks for the specified prefix and key.
+        """
+        Remove all callbacks for the specified prefix and key.
 
         :param prefix: The prefix for keeping track of callbacks with
         :param key: The callback key
-
         """
         del self._stack[prefix][key]
         self._cleanup_callback_dict(prefix, key)
 
     def _arguments_match(self, callback_dict: dict[str, Any],
                          args: list[Any]) -> bool:
-        """Validate if the arguments passed in match the expected arguments in
-        the callback_dict. We expect this to be a frame passed in to *args for
-        process or passed in as a list from remove.
+        """
+        Validate if the arguments passed in match the expected arguments in the callback_dict.
+
+        We expect this to be a frame passed in to *args for process or passed in as a list from
+        remove.
 
         :param callback_dict: The callback dictionary to evaluate against
         :param args: The arguments passed in as a list
-
         """
         if callback_dict[self.ARGUMENTS] is None:
             return True
@@ -315,14 +322,14 @@ class CallbackManager:
     def _callback_dict(self, callback: Callable[..., Any], one_shot: bool,
                        only_caller: _Caller,
                        arguments: dict[str, Any] | None) -> dict[str, Any]:
-        """Return the callback dictionary.
+        """
+        Return the callback dictionary.
 
         :param callback: The callback to call
         :param one_shot: Remove this callback after it is called
-        :param only_caller: Only allow one_caller value to call the
-                                   event that fires the callback.
+        :param only_caller: Only allow one_caller value to call the event that fires the callback.
         :param arguments: arguments to attach to the callback dict
-
+        :rtype: dict
         """
         value = {
             self.CALLBACK: callback,
@@ -337,11 +344,11 @@ class CallbackManager:
     def _cleanup_callback_dict(self,
                                prefix: _Prefix,
                                key: AMQPValue | None = None) -> None:
-        """Remove empty dict nodes in the callback stack.
+        """
+        Remove empty dict nodes in the callback stack.
 
         :param prefix: The prefix for keeping track of callbacks with
         :param key: The callback key
-
         """
         if key and key in self._stack[prefix] and not self._stack[prefix][key]:
             del self._stack[prefix][key]
@@ -351,11 +358,12 @@ class CallbackManager:
     @staticmethod
     def _dict_arguments_match(value: dict[str, Any],
                               expectation: dict[str, Any]) -> bool:
-        """Checks an dict to see if it has attributes that meet the expectation.
+        """
+        Checks an dict to see if it has attributes that meet the expectation.
 
         :param value: The dict to evaluate
         :param expectation: The values to check against
-
+        :rtype: bool
         """
         LOGGER.debug('Comparing %r to %r', value, expectation)
         for key, expected in expectation.items():
@@ -367,12 +375,12 @@ class CallbackManager:
     @staticmethod
     def _obj_arguments_match(value: object, expectation: dict[str,
                                                               Any]) -> bool:
-        """Checks an object to see if it has attributes that meet the
-        expectation.
+        """
+        Checks an object to see if it has attributes that meet the expectation.
 
         :param value: The object to evaluate
         :param expectation: The values to check against
-
+        :rtype: bool
         """
         for key, expected in expectation.items():
             if not hasattr(value, key):
@@ -387,12 +395,13 @@ class CallbackManager:
 
     def _should_process_callback(self, callback_dict: dict[str, Any],
                                  caller: _Caller, args: list[Any]) -> bool:
-        """Returns True if the callback should be processed.
+        """
+        Returns True if the callback should be processed.
 
         :param callback_dict: The callback configuration
         :param caller: Who is firing the event
         :param args: Any optional arguments
-
+        :rtype: bool
         """
         if not self._arguments_match(callback_dict, args):
             LOGGER.debug('Arguments do not match for %r, %r', callback_dict,
@@ -404,13 +413,13 @@ class CallbackManager:
 
     def _use_one_shot_callback(self, prefix: _Prefix, key: AMQPValue,
                                callback_dict: dict[str, Any]) -> None:
-        """Process the one-shot callback, decrementing the use counter and
-        removing it from the stack if it's now been fully used.
+        """
+        Process the one-shot callback, decrementing the use counter and removing it from the stack
+        if it's now been fully used.
 
         :param prefix: The prefix for keeping track of callbacks with
         :param key: The callback key
         :param callback_dict: The callback dict to process
-
         """
         LOGGER.debug('Processing use of oneshot callback')
         callback_dict[self.CALLS] -= 1

@@ -1,7 +1,4 @@
-"""
-Tests of nbio_interface.AbstractIOServices adaptations
-
-"""
+"""Tests of nbio_interface.AbstractIOServices adaptations."""
 
 import collections
 import errno
@@ -20,27 +17,22 @@ class AsyncServicesTestBase(unittest.TestCase):
 
     @property
     def logger(self):
-        """Return the logger for tests to use
-
-        """
+        """Return the logger for tests to use."""
         return logging.getLogger(self.__class__.__module__ + '.' +
                                  self.__class__.__name__)
 
     def create_nonblocking_tcp_socket(self):
-        """Create a TCP stream socket and schedule cleanup to close it
-
-        """
+        """Create a TCP stream socket and schedule cleanup to close it."""
         sock = socket.socket()
         sock.setblocking(False)
         self.addCleanup(sock.close)
         return sock
 
     def create_nonblocking_socketpair(self):
-        """Creates a non-blocking socket pair and schedules cleanup to close
-        them
+        """
+        Creates a non-blocking socket pair and schedules cleanup to close them.
 
         :returns: two-tuple of connected non-blocking sockets
-
         """
         pair = pika._utils.nonblocking_socketpair()
         self.addCleanup(pair[0].close)
@@ -48,11 +40,10 @@ class AsyncServicesTestBase(unittest.TestCase):
         return pair
 
     def create_blocking_socketpair(self):
-        """Creates a blocking socket pair and schedules cleanup to close
-        them
+        """
+        Creates a blocking socket pair and schedules cleanup to close them.
 
         :returns: two-tuple of connected non-blocking sockets
-
         """
         pair = self.create_nonblocking_socketpair()
         pair[0].setblocking(True)
@@ -61,9 +52,8 @@ class AsyncServicesTestBase(unittest.TestCase):
 
     @staticmethod
     def safe_connect_nonblocking_socket(sock, addr_pair):
-        """Initiate socket connection, suppressing EINPROGRESS/EWOULDBLOCK
-        :param socket.socket sock
-        :param addr_pair: two tuple of address string and port integer
+        """Initiate socket connection, suppressing EINPROGRESS/EWOULDBLOCK :param socket.socket sock
+        :param addr_pair: two tuple of address string and port integer.
         """
         try:
             sock.connect(addr_pair)
@@ -192,8 +182,9 @@ class SocketWatcherTestBase(AsyncServicesTestBase):
                                              ['readable', 'writable'])
 
     def _check_socket_watchers_fired(self, sock, expected):
-        """Registers reader and writer for the given socket, runs the event loop
-        until either one fires and asserts against expectation.
+        """
+        Registers reader and writer for the given socket, runs the event loop until either one fires
+        and asserts against expectation.
 
         :param AsyncServicesTestBase | IOServicesTestStubs self:
         :param socket.socket sock:
@@ -570,11 +561,10 @@ class SocketConnectorTestBase(AsyncServicesTestBase):
         """
         :param IOServicesTestStubs | SocketConnectorTestBase self:
 
-        :return: two-tuple (lsock, csock), where lscok is the listening sock and
-            csock is the socket that's can be connected to the listening socket.
+        :return: two-tuple (lsock, csock), where lscok is the listening sock and csock is the socket
+            that's can be connected to the listening socket.
         :rtype: tuple
         """
-
         # Create listener
         lsock = socket.socket(family, socket.SOCK_STREAM)
         self.addCleanup(lsock.close)
@@ -593,9 +583,7 @@ class SocketConnectorTestBase(AsyncServicesTestBase):
         return lsock, csock
 
     def check_successful_connect(self, family):
-        """
-        :param IOServicesTestStubs | SocketConnectorTestBase self:
-        """
+        """:param IOServicesTestStubs | SocketConnectorTestBase self:"""
         # provided by IOServicesTestStubs mixin
         nbio = self.create_nbio()
 
@@ -617,9 +605,7 @@ class SocketConnectorTestBase(AsyncServicesTestBase):
         self.assertEqual(connect_ref.cancel(), False)
 
     def check_failed_connect(self, family):
-        """
-        :param IOServicesTestStubs | SocketConnectorTestBase self:
-        """
+        """:param IOServicesTestStubs | SocketConnectorTestBase self:"""
         # provided by IOServicesTestStubs mixin
         nbio = self.create_nbio()
 
@@ -648,9 +634,7 @@ class SocketConnectorTestBase(AsyncServicesTestBase):
         self.assertEqual(connect_ref.cancel(), False)
 
     def check_cancel_connect(self, family):
-        """
-        :param IOServicesTestStubs | SocketConnectorTestBase self:
-        """
+        """:param IOServicesTestStubs | SocketConnectorTestBase self:"""
         # provided by IOServicesTestStubs mixin
         nbio = self.create_nbio()
 
@@ -695,13 +679,14 @@ class TestConnectSocketToDisconnectedPeer(SocketConnectorTestBase,
                                           IOServicesTestStubs):
 
     def start(self):
-        """Differs from `TestConnectSocketIPV4Fail` in that this test attempts
-        to connect to the address of a socket whose peer had disconnected from
-        it. `TestConnectSocketIPv4Fail` attempts to connect to a closed socket
-        that was previously listening. We want to see what happens in this case
-        because we're seeing strange behavior in TestConnectSocketIPv4Fail when
-        testing with Twisted on Linux, such that the reactor calls the
-        descriptors's `connectionLost()` method, but not its `write()` method.
+        """
+        Differs from `TestConnectSocketIPV4Fail` in that this test attempts to connect to the
+        address of a socket whose peer had disconnected from it.
+
+        `TestConnectSocketIPv4Fail` attempts to connect to a closed socket that was previously
+        listening. We want to see what happens in this case because we're seeing strange behavior in
+        TestConnectSocketIPv4Fail when testing with Twisted on Linux, such that the reactor calls
+        the descriptors's `connectionLost()` method, but not its `write()` method.
         """
         nbio = self.create_nbio()
 
@@ -1030,33 +1015,30 @@ class TestStreamConnectorEOFReceived(StreamingTestBase, IOServicesTestStubs):
 
 
 class TestStreamConnectorProtocolInterfaceFailsBase(StreamingTestBase):
-    """Base test class for streaming protocol method fails"""
+    """Base test class for streaming protocol method fails."""
 
-    def linkup_streaming_connection(
-            self,
-            nbio,
-            sock,
-            on_create_done,
-            proto_constructor_exc=None,
-            proto_connection_made_exc=None,
-            proto_eof_received_exc=None,
-            proto_data_received_exc=None) -> nbio_interface.AbstractIOReference:
-        """Links up transport and protocol. On protocol.connection_lost(),
-        requests stop of ioloop.
+    def linkup_streaming_connection(self,
+                                    nbio,
+                                    sock,
+                                    on_create_done,
+                                    proto_constructor_exc=None,
+                                    proto_connection_made_exc=None,
+                                    proto_eof_received_exc=None,
+                                    proto_data_received_exc=None):
+        """
+        Links up transport and protocol.
+
+        On protocol.connection_lost(), requests stop of ioloop.
 
         :param nbio_interface.AbstractIOServices nbio:
         :param socket.socket sock: connected socket
-        :param on_create_done: `create_streaming_connection()` completion
-            function.
+        :param on_create_done:`create_streaming_connection()` completion function.
         :param proto_constructor_exc: None or exception to raise in constructor
-        :param proto_connection_made_exc: None or exception to raise in
-            `connection_made()`
-        :param proto_eof_received_exc:  None or exception to raise in
-            `eof_received()`
-        :param proto_data_received_exc:  None or exception to raise in
-            `data_received()`
+        :param proto_connection_made_exc: None or exception to raise in `connection_made()`
+        :param proto_eof_received_exc: None or exception to raise in `eof_received()`
+        :param proto_data_received_exc: None or exception to raise in `data_received()`
         :return: return value of `create_streaming_connection()`
-
+        :rtype: nbio_interface.AbstractIOReference
         """
         logger = self.logger
 

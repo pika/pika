@@ -1,12 +1,13 @@
-"""Example: publishing from multiple threads using ThreadSafeConnection.
+"""
+Example: publishing from multiple threads using ThreadSafeConnection.
 
-ThreadSafeConnection runs SelectConnection's IOLoop in a dedicated background
-thread.  Every call to channel.basic_publish() is routed through
-add_callback_threadsafe so that _tx_buffers is only ever touched from the
-IOLoop thread, eliminating the IndexError race seen in issues #1144 and #511.
+ThreadSafeConnection runs SelectConnection's IOLoop in a dedicated background thread.  Every call to
+channel.basic_publish() is routed through add_callback_threadsafe so that _tx_buffers is only ever
+touched from the IOLoop thread, eliminating the IndexError race seen in issues #1144 and #511.
 
 Pairs with examples/basic_consumer_threaded.py.  Run the consumer first.
 """
+
 import logging
 import threading
 

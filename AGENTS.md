@@ -28,6 +28,10 @@ examples/               # usage examples
 
 - **Formatter:** [yapf](https://pypi.org/project/yapf/) with Google style.
   Run `hatch run fmt-check` to check, `hatch run fmt` to format in place.
+- **Docstring formatter:** [docformatter](https://github.com/PyCQA/docformatter)
+  enforces [PEP 257](https://peps.python.org/pep-0257/) style. Configuration
+  is in `pyproject.toml` under `[tool.docformatter]`. Run
+  `hatch run docfmt-check`.
 - **Linter:** [ruff](https://docs.astral.sh/ruff/). Configuration is in
   `pyproject.toml` under `[tool.ruff]`. Run `hatch run lint`.
 - **Type checking:** [mypy](https://mypy-lang.org/). Configuration is in

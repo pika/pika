@@ -1,6 +1,4 @@
-"""
-Diagnostic utilities
-"""
+"""Diagnostic utilities."""
 
 from __future__ import annotations
 
@@ -38,7 +36,8 @@ def create_log_exception_decorator(logger: logging.Logger) -> Callable[[F], F]:
     """
 
     def log_exception(func: F) -> F:
-        """The decorator returned by the parent function
+        """
+        The decorator returned by the parent function.
 
         :param func: function to be wrapped
         :returns: the function wrapper
@@ -46,10 +45,11 @@ def create_log_exception_decorator(logger: logging.Logger) -> Callable[[F], F]:
 
         @functools.wraps(func)
         def log_exception_func_wrap(*args: Any, **kwargs: Any) -> Any:
-            """The wrapper function returned by the decorator. Invokes the
-            function with the given args/kwargs and returns the function's
-            return value. If the function exits with an exception, logs the
-            exception traceback and re-raises the
+            """
+            The wrapper function returned by the decorator.
+
+            Invokes the function with the given args/kwargs and returns the function's return value.
+            If the function exits with an exception, logs the exception traceback and re-raises the
 
             :param args: positional args passed to wrapped function
             :param kwargs: keyword args passed to wrapped function

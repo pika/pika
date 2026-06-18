@@ -1,8 +1,10 @@
-"""Base class extended by connection adapters. This extends the
-connection.Connection class to encapsulate connection behavior but still
-isolate socket and low level communication.
-
 """
+Base class extended by connection adapters.
+
+This extends the connection.Connection class to encapsulate connection behavior but still isolate
+socket and low level communication.
+"""
+
 from __future__ import annotations
 
 import abc
@@ -18,10 +20,10 @@ LOGGER = logging.getLogger(__name__)
 
 
 class BaseConnection(connection.Connection):
-    """BaseConnection class that should be extended by connection adapters.
+    """
+    BaseConnection class that should be extended by connection adapters.
 
     This class abstracts I/O loop and transport services from pika core.
-
     """
 
     def __init__(self,
@@ -34,7 +36,8 @@ class BaseConnection(connection.Connection):
                  (Callable[[connection.Connection, BaseException], None]),
                  nbio: nbio_interface.AbstractIOServices,
                  internal_connection_workflow: bool = True) -> None:
-        """Create a new instance of the Connection object.
+        """
+        Create a new instance of the Connection object.
 
         :param parameters: Connection parameters
         :param on_open_callback: Method to call on connection open
@@ -54,7 +57,6 @@ class BaseConnection(connection.Connection):
             connection workflow via the `create_connection()` factory.
         :raises: RuntimeError
         :raises: ValueError
-
         """
         if parameters and not isinstance(parameters, connection.Parameters):
             raise ValueError(
@@ -76,10 +78,10 @@ class BaseConnection(connection.Connection):
             internal_connection_workflow=internal_connection_workflow)
 
     def _init_connection_state(self) -> None:
-        """Initialize or reset all of our internal state variables for a given
-        connection. If we disconnect and reconnect, all of our state needs to
-        be wiped.
+        """
+        Initialize or reset all of our internal state variables for a given connection.
 
+        If we disconnect and reconnect, all of our state needs to be wiped.
         """
         super()._init_connection_state()
 
@@ -125,10 +127,12 @@ class BaseConnection(connection.Connection):
         workflow: None |
         (connection_workflow.AbstractAMQPConnectionWorkflow) = None
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
-        """Asynchronously create a connection to an AMQP broker using the given
-        configurations. Will attempt to connect using each config in the given
-        order, including all compatible resolved IP addresses of the hostname
-        supplied in each config, until one is established or all attempts fail.
+        """
+        Asynchronously create a connection to an AMQP broker using the given configurations.
+
+        Will attempt to connect using each config in the given order, including all compatible resolved
+        IP addresses of the hostname supplied in each config, until one is established or all
+        attempts fail.
 
         See also `_start_connection_workflow()`.
 
@@ -147,7 +151,7 @@ class BaseConnection(connection.Connection):
             `connection_workflow.AbstractAMQPConnectionWorkflow | None`.
         :returns: Connection workflow instance in use. The user should limit
             their interaction with this object only to it's `abort()` method.
-
+        :rtype: connection_workflow.AbstractAMQPConnectionWorkflow
         """
         raise NotImplementedError
 
@@ -160,7 +164,8 @@ class BaseConnection(connection.Connection):
         on_done: Callable[[(connection.Connection |
                             connection_workflow.AMQPConnectorException)], None]
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
-        """Helper function for custom implementations of `create_connection()`.
+        """
+        Helper function for custom implementations of `create_connection()`.
 
         :param connection_configs: A sequence of one or more
             `pika.connection.Parameters`-based objects.
@@ -180,7 +185,7 @@ class BaseConnection(connection.Connection):
             :py:meth:`connection_workflow.AbstractAMQPConnectionWorkflow.start()`.
         :returns: Connection workflow instance in use. The user should limit
             their interaction with this object only to it's `abort()` method.
-
+        :rtype: connection_workflow.AbstractAMQPConnectionWorkflow
         """
         if workflow is None:
             workflow = connection_workflow.AMQPConnectionWorkflow()
@@ -190,8 +195,7 @@ class BaseConnection(connection.Connection):
             workflow.set_io_services(nbio)
 
         def create_connector() -> connection_workflow.AMQPConnector:
-            """`AMQPConnector` factory.
-            """
+            """`AMQPConnector` factory."""
             return connection_workflow.AMQPConnector(
                 lambda params: _StreamingProtocolShim(connection_factory(params)
                                                      ), nbio)
@@ -212,31 +216,38 @@ class BaseConnection(connection.Connection):
             by user or the default selected by the specialized connection
             adapter (e.g., Twisted reactor, `asyncio.SelectorEventLoop`,
             `select_connection.IOLoop`, etc.)
+        :rtype: object
         """
         return self._nbio.get_native_ioloop()
 
     def _adapter_call_later(self, delay: int | float,
                             callback: Callable[[], None]) -> object:
-        """Schedule a callback to be called after a delay.
+        """
+        Schedule a callback to be called after a delay.
 
         :param delay: Delay in seconds.
         :param callback: Callback to call.
         :returns: Timeout handle that can be used to cancel.
+        :rtype: object
         """
         return self._nbio.call_later(delay, callback)
 
     def _adapter_remove_timeout(self, timeout_id: object) -> None:
-        """Remove a scheduled timeout.
+        """
+        Remove a scheduled timeout.
 
         :param timeout_id: Timeout handle to cancel.
+        :rtype: None
         """
         cast(nbio_interface.AbstractTimerReference, timeout_id).cancel()
 
     def _adapter_add_callback_threadsafe(self, callback: Callable[...,
                                                                   Any]) -> None:
-        """Add a callback to be called from the I/O loop thread.
+        """
+        Add a callback to be called from the I/O loop thread.
 
         :param callback: Callback to call.
+        :rtype: None
         """
         if not callable(callback):
             raise TypeError(
@@ -245,13 +256,12 @@ class BaseConnection(connection.Connection):
         self._nbio.add_callback_threadsafe(callback)
 
     def _adapter_connect_stream(self) -> None:
-        """Initiate full-stack connection establishment asynchronously for
-        internally-initiated connection bring-up.
+        """
+        Initiate full-stack connection establishment asynchronously for internally-initiated
+        connection bring-up.
 
-        Upon failed completion, we will invoke
-        `Connection._on_stream_terminated()`. NOTE: On success,
-        the stack will be up already, so there is no corresponding callback.
-
+        Upon failed completion, we will invoke `Connection._on_stream_terminated()`. NOTE: On
+        success, the stack will be up already, so there is no corresponding callback.
         """
         self._connection_workflow = connection_workflow.AMQPConnectionWorkflow(
             _until_first_amqp_attempt=True)
@@ -259,8 +269,7 @@ class BaseConnection(connection.Connection):
         self._connection_workflow.set_io_services(self._nbio)
 
         def create_connector() -> connection_workflow.AMQPConnector:
-            """`AMQPConnector` factory
-            """
+            """`AMQPConnector` factory."""
             return connection_workflow.AMQPConnector(
                 lambda _params: _StreamingProtocolShim(self), self._nbio)
 
@@ -289,12 +298,13 @@ class BaseConnection(connection.Connection):
         user_on_done(result)
 
     def _abort_connection_workflow(self) -> None:
-        """Asynchronously abort connection workflow. Upon
-        completion, `Connection._on_stream_terminated()` will be called with None
+        """
+        Asynchronously abort connection workflow.
+
+        Upon completion, `Connection._on_stream_terminated()` will be called with None
         as the error argument.
 
         Assumption: may be called only while connection is opening.
-
         """
         assert not self._opened, (
             '_abort_connection_workflow() may be called only when '
@@ -329,13 +339,13 @@ class BaseConnection(connection.Connection):
 
     def _on_connection_workflow_done(
             self, conn_or_exc: BaseConnection | Exception) -> None:
-        """`AMQPConnectionWorkflow` completion callback.
+        """
+        `AMQPConnectionWorkflow` completion callback.
 
         :param conn_or_exc: Our own connection
             instance on success; exception on failure. See
             `AbstractAMQPConnectionWorkflow.start()` for details.
             Type: `BaseConnection | Exception`.
-
         """
         LOGGER.debug('Full-stack connection workflow completed: %r',
                      conn_or_exc)
@@ -368,18 +378,19 @@ class BaseConnection(connection.Connection):
         else:
             # NOTE: On success, the stack will be up already, so there is no
             #       corresponding callback.
-            assert conn_or_exc is self, \
+            assert conn_or_exc is self, (
                 f'Expected self conn={self!r} from workflow, but got {conn_or_exc!r}.'
+            )
 
     def _handle_connection_workflow_failure(self,
                                             error: Exception | None) -> None:
-        """Handle failure of self-initiated stack bring-up and call
-        `Connection._on_stream_terminated()` if connection is not in closed state
-        yet. Called by adapter layer when the full-stack connection workflow
-        fails.
+        """
+        Handle failure of self-initiated stack bring-up and call
+        `Connection._on_stream_terminated()` if connection is not in closed state yet. Called by
+        adapter layer when the full-stack connection workflow fails.
 
-        :param error: Exception (or None) describing the reason
-            for failure or None if the connection workflow was aborted.
+        :param error: Exception (or None) describing the reason for failure or None if the
+            connection workflow was aborted.
         """
         if error is None:
             LOGGER.info('Self-initiated stack bring-up aborted.')
@@ -408,24 +419,23 @@ class BaseConnection(connection.Connection):
             self._transport.abort()
 
     def _adapter_emit_data(self, data: bytes) -> None:
-        """Take ownership of data and send it to AMQP server as soon as
-        possible.
+        """
+        Take ownership of data and send it to AMQP server as soon as possible.
 
         :param data:
-
         """
         assert self._transport is not None
         self._transport.write(data)
 
     def _proto_connection_made(
             self, transport: nbio_interface.AbstractStreamTransport) -> None:
-        """Introduces transport to protocol after transport is connected.
+        """
+        Introduces transport to protocol after transport is connected.
 
         :py:class:`.utils.nbio_interface.AbstractStreamProtocol` implementation.
 
         :param transport:
         :raises Exception: Exception-based exception on error
-
         """
         self._transport = transport
 
@@ -433,7 +443,8 @@ class BaseConnection(connection.Connection):
         self._on_stream_connected()
 
     def _proto_connection_lost(self, error: BaseException | None) -> None:
-        """Called upon loss or closing of TCP connection.
+        """
+        Called upon loss or closing of TCP connection.
 
         :py:class:`.utils.nbio_interface.AbstractStreamProtocol` implementation.
 
@@ -446,7 +457,6 @@ class BaseConnection(connection.Connection):
             when `AbstractStreamProtocol.eof_received()` returns a falsy result.
             Type: `BaseException | None`.
         :raises Exception: Exception-based exception on error
-
         """
         self._transport = None
 
@@ -465,15 +475,15 @@ class BaseConnection(connection.Connection):
         self._on_stream_terminated(error)
 
     def _proto_eof_received(self) -> bool:
-        """Called after the remote peer shuts its write end of the connection.
+        """
+        Called after the remote peer shuts its write end of the connection.
         :py:class:`.utils.nbio_interface.AbstractStreamProtocol` implementation.
 
-        :returns: A falsy value (including None) will cause the transport to
-            close itself, resulting in an eventual `connection_lost()` call
-            from the transport. If a truthy value is returned, it will be the
-            protocol's responsibility to close/abort the transport.
+        :returns: A falsy value (including None) will cause the transport to close itself, resulting
+            in an eventual `connection_lost()` call from the transport. If a truthy value is
+            returned, it will be the protocol's responsibility to close/abort the transport.
+        :rtype: falsy|truthy
         :raises Exception: Exception-based exception on error
-
         """
         LOGGER.error('Transport indicated EOF.')
 
@@ -487,22 +497,20 @@ class BaseConnection(connection.Connection):
         return False
 
     def _proto_data_received(self, data: bytes) -> None:
-        """Called to deliver incoming data from the server to the protocol.
+        """
+        Called to deliver incoming data from the server to the protocol.
 
         :py:class:`.utils.nbio_interface.AbstractStreamProtocol` implementation.
 
         :param data: Non-empty data bytes.
         :raises Exception: Exception-based exception on error
-
         """
         self._on_data_available(data)
 
 
 class _StreamingProtocolShim(nbio_interface.AbstractStreamProtocol):
-    """Shim for callbacks from transport so that we BaseConnection can
-    delegate to private methods, thus avoiding contamination of API with
-    methods that look public, but aren't.
-
+    """Shim for callbacks from transport so that we BaseConnection can delegate to private methods,
+    thus avoiding contamination of API with methods that look public, but aren't.
     """
 
     # Override abstract methods at class level to enable instantiation;
@@ -524,9 +532,9 @@ class _StreamingProtocolShim(nbio_interface.AbstractStreamProtocol):
         self.data_received = conn._proto_data_received
 
     def __getattr__(self, attr: str) -> Any:
-        """Proxy inexistent attribute requests to our connection instance
-        so that AMQPConnectionWorkflow/AMQPConnector may treat the shim as an
-        actual connection.
+        """
+        Proxy inexistent attribute requests to our connection instance so that
+        AMQPConnectionWorkflow/AMQPConnector may treat the shim as an actual connection.
 
         :param attr: Attribute name.
         :returns: Attribute value from connection.

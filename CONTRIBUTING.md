@@ -119,4 +119,12 @@ To verify linting without modifying files (mirrors CI), use
 
     hatch run lint-check
 
-Both checks run in CI on every push and pull request.
+Please also format docstrings using [docformatter](https://github.com/PyCQA/docformatter), which enforces [PEP 257](https://peps.python.org/pep-0257/) style:
+
+    hatch run docfmt
+
+To verify docstring formatting without modifying files (mirrors CI), use
+
+    hatch run docfmt-check
+
+All three checks (`fmt-check`, `lint-check`, `docfmt-check`) run in CI on every push and pull request.

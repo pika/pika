@@ -1,4 +1,5 @@
-"""Integration tests for ThreadSafeConnection and ThreadSafeChannel.
+"""
+Integration tests for ThreadSafeConnection and ThreadSafeChannel.
 
 These tests require a RabbitMQ broker listening on 127.0.0.1:5672 with the
 default guest/guest credentials.  They will fail, not skip, if the broker is
@@ -7,6 +8,7 @@ unreachable - consistent with the rest of the acceptance suite.
 Each test covers a scenario that unit tests with mocks cannot: real socket I/O,
 real AMQP frame exchange, and real concurrent threads.
 """
+
 import threading
 import unittest
 import uuid
@@ -89,10 +91,11 @@ class TestBasicLifecycle(ThreadSafeTestCaseBase):
 
 
 class TestConcurrentPublishing(ThreadSafeTestCaseBase):
-    """N threads publish simultaneously; all messages must reach the broker.
+    """
+    N threads publish simultaneously; all messages must reach the broker.
 
-    This is the core regression test for the original _tx_buffers race
-    (IndexError: pop from empty deque, issues #1144 and #511).
+    This is the core regression test for the original _tx_buffers race (IndexError: pop from empty
+    deque, issues #1144 and #511).
     """
 
     def test(self):
@@ -137,10 +140,11 @@ class TestConcurrentPublishing(ThreadSafeTestCaseBase):
 
 
 class TestConcurrentPublishAndConsume(ThreadSafeTestCaseBase):
-    """Producer threads and a consumer coexist; every message is acked.
+    """
+    Producer threads and a consumer coexist; every message is acked.
 
-    Exercises basic_qos, basic_consume, and basic_ack (from the IOLoop
-    thread inside the delivery callback).
+    Exercises basic_qos, basic_consume, and basic_ack (from the IOLoop thread inside the delivery
+    callback).
     """
 
     def test(self):
@@ -204,7 +208,8 @@ class TestConcurrentPublishAndConsume(ThreadSafeTestCaseBase):
 
 
 class TestBrokerDropBlockedInChannel(ThreadSafeTestCaseBase):
-    """A thread blocked in channel() must unblock when the broker drops.
+    """
+    A thread blocked in channel() must unblock when the broker drops.
 
     Before the _blocking_waiters escape hatch, this would hang forever.
     """
@@ -261,10 +266,11 @@ class TestBrokerDropBlockedInChannel(ThreadSafeTestCaseBase):
 
 
 class TestBrokerDropBlockedInQueueDeclare(ThreadSafeTestCaseBase):
-    """A thread blocked in queue_declare() must unblock when the broker drops.
+    """
+    A thread blocked in queue_declare() must unblock when the broker drops.
 
-    Exercises the _blocking_waiters escape hatch added to queue_declare()
-    in the re-review architectural fix.
+    Exercises the _blocking_waiters escape hatch added to queue_declare() in the re-review
+    architectural fix.
     """
 
     def test(self):
@@ -321,12 +327,12 @@ class TestBrokerDropBlockedInQueueDeclare(ThreadSafeTestCaseBase):
 
 
 class TestConcurrentClose(ThreadSafeTestCaseBase):
-    """close() called from multiple threads simultaneously must not crash or hang.
+    """
+    Close() called from multiple threads simultaneously must not crash or hang.
 
-    Before _safe_close and the _closed_reason guard, one of the racing
-    close() calls could schedule connection.close() when the connection was
-    already closing, raising ConnectionWrongStateError inside the IOLoop and
-    killing the IOLoop thread.
+    Before _safe_close and the _closed_reason guard, one of the racing close() calls could schedule
+    connection.close() when the connection was already closing, raising ConnectionWrongStateError
+    inside the IOLoop and killing the IOLoop thread.
     """
 
     def test(self):

@@ -1,4 +1,5 @@
-"""Example: consuming with ThreadSafeConnection.
+"""
+Example: consuming with ThreadSafeConnection.
 
 ThreadSafeChannel dispatches each delivery on a dedicated per-channel worker
 thread, not the IOLoop thread.  Long-running work in the callback no longer
@@ -14,6 +15,7 @@ add_callback_threadsafe as the BlockingConnection-based example required.
 
 Pairs with examples/basic_publisher_threaded.py.  Run this consumer first.
 """
+
 import logging
 import random
 import threading
