@@ -75,7 +75,6 @@ class ClosableDeferredQueue(defer.DeferredQueue):
         The Deferred will errback if the queue is closed.
 
         :returns: Deferred that fires with the next item.
-        :rtype: Deferred
 
         """
         if self.closed:
@@ -278,7 +277,6 @@ class TwistedChannel:
     def is_closed(self) -> bool:
         """Returns True if the channel is closed.
 
-        :rtype: bool
 
         """
         return self._channel.is_closed
@@ -288,7 +286,6 @@ class TwistedChannel:
         """Returns True if client-initiated closing of the channel is in
         progress.
 
-        :rtype: bool
 
         """
         return self._channel.is_closing
@@ -297,7 +294,6 @@ class TwistedChannel:
     def is_open(self) -> bool:
         """Returns True if the channel is open.
 
-        :rtype: bool
 
         """
         return self._channel.is_open
@@ -390,7 +386,6 @@ class TwistedChannel:
 
         :param consumer_tag: Identifier for the consumer
         :returns: Deferred that fires on the Basic.CancelOk response
-        :rtype: Deferred
         :raises ValueError:
 
         """
@@ -438,7 +433,6 @@ class TwistedChannel:
             - method: pika.spec.Basic.Deliver
             - properties: pika.spec.BasicProperties
             - body: bytes
-        :rtype: Deferred
 
         """
         if self._closed:
@@ -511,7 +505,6 @@ class TwistedChannel:
              - properties: pika.spec.BasicProperties
              - body: bytes
             If the queue is empty, None will be returned.
-        :rtype: Deferred
         :raises pika.exceptions.DuplicateGetOkCallback:
 
         """
@@ -591,7 +584,6 @@ class TwistedChannel:
         :param mandatory: The mandatory flag
         :returns: A Deferred that fires with the result of the channel's
             basic_publish.
-        :rtype: Deferred
         :raises UnroutableError: raised when a message published in
             publisher-acknowledgments mode (see
             `BlockingChannel.confirm_delivery`) is returned via `Basic.Return`
@@ -649,7 +641,6 @@ class TwistedChannel:
         :param global_qos:    Should the QoS apply to all channels on the
                                    connection.
         :returns: Deferred that fires on the Basic.QosOk response
-        :rtype: Deferred
 
         """
         return self._wrap_channel_method("basic_qos")(
@@ -684,7 +675,6 @@ class TwistedChannel:
                              attempt to requeue the message, potentially then
                              delivering it to an alternative subscriber.
         :returns: Deferred that fires on the Basic.RecoverOk response
-        :rtype: Deferred
 
         """
         return self._wrap_channel_method("basic_recover")(requeue=requeue)
@@ -714,7 +704,6 @@ class TwistedChannel:
             https://www.rabbitmq.com/confirms.html#publisher-confirms
 
         :returns: Deferred that fires on the Confirm.SelectOk response
-        :rtype: Deferred
 
         """
         if self._delivery_confirmation:
@@ -833,7 +822,6 @@ class TwistedChannel:
         :param arguments: Custom key/value pair arguments for the binding
         :raises ValueError:
         :returns: Deferred that fires on the Exchange.BindOk response
-        :rtype: Deferred
 
         """
         return self._wrap_channel_method("exchange_bind")(
@@ -872,7 +860,6 @@ class TwistedChannel:
         :param internal: Can only be published to by other exchanges
         :param arguments: Custom key/value pair arguments for the exchange
         :returns: Deferred that fires on the Exchange.DeclareOk response
-        :rtype: Deferred
         :raises ValueError:
 
         """
@@ -894,7 +881,6 @@ class TwistedChannel:
         :param exchange: The exchange name
         :param if_unused: only delete if the exchange is unused
         :returns: Deferred that fires on the Exchange.DeleteOk response
-        :rtype: Deferred
         :raises ValueError:
 
         """
@@ -916,7 +902,6 @@ class TwistedChannel:
         :param routing_key: The routing key to unbind
         :param arguments: Custom key/value pair arguments for the binding
         :returns: Deferred that fires on the Exchange.UnbindOk response
-        :rtype: Deferred
         :raises ValueError:
 
         """
@@ -937,7 +922,6 @@ class TwistedChannel:
 
         :param active: Turn flow on or off
         :returns: Deferred that fires with the channel flow state
-        :rtype: Deferred
         :raises ValueError:
 
         """
@@ -960,7 +944,6 @@ class TwistedChannel:
         :param routing_key: The routing key to bind on
         :param arguments: Custom key/value pair arguments for the binding
         :returns: Deferred that fires on the Queue.BindOk response
-        :rtype: Deferred
         :raises ValueError:
 
         """
@@ -995,7 +978,6 @@ class TwistedChannel:
         :param auto_delete: Delete after consumer cancels or disconnects
         :param arguments: Custom key/value arguments for the queue
         :returns: Deferred that fires on the Queue.DeclareOk response
-        :rtype: Deferred
         :raises ValueError:
 
         """
@@ -1023,7 +1005,6 @@ class TwistedChannel:
         :param if_unused: only delete if it's unused
         :param if_empty: only delete if the queue is empty
         :returns: Deferred that fires on the Queue.DeleteOk response
-        :rtype: Deferred
         :raises ValueError:
 
         """
@@ -1048,7 +1029,6 @@ class TwistedChannel:
 
         :param queue: The queue to purge
         :returns: Deferred that fires on the Queue.PurgeOk response
-        :rtype: Deferred
         :raises ValueError:
 
         """
@@ -1067,7 +1047,6 @@ class TwistedChannel:
         :param routing_key: The routing key to unbind
         :param arguments: Custom key/value pair arguments for the binding
         :returns: Deferred that fires on the Queue.UnbindOk response
-        :rtype: Deferred
         :raises ValueError:
 
         """
@@ -1082,7 +1061,6 @@ class TwistedChannel:
         """Commit a transaction.
 
         :returns: Deferred that fires on the Tx.CommitOk response
-        :rtype: Deferred
         :raises ValueError:
 
         """
@@ -1092,7 +1070,6 @@ class TwistedChannel:
         """Rollback a transaction.
 
         :returns: Deferred that fires on the Tx.RollbackOk response
-        :rtype: Deferred
         :raises ValueError:
 
         """
@@ -1104,7 +1081,6 @@ class TwistedChannel:
         a channel before using the Commit or Rollback methods.
 
         :returns: Deferred that fires on the Tx.SelectOk response
-        :rtype: Deferred
         :raises ValueError:
 
         """
@@ -1295,7 +1271,6 @@ class TwistedProtocolConnection(protocol.Protocol):
                                    next available.
         :returns: a Deferred that fires with an instance of a wrapper around
             the Pika Channel class.
-        :rtype: Deferred
 
         """
         d: defer.Deferred[Any] = defer.Deferred()

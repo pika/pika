@@ -51,7 +51,6 @@ def check_callback_arg(callback: Any, name: str) -> None:
     :param callback: callback to check
     :param name: Name to include in exception text
     :raises TypeError:
-    :rtype: None
 
     """
     if not callable(callback):
@@ -63,7 +62,6 @@ def check_fd_arg(fd: int) -> None:
 
     :param fd: file descriptor
     :raises TypeError:
-    :rtype: None
 
     """
     if not isinstance(fd, numbers.Integral):
@@ -108,7 +106,6 @@ class SocketConnectionMixin:
         :param sock: non-blocking socket to connect
         :param resolved_addr: resolved destination address/port two-tuple
         :param on_done: user callback called upon completion
-        :rtype: _AsyncServiceAsyncHandle
 
         """
         return _AsyncSocketConnector(nbio=cast(
@@ -144,7 +141,6 @@ class StreamingConnectionMixin:
         :param on_done: completion callback
         :param ssl_context: SSL context (optional)
         :param server_hostname: server hostname for SSL (optional)
-        :rtype: AbstractIOReference
 
         """
         try:
@@ -186,7 +182,6 @@ class _AsyncServiceAsyncHandle(AbstractIOReference):
         """Cancel pending operation
 
         :returns: False if was already done or cancelled; True otherwise
-        :rtype: bool
 
         """
         return self._cancel()
@@ -254,7 +249,6 @@ class _AsyncSocketConnector:
     def start(self) -> AbstractIOReference:
         """Start asynchronous connection establishment.
 
-        :rtype: AbstractIOReference
         """
         assert self._state == self._STATE_NOT_STARTED, (
             '_AsyncSocketConnector.start(): expected _STATE_NOT_STARTED',
@@ -273,7 +267,6 @@ class _AsyncSocketConnector:
         callback.
 
         :returns: False if was already done or cancelled; True otherwise
-        :rtype: bool
 
         """
         if self._state == self._STATE_ACTIVE:
@@ -495,7 +488,6 @@ class _AsyncStreamConnector:
     def start(self) -> AbstractIOReference:
         """Kick off the workflow
 
-        :rtype: AbstractIOReference
         """
         _LOGGER.debug('_AsyncStreamConnector.start(); %s', self._sock)
 
@@ -517,7 +509,6 @@ class _AsyncStreamConnector:
         callback.
 
         :returns: False if was already done or cancelled; True otherwise
-        :rtype: bool
 
         """
         if self._state == self._STATE_ACTIVE:
@@ -802,7 +793,6 @@ class _AsyncTransportBase(AbstractStreamTransport):
     def get_protocol(self) -> nbio_interface.AbstractStreamProtocol:
         """Return the protocol linked to this transport.
 
-        :rtype: pika.adapters.utils.nbio_interface.AbstractStreamProtocol
         """
         assert self._protocol is not None
         return self._protocol
@@ -810,7 +800,6 @@ class _AsyncTransportBase(AbstractStreamTransport):
     def get_write_buffer_size(self) -> int:
         """
         :returns: Current size of output data buffered by the transport
-        :rtype: int
         """
         return self._tx_buffered_byte_count
 
@@ -909,7 +898,6 @@ class _AsyncTransportBase(AbstractStreamTransport):
         :param sock: stream or SSL socket
         :param max_bytes: maximum number of bytes to receive
         :returns: received data or empty bytes uppon end of file
-        :rtype: bytes
         :raises: whatever the corresponding `sock.recv()` raises except socket
                  error with errno.EINTR
 
@@ -925,7 +913,6 @@ class _AsyncTransportBase(AbstractStreamTransport):
         :param sock: stream or SSL socket
         :param data: data bytes to send
         :returns: number of bytes actually sent
-        :rtype: int
         :raises: whatever the corresponding `sock.send()` raises except socket
                  error with errno.EINTR
 

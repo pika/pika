@@ -125,7 +125,6 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
         :param delay: The number of seconds to wait to call callback
         :param callback: The callback method
         :returns: A handle that can be used to cancel the request.
-        :rtype: AbstractTimerReference
 
         """
         raise NotImplementedError
@@ -153,7 +152,6 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
         :param socktype: Socket type (e.g. ``socket.SOCK_STREAM``)
         :param proto: Protocol number (0 for default)
         :param flags: :func:`socket.getaddrinfo` flags
-        :rtype: AbstractIOReference
         """
         raise NotImplementedError
 
@@ -181,7 +179,6 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
             completion or exception (check for `BaseException`) upon error as
             its only arg. It will not be called if the operation was cancelled.
 
-        :rtype: AbstractIOReference
         :raises ValueError: if host portion of `resolved_addr` is not an IP
             address or is inconsistent with the socket's address family as
             validated via `socket.inet_pton()`
@@ -225,7 +222,6 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
         :param server_hostname: For use during SSL session
             establishment to match against the target server's certificate. The
             value `None` disables this check (which is a huge security risk)
-        :rtype: AbstractIOReference
         """
         raise NotImplementedError
 
@@ -260,7 +256,6 @@ class AbstractFileDescriptorServices(
 
         :param fd: file descriptor
         :returns: True if reader was removed; False if none was registered.
-        :rtype: bool
 
         """
         raise NotImplementedError
@@ -292,7 +287,6 @@ class AbstractFileDescriptorServices(
 
         :param fd: file descriptor
         :returns: True if reader was removed; False if none was registered.
-        :rtype: bool
 
         """
         raise NotImplementedError
@@ -318,7 +312,6 @@ class AbstractIOReference(pika._utils.AbstractBase):  # type: ignore[valid-type,
         """Cancel pending operation
 
         :returns: False if was already done or cancelled; True otherwise
-        :rtype: bool
         """
         raise NotImplementedError
 
@@ -365,7 +358,6 @@ class AbstractStreamProtocol(
             close itself, resulting in an eventual `connection_lost()` call
             from the transport. If a truthy value is returned, it will be the
             protocol's responsibility to close/abort the transport.
-        :rtype: falsy|truthy
         :raises Exception: Exception-based exception on error
         """
         raise NotImplementedError
@@ -421,7 +413,6 @@ class AbstractStreamTransport(
     def get_protocol(self) -> AbstractStreamProtocol:
         """Return the protocol linked to this transport.
 
-        :rtype: AbstractStreamProtocol
         :raises Exception: Exception-based exception on error
         """
         raise NotImplementedError
@@ -440,7 +431,6 @@ class AbstractStreamTransport(
     def get_write_buffer_size(self) -> int:
         """
         :returns: Current size of output data buffered by the transport
-        :rtype: int
         """
         raise NotImplementedError
 

@@ -153,7 +153,6 @@ class _TSafeCallbackQueue:
     def __init__(self) -> None:
         """Initialize the callback queue.
 
-        :rtype: None
         """
         # Thread-safe, blocking queue.
         self._queue: queue.Queue[Callable[[], None]] = queue.Queue()
@@ -173,7 +172,6 @@ class _TSafeCallbackQueue:
         will be invoked with the callback in the main thread.
 
         :param callback: Callback to add to the queue.
-        :rtype: None
         """
         self._queue.put(callback)
         with self._write_lock:
@@ -295,7 +293,6 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
         :param callback: The callback method
         :returns: handle to the created timeout that may be passed to
             `remove_timeout()`
-        :rtype: object
         """
         timer = self._hub.loop.timer(
             delay)  # pyright: ignore[reportOptionalMemberAccess]
@@ -396,7 +393,6 @@ class _GeventIOLoopIOHandle(AbstractIOReference):
         """Cancel pending operation
 
         :returns: False if was already done or cancelled; True otherwise
-        :rtype: bool
         """
         return self._cancel()
 
@@ -461,7 +457,6 @@ class _GeventAddressResolver:
     def cancel(self) -> bool:
         """Cancel the pending resolver.
 
-        :rtype: bool
         """
         changed = False
 

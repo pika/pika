@@ -99,7 +99,6 @@ class ConnectionClosed(AMQPConnectionError):
     @property
     def reply_code(self) -> int:
         """ NEW in v1.0.0
-        :rtype: int
 
         """
         return self.args[0]
@@ -107,7 +106,6 @@ class ConnectionClosed(AMQPConnectionError):
     @property
     def reply_text(self) -> str:
         """ NEW in v1.0.0
-        :rtype: str
 
         """
         return self.args[1]
@@ -164,7 +162,6 @@ class ChannelClosed(AMQPChannelError):
     @property
     def reply_code(self) -> int:
         """ NEW in v1.0.0
-        :rtype: int
 
         """
         return self.args[0]
@@ -172,7 +169,6 @@ class ChannelClosed(AMQPChannelError):
     @property
     def reply_text(self) -> str:
         """ NEW in v1.0.0
-        :rtype: str
 
         """
         return self.args[1]

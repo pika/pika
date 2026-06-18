@@ -79,7 +79,6 @@ class PlainCredentials:
         """Validate that this type of authentication is supported
 
         :param start: Connection.Start method
-        :rtype: tuple(str|None, bytes|None)
 
         """
         if as_bytes(PlainCredentials.TYPE) not in\
@@ -123,7 +122,6 @@ class ExternalCredentials:
         """Validate that this type of authentication is supported
 
         :param start: Connection.Start method
-        :rtype: tuple(str|None, bytes|None)
 
         """
         if as_bytes(ExternalCredentials.TYPE) not in\

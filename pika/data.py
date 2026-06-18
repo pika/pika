@@ -17,7 +17,6 @@ def encode_short_string(pieces: list[bytes], value: str) -> int:
 
     :param pieces: Already encoded values
     :param value: String value to encode
-    :rtype: int
 
     """
     encoded_value = as_bytes(value)
@@ -48,7 +47,6 @@ def decode_short_string(encoded: bytes, offset: int) -> tuple[str | bytes, int]:
     :param encoded: encoded data
     :param offset: starting offset in the encoded data
     :returns: tuple of (decoded value, new offset)
-    :rtype: tuple[Union[str, bytes], int]
     """
     length = struct.unpack_from('B', encoded, offset)[0]
     offset += 1
@@ -67,7 +65,6 @@ def encode_table(pieces: list[bytes], table: dict[str, Any] | None) -> int:
 
     :param pieces: Already encoded frame pieces
     :param table: The dict to encode
-    :rtype: int
 
     """
     table = table or {}
@@ -89,7 +86,6 @@ def encode_value(pieces: list[bytes], value: Any) -> int:
 
     :param pieces: Already encoded values
     :param value: The value to encode
-    :rtype: int
 
     """
 
@@ -152,7 +148,6 @@ def decode_table(encoded: bytes,
 
     :param encoded: The binary encoded data to decode
     :param offset: The starting byte offset
-    :rtype: tuple
 
     """
     result = {}
@@ -172,7 +167,6 @@ def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:
 
     :param encoded: The binary encoded data to decode
     :param offset: The starting byte offset
-    :rtype: tuple
     :raises: pika.exceptions.InvalidFieldTypeException
 
     """

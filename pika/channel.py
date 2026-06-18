@@ -134,7 +134,6 @@ class Channel:
     def __int__(self) -> int:
         """Return the channel object as its channel number
 
-        :rtype: int
 
         """
         return self.channel_number
@@ -339,7 +338,6 @@ class Channel:
         :param callback: callback(pika.frame.Method) for method
           Basic.ConsumeOk.
         :returns: Consumer tag which may be used to cancel the consumer.
-        :rtype: str
         :raises ValueError:
 
         """
@@ -382,7 +380,6 @@ class Channel:
         NOTE: this protected method may be called by derived classes
 
         :returns: consumer tag
-        :rtype: str
 
         """
         return f'ctag{self.channel_number}.{uuid.uuid4().hex}'
@@ -652,7 +649,6 @@ class Channel:
     def consumer_tags(self) -> list[str]:
         """Property method that returns a list of currently active consumers
 
-        :rtype: list[str]
 
         """
         return list(self._consumers.keys())
@@ -813,7 +809,6 @@ class Channel:
     def is_closed(self) -> bool:
         """Returns True if the channel is closed.
 
-        :rtype: bool
 
         """
         return self._state == self.CLOSED
@@ -823,7 +818,6 @@ class Channel:
         """Returns True if client-initiated closing of the channel is in
         progress.
 
-        :rtype: bool
 
         """
         return self._state == self.CLOSING
@@ -832,7 +826,6 @@ class Channel:
     def is_open(self) -> bool:
         """Returns True if the channel is open.
 
-        :rtype: bool
 
         """
         return self._state == self.OPEN
@@ -841,7 +834,6 @@ class Channel:
     def is_opening(self) -> bool:
         """Returns True if the channel is opening.
 
-        :rtype: bool
 
         """
         return self._state == self.OPENING
@@ -1103,7 +1095,6 @@ class Channel:
         retrieve the cookie that it set via `_set_cookie`
 
         :returns: opaque cookie value that was set via `_set_cookie`
-        :rtype: object
 
         """
         return self._cookie
@@ -1604,7 +1595,6 @@ class ContentFrameAssembler:
     def _finish(self) -> tuple[frame.Method, frame.Header, bytes]:
         """Invoked when all of the message has been received
 
-        :rtype: tuple(pika.frame.Method, pika.frame.Header, bytes)
 
         """
         assert self._method_frame is not None
@@ -1622,7 +1612,6 @@ class ContentFrameAssembler:
 
         :param body_frame: The body frame
         :raises: pika.exceptions.BodyTooLongError
-        :rtype: tuple(pika.frame.Method, pika.frame.Header, bytes)|None
 
         """
         self._seen_so_far += len(body_frame.fragment)

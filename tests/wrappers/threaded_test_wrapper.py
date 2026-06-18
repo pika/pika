@@ -149,12 +149,11 @@ class _ThreadedTestWrapper:
                     file=self._stderr)
 
     @staticmethod
-    def _exc_info_to_str(exc_info):
+    def _exc_info_to_str(exc_info) -> str:
         """Convenience method for converting the value returned by
         `sys.exc_info()` to a string.
 
         :param tuple exc_info: Value returned by `sys.exc_info()`.
         :return: A string representation of the given `exc_info`.
-        :rtype: str
         """
         return ''.join(traceback.format_exception(*exc_info))

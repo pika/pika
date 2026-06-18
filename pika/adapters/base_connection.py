@@ -147,7 +147,6 @@ class BaseConnection(connection.Connection):
             `connection_workflow.AbstractAMQPConnectionWorkflow | None`.
         :returns: Connection workflow instance in use. The user should limit
             their interaction with this object only to it's `abort()` method.
-        :rtype: connection_workflow.AbstractAMQPConnectionWorkflow
 
         """
         raise NotImplementedError
@@ -181,7 +180,6 @@ class BaseConnection(connection.Connection):
             :py:meth:`connection_workflow.AbstractAMQPConnectionWorkflow.start()`.
         :returns: Connection workflow instance in use. The user should limit
             their interaction with this object only to it's `abort()` method.
-        :rtype: connection_workflow.AbstractAMQPConnectionWorkflow
 
         """
         if workflow is None:
@@ -214,7 +212,6 @@ class BaseConnection(connection.Connection):
             by user or the default selected by the specialized connection
             adapter (e.g., Twisted reactor, `asyncio.SelectorEventLoop`,
             `select_connection.IOLoop`, etc.)
-        :rtype: object
         """
         return self._nbio.get_native_ioloop()
 
@@ -225,7 +222,6 @@ class BaseConnection(connection.Connection):
         :param delay: Delay in seconds.
         :param callback: Callback to call.
         :returns: Timeout handle that can be used to cancel.
-        :rtype: object
         """
         return self._nbio.call_later(delay, callback)
 
@@ -233,7 +229,6 @@ class BaseConnection(connection.Connection):
         """Remove a scheduled timeout.
 
         :param timeout_id: Timeout handle to cancel.
-        :rtype: None
         """
         cast(nbio_interface.AbstractTimerReference, timeout_id).cancel()
 
@@ -242,7 +237,6 @@ class BaseConnection(connection.Connection):
         """Add a callback to be called from the I/O loop thread.
 
         :param callback: Callback to call.
-        :rtype: None
         """
         if not callable(callback):
             raise TypeError(
@@ -478,7 +472,6 @@ class BaseConnection(connection.Connection):
             close itself, resulting in an eventual `connection_lost()` call
             from the transport. If a truthy value is returned, it will be the
             protocol's responsibility to close/abort the transport.
-        :rtype: falsy|truthy
         :raises Exception: Exception-based exception on error
 
         """

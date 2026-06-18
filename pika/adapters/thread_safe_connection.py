@@ -325,7 +325,6 @@ class ThreadSafeChannel:
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Basic.QosOk method frame.
-        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -355,7 +354,6 @@ class ThreadSafeChannel:
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: ``(method, properties, body)`` or ``(None, None, None)``.
-        :rtype: tuple
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -516,7 +514,6 @@ class ThreadSafeChannel:
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Confirm.SelectOk method frame.
-        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -573,7 +570,6 @@ class ThreadSafeChannel:
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The consumer tag assigned by the broker.
-        :rtype: str
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -612,7 +608,6 @@ class ThreadSafeChannel:
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Basic.CancelOk method frame.
-        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -645,7 +640,6 @@ class ThreadSafeChannel:
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Queue.DeclareOk method frame.
-        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -685,7 +679,6 @@ class ThreadSafeChannel:
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Exchange.DeclareOk method frame.
-        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -721,7 +714,6 @@ class ThreadSafeChannel:
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Queue.BindOk method frame.
-        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -754,7 +746,6 @@ class ThreadSafeChannel:
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Queue.UnbindOk method frame.
-        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -784,7 +775,6 @@ class ThreadSafeChannel:
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Queue.DeleteOk method frame.
-        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -807,7 +797,6 @@ class ThreadSafeChannel:
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Queue.PurgeOk method frame.
-        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -836,7 +825,6 @@ class ThreadSafeChannel:
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Exchange.BindOk method frame.
-        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -868,7 +856,6 @@ class ThreadSafeChannel:
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Exchange.UnbindOk method frame.
-        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -896,7 +883,6 @@ class ThreadSafeChannel:
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Exchange.DeleteOk method frame.
-        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -1216,7 +1202,6 @@ class ThreadSafeConnection:
         :param timeout: Seconds to wait for Channel.OpenOk.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
-        :rtype: ThreadSafeChannel
         :raises Exception: if the connection is closed before the channel opens.
         :raises TimeoutError: if *timeout* expires before the channel opens.
         """

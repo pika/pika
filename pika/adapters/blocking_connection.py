@@ -104,7 +104,6 @@ class _CallbackResult:
     def is_ready(self) -> bool:
         """
         :returns: True if the object is in a signaled state
-        :rtype: bool
         """
         return self._ready
 
@@ -164,7 +163,6 @@ class _CallbackResult:
     def value(self) -> Any:
         """
         :returns: a reference to the value that was set via `set_value_once`
-        :rtype: object
         :raises AssertionError: if result was not set or value is incompatible
                                 with `set_value_once`
         """
@@ -180,7 +178,6 @@ class _CallbackResult:
         """
         :returns: a reference to the list containing one or more elements that
             were added via `append_element`
-        :rtype: list
         :raises AssertionError: if result was not set or value is incompatible
                                 with `append_element`
         """
@@ -224,7 +221,6 @@ class _IoloopTimerContext:
     def is_ready(self) -> bool:
         """
         :returns: True if timer has fired, False otherwise
-        :rtype: bool
         """
         return self._callback_result.is_ready()
 
@@ -456,7 +452,6 @@ class BlockingConnection:
             Type: `None | pika.connection.Parameters | sequence`.
         :param impl_class: for tests/debugging only; implementation class.
 
-        :rtype: impl_class
 
         :raises Exception: on failure
         """
@@ -515,7 +510,6 @@ class BlockingConnection:
             completion callback.
 
         :returns: Exception value from the last connection attempt
-        :rtype: Exception
         """
         if isinstance(error, connection_workflow.AMQPConnectionWorkflowFailed):
             # Extract exception value from the last connection attempt
@@ -764,7 +758,6 @@ class BlockingConnection:
         :param callback: The callback method with the signature
             callback()
         :returns: Opaque timer id
-        :rtype: int
 
         """
         validators.require_callback(callback)
@@ -959,7 +952,6 @@ class BlockingConnection:
         numbers.
 
         :param channel_number: optional channel number to use
-        :rtype: pika.adapters.blocking_connection.BlockingChannel
         """
         with _CallbackResult(self._OnChannelOpenedArgs) as opened_args:
             impl_channel = self._impl.channel(
@@ -1003,7 +995,6 @@ class BlockingConnection:
     def basic_nack_supported(self) -> bool:
         """Specifies if the server supports basic.nack on the active connection.
 
-        :rtype: bool
 
         """
         return self._impl.basic_nack
@@ -1013,7 +1004,6 @@ class BlockingConnection:
         """Specifies if the server supports consumer cancel notification on the
         active connection.
 
-        :rtype: bool
 
         """
         return self._impl.consumer_cancel_notify
@@ -1023,7 +1013,6 @@ class BlockingConnection:
         """Specifies if the active connection supports exchange to exchange
         bindings.
 
-        :rtype: bool
 
         """
         return self._impl.exchange_exchange_bindings
@@ -1032,7 +1021,6 @@ class BlockingConnection:
     def publisher_confirms_supported(self) -> bool:
         """Specifies if the active connection can use publisher confirmations.
 
-        :rtype: bool
 
         """
         return self._impl.publisher_confirms
@@ -1359,7 +1347,6 @@ class BlockingChannel:
         NOTE: inherited from legacy BlockingConnection; might be error-prone;
         use `channel_number` property instead.
 
-        :rtype: int
 
         """
         return self.channel_number
@@ -1397,7 +1384,6 @@ class BlockingChannel:
     def is_closed(self) -> bool:
         """Returns True if the channel is closed.
 
-        :rtype: bool
 
         """
         return self._impl.is_closed
@@ -1406,7 +1392,6 @@ class BlockingChannel:
     def is_open(self) -> bool:
         """Returns True if the channel is open.
 
-        :rtype: bool
 
         """
         return self._impl.is_open
@@ -1416,7 +1401,6 @@ class BlockingChannel:
         """Property method that returns a list of consumer tags for active
         consumers
 
-        :rtype: list
 
         """
         return list(self._consumer_infos.keys())
@@ -1659,7 +1643,6 @@ class BlockingChannel:
 
         :param active: Turn flow on (True) or off (False)
         :returns: True if broker will start or continue sending; False if not
-        :rtype: bool
 
         """
         with _CallbackResult(self._FlowOkCallbackResultArgs) as flow_ok_result:
@@ -1748,7 +1731,6 @@ class BlockingChannel:
           empty, a consumer tag will be generated automatically
         :param arguments: Custom key/value pair arguments for the consumer
         :returns: consumer tag
-        :rtype: str
         :raises pika.exceptions.DuplicateConsumerTag: if consumer with given
             consumer_tag is already present.
 
@@ -1879,7 +1861,6 @@ class BlockingChannel:
             - method: spec.Basic.Deliver
             - properties: spec.BasicProperties
             - body: bytes
-        :rtype: list
         """
         try:
             consumer_info = self._consumer_infos[consumer_tag]
@@ -1959,7 +1940,6 @@ class BlockingChannel:
 
         :returns: a (possibly empty) sequence of _ConsumerDeliveryEvt destined
             for the given consumer tag
-        :rtype: list
         """
         remaining_events: deque[Any] = deque()
         unprocessed_messages: list[Any] = []
@@ -2185,7 +2165,6 @@ class BlockingChannel:
         NEW in pika 0.10.0
 
         :returns: The number of waiting messages
-        :rtype: int
         """
         if self._queue_consumer_generator is not None:
             pending_events = self._queue_consumer_generator.pending_events
@@ -2207,7 +2186,6 @@ class BlockingChannel:
 
         :returns: The number of messages requeued by Basic.Nack.
             NEW in 0.10.0: returns 0
-        :rtype: int
 
         """
         if self._queue_consumer_generator is None:
@@ -2300,7 +2278,6 @@ class BlockingChannel:
         :param auto_ack: Tell the broker to not expect a reply
         :returns: a three-tuple; (None, None, None) if the queue was empty;
             otherwise (method, properties, body); NOTE: body may be None
-        :rtype: (spec.Basic.GetOk|None, spec.BasicProperties|None, bytes|None)
         """
         assert not self._basic_getempty_result
 
@@ -2524,8 +2501,6 @@ class BlockingChannel:
         :param internal: Can only be published to by other exchanges
         :param arguments: Custom key/value pair arguments for the exchange
         :returns: Method frame from the Exchange.Declare-ok response
-        :rtype: `pika.frame.Method` having `method` attribute of type
-            `spec.Exchange.DeclareOk`
 
         """
         validators.require_string(exchange, 'exchange')
@@ -2553,8 +2528,6 @@ class BlockingChannel:
         :param exchange: The exchange name
         :param if_unused: only delete if the exchange is unused
         :returns: Method frame from the Exchange.Delete-ok response
-        :rtype: `pika.frame.Method` having `method` attribute of type
-            `spec.Exchange.DeleteOk`
 
         """
         with _CallbackResult(
@@ -2580,8 +2553,6 @@ class BlockingChannel:
         :param routing_key: The routing key to bind on
         :param arguments: Custom key/value pair arguments for the binding
         :returns: Method frame from the Exchange.Bind-ok response
-        :rtype: `pika.frame.Method` having `method` attribute of type
-          `spec.Exchange.BindOk`
 
         """
         validators.require_string(destination, 'destination')
@@ -2611,8 +2582,6 @@ class BlockingChannel:
         :param routing_key: The routing key to unbind
         :param arguments: Custom key/value pair arguments for the binding
         :returns: Method frame from the Exchange.Unbind-ok response
-        :rtype: `pika.frame.Method` having `method` attribute of type
-            `spec.Exchange.UnbindOk`
 
         """
         with _CallbackResult(
@@ -2653,8 +2622,6 @@ class BlockingChannel:
         :param auto_delete: Delete after consumer cancels or disconnects
         :param arguments: Custom key/value arguments for the queue
         :returns: Method frame from the Queue.Declare-ok response
-        :rtype: `pika.frame.Method` having `method` attribute of type
-            `spec.Queue.DeclareOk`
 
         """
         validators.require_string(queue, 'queue')
@@ -2682,8 +2649,6 @@ class BlockingChannel:
         :param if_unused: only delete if it's unused
         :param if_empty: only delete if the queue is empty
         :returns: Method frame from the Queue.Delete-ok response
-        :rtype: `pika.frame.Method` having `method` attribute of type
-            `spec.Queue.DeleteOk`
 
         """
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
@@ -2702,8 +2667,6 @@ class BlockingChannel:
 
         :param queue: The queue to purge
         :returns: Method frame from the Queue.Purge-ok response
-        :rtype: `pika.frame.Method` having `method` attribute of type
-            `spec.Queue.PurgeOk`
 
         """
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
@@ -2728,8 +2691,6 @@ class BlockingChannel:
         :param arguments: Custom key/value pair arguments for the binding
 
         :returns: Method frame from the Queue.Bind-ok response
-        :rtype: `pika.frame.Method` having `method` attribute of type
-            `spec.Queue.BindOk`
 
         """
         validators.require_string(queue, 'queue')
@@ -2759,8 +2720,6 @@ class BlockingChannel:
         :param arguments: Custom key/value pair arguments for the binding
 
         :returns: Method frame from the Queue.Unbind-ok response
-        :rtype: `pika.frame.Method` having `method` attribute of type
-            `spec.Queue.UnbindOk`
 
         """
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
@@ -2779,8 +2738,6 @@ class BlockingChannel:
         a channel before using the Commit or Rollback methods.
 
         :returns: Method frame from the Tx.Select-ok response
-        :rtype: `pika.frame.Method` having `method` attribute of type
-            `spec.Tx.SelectOk`
 
         """
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
@@ -2794,8 +2751,6 @@ class BlockingChannel:
         """Commit a transaction.
 
         :returns: Method frame from the Tx.Commit-ok response
-        :rtype: `pika.frame.Method` having `method` attribute of type
-            `spec.Tx.CommitOk`
 
         """
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
@@ -2809,8 +2764,6 @@ class BlockingChannel:
         """Rollback a transaction.
 
         :returns: Method frame from the Tx.Rollback-ok response
-        :rtype: `pika.frame.Method` having `method` attribute of type
-            `spec.Tx.RollbackOk`
 
         """
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \

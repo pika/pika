@@ -33,7 +33,6 @@ _LOCALHOST_V6 = '::1'
 def time_now() -> float:
     """Returns monotonic time.
 
-    :rtype: float
     """
     return time.monotonic()
 
@@ -42,7 +41,6 @@ def as_bytes(value: str | bytes) -> bytes:
     """Returns value as bytes.
 
     :param value: value to convert
-    :rtype: bytes
     """
     if not isinstance(value, bytes):
         return value.encode('UTF-8')
@@ -53,7 +51,6 @@ def to_digit(value: str) -> int:
     """Returns value as an integer.
 
     :param value: string containing digits
-    :rtype: int
     """
     if value.isdigit():
         return int(value)
@@ -65,7 +62,6 @@ def get_linux_version(release_str: str) -> tuple[int, ...]:
     """Gets linux version.
 
     :param release_str: kernel release string
-    :rtype: tuple[int, ...]
     """
     ver_str = release_str.split('-', 1)[0]
     return tuple(map(to_digit, ver_str.split('.', 3)[:3]))
@@ -90,7 +86,6 @@ def nonblocking_socketpair(
     :param socket_type: socket type (default SOCK_STREAM)
     :param proto: socket protocol (default 0)
     :returns: a pair of connected non-blocking sockets
-    :rtype: tuple[socket.socket, socket.socket]
     """
     if family == socket.AF_INET:
         host = _LOCALHOST
