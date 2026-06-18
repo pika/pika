@@ -2204,8 +2204,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
             self) -> tuple[int, frame.Frame | frame.ProtocolHeader | None]:
         """Try and read from the frame buffer and decode a frame.
 
-        :rtype tuple: (int, pika.frame.Frame)
-
         """
         return frame.decode_frame(self._frame_buffer)
 

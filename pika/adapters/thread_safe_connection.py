@@ -514,7 +514,6 @@ class ThreadSafeChannel:
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Confirm.SelectOk method frame.
-        :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
@@ -571,7 +570,6 @@ class ThreadSafeChannel:
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The consumer tag assigned by the broker.
-        :rtype: str
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
