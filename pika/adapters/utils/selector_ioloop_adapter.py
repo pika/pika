@@ -92,7 +92,6 @@ class AbstractSelectorIOLoop:
         :param callback: The callback method
         :returns: handle to the created timeout that may be passed to
             `remove_timeout()`
-        :rtype: object
 
         """
 
@@ -435,7 +434,6 @@ class _FileDescriptorCallbacks:
 
         :param reader: Read callback.
         :param writer: Write callback.
-        :rtype: None
         """
         self.reader = reader
         self.writer = writer
@@ -480,7 +478,6 @@ class _SelectorIOLoopIOHandle(nbio_interface.AbstractIOReference):
         """Cancel pending operation
 
         :returns: False if was already done or cancelled; True otherwise
-        :rtype: bool
 
         """
         return self._cancel()
@@ -543,7 +540,6 @@ class _AddressResolver:
     def start(self) -> _SelectorIOLoopIOHandle:
         """Start asynchronous DNS lookup.
 
-        :rtype: nbio_interface.AbstractIOReference
 
         """
         assert self._state == self.NOT_STARTED, self._state
@@ -558,7 +554,6 @@ class _AddressResolver:
         """Cancel the pending resolver
 
         :returns: False if was already done or cancelled; True otherwise
-        :rtype: bool
 
         """
         # Try to cancel, but no guarantees

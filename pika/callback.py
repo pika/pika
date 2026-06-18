@@ -25,7 +25,6 @@ def name_or_value(value: AMQPValue) -> str:
     string identifier for them.
 
     :param value: The value to sanitize
-    :rtype: str
 
     """
     # Is it subclass of AMQPObject
@@ -48,7 +47,6 @@ def sanitize_prefix(function: _Callback) -> _Callback:
     """Automatically call name_or_value on the prefix passed in.
 
     :param function: The function to wrap
-    :rtype: _Callback
     """
 
     @functools.wraps(function)
@@ -75,7 +73,6 @@ def check_for_prefix_and_key(function: _Callback) -> _Callback:
     for the instance.
 
     :param function: Callback to validate
-    :rtype: _Callback
 
     """
 
@@ -146,7 +143,6 @@ class CallbackManager:
         :param only_caller: Only allow one_caller value to call the
                                    event that fires the callback.
         :param arguments: Arguments to validate when processing
-        :rtype: tuple(prefix, key)
 
         """
         # Prep the stack
@@ -187,7 +183,6 @@ class CallbackManager:
         if keys were there to be removed
 
         :param prefix: The prefix for keeping track of callbacks with
-        :rtype: bool
 
         """
         LOGGER.debug('Clearing out %r from the stack', prefix)
@@ -222,7 +217,6 @@ class CallbackManager:
         :param caller: Who is firing the event
         :param args: Any optional arguments
         :param keywords: Optional keyword arguments
-        :rtype: bool
 
         """
         LOGGER.debug('Processing %s:%s', prefix, key)
@@ -263,7 +257,6 @@ class CallbackManager:
         :param key: The callback key
         :param callback_value: The method defined to call on callback
         :param arguments: Optional arguments to check
-        :rtype: bool
 
         """
         if callback_value:
@@ -329,7 +322,6 @@ class CallbackManager:
         :param only_caller: Only allow one_caller value to call the
                                    event that fires the callback.
         :param arguments: arguments to attach to the callback dict
-        :rtype: dict
 
         """
         value = {
@@ -363,7 +355,6 @@ class CallbackManager:
 
         :param value: The dict to evaluate
         :param expectation: The values to check against
-        :rtype: bool
 
         """
         LOGGER.debug('Comparing %r to %r', value, expectation)
@@ -381,7 +372,6 @@ class CallbackManager:
 
         :param value: The object to evaluate
         :param expectation: The values to check against
-        :rtype: bool
 
         """
         for key, expected in expectation.items():
@@ -402,7 +392,6 @@ class CallbackManager:
         :param callback_dict: The callback configuration
         :param caller: Who is firing the event
         :param args: Any optional arguments
-        :rtype: bool
 
         """
         if not self._arguments_match(callback_dict, args):

@@ -263,8 +263,6 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         :param on_done: User callback that takes the completion result
             or exception as its only arg. It will not be called if the operation
             was cancelled.
-        :rtype: _AsyncioIOReference which is derived from
-            nbio_interface.AbstractIOReference
 
         """
         if not callable(on_done):
@@ -290,7 +288,6 @@ class _TimerHandle(nbio_interface.AbstractTimerReference):
     def cancel(self) -> None:
         """Cancel the timer handle.
 
-        :rtype: None
         """
         if self._handle is not None:
             self._handle.cancel()
@@ -336,7 +333,6 @@ class _AsyncioIOReference(nbio_interface.AbstractIOReference):
         """Cancel pending operation
 
         :returns: False if was already done or cancelled; True otherwise
-        :rtype: bool
 
         """
         return self._future.cancel()

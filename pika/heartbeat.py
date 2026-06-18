@@ -32,7 +32,6 @@ class HeartbeatChecker:
                             timeout window the connection will be closed. The
                             interval used to send heartbeats is calculated from
                             this value by dividing it by two.
-        :rtype: None
 
         """
         if timeout < 1:
@@ -85,7 +84,6 @@ class HeartbeatChecker:
     def bytes_received_on_connection(self) -> int:
         """Return the number of bytes received by the connection bytes object.
 
-        :rtype: int
 
         """
         return self._connection.bytes_received
@@ -95,7 +93,6 @@ class HeartbeatChecker:
         """Returns true if the byte count hasn't changed in enough intervals
         to trip the max idle threshold.
 
-        :rtype: bool
 
         """
         return self._idle_byte_intervals > 0
@@ -163,7 +160,6 @@ class HeartbeatChecker:
     def _has_received_data(self) -> bool:
         """Returns True if the connection has received data.
 
-        :rtype: bool
 
         """
         return self._bytes_received != self.bytes_received_on_connection
@@ -172,7 +168,6 @@ class HeartbeatChecker:
     def _new_heartbeat_frame() -> frame.Heartbeat:
         """Return a new heartbeat frame.
 
-        :rtype: pika.frame.Heartbeat
 
         """
         return frame.Heartbeat()

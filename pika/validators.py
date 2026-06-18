@@ -35,7 +35,6 @@ def rpc_completion_callback(callback: Optional[Callable[..., Any]]) -> bool:
 
     :param callback: RPC completion callback, or None if no callback is expected (i.e. nowait=True)
     :returns: boolean indicating nowait
-    :rtype: bool
     :raises: TypeError
 
     """
