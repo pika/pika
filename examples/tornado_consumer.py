@@ -40,12 +40,10 @@ class ExampleConsumer:
         self._consumer_tag = None
         self._url = amqp_url
 
-    def connect(self):
+    def connect(self) -> TornadoConnection:
         """This method connects to RabbitMQ, returning the connection handle.
         When the connection is established, the on_connection_open method
         will be invoked by pika.
-
-        :rtype: pika.SelectConnection
 
         """
         LOGGER.info('Connecting to %s', self._url)

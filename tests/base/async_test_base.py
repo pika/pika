@@ -87,30 +87,19 @@ class AsyncTestCase(unittest.TestCase):
         self._public_stop_error_in = None  # exception passed to our stop()
         super().setUp()
 
-    def new_connection_params(self):
-        """
-        :rtype: pika.ConnectionParameters
-
-        """
+    def new_connection_params(
+            self) -> pika.ConnectionParameters | pika.URLParameters:
         if enable_tls():
             return self._new_tls_connection_params()
         return self._new_plaintext_connection_params()
 
-    def _new_tls_connection_params(self):
-        """
-        :rtype: pika.ConnectionParameters
-
-        """
+    def _new_tls_connection_params(self) -> pika.URLParameters:
         self.logger.info('testing using TLS/SSL connection to port 5671')
         url = 'amqps://localhost:5671/%2F?ssl_options=%7B%27ca_certs%27%3A%27tests%2Fcerts%2Fca_certificate.pem%27%2C%27keyfile%27%3A%27tests%2Fcerts%2Fclient_key.pem%27%2C%27certfile%27%3A%27tests%2Fcerts%2Fclient_certificate.pem%27%7D'
         return pika.URLParameters(url)
 
     @staticmethod
-    def _new_plaintext_connection_params():
-        """
-        :rtype: pika.ConnectionParameters
-
-        """
+    def _new_plaintext_connection_params() -> pika.ConnectionParameters:
         return pika.ConnectionParameters(host='127.0.0.1', port=5672)
 
     def tearDown(self):
