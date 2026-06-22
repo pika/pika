@@ -137,6 +137,64 @@ class ChannelTests(unittest.TestCase):
         self.connection.callbacks.add.assert_called_once_with(
             self.obj.channel_number, '_on_return', mock_callback, False)
 
+    def _assert_remove_matching(self, expected_key, callback):
+        """Assert the last remove_matching call targeted expected_key with a predicate that selects
+        callback and rejects others.
+        """
+        prefix, key, predicate = (
+            self.connection.callbacks.remove_matching.call_args[0])
+        self.assertEqual(prefix, self.obj.channel_number)
+        self.assertEqual(key, expected_key)
+        self.assertTrue(predicate(callback))
+        self.assertFalse(predicate(mock.Mock()))
+
+    def test_remove_on_cancel_callback(self):
+        mock_callback = mock.Mock()
+        self.obj.remove_on_cancel_callback(mock_callback)
+        self._assert_remove_matching(spec.Basic.Cancel, mock_callback)
+
+    def test_remove_on_close_callback(self):
+        mock_callback = mock.Mock()
+        self.obj.remove_on_close_callback(mock_callback)
+        self._assert_remove_matching('_on_channel_close', mock_callback)
+
+    def test_remove_on_flow_callback(self):
+        mock_callback = mock.Mock()
+        self.obj.remove_on_flow_callback(mock_callback)
+        self._assert_remove_matching(spec.Channel.Flow, mock_callback)
+
+    def test_remove_on_return_callback(self):
+        mock_callback = mock.Mock()
+        self.obj.remove_on_return_callback(mock_callback)
+        self._assert_remove_matching('_on_return', mock_callback)
+
+    def test_remove_callback_with_replies(self):
+        mock_callback = mock.Mock()
+        self.connection.callbacks.remove_matching.return_value = True
+        self.assertTrue(
+            self.obj.remove_callback(mock_callback,
+                                     [spec.Basic.Qos, spec.Basic.QosOk]))
+        calls = [
+            mock.call(self.obj.channel_number, spec.Basic.Qos, mock.ANY),
+            mock.call(self.obj.channel_number, spec.Basic.QosOk, mock.ANY)
+        ]
+        self.connection.callbacks.remove_matching.assert_has_calls(calls)
+
+    def test_remove_callback_all_replies(self):
+        mock_callback = mock.Mock()
+        self.connection.callbacks.keys.return_value = [spec.Basic.Qos]
+        self.connection.callbacks.remove_matching.return_value = True
+        self.assertTrue(self.obj.remove_callback(mock_callback))
+        self.connection.callbacks.keys.assert_called_once_with(
+            self.obj.channel_number)
+        self.connection.callbacks.remove_matching.assert_called_once_with(
+            self.obj.channel_number, spec.Basic.Qos, mock.ANY)
+
+    def test_remove_callback_returns_false_when_absent(self):
+        self.connection.callbacks.keys.return_value = [spec.Basic.Qos]
+        self.connection.callbacks.remove_matching.return_value = False
+        self.assertFalse(self.obj.remove_callback(mock.Mock()))
+
     def test_basic_ack_channel_closed(self):
         self.assertRaises(exceptions.ChannelWrongStateError, self.obj.basic_ack)
 

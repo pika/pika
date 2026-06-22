@@ -1276,6 +1276,83 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
                                   self._default_on_connection_error)
         self.callbacks.add(0, self.ON_CONNECTION_ERROR, callback, False)
 
+    def remove_on_close_callback(
+            self, callback: Callable[[Connection, Exception], Any]) -> bool:
+        """
+        Remove a callback registered via :meth:`add_on_close_callback`.
+
+        :param callback: The callback to remove
+        :returns: True if a callback was removed, otherwise False
+        """
+        return self.callbacks.remove_matching(0, self.ON_CONNECTION_CLOSED,
+                                              lambda cb: cb == callback)
+
+    def remove_on_connection_blocked_callback(
+        self,
+        callback: Callable[[Connection, frame.Method[spec.Connection.Blocked]],
+                           Any]
+    ) -> bool:
+        """Remove a callback registered via
+        :meth:`add_on_connection_blocked_callback`.
+
+        The callback was wrapped in a ``functools.partial`` at registration time,
+        so it is matched here by the original callable rather than by equality.
+
+        :param callback: The callback to remove
+        :returns: True if a callback was removed, otherwise False
+        """
+
+        def matches(stored: Callable[..., Any]) -> bool:
+            return (isinstance(stored, functools.partial) and
+                    stored.func == callback and stored.args == (self,))
+
+        return self.callbacks.remove_matching(0, spec.Connection.Blocked,
+                                              matches)
+
+    def remove_on_connection_unblocked_callback(
+        self, callback: Callable[
+            [Connection, frame.Method[spec.Connection.Unblocked]], Any]
+    ) -> bool:
+        """Remove a callback registered via
+        :meth:`add_on_connection_unblocked_callback`.
+
+        The callback was wrapped in a ``functools.partial`` at registration time,
+        so it is matched here by the original callable rather than by equality.
+
+        :param callback: The callback to remove
+        :returns: True if a callback was removed, otherwise False
+        """
+
+        def matches(stored: Callable[..., Any]) -> bool:
+            return (isinstance(stored, functools.partial) and
+                    stored.func == callback and stored.args == (self,))
+
+        return self.callbacks.remove_matching(0, spec.Connection.Unblocked,
+                                              matches)
+
+    def remove_on_open_callback(self, callback: Callable[[Connection],
+                                                         Any]) -> bool:
+        """
+        Remove a callback registered via :meth:`add_on_open_callback`.
+
+        :param callback: The callback to remove
+        :returns: True if a callback was removed, otherwise False
+        """
+        return self.callbacks.remove_matching(0, self.ON_CONNECTION_OPEN_OK,
+                                              lambda cb: cb == callback)
+
+    def remove_on_open_error_callback(
+            self, callback: Callable[[Connection, BaseException | None],
+                                     Any]) -> bool:
+        """
+        Remove a callback registered via :meth:`add_on_open_error_callback`.
+
+        :param callback: The callback to remove
+        :returns: True if a callback was removed, otherwise False
+        """
+        return self.callbacks.remove_matching(0, self.ON_CONNECTION_ERROR,
+                                              lambda cb: cb == callback)
+
     def channel(
             self,
             channel_number: int | None = None,
