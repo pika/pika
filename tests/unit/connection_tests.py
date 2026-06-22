@@ -723,6 +723,89 @@ class ConnectionTests(unittest.TestCase):
         self.assertIs(conn, self.connection)
         self.assertIs(frame, unblocked_frame)
 
+    def test_remove_on_close_callback(self):
+        cb = mock.Mock()
+        self.connection.add_on_close_callback(cb)
+        self.assertTrue(self.connection.remove_on_close_callback(cb))
+        self.assertFalse(self.connection.remove_on_close_callback(cb))
+        self.connection.callbacks.process(0,
+                                          self.connection.ON_CONNECTION_CLOSED,
+                                          self.connection, self.connection,
+                                          None)
+        self.assertFalse(cb.called)
+
+    def test_remove_on_close_callback_isolation(self):
+        keep, remove = mock.Mock(), mock.Mock()
+        self.connection.add_on_close_callback(keep)
+        self.connection.add_on_close_callback(remove)
+        self.assertTrue(self.connection.remove_on_close_callback(remove))
+        self.connection.callbacks.process(0,
+                                          self.connection.ON_CONNECTION_CLOSED,
+                                          self.connection, self.connection,
+                                          None)
+        self.assertTrue(keep.called)
+        self.assertFalse(remove.called)
+
+    def test_remove_on_open_callback(self):
+        cb = mock.Mock()
+        self.connection.add_on_open_callback(cb)
+        self.assertTrue(self.connection.remove_on_open_callback(cb))
+        self.assertFalse(self.connection.remove_on_open_callback(cb))
+
+    def test_remove_on_open_error_callback(self):
+        cb = mock.Mock()
+        self.connection.add_on_open_error_callback(cb)
+        self.assertTrue(self.connection.remove_on_open_error_callback(cb))
+        self.assertFalse(self.connection.remove_on_open_error_callback(cb))
+
+    def test_remove_on_connection_blocked_callback(self):
+        buffer = []
+
+        def cb(conn, frame):
+            buffer.append(frame)
+
+        self.connection.add_on_connection_blocked_callback(cb)
+        self.assertTrue(
+            self.connection.remove_on_connection_blocked_callback(cb))
+        self.assertFalse(
+            self.connection.remove_on_connection_blocked_callback(cb))
+        self.connection._process_frame(
+            pika.frame.Method(0, pika.spec.Connection.Blocked('reason')))
+        self.assertEqual(buffer, [])
+
+    def test_remove_on_connection_blocked_callback_isolation(self):
+        kept, removed = [], []
+
+        def cb_keep(conn, frame):
+            kept.append(frame)
+
+        def cb_remove(conn, frame):
+            removed.append(frame)
+
+        self.connection.add_on_connection_blocked_callback(cb_keep)
+        self.connection.add_on_connection_blocked_callback(cb_remove)
+        self.assertTrue(
+            self.connection.remove_on_connection_blocked_callback(cb_remove))
+        self.connection._process_frame(
+            pika.frame.Method(0, pika.spec.Connection.Blocked('reason')))
+        self.assertEqual(len(kept), 1)
+        self.assertEqual(removed, [])
+
+    def test_remove_on_connection_unblocked_callback(self):
+        buffer = []
+
+        def cb(conn, frame):
+            buffer.append(frame)
+
+        self.connection.add_on_connection_unblocked_callback(cb)
+        self.assertTrue(
+            self.connection.remove_on_connection_unblocked_callback(cb))
+        self.assertFalse(
+            self.connection.remove_on_connection_unblocked_callback(cb))
+        self.connection._process_frame(
+            pika.frame.Method(0, pika.spec.Connection.Unblocked()))
+        self.assertEqual(buffer, [])
+
     @mock.patch.object(connection.Connection,
                        '_adapter_connect_stream',
                        spec_set=connection.Connection._adapter_connect_stream)

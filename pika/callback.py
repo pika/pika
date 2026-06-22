@@ -208,6 +208,15 @@ class CallbackManager:
         return len(self._stack[prefix][key])
 
     @sanitize_prefix
+    def keys(self, prefix: _Prefix) -> list[AMQPValue]:
+        """
+        Return a snapshot list of the keys registered under a prefix.
+
+        :param prefix: Categorize the callback
+        """
+        return list(self._stack.get(prefix, {}).keys())
+
+    @sanitize_prefix
     @check_for_prefix_and_key
     def process(self, prefix: _Prefix, key: AMQPValue, caller: _Caller, *args:
                 Any, **keywords: Any) -> bool:
@@ -284,6 +293,38 @@ class CallbackManager:
 
         self._cleanup_callback_dict(prefix, key)
         return True
+
+    @sanitize_prefix
+    @check_for_prefix_and_key
+    def remove_matching(
+            self, prefix: _Prefix, key: AMQPValue,
+            predicate: Callable[[Callable[..., Any]], bool]) -> bool:
+        """
+        Remove callbacks under prefix/key whose stored callable satisfies predicate.
+
+        Unlike :meth:`remove`, which matches by equality and reports success whenever the prefix/key
+        exist, this returns True only if at least one callback was actually removed. That makes it
+        suitable for backing public ``remove_on_*_callback`` APIs that report whether removal
+        occurred, and for matching callbacks that were wrapped (e.g. in ``functools.partial``) at
+        registration time, where equality matching against the original callable would fail.
+
+        :param prefix: The prefix for keeping track of callbacks with
+        :param key: The callback key
+        :param predicate: Called with each stored callable; truthy means remove
+        """
+        remaining = []
+        removed = []
+        for callback_dict in self._stack[prefix][key]:
+            if predicate(callback_dict[self.CALLBACK]):
+                removed.append(callback_dict)
+            else:
+                remaining.append(callback_dict)
+        if removed:
+            self._stack[prefix][key] = remaining
+            for callback_dict in removed:
+                LOGGER.debug('Removed: %r', callback_dict)
+            self._cleanup_callback_dict(prefix, key)
+        return bool(removed)
 
     @sanitize_prefix
     @check_for_prefix_and_key

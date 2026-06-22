@@ -216,6 +216,74 @@ class Channel:
         """
         self.callbacks.add(self.channel_number, '_on_return', callback, False)
 
+    def remove_callback(
+            self,
+            callback: Callable[..., Any],
+            replies: Sequence[type[amqp_object.Method]] | None = None) -> bool:
+        """
+        Remove a callback previously registered via :meth:`add_callback`.
+
+        Mirrors :meth:`add_callback`: the callback is matched by identity and removed
+        from each reply key it is registered under. If ``replies`` is ``None``, the
+        callback is removed from every reply key it is currently registered under.
+
+        :param callback: The callback to remove
+        :param replies: The replies to remove the callback from, or ``None`` to
+            remove it from every reply key it is registered under
+        :returns: ``True`` if at least one matching callback was removed
+        """
+        reply_keys = (self.callbacks.keys(self.channel_number)
+                      if replies is None else replies)
+        removed = False
+        for reply in reply_keys:
+            if self.callbacks.remove_matching(self.channel_number, reply,
+                                              lambda cb: cb == callback):
+                removed = True
+        return removed
+
+    def remove_on_cancel_callback(self, callback: _OnCancelCallback) -> bool:
+        """
+        Remove a callback registered via :meth:`add_on_cancel_callback`.
+
+        :param callback: The callback to remove
+        :returns:``True`` if the callback was removed, ``False`` if it was absent
+        """
+        return self.callbacks.remove_matching(self.channel_number,
+                                              spec.Basic.Cancel,
+                                              lambda cb: cb == callback)
+
+    def remove_on_close_callback(self, callback: _OnCloseCallback) -> bool:
+        """
+        Remove a callback registered via :meth:`add_on_close_callback`.
+
+        :param callback: The callback to remove
+        :returns:``True`` if the callback was removed, ``False`` if it was absent
+        """
+        return self.callbacks.remove_matching(self.channel_number,
+                                              '_on_channel_close',
+                                              lambda cb: cb == callback)
+
+    def remove_on_flow_callback(self, callback: _OnFlowCallback) -> bool:
+        """
+        Remove a callback registered via :meth:`add_on_flow_callback`.
+
+        :param callback: The callback to remove
+        :returns:``True`` if the callback was removed, ``False`` if it was absent
+        """
+        return self.callbacks.remove_matching(self.channel_number,
+                                              spec.Channel.Flow,
+                                              lambda cb: cb == callback)
+
+    def remove_on_return_callback(self, callback: _OnReturnCallback) -> bool:
+        """
+        Remove a callback registered via :meth:`add_on_return_callback`.
+
+        :param callback: The callback to remove
+        :returns:``True`` if the callback was removed, ``False`` if it was absent
+        """
+        return self.callbacks.remove_matching(self.channel_number, '_on_return',
+                                              lambda cb: cb == callback)
+
     def basic_ack(self, delivery_tag: int = 0, multiple: bool = False) -> None:
         """
         Acknowledge one or more messages.

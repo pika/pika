@@ -304,6 +304,67 @@ class CallbackTests(unittest.TestCase):
         self.obj.remove_all(self.PREFIX, self.KEY)
         self.assertNotIn(self.PREFIX, self.obj._stack)
 
+    def test_keys_empty(self):
+        self.assertEqual(self.obj.keys(self.PREFIX), [])
+
+    def test_keys_returns_registered_keys(self):
+        self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock)
+        self.obj.add(self.PREFIX_CLASS, 'Other Key', self.mock_caller)
+        self.assertEqual(sorted(self.obj.keys(self.PREFIX)),
+                         sorted([self.KEY, 'Other Key']))
+
+    def test_keys_returns_snapshot(self):
+        self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock)
+        keys = self.obj.keys(self.PREFIX)
+        self.obj.remove(self.PREFIX, self.KEY, self.callback_mock)
+        # Mutating the stack does not affect the previously returned snapshot
+        self.assertEqual(keys, [self.KEY])
+
+    def test_remove_matching_absent_returns_false(self):
+        self.assertFalse(
+            self.obj.remove_matching(self.PREFIX, self.KEY, lambda cb: True))
+
+    def test_remove_matching_no_match_returns_false(self):
+        self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock, False)
+        self.assertFalse(
+            self.obj.remove_matching(self.PREFIX, self.KEY, lambda cb: False))
+        self.assertEqual(self.obj.pending(self.PREFIX, self.KEY), 1)
+
+    def test_remove_matching_match_returns_true(self):
+        self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock, False)
+        self.assertTrue(
+            self.obj.remove_matching(self.PREFIX, self.KEY,
+                                     lambda cb: cb == self.callback_mock))
+        self.assertNotIn(self.PREFIX, self.obj._stack)
+
+    def test_remove_matching_idempotent(self):
+        self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock, False)
+
+        def predicate(cb):
+            return cb == self.callback_mock
+
+        self.assertTrue(
+            self.obj.remove_matching(self.PREFIX, self.KEY, predicate))
+        self.assertFalse(
+            self.obj.remove_matching(self.PREFIX, self.KEY, predicate))
+
+    def test_remove_matching_only_removes_matching(self):
+        other = mock.Mock()
+        self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock, False)
+        self.obj.add(self.PREFIX_CLASS, self.KEY, other, False)
+        self.assertTrue(
+            self.obj.remove_matching(self.PREFIX, self.KEY,
+                                     lambda cb: cb == self.callback_mock))
+        self.assertEqual(
+            other, self.obj._stack[self.PREFIX][self.KEY][0][self.CALLBACK])
+
+    def test_remove_matching_prevents_processing(self):
+        self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock, False)
+        self.obj.remove_matching(self.PREFIX, self.KEY,
+                                 lambda cb: cb == self.callback_mock)
+        self.assertFalse(self.obj.process(self.PREFIX_CLASS, self.KEY, self))
+        self.assertFalse(self.callback_mock.called)
+
     def test_should_process_callback_true(self):
         self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock)
         value = self.obj._callback_dict(self.callback_mock, False, None, None)
