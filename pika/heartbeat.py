@@ -33,7 +33,6 @@ class HeartbeatChecker:
         :param timeout: Connection idle timeout. If no activity occurs on the connection nor
             heartbeat frames received during the timeout window the connection will be closed. The
             interval used to send heartbeats is calculated from this value by dividing it by two.
-        :rtype: None
         """
         if timeout < 1:
             raise ValueError(f'timeout must >= 1, but got {timeout!r}')
@@ -83,20 +82,13 @@ class HeartbeatChecker:
 
     @property
     def bytes_received_on_connection(self) -> int:
-        """
-        Return the number of bytes received by the connection bytes object.
-
-        :rtype: int
-        """
+        """Return the number of bytes received by the connection bytes object."""
         return self._connection.bytes_received
 
     @property
     def connection_is_idle(self) -> bool:
-        """
-        Returns true if the byte count hasn't changed in enough intervals to trip the max idle
+        """Returns true if the byte count hasn't changed in enough intervals to trip the max idle
         threshold.
-
-        :rtype: bool
         """
         return self._idle_byte_intervals > 0
 
@@ -160,20 +152,12 @@ class HeartbeatChecker:
 
     @property
     def _has_received_data(self) -> bool:
-        """
-        Returns True if the connection has received data.
-
-        :rtype: bool
-        """
+        """Returns True if the connection has received data."""
         return self._bytes_received != self.bytes_received_on_connection
 
     @staticmethod
     def _new_heartbeat_frame() -> frame.Heartbeat:
-        """
-        Return a new heartbeat frame.
-
-        :rtype: pika.frame.Heartbeat
-        """
+        """Return a new heartbeat frame."""
         return frame.Heartbeat()
 
     def _send_heartbeat_frame(self) -> None:

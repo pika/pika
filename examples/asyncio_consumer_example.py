@@ -49,13 +49,11 @@ class ExampleConsumer:
         # for higher consumer throughput
         self._prefetch_count = 1
 
-    def connect(self):
+    def connect(self) -> AsyncioConnection:
         """
         This method connects to RabbitMQ, returning the connection handle.
 
         When the connection is established, the on_connection_open method will be invoked by pika.
-
-        :rtype: pika.adapters.asyncio_connection.AsyncioConnection
         """
         LOGGER.info('Connecting to %s', self._url)
         return AsyncioConnection(

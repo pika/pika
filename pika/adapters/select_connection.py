@@ -180,7 +180,6 @@ class SelectConnection(BaseConnection):
     def _get_write_buffer_size(self) -> int:
         """
         :returns: Current size of output data buffered by the transport
-        :rtype: int
         """
         assert self._transport is not None
         return self._transport.get_write_buffer_size()
@@ -288,7 +287,6 @@ class _Timer:
         :param callback: The callback method, having the signature
             `callback()`
 
-        :rtype: _Timeout
         :raises ValueError, TypeError
         """
         if self._timeout_heap is None:
@@ -335,9 +333,8 @@ class _Timer:
         """
         Get the interval to the next timeout expiration.
 
-        :returns: non-negative number of seconds until next timer expiration;
-                  None if there are no timers
-        :rtype: float
+        :returns: non-negative number of seconds until next timer expiration; None if there are no
+            timers
         """
         if self._timeout_heap:
             now = pika._utils.time_now()
@@ -446,7 +443,6 @@ class IOLoop(AbstractSelectorIOLoop):
                                  poller
 
         :returns: The instantiated poller instance supporting `_PollerBase` API
-        :rtype: object
         """
         poller = None
 
@@ -486,7 +482,6 @@ class IOLoop(AbstractSelectorIOLoop):
         :param delay: The number of seconds to wait to call callback
         :param callback: The callback method
         :returns: handle to the created timeout that may be passed to `remove_timeout()`
-        :rtype: object
         """
         return self._timer.call_later(delay, callback)
 
@@ -548,7 +543,6 @@ class IOLoop(AbstractSelectorIOLoop):
 
         :returns: non-negative number of seconds until next callback or timer expiration; None if
             there are no callbacks and timers
-        :rtype: float
         """
         if self._callbacks:
             return 0
@@ -727,9 +721,7 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         """
         Get the interval to the next timeout event, or a default interval.
 
-        :returns: maximum number of self.POLL_TIMEOUT_MULT-scaled time units
-                  to wait for IO events
-        :rtype: float
+        :returns: maximum number of self.POLL_TIMEOUT_MULT-scaled time units to wait for IO events
         """
         delay = self._get_wait_seconds()
         if delay is None:
@@ -799,7 +791,6 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         :param fileno: The file descriptor
         :param events: The event mask (READ, WRITE, ERROR)
         :returns: a 2-tuple (events_cleared, events_set)
-        :rtype: tuple
         """
         assert self._fd_events is not None
 
@@ -1104,7 +1095,6 @@ class KQueuePoller(_PollerBase):
         Return the event type associated with a kevent object.
 
         :param kevent: a kevent object as returned by kqueue.control()
-        :rtype: int
         """
         mask = 0
         kq_filter_read = getattr(select, 'KQ_FILTER_READ')
@@ -1258,9 +1248,6 @@ class PollPoller(_PollerBase):
 
     @staticmethod
     def _create_poller() -> Any:
-        """
-        :rtype: `select.poll`
-        """
         return getattr(select, 'poll')()
 
     def poll(self) -> None:
@@ -1355,7 +1342,4 @@ class EPollPoller(PollPoller):
 
     @staticmethod
     def _create_poller() -> Any:
-        """
-        :rtype: `select.poll`
-        """
         return getattr(select, 'epoll')()

@@ -22,6 +22,7 @@ class TestGetNativeIOLoop(unittest.TestCase,
 
 """
 
+from pika.adapters.utils import nbio_interface
 from tests.wrappers.threaded_test_wrapper import run_in_thread_with_timeout
 
 
@@ -41,13 +42,12 @@ class IOServicesTestStubs:
         """
         raise NotImplementedError
 
-    def create_nbio(self):
+    def create_nbio(self) -> nbio_interface.AbstractIOServices:
         """
         Create the configured AbstractIOServices adaptation and schedule it to be closed
         automatically when the test terminates.
 
         :param unittest.TestCase self:
-        :rtype: pika.adapters.utils.nbio_interface.AbstractIOServices
         """
         nbio = self._nbio_factory()
         self.addCleanup(nbio.close)
