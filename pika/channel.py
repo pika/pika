@@ -131,11 +131,7 @@ class Channel:
         self._cookie: object = None
 
     def __int__(self) -> int:
-        """
-        Return the channel object as its channel number.
-
-        :rtype: int
-        """
+        """Return the channel object as its channel number."""
         return self.channel_number
 
     def __repr__(self) -> str:
@@ -397,7 +393,6 @@ class Channel:
         :param callback: callback(pika.frame.Method) for method
           Basic.ConsumeOk.
         :returns: Consumer tag which may be used to cancel the consumer.
-        :rtype: str
         :raises ValueError:
         """
         validators.require_string(queue, 'queue')
@@ -440,7 +435,6 @@ class Channel:
         NOTE: this protected method may be called by derived classes
 
         :returns: consumer tag
-        :rtype: str
         """
         return f'ctag{self.channel_number}.{uuid.uuid4().hex}'
 
@@ -694,11 +688,7 @@ class Channel:
 
     @property
     def consumer_tags(self) -> list[str]:
-        """
-        Property method that returns a list of currently active consumers.
-
-        :rtype: list[str]
-        """
+        """Property method that returns a list of currently active consumers."""
         return list(self._consumers.keys())
 
     def exchange_bind(self,
@@ -852,38 +842,22 @@ class Channel:
 
     @property
     def is_closed(self) -> bool:
-        """
-        Returns True if the channel is closed.
-
-        :rtype: bool
-        """
+        """Returns True if the channel is closed."""
         return self._state == self.CLOSED
 
     @property
     def is_closing(self) -> bool:
-        """
-        Returns True if client-initiated closing of the channel is in progress.
-
-        :rtype: bool
-        """
+        """Returns True if client-initiated closing of the channel is in progress."""
         return self._state == self.CLOSING
 
     @property
     def is_open(self) -> bool:
-        """
-        Returns True if the channel is open.
-
-        :rtype: bool
-        """
+        """Returns True if the channel is open."""
         return self._state == self.OPEN
 
     @property
     def is_opening(self) -> bool:
-        """
-        Returns True if the channel is opening.
-
-        :rtype: bool
-        """
+        """Returns True if the channel is opening."""
         return self._state == self.OPENING
 
     def open(self) -> None:
@@ -1141,7 +1115,6 @@ class Channel:
         set via `_set_cookie`
 
         :returns: opaque cookie value that was set via `_set_cookie`
-        :rtype: object
         """
         return self._cookie
 
@@ -1626,11 +1599,7 @@ class ContentFrameAssembler:
         raise exceptions.UnexpectedFrameError(frame_value)
 
     def _finish(self) -> tuple[frame.Method, frame.Header, bytes]:
-        """
-        Invoked when all of the message has been received.
-
-        :rtype: tuple(pika.frame.Method, pika.frame.Header, bytes)
-        """
+        """Invoked when all of the message has been received."""
         assert self._method_frame is not None
         assert self._header_frame is not None
         content = (self._method_frame, self._header_frame,
@@ -1648,7 +1617,6 @@ class ContentFrameAssembler:
 
         :param body_frame: The body frame
         :raises: pika.exceptions.BodyTooLongError
-        :rtype: tuple(pika.frame.Method, pika.frame.Header, bytes)|None
         """
         self._seen_so_far += len(body_frame.fragment)
         self._body_fragments.append(body_frame.fragment)

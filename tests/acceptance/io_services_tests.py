@@ -1017,14 +1017,15 @@ class TestStreamConnectorEOFReceived(StreamingTestBase, IOServicesTestStubs):
 class TestStreamConnectorProtocolInterfaceFailsBase(StreamingTestBase):
     """Base test class for streaming protocol method fails."""
 
-    def linkup_streaming_connection(self,
-                                    nbio,
-                                    sock,
-                                    on_create_done,
-                                    proto_constructor_exc=None,
-                                    proto_connection_made_exc=None,
-                                    proto_eof_received_exc=None,
-                                    proto_data_received_exc=None):
+    def linkup_streaming_connection(
+            self,
+            nbio,
+            sock,
+            on_create_done,
+            proto_constructor_exc=None,
+            proto_connection_made_exc=None,
+            proto_eof_received_exc=None,
+            proto_data_received_exc=None) -> nbio_interface.AbstractIOReference:
         """
         Links up transport and protocol.
 
@@ -1038,7 +1039,6 @@ class TestStreamConnectorProtocolInterfaceFailsBase(StreamingTestBase):
         :param proto_eof_received_exc: None or exception to raise in `eof_received()`
         :param proto_data_received_exc: None or exception to raise in `data_received()`
         :return: return value of `create_streaming_connection()`
-        :rtype: nbio_interface.AbstractIOReference
         """
         logger = self.logger
 

@@ -138,11 +138,7 @@ class Parameters:
         self.tcp_options = self.DEFAULT_TCP_OPTIONS
 
     def __repr__(self) -> str:
-        """
-        Represent the info about the instance.
-
-        :rtype: str
-        """
+        """Represent the info about the instance."""
         return (
             f'<{self.__class__.__name__} host={self.host} port={self.port} virtual_host={self.virtual_host} ssl={bool(self.ssl_options)}>'
         )
@@ -163,7 +159,6 @@ class Parameters:
         """
         :returns: blocked connection timeout. Defaults to
             `DEFAULT_BLOCKED_CONNECTION_TIMEOUT`.
-        :rtype: float|None
 
         """
         return self._blocked_connection_timeout
@@ -191,7 +186,6 @@ class Parameters:
         """
         :returns: max preferred number of channels. Defaults to
             `DEFAULT_CHANNEL_MAX`.
-        :rtype: int
 
         """
         return self._channel_max
@@ -217,7 +211,6 @@ class Parameters:
         :returns: client properties used to override the fields in the default
             client properties reported  to RabbitMQ via `Connection.StartOk`
             method. Defaults to `DEFAULT_CLIENT_PROPERTIES`.
-        :rtype: dict|None
 
         """
         return self._client_properties
@@ -243,7 +236,6 @@ class Parameters:
         """
         :returns: number of socket connection attempts. Defaults to
             `DEFAULT_CONNECTION_ATTEMPTS`. See also `retry_delay`.
-        :rtype: int
 
         """
         return self._connection_attempts
@@ -268,9 +260,9 @@ class Parameters:
     ) -> (pika.credentials.PlainCredentials |
           pika.credentials.ExternalCredentials):
         """
-        :rtype: one of the classes from `pika.credentials.VALID_TYPES`. Defaults
-            to `DEFAULT_CREDENTIALS`.
+        One of the classes from `pika.credentials.VALID_TYPES`.
 
+        Defaults to `DEFAULT_CREDENTIALS`.
         """
         return self._credentials
 
@@ -296,7 +288,6 @@ class Parameters:
         """
         :returns: desired maximum AMQP frame size to use. Defaults to
             `DEFAULT_FRAME_MAX`.
-        :rtype: int
 
         """
         return self._frame_max
@@ -327,7 +318,6 @@ class Parameters:
             connection tuning or callable which is invoked during connection tuning.
             None to accept broker's value. 0 turns heartbeat off. Defaults to
             `DEFAULT_HEARTBEAT_TIMEOUT`.
-        :rtype: int|callable|None
 
         """
         return self._heartbeat
@@ -357,7 +347,6 @@ class Parameters:
     def host(self) -> str:
         """
         :returns: hostname or ip address of broker. Defaults to `DEFAULT_HOST`.
-        :rtype: str
 
         """
         return self._host
@@ -376,7 +365,6 @@ class Parameters:
         """
         :returns: locale value to pass to broker; e.g., 'en_US'. Defaults to
             `DEFAULT_LOCALE`.
-        :rtype: str
 
         """
         return self._locale
@@ -395,7 +383,6 @@ class Parameters:
         """
         :returns: port number of broker's listening socket. Defaults to
             `DEFAULT_PORT`.
-        :rtype: int
 
         """
         return self._port
@@ -416,7 +403,6 @@ class Parameters:
         """
         :returns: interval between socket connection attempts; see also
             `connection_attempts`. Defaults to `DEFAULT_RETRY_DELAY`.
-        :rtype: float
 
         """
         return self._retry_delay
@@ -438,7 +424,6 @@ class Parameters:
         """
         :returns: socket connect timeout in seconds. Defaults to
             `DEFAULT_SOCKET_TIMEOUT`. The value None disables this timeout.
-        :rtype: float|None
 
         """
         return self._socket_timeout
@@ -467,7 +452,6 @@ class Parameters:
         :returns: full protocol stack TCP/[SSL]/AMQP bring-up timeout in
             seconds. Defaults to `DEFAULT_STACK_TIMEOUT`. The value None
             disables this timeout.
-        :rtype: float
 
         """
         return self._stack_timeout
@@ -496,7 +480,6 @@ class Parameters:
     def ssl_options(self) -> SSLOptions | None:
         """
         :returns: None for plaintext or `pika.SSLOptions` instance for SSL/TLS.
-        :rtype: `pika.SSLOptions`|None
         """
         return self._ssl_options
 
@@ -517,7 +500,6 @@ class Parameters:
         """
         :returns: rabbitmq virtual host name. Defaults to
             `DEFAULT_VIRTUAL_HOST`.
-        :rtype: str
 
         """
         return self._virtual_host
@@ -535,7 +517,6 @@ class Parameters:
     def tcp_options(self) -> dict[str, int] | None:
         """
         :returns: None or a dict of options to pass to the underlying socket
-        :rtype: dict|None
         """
         return self._tcp_options
 
@@ -1366,7 +1347,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         :param channel_number: The channel number to use, defaults to the next available.
         :param on_open_callback: The callback when the channel is opened. The callback will be
             invoked with the `Channel` instance as its only argument.
-        :rtype: pika.channel.Channel
         """
         if not self.is_open:
             raise exceptions.ConnectionWrongStateError(
@@ -1502,21 +1482,15 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
 
     @property
     def basic_nack(self) -> bool:
-        """
-        Specifies if the server supports basic.nack on the active connection.
-
-        :rtype: bool
-        """
+        """Specifies if the server supports basic.nack on the active connection."""
         if self.server_capabilities is None:
             return False
         return self.server_capabilities.get('basic.nack', False)
 
     @property
     def consumer_cancel_notify(self) -> bool:
-        """
-        Specifies if the server supports consumer cancel notification on the active connection.
-
-        :rtype: bool
+        """Specifies if the server supports consumer cancel notification on the active
+        connection.
         """
         if self.server_capabilities is None:
             return False
@@ -1524,22 +1498,14 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
 
     @property
     def exchange_exchange_bindings(self) -> bool:
-        """
-        Specifies if the active connection supports exchange to exchange bindings.
-
-        :rtype: bool
-        """
+        """Specifies if the active connection supports exchange to exchange bindings."""
         if self.server_capabilities is None:
             return False
         return self.server_capabilities.get('exchange_exchange_bindings', False)
 
     @property
     def publisher_confirms(self) -> bool:
-        """
-        Specifies if the active connection can use publisher confirmations.
-
-        :rtype: bool
-        """
+        """Specifies if the active connection can use publisher confirmations."""
         if self.server_capabilities is None:
             return False
         return self.server_capabilities.get('publisher_confirms', False)
@@ -1554,7 +1520,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         :param delay: The number of seconds to wait to call callback
         :param callback: The callback will be called without args.
         :returns: Handle that can be passed to `_adapter_remove_timeout()` to cancel the callback.
-        :rtype: object
         """
         raise NotImplementedError
 
@@ -1653,11 +1618,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
 
     @property
     def _client_properties(self) -> dict[str, Any]:
-        """
-        Return the client properties dictionary.
-
-        :rtype: dict
-        """
+        """Return the client properties dictionary."""
         properties = {
             'product': PRODUCT,
             'platform': f'Python {platform.python_version()}',
@@ -1709,11 +1670,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
 
     def _create_heartbeat_checker(
             self) -> pika.heartbeat.HeartbeatChecker | None:
-        """
-        Create a heartbeat checker instance if there is a heartbeat interval set.
-
-        :rtype: pika.heartbeat.Heartbeat|None
-        """
+        """Create a heartbeat checker instance if there is a heartbeat interval set."""
         if isinstance(self.params.heartbeat, int) and self.params.heartbeat > 0:
             LOGGER.debug('Creating a HeartbeatChecker: %r',
                          self.params.heartbeat)
@@ -1749,11 +1706,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
             self.close()
 
     def _get_body_frame_max_length(self) -> int:
-        """
-        Calculate the maximum amount of bytes that can be in a body frame.
-
-        :rtype: int
-        """
+        """Calculate the maximum amount of bytes that can be in a body frame."""
         return (self.params.frame_max - spec.FRAME_HEADER_SIZE -
                 spec.FRAME_END_SIZE)
 
@@ -1764,7 +1717,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         Get credentials for authentication.
 
         :param method_frame: The Connection.Start frame
-        :rtype: tuple(str, bytes|None)
         """
         (auth_type,
          response) = self.params.credentials.response_for(method_frame.method)
@@ -1779,7 +1731,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         Return true if there are any callbacks pending for the specified frame.
 
         :param value: The frame to check
-        :rtype: int|None
         """
         return self.callbacks.pending(value.channel_number, value.method)
 
@@ -1788,7 +1739,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         Returns true if the frame is a method frame.
 
         :param value: The frame to evaluate
-        :rtype: bool
         """
         return isinstance(value, frame.Method)
 
@@ -1797,16 +1747,11 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         Returns True if it's a protocol header frame.
 
         :param value: Frame to inspect
-        :rtype: bool
         """
         return isinstance(value, frame.ProtocolHeader)
 
     def _next_channel_number(self) -> int:
-        """
-        Return the next available channel number or raise an exception.
-
-        :rtype: int
-        """
+        """Return the next available channel number or raise an exception."""
         limit = self.params.channel_max or pika.channel.MAX_CHANNELS
         if len(self._channels) >= limit:
             raise exceptions.NoFreeChannels()
@@ -2016,7 +1961,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
 
         :param client_value: The client value
         :param server_value: The server value
-        :rtype: int
         """
         if client_value is None:
             client_value = 0
@@ -2053,7 +1997,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
             broker; 0 (zero) to disable heartbeat.
 
         :returns: the value of the heartbeat timeout to use and return to broker
-        :rtype: int
         """
         if client_value is None:
             # Accept server's limit
@@ -2248,7 +2191,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         callbacks pending.
 
         :param frame_value: The frame to process
-        :rtype: bool
         """
         if (self._is_method_frame(frame_value) and
                 self._has_pending_callbacks(cast(frame.Method, frame_value))):
@@ -2296,11 +2238,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
 
     def _read_frame(
             self) -> tuple[int, frame.Frame | frame.ProtocolHeader | None]:
-        """
-        Try and read from the frame buffer and decode a frame.
-
-        :rtype tuple: (int, pika.frame.Frame)
-        """
+        """Try and read from the frame buffer and decode a frame."""
         return frame.decode_frame(self._frame_buffer)
 
     def _remove_callbacks(

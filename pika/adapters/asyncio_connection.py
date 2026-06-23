@@ -259,7 +259,6 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         :param coro: Coroutine to schedule.
         :param on_done: User callback that takes the completion result or exception as its only arg.
             It will not be called if the operation was cancelled.
-        :rtype: _AsyncioIOReference which is derived from nbio_interface.AbstractIOReference
         """
         if not callable(on_done):
             raise TypeError(
@@ -280,11 +279,7 @@ class _TimerHandle(nbio_interface.AbstractTimerReference):
         self._handle: asyncio.Handle | None = handle
 
     def cancel(self) -> None:
-        """
-        Cancel the timer handle.
-
-        :rtype: None
-        """
+        """Cancel the timer handle."""
         if self._handle is not None:
             self._handle.cancel()
             self._handle = None
@@ -327,6 +322,5 @@ class _AsyncioIOReference(nbio_interface.AbstractIOReference):
         Cancel pending operation.
 
         :returns: False if was already done or cancelled; True otherwise
-        :rtype: bool
         """
         return self._future.cancel()

@@ -23,7 +23,6 @@ def name_or_value(value: AMQPValue) -> str:
     Will take Frame objects, classes, etc and attempt to return a valid string identifier for them.
 
     :param value: The value to sanitize
-    :rtype: str
     """
     # Is it subclass of AMQPObject
     if isinstance(value, type) and issubclass(value, amqp_object.AMQPObject):
@@ -46,7 +45,6 @@ def sanitize_prefix(function: _Callback) -> _Callback:
     Automatically call name_or_value on the prefix passed in.
 
     :param function: The function to wrap
-    :rtype: _Callback
     """
 
     @functools.wraps(function)
@@ -73,7 +71,6 @@ def check_for_prefix_and_key(function: _Callback) -> _Callback:
     Automatically return false if the key or prefix is not in the callbacks for the instance.
 
     :param function: Callback to validate
-    :rtype: _Callback
     """
 
     @functools.wraps(function)
@@ -145,7 +142,6 @@ class CallbackManager:
         :param one_shot: Remove this callback after it is called
         :param only_caller: Only allow one_caller value to call the event that fires the callback.
         :param arguments: Arguments to validate when processing
-        :rtype: tuple(prefix, key)
         """
         # Prep the stack
         if prefix not in self._stack:
@@ -187,7 +183,6 @@ class CallbackManager:
         Returns True if keys were there to be removed
 
         :param prefix: The prefix for keeping track of callbacks with
-        :rtype: bool
         """
         LOGGER.debug('Clearing out %r from the stack', prefix)
         if prefix not in self._stack or not self._stack[prefix]:
@@ -231,7 +226,6 @@ class CallbackManager:
         :param caller: Who is firing the event
         :param args: Any optional arguments
         :param keywords: Optional keyword arguments
-        :rtype: bool
         """
         LOGGER.debug('Processing %s:%s', prefix, key)
         if prefix not in self._stack or key not in self._stack[prefix]:
@@ -272,7 +266,6 @@ class CallbackManager:
         :param key: The callback key
         :param callback_value: The method defined to call on callback
         :param arguments: Optional arguments to check
-        :rtype: bool
         """
         if callback_value:
             offsets_to_remove = []
@@ -370,7 +363,6 @@ class CallbackManager:
         :param one_shot: Remove this callback after it is called
         :param only_caller: Only allow one_caller value to call the event that fires the callback.
         :param arguments: arguments to attach to the callback dict
-        :rtype: dict
         """
         value = {
             self.CALLBACK: callback,
@@ -404,7 +396,6 @@ class CallbackManager:
 
         :param value: The dict to evaluate
         :param expectation: The values to check against
-        :rtype: bool
         """
         LOGGER.debug('Comparing %r to %r', value, expectation)
         for key, expected in expectation.items():
@@ -421,7 +412,6 @@ class CallbackManager:
 
         :param value: The object to evaluate
         :param expectation: The values to check against
-        :rtype: bool
         """
         for key, expected in expectation.items():
             if not hasattr(value, key):
@@ -442,7 +432,6 @@ class CallbackManager:
         :param callback_dict: The callback configuration
         :param caller: Who is firing the event
         :param args: Any optional arguments
-        :rtype: bool
         """
         if not self._arguments_match(callback_dict, args):
             LOGGER.debug('Arguments do not match for %r, %r', callback_dict,

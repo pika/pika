@@ -50,27 +50,15 @@ class Method(AMQPObject):
         self._body = body
 
     def get_properties(self) -> Properties:
-        """
-        Return the properties if they are set.
-
-        :rtype: pika.frame.Properties
-        """
+        """Return the properties if they are set."""
         return self._properties
 
     def get_body(self) -> bytes:
-        """
-        Return the message body if it is set.
-
-        :rtype: bytes
-        """
+        """Return the message body if it is set."""
         return self._body
 
     def encode(self) -> list[bytes]:
-        """
-        Encode the method into a binary format.
-
-        :rtype: list[bytes]
-        """
+        """Encode the method into a binary format."""
         raise NotImplementedError("Subclasses must implement this method")
 
     def decode(self, encoded: bytes, offset: int = 0) -> Method:
@@ -79,7 +67,6 @@ class Method(AMQPObject):
 
         :param encoded: The encoded method data
         :param offset: The offset to start decoding from
-        :rtype: Method
         """
         raise NotImplementedError("Subclasses must implement this method")
 

@@ -38,7 +38,6 @@ class Frame(amqp_object.AMQPObject):
         Create the full AMQP wire protocol frame data representation.
 
         :param pieces: Encoded AMQP frame fragments to assemble
-        :rtype: bytes
         """
         payload = b''.join(pieces)
         return struct.pack('>BHI', self.frame_type, self.channel_number,
@@ -49,7 +48,6 @@ class Frame(amqp_object.AMQPObject):
         To be ended by child classes.
 
         :raises NotImplementedError
-        :rtype: bytes
         """
         raise NotImplementedError
 
@@ -75,11 +73,7 @@ class Method(Frame, Generic[_MethodT]):
         self.method = method
 
     def marshal(self) -> bytes:
-        """
-        Return the AMQP binary encoded value of the frame.
-
-        :rtype: bytes
-        """
+        """Return the AMQP binary encoded value of the frame."""
         pieces = self.method.encode()
         pieces.insert(0, struct.pack('>I', self.method.INDEX))
         return self._marshal(pieces)
@@ -109,11 +103,7 @@ class Header(Frame):
         self.properties = props
 
     def marshal(self) -> bytes:
-        """
-        Return the AMQP binary encoded value of the frame.
-
-        :rtype: bytes
-        """
+        """Return the AMQP binary encoded value of the frame."""
         pieces = self.properties.encode()
         pieces.insert(
             0, struct.pack('>HxxQ', self.properties.INDEX, self.body_size))
@@ -139,11 +129,7 @@ class Body(Frame):
         self.fragment = fragment
 
     def marshal(self) -> bytes:
-        """
-        Return the AMQP binary encoded value of the frame.
-
-        :rtype: bytes
-        """
+        """Return the AMQP binary encoded value of the frame."""
         return self._marshal([self.fragment])
 
 
@@ -162,11 +148,7 @@ class Heartbeat(Frame):
         Frame.__init__(self, spec.FRAME_HEARTBEAT, 0)
 
     def marshal(self) -> bytes:
-        """
-        Return the AMQP binary encoded value of the frame.
-
-        :rtype: bytes
-        """
+        """Return the AMQP binary encoded value of the frame."""
         return self._marshal([])
 
 
@@ -194,10 +176,8 @@ class ProtocolHeader(amqp_object.AMQPObject):
         self.revision = revision or spec.PROTOCOL_VERSION[2]
 
     def marshal(self) -> bytes:
-        """
-        Return the full AMQP wire protocol frame data representation of the ProtocolHeader frame.
-
-        :rtype: bytes
+        """Return the full AMQP wire protocol frame data representation of the ProtocolHeader
+        frame.
         """
         return b'AMQP' + struct.pack('BBBB', 0, self.major, self.minor,
                                      self.revision)
@@ -210,7 +190,6 @@ def decode_frame(data_in: bytes) -> tuple[int, Frame | ProtocolHeader | None]:
     Returns the number of bytes consumed from the stream and the frame.
 
     :param data_in: The raw data stream
-    :rtype: tuple(int, Frame|ProtocolHeader)
     :raises: pika.exceptions.InvalidFrameError
     """
     # Look to see if it's a protocol header frame
