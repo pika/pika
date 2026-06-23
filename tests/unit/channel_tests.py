@@ -847,6 +847,29 @@ class ChannelTests(unittest.TestCase):
         self.obj.confirm_delivery(ack_nack_callback=user_callback)
         self.assertIn(expectation_item, self.obj.callbacks.add.call_args_list)
 
+    def test_confirm_delivery_first_call_does_not_remove_callback(self):
+        self.obj._set_state(self.obj.OPEN)
+        self.obj.confirm_delivery(ack_nack_callback=mock.Mock())
+        self.obj.callbacks.remove.assert_not_called()
+
+    def test_confirm_delivery_replaces_previous_callback(self):
+        self.obj._set_state(self.obj.OPEN)
+        first_callback = mock.Mock()
+        second_callback = mock.Mock()
+
+        self.obj.confirm_delivery(ack_nack_callback=first_callback)
+        self.obj.confirm_delivery(ack_nack_callback=second_callback)
+
+        # The previously registered callback is removed for both Ack and Nack
+        self.obj.callbacks.remove.assert_any_call(self.obj.channel_number,
+                                                  spec.Basic.Ack,
+                                                  first_callback)
+        self.obj.callbacks.remove.assert_any_call(self.obj.channel_number,
+                                                  spec.Basic.Nack,
+                                                  first_callback)
+        # The most recent callback is the one tracked for future replacement
+        self.assertIs(self.obj._on_ack_nack_callback, second_callback)
+
     def test_consumer_tags(self):
         self.assertListEqual(self.obj.consumer_tags,
                              list(self.obj._consumers.keys()))
