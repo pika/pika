@@ -116,6 +116,7 @@ class Channel:
         self._consumers_with_noack: set = set()
         self._on_flowok_callback: Callable[..., Any] | None = None
         self._on_getok_callback: Callable[..., Any] | None = None
+        self._on_ack_nack_callback: _OnAckNackCallback | None = None
         self._on_openok_callback: None | (Callable[..., Any]) = on_open_callback
         self._state: int = self.CLOSED
 
@@ -662,6 +663,12 @@ class Channel:
         :param callback: callback(pika.frame.Method) for method
             Confirm.SelectOk
         :raises ValueError:
+
+        .. note::
+            Calling this method more than once on the same channel replaces
+            the previously registered ``ack_nack_callback`` rather than adding
+            an additional one. Only the most recently registered callback
+            receives ``Basic.Ack``/``Basic.Nack`` notifications.
         """
         if not callable(ack_nack_callback):
             # confirm_deliver requires a callback; it's meaningless
@@ -677,11 +684,20 @@ class Channel:
             raise exceptions.MethodNotImplemented(
                 'Confirm.Select not Supported by Server')
 
+        # Replace any previously registered ack/nack callback so repeated
+        # calls don't stack listeners and fire stale callbacks (see #1602).
+        if self._on_ack_nack_callback is not None:
+            self.callbacks.remove(self.channel_number, spec.Basic.Ack,
+                                  self._on_ack_nack_callback)
+            self.callbacks.remove(self.channel_number, spec.Basic.Nack,
+                                  self._on_ack_nack_callback)
+
         # Add the ack and nack callback
         self.callbacks.add(self.channel_number, spec.Basic.Ack,
                            ack_nack_callback, False)
         self.callbacks.add(self.channel_number, spec.Basic.Nack,
                            ack_nack_callback, False)
+        self._on_ack_nack_callback = ack_nack_callback
 
         self._rpc(spec.Confirm.Select(nowait), callback,
                   [spec.Confirm.SelectOk] if not nowait else [])
