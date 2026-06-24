@@ -100,6 +100,7 @@ include-package-data = false
 packages = ["pika", "pika.adapters", "pika.adapters.utils"]
 
 [tool.setuptools.package-data]
+"pika" = ["py.typed"]
 "*" = ["LICENSE", "README.md"]
 
 [tool.docformatter]
