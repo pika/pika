@@ -101,7 +101,7 @@ class BasicPikaClient:
                       exclusive: bool = False,
                       max_priority: int = 10):
         self.check_connection()
-        logger.debug(f"Trying to declare queue({queue_name})...")
+        logger.debug("Trying to declare queue(%s)...", queue_name)
         self.channel.queue_declare(
             queue=queue_name,
             exclusive=exclusive,
@@ -155,7 +155,10 @@ class BasicMessageSender(BasicPikaClient):
             ),
         )
         logger.debug(
-            f"Sent message. Exchange: {exchange_name}, Routing Key: {routing_key}, Body: {body[:128]}"
+            "Sent message. Exchange: %s, Routing Key: %s, Body: %s",
+            exchange_name,
+            routing_key,
+            body[:128],
         )
 
 
@@ -174,7 +177,7 @@ class BasicMessageReceiver(BasicPikaClient):
         method_frame, header_frame, body = self.channel.basic_get(
             queue=queue_name, auto_ack=auto_ack)
         if method_frame:
-            logger.debug(f"{method_frame}, {header_frame}, {body}")
+            logger.debug("%s, %s, %s", method_frame, header_frame, body)
             return method_frame, header_frame, body
         logger.debug("No message returned")
         return None
