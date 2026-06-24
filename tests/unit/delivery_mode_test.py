@@ -88,6 +88,6 @@ class DeliveryModeTests(unittest.TestCase):
         """A ``BasicProperties`` constructed with a non-integer delivery_mode (e.g. a string) must
         raise at encode time so callers passing the wrong type get a useful diagnostic.
         """
-        props = BasicProperties(delivery_mode='persistent')  # type: ignore
+        props = BasicProperties(delivery_mode='persistent')
         with self.assertRaises((struct.error, TypeError)):
             b''.join(props.encode())

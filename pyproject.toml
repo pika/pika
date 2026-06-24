@@ -82,6 +82,9 @@ select = [
     "PLC",  # Pylint convention rules
     "RUF",  # Ruff-specific rules
     "FURB", # refurbishing and modernizing codebase
+    "G",    # flake8-logging-format: lazy %-formatting in log calls
+    "ISC",  # implicit string concatenation
+    "PGH",  # pygrep-hooks: blanket type-ignore / eval
 ]
 
 ignore = [
