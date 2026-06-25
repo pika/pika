@@ -372,7 +372,9 @@ class BaseConnection(connection.Connection):
                             conn_or_exc.exceptions[-1],
                             connection_workflow.AMQPConnectorSocketConnectError)
                    ):
-                    error = pika.exceptions.AMQPConnectionError(conn_or_exc)
+                    last_exc = conn_or_exc.exceptions[-1]
+                    error = pika.exceptions.AMQPConnectionError(
+                        conn_or_exc, host=last_exc.host, port=last_exc.port)
                 else:
                     error = conn_or_exc
 
@@ -468,10 +470,14 @@ class BaseConnection(connection.Connection):
             # Either result of `eof_received()` or abort
             if self._got_eof:
                 error = pika.exceptions.StreamLostError(
-                    'Transport indicated EOF')
+                    'Transport indicated EOF',
+                    host=self.params.host,
+                    port=self.params.port)
         else:
             error = pika.exceptions.StreamLostError(
-                f'Stream connection lost: {error!r}')
+                f'Stream connection lost: {error!r}',
+                host=self.params.host,
+                port=self.params.port)
 
         LOGGER.log(logging.DEBUG if error is None else logging.ERROR,
                    'connection_lost: %r', error)
