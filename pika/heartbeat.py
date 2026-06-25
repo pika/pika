@@ -148,7 +148,10 @@ class HeartbeatChecker:
         # close the AMQP connection since lack of heartbeat suggests that the
         # stream is dead.
         self._connection._terminate_stream(
-            pika.exceptions.AMQPHeartbeatTimeout(text))
+            pika.exceptions.AMQPHeartbeatTimeout(
+                text,
+                host=self._connection.params.host,
+                port=self._connection.params.port))
 
     @property
     def _has_received_data(self) -> bool:

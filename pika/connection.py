@@ -1435,13 +1435,17 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
 
             error = exceptions.ConnectionOpenAborted(
                 'Connection.close() called before connection '
-                f'finished opening: prev_state={self._STATE_NAMES[prev_state]} ({reply_code}): {reply_text!r}'
-            )
+                f'finished opening: prev_state={self._STATE_NAMES[prev_state]} ({reply_code}): {reply_text!r}',
+                host=self.params.host,
+                port=self.params.port)
             self._terminate_stream(error)
 
         else:
             self._error = exceptions.ConnectionClosedByClient(
-                reply_code, reply_text)
+                reply_code,
+                reply_text,
+                host=self.params.host,
+                port=self.params.port)
 
             # If there are channels that haven't finished closing yet, then
             # _on_close_ready will finally be called from _on_channel_cleanup once
@@ -1721,7 +1725,9 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         (auth_type,
          response) = self.params.credentials.response_for(method_frame.method)
         if not auth_type:
-            raise exceptions.AuthenticationError(self.params.credentials.TYPE)
+            raise exceptions.AuthenticationError(self.params.credentials.TYPE,
+                                                 host=self.params.host,
+                                                 port=self.params.port)
         self.params.credentials.erase_credentials()
         return auth_type, response
 
@@ -1754,7 +1760,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         """Return the next available channel number or raise an exception."""
         limit = self.params.channel_max or pika.channel.MAX_CHANNELS
         if len(self._channels) >= limit:
-            raise exceptions.NoFreeChannels()
+            raise exceptions.NoFreeChannels(host=self.params.host,
+                                            port=self.params.port)
 
         for num in range(1, len(self._channels) + 1):
             if num not in self._channels:
@@ -1825,7 +1832,9 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         self._blocked_conn_timer = None
         self._terminate_stream(
             exceptions.ConnectionBlockedTimeout(
-                'Blocked connection timeout expired.'))
+                'Blocked connection timeout expired.',
+                host=self.params.host,
+                port=self.params.port))
 
     def _on_connection_blocked(
             self, _connection: Connection,
@@ -1885,8 +1894,9 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
             exceptions.ConnectionClosedByBroker(
                 method_frame.method.
                 reply_code,  # pyright: ignore[reportArgumentType]
-                method_frame.method.reply_text)
-        )  # pyright: ignore[reportArgumentType]
+                method_frame.method.reply_text,
+                host=self.params.host,
+                port=self.params.port))  # pyright: ignore[reportArgumentType]
 
     def _on_connection_close_ok(
             self, method_frame: frame.Method[spec.Connection.CloseOk]) -> None:
@@ -2142,19 +2152,25 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
             if self.connection_state == self.CONNECTION_PROTOCOL:
                 LOGGER.error('Probably incompatible Protocol Versions')
                 self._error = exceptions.IncompatibleProtocolError(
-                    repr(self._error))
+                    repr(self._error),
+                    host=self.params.host,
+                    port=self.params.port)
             elif self.connection_state == self.CONNECTION_START:
                 LOGGER.error(
                     'Connection closed while authenticating indicating a '
                     'probable authentication error')
                 self._error = exceptions.ProbableAuthenticationError(
-                    repr(self._error))
+                    repr(self._error),
+                    host=self.params.host,
+                    port=self.params.port)
             elif self.connection_state == self.CONNECTION_TUNE:
                 LOGGER.error('Connection closed while tuning the connection '
                              'indicating a probable permission error when '
                              'accessing a virtual host')
                 self._error = exceptions.ProbableAccessDeniedError(
-                    repr(self._error))
+                    repr(self._error),
+                    host=self.params.host,
+                    port=self.params.port)
             elif self.connection_state not in [
                     self.CONNECTION_OPEN, self.CONNECTION_CLOSED,
                     self.CONNECTION_CLOSING

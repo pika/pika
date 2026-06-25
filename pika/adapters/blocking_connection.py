@@ -512,13 +512,17 @@ class BlockingConnection:
         """
         if isinstance(error, connection_workflow.AMQPConnectionWorkflowFailed):
             # Extract exception value from the last connection attempt
-            error = error.exceptions[-1]
-            if isinstance(error,
+            last = error.exceptions[-1]
+            if isinstance(last,
                           connection_workflow.AMQPConnectorSocketConnectError):
-                error = exceptions.AMQPConnectionError(error)
-            elif isinstance(error,
+                error = exceptions.AMQPConnectionError(last,
+                                                       host=last.host,
+                                                       port=last.port)
+            elif isinstance(last,
                             connection_workflow.AMQPConnectorPhaseErrorBase):
-                error = error.exception
+                error = last.exception
+            else:
+                error = last
 
         return error
 
