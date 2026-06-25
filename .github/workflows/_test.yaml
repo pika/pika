@@ -57,7 +57,7 @@ jobs:
           "erlang=$otp"   >> $env:GITHUB_OUTPUT
           Write-Host "rabbitmq=$rmq erlang=$otp"
       - name: Cache installers
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/installers
           key: ${{ runner.os }}-rmq${{ steps.versions.outputs.rabbitmq }}-otp${{ steps.versions.outputs.erlang }}
