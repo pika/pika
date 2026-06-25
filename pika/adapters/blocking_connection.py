@@ -466,6 +466,19 @@ class BlockingConnection:
             raise ValueError('Expected a non-empty sequence of connection '
                              f'parameters, but got {configs!r}.')
 
+        # Extract hostname and port for error reporting
+        hostname = 'unknown'
+        port = 'unknown'
+        
+        try:
+            last_config = configs[-1] if isinstance(configs, (list, tuple)) else configs
+            if hasattr(last_config, 'host'):
+                hostname = last_config.host
+            if hasattr(last_config, 'port'):
+                port = last_config.port
+        except (IndexError, AttributeError):
+            pass
+
         # Connection workflow completion args
         #   `result` may be an instance of connection on success or exception on
         #   failure.
@@ -479,7 +492,7 @@ class BlockingConnection:
 
         ioloop.activate_poller()
         try:
-            resolved_impl_class.create_connection(
+            impl_class.create_connection(
                 configs,
                 on_done=on_cw_done_result.set_value_once,
                 custom_ioloop=ioloop)
@@ -491,10 +504,22 @@ class BlockingConnection:
             if isinstance(on_cw_done_result.value.result, BaseException):
                 error = on_cw_done_result.value.result
                 LOGGER.error('Connection workflow failed: %r', error)
-                raise self._reap_last_connection_workflow_error(error)
-            LOGGER.info('Connection workflow succeeded: %r',
-                        on_cw_done_result.value.result)
-            return on_cw_done_result.value.result
+                base_error = self._reap_last_connection_workflow_error(error)
+                
+                # Create error with hostname and port details (like HTTP 451)
+                detailed_msg = (
+                    f"Connection failed to host='{hostname}' port={port}: "
+                    f"{base_error}"
+                )
+                detailed_error = exceptions.AMQPConnectionError(detailed_msg)
+                detailed_error.hostname = hostname
+                detailed_error.port = port
+                detailed_error.error_code = 451
+                raise detailed_error
+            else:
+                LOGGER.info('Connection workflow succeeded: %r',
+                            on_cw_done_result.value.result)
+                return on_cw_done_result.value.result
         except Exception:
             LOGGER.exception('Error in _create_connection().')
             ioloop.close()
