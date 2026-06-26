@@ -1297,7 +1297,9 @@ class TwistedProtocolConnection(protocol.Protocol):
         d, self.ready = self.ready, None
         if d:
             attempts = self._impl.params.connection_attempts
-            exc = exceptions.AMQPConnectionError(attempts)
+            exc = exceptions.AMQPConnectionError(attempts,
+                                                 host=self._impl.params.host,
+                                                 port=self._impl.params.port)
             d.errback(exc)
 
     def _on_connection_closed(self, _connection: pika.connection.Connection,

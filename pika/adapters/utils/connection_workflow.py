@@ -51,17 +51,28 @@ class AMQPConnectorWrongState(AMQPConnectorException):
 class AMQPConnectorPhaseErrorBase(AMQPConnectorException):
     """Wrapper for exception that occurred during a particular bring-up phase."""
 
-    def __init__(self, exception: BaseException, *args: Any) -> None:
+    def __init__(self,
+                 exception: BaseException,
+                 *args: Any,
+                 host: str | None = None,
+                 port: int | None = None) -> None:
         """
 
         :param exception: error that occurred while waiting for a
             subclass-specific protocol bring-up phase to complete.
         :param args: args for parent class
+        :param host: hostname or IP of the broker that failed
+        :param port: port of the broker that failed
         """
         super().__init__(*args)
         self.exception = exception
+        self.host = host
+        self.port = port
 
     def __repr__(self) -> str:
+        if self.host is not None:
+            return (f'{self.__class__.__name__}: {self.exception!r}'
+                    f' (host={self.host!r}, port={self.port})')
         return f'{self.__class__.__name__}: {self.exception!r}'
 
 
@@ -326,10 +337,11 @@ class AMQPConnector:
         assert self._conn_params is not None
         self._tcp_timeout_ref = None
 
-        error = AMQPConnectorSocketConnectError(
-            socket.timeout(
-                f'TCP connection attempt timed out: {self._conn_params.host!r}/{self._addr_record}'
-            ))
+        error = AMQPConnectorSocketConnectError(socket.timeout(
+            f'TCP connection attempt timed out: {self._conn_params.host!r}/{self._addr_record}'
+        ),
+                                                host=self._conn_params.host,
+                                                port=self._conn_params.port)
         self._report_completion_and_cleanup(error)
 
     def _on_overall_timeout(self) -> None:
@@ -366,13 +378,18 @@ class AMQPConnector:
             error: Exception = AMQPConnectorSocketConnectError(
                 AMQPConnectorStackTimeout(
                     f'Timeout while connecting socket to {self._conn_params.host!r}/{self._addr_record}'
-                ))
+                ),
+                host=self._conn_params.host,
+                port=self._conn_params.port)
         else:
             assert prev_state == self._STATE_TRANSPORT
-            error = AMQPConnectorTransportSetupError(
-                AMQPConnectorStackTimeout(
-                    f'Timeout while setting up transport to {self._conn_params.host!r}/{self._addr_record}; ssl={bool(self._conn_params.ssl_options)}'
-                ))
+            error = AMQPConnectorTransportSetupError(AMQPConnectorStackTimeout(
+                f'Timeout while setting up transport to {self._conn_params.host!r}/{self._addr_record}; ssl={bool(self._conn_params.ssl_options)}'
+            ),
+                                                     host=self._conn_params.
+                                                     host,
+                                                     port=self._conn_params.port
+                                                    )
 
         self._report_completion_and_cleanup(error)
 
@@ -398,7 +415,9 @@ class AMQPConnector:
             _LOG.error('TCP Connection attempt failed: %r; dest=%r', exc,
                        self._addr_record)
             self._report_completion_and_cleanup(
-                AMQPConnectorSocketConnectError(exc))
+                AMQPConnectorSocketConnectError(exc,
+                                                host=self._conn_params.host,
+                                                port=self._conn_params.port))
             return
 
         # We succeeded in making a TCP/IP connection to the server
@@ -449,7 +468,9 @@ class AMQPConnector:
                 '%r/%s; ssl=%s', result, self._conn_params.host,
                 self._addr_record, bool(self._conn_params.ssl_options))
             self._report_completion_and_cleanup(
-                AMQPConnectorTransportSetupError(result))
+                AMQPConnectorTransportSetupError(result,
+                                                 host=self._conn_params.host,
+                                                 port=self._conn_params.port))
             return
 
         # We succeeded in setting up the streaming transport!
@@ -495,10 +516,13 @@ class AMQPConnector:
             result: (BaseException |
                      pika.connection.Connection) = AMQPConnectorAborted()
         elif self._state == self._STATE_TIMEOUT:
-            result = AMQPConnectorAMQPHandshakeError(
-                AMQPConnectorStackTimeout(
-                    f'Timeout during AMQP handshake{self._conn_params.host!r}/{self._addr_record}; ssl={bool(self._conn_params.ssl_options)}'
-                ))
+            result = AMQPConnectorAMQPHandshakeError(AMQPConnectorStackTimeout(
+                f'Timeout during AMQP handshake{self._conn_params.host!r}/{self._addr_record}; ssl={bool(self._conn_params.ssl_options)}'
+            ),
+                                                     host=self._conn_params.
+                                                     host,
+                                                     port=self._conn_params.port
+                                                    )
         elif self._state == self._STATE_AMQP:
             if error is None:
                 _LOG.debug(
@@ -510,7 +534,10 @@ class AMQPConnector:
                     'AMQPConnector: AMQP connection handshake failed for '
                     '%r/%s: %r', self._conn_params.host, self._addr_record,
                     error)
-                result = AMQPConnectorAMQPHandshakeError(error)
+                result = AMQPConnectorAMQPHandshakeError(
+                    error,
+                    host=self._conn_params.host,
+                    port=self._conn_params.port)
         else:
             # We timed out or aborted and initiated closing of the connection,
             # but this callback snuck in

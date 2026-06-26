@@ -16,10 +16,22 @@ class AMQPError(Exception):
 
 class AMQPConnectionError(AMQPError):
 
+    def __init__(self,
+                 *args,
+                 host: str | None = None,
+                 port: int | None = None) -> None:
+        super().__init__(*args)
+        self.host = host
+        self.port = port
+
     def __repr__(self) -> str:
         if len(self.args) == 2:
-            return f'{self.__class__.__name__}: ({self.args[0]}) {self.args[1]}'
-        return f'{self.__class__.__name__}: {self.args}'
+            base = f'{self.__class__.__name__}: ({self.args[0]}) {self.args[1]}'
+        else:
+            base = f'{self.__class__.__name__}: {self.args}'
+        if self.host is not None:
+            return f'{base} (host={self.host!r}, port={self.port})'
+        return base
 
 
 class ConnectionOpenAborted(AMQPConnectionError):
@@ -82,7 +94,11 @@ class ConnectionWrongStateError(AMQPConnectionError):
 
 class ConnectionClosed(AMQPConnectionError):
 
-    def __init__(self, reply_code: int, reply_text: str) -> None:
+    def __init__(self,
+                 reply_code: int,
+                 reply_text: str,
+                 host: str | None = None,
+                 port: int | None = None) -> None:
         """
 
         :param reply_code: reply-code that was used in user's or broker's
@@ -90,8 +106,10 @@ class ConnectionClosed(AMQPConnectionError):
         :param reply_text: reply-text that was used in user's or broker's
             `Connection.Close` method. Human-readable string corresponding to
             `reply_code`. NEW in v1.0.0
+        :param host: hostname or IP of the broker
+        :param port: port of the broker
         """
-        super().__init__(int(reply_code), str(reply_text))
+        super().__init__(int(reply_code), str(reply_text), host=host, port=port)
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: ({self.reply_code}) {self.reply_text!r}'
