@@ -65,7 +65,9 @@ The TLS mutual authentication examples use test certificates from `tests/certs/`
 |------|-------------|
 | `basic_consumer_threaded.py` | Consuming with `ThreadSafeConnection` worker threads |
 | `basic_publisher_threaded.py` | Publishing from multiple threads with `ThreadSafeConnection` |
+| `publisher_confirms_threaded.py` | Publisher confirms with `ThreadSafeConnection` (ack/nack on a worker thread) |
 | `long_running_publisher.py` | Background publisher thread with `BlockingConnection` |
+| `long_running_publisher_threaded.py` | Long-running publisher with `ThreadSafeConnection` (no `process_data_events` loop) |
 | `consumer_queued.py` | Threaded consumer buffering messages for batch processing |
 | `consumer_simple.py` | Simple blocking consumer with multiple exchanges |
 | `producer.py` | Blocking publisher for multiple exchanges |

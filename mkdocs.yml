@@ -145,6 +145,8 @@ nav:
       - TLS Server Authentication: examples/tls_server_authentication.md
       - Thread-Safe Consumer: examples/threaded_consumer.md
       - Thread-Safe Publisher: examples/threaded_publisher.md
+      - Thread-Safe Publisher Confirms: examples/publisher_confirms_threaded.md
+      - Thread-Safe Long-Running Publisher: examples/long_running_publisher_threaded.md
       - Heartbeat and Blocked Timeouts: examples/heartbeat_and_blocked_timeouts.md
       - Direct Reply-To: examples/direct_reply_to.md
   - Contributing: contributing.md
