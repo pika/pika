@@ -1565,9 +1565,6 @@ class Connection(abc.ABC):
     def _adapter_disconnect_stream(self) -> None:
         """Asynchronously bring down the streaming transport layer and invoke
         `Connection._on_stream_terminated()` asynchronously when complete.
-
-        :raises NotImplementedError:
-
         """
 
     @abc.abstractmethod
