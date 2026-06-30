@@ -533,6 +533,7 @@ class AMQPConnector:
 class AbstractAMQPConnectionWorkflow(abc.ABC):
     """Interface for implementing a custom TCP/[SSL]/AMQP connection workflow."""
 
+    @abc.abstractmethod
     def start(
         self, connection_configs: Sequence[pika.connection.Parameters],
         connector_factory: Callable[..., Any], native_loop,
@@ -564,8 +565,8 @@ class AbstractAMQPConnectionWorkflow(abc.ABC):
         :raises AMQPConnectionWorkflowWrongState: If called in wrong state, such
             as after starting the workflow.
         """
-        raise NotImplementedError
 
+    @abc.abstractmethod
     def abort(self) -> None:
         """
         Abort the workflow asynchronously.
@@ -578,7 +579,6 @@ class AbstractAMQPConnectionWorkflow(abc.ABC):
         :raises AMQPConnectionWorkflowWrongState: If called in wrong state, such
             as before starting or after completion has been reported.
         """
-        raise NotImplementedError
 
 
 class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
