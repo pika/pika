@@ -14,6 +14,7 @@ from typing import Any, Callable, Sequence, cast
 
 import pika.exceptions
 from pika import connection
+from pika._utils import override
 from pika.adapters.utils import connection_workflow, nbio_interface
 
 LOGGER = logging.getLogger(__name__)
@@ -77,6 +78,7 @@ class BaseConnection(connection.Connection):
             on_close_callback,
             internal_connection_workflow=internal_connection_workflow)
 
+    @override
     def _init_connection_state(self) -> None:
         """
         Initialize or reset all of our internal state variables for a given connection.
@@ -89,6 +91,7 @@ class BaseConnection(connection.Connection):
         self._transport = None
         self._got_eof = False
 
+    @override
     def __repr__(self) -> str:
 
         # def get_socket_repr(sock):
@@ -217,6 +220,7 @@ class BaseConnection(connection.Connection):
         """
         return self._nbio.get_native_ioloop()
 
+    @override
     def _adapter_call_later(self, delay: int | float,
                             callback: Callable[[], None]) -> object:
         """
@@ -228,6 +232,7 @@ class BaseConnection(connection.Connection):
         """
         return self._nbio.call_later(delay, callback)
 
+    @override
     def _adapter_remove_timeout(self, timeout_id: object) -> None:
         """
         Remove a scheduled timeout.
@@ -236,6 +241,7 @@ class BaseConnection(connection.Connection):
         """
         cast(nbio_interface.AbstractTimerReference, timeout_id).cancel()
 
+    @override
     def _adapter_add_callback_threadsafe(self, callback: Callable[...,
                                                                   Any]) -> None:
         """
@@ -249,6 +255,7 @@ class BaseConnection(connection.Connection):
 
         self._nbio.add_callback_threadsafe(callback)
 
+    @override
     def _adapter_connect_stream(self) -> None:
         """
         Initiate full-stack connection establishment asynchronously for internally-initiated
@@ -401,6 +408,7 @@ class BaseConnection(connection.Connection):
             LOGGER.debug('_handle_connection_workflow_failure(): '
                          'suppressing - connection already closed.')
 
+    @override
     def _adapter_disconnect_stream(self) -> None:
         """Asynchronously bring down the streaming transport layer and invoke
         `Connection._on_stream_terminated()` asynchronously when complete.
@@ -414,6 +422,7 @@ class BaseConnection(connection.Connection):
             assert self._transport is not None
             self._transport.abort()
 
+    @override
     def _adapter_emit_data(self, data: bytes) -> None:
         """
         Take ownership of data and send it to AMQP server as soon as possible.
@@ -536,5 +545,6 @@ class _StreamingProtocolShim(nbio_interface.AbstractStreamProtocol):
         """
         return getattr(self.conn, attr)
 
+    @override
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: {self.conn!r}'

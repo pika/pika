@@ -7,6 +7,7 @@ import struct
 from typing import Generic, TypeVar
 
 from pika import amqp_object, exceptions, spec
+from pika._utils import override
 
 LOGGER = logging.getLogger(__name__)
 
@@ -72,6 +73,7 @@ class Method(Frame, Generic[_MethodT]):
         Frame.__init__(self, spec.FRAME_METHOD, channel_number)
         self.method = method
 
+    @override
     def marshal(self) -> bytes:
         """Return the AMQP binary encoded value of the frame."""
         pieces = self.method.encode()
@@ -102,6 +104,7 @@ class Header(Frame):
         self.body_size = body_size
         self.properties = props
 
+    @override
     def marshal(self) -> bytes:
         """Return the AMQP binary encoded value of the frame."""
         pieces = self.properties.encode()
@@ -128,6 +131,7 @@ class Body(Frame):
         Frame.__init__(self, spec.FRAME_BODY, channel_number)
         self.fragment = fragment
 
+    @override
     def marshal(self) -> bytes:
         """Return the AMQP binary encoded value of the frame."""
         return self._marshal([self.fragment])
@@ -147,6 +151,7 @@ class Heartbeat(Frame):
         """Create a new instance of the Heartbeat frame."""
         Frame.__init__(self, spec.FRAME_HEARTBEAT, 0)
 
+    @override
     def marshal(self) -> bytes:
         """Return the AMQP binary encoded value of the frame."""
         return self._marshal([])

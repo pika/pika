@@ -10,6 +10,7 @@ import socket
 import threading
 from typing import Any, Callable
 
+from pika._utils import override
 from pika.adapters.utils import io_services_utils, nbio_interface
 from pika.adapters.utils.io_services_utils import check_callback_arg, check_fd_arg
 
@@ -182,6 +183,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         # become writable when waiting for socket connection to be established.
         self._writable_mask = self._loop.WRITE | self._loop.ERROR
 
+    @override
     def get_native_ioloop(self) -> AbstractSelectorIOLoop:
         """Implement
         :py:meth:`.nbio_interface.AbstractIOServices.get_native_ioloop()`.
@@ -189,18 +191,22 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """
         return self._loop
 
+    @override
     def close(self) -> None:
         """Implement :py:meth:`.nbio_interface.AbstractIOServices.close()`."""
         self._loop.close()
 
+    @override
     def run(self) -> None:
         """Implement :py:meth:`.nbio_interface.AbstractIOServices.run()`."""
         self._loop.start()
 
+    @override
     def stop(self) -> None:
         """Implement :py:meth:`.nbio_interface.AbstractIOServices.stop()`."""
         self._loop.stop()
 
+    @override
     def add_callback_threadsafe(self, callback) -> None:
         """Implement
         :py:meth:`.nbio_interface.AbstractIOServices.add_callback_threadsafe()`.
@@ -208,6 +214,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """
         self._loop.add_callback(callback)
 
+    @override
     def call_later(self, delay, callback: Callable[..., None]) -> _TimerHandle:
         """
         Implement :py:meth:`.nbio_interface.AbstractIOServices.call_later()`.
@@ -217,6 +224,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """
         return _TimerHandle(self._loop.call_later(delay, callback), self._loop)
 
+    @override
     def getaddrinfo(self,
                     host: str,
                     port: int,
@@ -246,6 +254,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
                              flags=flags,
                              on_done=on_done).start())
 
+    @override
     def set_reader(self, fd: int, on_readable: Callable[[], None]) -> None:
         """Implement
         :py:meth:`.nbio_interface.AbstractFileDescriptorServices.set_reader()`.
@@ -277,6 +286,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
             callbacks.reader = on_readable
 
+    @override
     def remove_reader(self, fd: int) -> bool:
         """Implement
         :py:meth:`.nbio_interface.AbstractFileDescriptorServices.remove_reader()`.
@@ -310,6 +320,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
         return True
 
+    @override
     def set_writer(self, fd: int, on_writable: Callable[[], None]) -> None:
         """Implement
         :py:meth:`.nbio_interface.AbstractFileDescriptorServices.set_writer()`.
@@ -344,6 +355,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
                 LOGGER.debug('set_writer(%s, _) replacing writer', fd)
                 callbacks.writer = on_writable
 
+    @override
     def remove_writer(self, fd: int) -> bool:
         """Implement
         :py:meth:`.nbio_interface.AbstractFileDescriptorServices.remove_writer()`.
@@ -446,6 +458,7 @@ class _TimerHandle(nbio_interface.AbstractTimerReference):
         self._handle: object | None = handle
         self._loop: AbstractSelectorIOLoop | None = loop
 
+    @override
     def cancel(self) -> None:
         if self._loop is not None:
             self._loop.remove_timeout(self._handle)
@@ -463,6 +476,7 @@ class _SelectorIOLoopIOHandle(nbio_interface.AbstractIOReference):
         """
         self._cancel = subject.cancel
 
+    @override
     def cancel(self) -> bool:
         """
         Cancel pending operation.

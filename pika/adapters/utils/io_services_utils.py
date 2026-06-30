@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Callable, cast
 
 import pika._utils
 import pika.diagnostic_utils
+from pika._utils import override
 from pika.adapters.utils.nbio_interface import AbstractIOReference, AbstractStreamTransport
 
 if TYPE_CHECKING:
@@ -172,6 +173,7 @@ class _AsyncServiceAsyncHandle(AbstractIOReference):
         """
         self._cancel = subject.cancel
 
+    @override
     def cancel(self) -> bool:
         """
         Cancel pending operation.
@@ -753,6 +755,7 @@ class _AsyncTransportBase(AbstractStreamTransport):
         self._tx_buffers: collections.deque[bytes] = collections.deque()
         self._tx_buffered_byte_count = 0
 
+    @override
     def abort(self) -> None:
         """
         Close connection abruptly without waiting for pending I/O to complete.
@@ -767,11 +770,13 @@ class _AsyncTransportBase(AbstractStreamTransport):
 
         self._initiate_abort(None)
 
+    @override
     def get_protocol(self) -> nbio_interface.AbstractStreamProtocol:
         """Return the protocol linked to this transport."""
         assert self._protocol is not None
         return self._protocol
 
+    @override
     def get_write_buffer_size(self) -> int:
         """
         :returns: Current size of output data buffered by the transport
@@ -1038,6 +1043,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
         assert self._sock is not None
         self._nbio.set_reader(self._sock.fileno(), self._on_socket_readable)
 
+    @override
     def write(self, data: bytes) -> None:
         """
         Buffer the given data until it can be sent asynchronously.
@@ -1187,6 +1193,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
         # Try reading asap just in case read-ahead caused some
         self._nbio.add_callback_threadsafe(self._on_socket_readable)
 
+    @override
     def write(self, data: bytes) -> None:
         """
         Buffer the given data until it can be sent asynchronously.
@@ -1259,6 +1266,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                 self._sock)
 
     @_log_exceptions
+    @override
     def _consume(self) -> None:
         """
         [override] Ingest data from socket and dispatch it to protocol until exception occurs
@@ -1334,6 +1342,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
             self._nbio.set_writer(self._sock.fileno(), self._on_socket_writable)
 
     @_log_exceptions
+    @override
     def _produce(self) -> None:
         """
         [override] Emit data from tx_buffers all chunks are exhausted or sending is interrupted by

@@ -20,6 +20,7 @@ import pika.connection
 import pika.exceptions
 import pika.tcp_socket_opts
 from pika import __version__
+from pika._utils import override
 
 if TYPE_CHECKING:
     from pika.adapters.utils import nbio_interface
@@ -62,6 +63,7 @@ class AMQPConnectorPhaseErrorBase(AMQPConnectorException):
         super().__init__(*args)
         self.exception = exception
 
+    @override
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: {self.exception!r}'
 
@@ -101,6 +103,7 @@ class AMQPConnectionWorkflowFailed(AMQPConnectorException):
         super().__init__(*args)
         self.exceptions = tuple(exceptions)
 
+    @override
     def __repr__(self) -> str:
         return (
             f'{self.__class__.__name__}: {len(self.exceptions)} exceptions in all; last exception - {self.exceptions[-1]!r}; first '
@@ -660,6 +663,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         """
         self._nbio = nbio
 
+    @override
     def start(
         self, connection_configs: Sequence[pika.connection.Parameters],
         connector_factory: Callable[..., Any], native_loop,
@@ -718,6 +722,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         self._task_ref = self._nbio.call_later(
             0, functools.partial(self._start_new_cycle_async, first=True))
 
+    @override
     def abort(self) -> None:
         """Override `AbstractAMQPConnectionWorkflow.abort()`."""
         if self._state == self._STATE_INIT:

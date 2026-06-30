@@ -7,6 +7,7 @@ import logging
 import sys
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Sequence
 
+from pika._utils import override
 from pika.adapters import base_connection
 from pika.adapters.utils import connection_workflow, io_services_utils, nbio_interface
 
@@ -73,6 +74,7 @@ class AsyncioConnection(base_connection.BaseConnection):
             internal_connection_workflow=internal_connection_workflow)
 
     @classmethod
+    @override
     def create_connection(
         cls,
         connection_configs: Sequence[connection.Parameters],
@@ -143,6 +145,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
                 loop = asyncio.new_event_loop()
         self._loop = loop
 
+    @override
     def get_native_ioloop(self) -> asyncio.AbstractEventLoop:
         """Implement
         :py:meth:`.utils.nbio_interface.AbstractIOServices.get_native_ioloop()`.
@@ -150,6 +153,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """
         return self._loop
 
+    @override
     def close(self) -> None:
         """Implement
         :py:meth:`.utils.nbio_interface.AbstractIOServices.close()`.
@@ -157,14 +161,17 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """
         self._loop.close()
 
+    @override
     def run(self) -> None:
         """Implement :py:meth:`.utils.nbio_interface.AbstractIOServices.run()`."""
         self._loop.run_forever()
 
+    @override
     def stop(self) -> None:
         """Implement :py:meth:`.utils.nbio_interface.AbstractIOServices.stop()`."""
         self._loop.stop()
 
+    @override
     def add_callback_threadsafe(self, callback: Callable[[], None]) -> None:
         """Implement
         :py:meth:`.utils.nbio_interface.AbstractIOServices.add_callback_threadsafe()`.
@@ -173,6 +180,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """
         self._loop.call_soon_threadsafe(callback)
 
+    @override
     def call_later(self, delay: float,
                    callback: Callable[[], None]) -> _TimerHandle:
         """Implement
@@ -183,6 +191,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """
         return _TimerHandle(self._loop.call_later(delay, callback))
 
+    @override
     def getaddrinfo(self,
                     host: str,
                     port: int,
@@ -210,6 +219,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
                                    proto=proto,
                                    flags=flags), on_done)
 
+    @override
     def set_reader(self, fd: int, on_readable: Callable[[], None]) -> None:
         """Implement
         :py:meth:`.utils.nbio_interface.AbstractFileDescriptorServices.set_reader()`.
@@ -220,6 +230,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         self._loop.add_reader(fd, on_readable)
         LOGGER.debug('set_reader(%s, _)', fd)
 
+    @override
     def remove_reader(self, fd: int) -> bool:
         """Implement
         :py:meth:`.utils.nbio_interface.AbstractFileDescriptorServices.remove_reader()`.
@@ -229,6 +240,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         LOGGER.debug('remove_reader(%s)', fd)
         return self._loop.remove_reader(fd)
 
+    @override
     def set_writer(self, fd: int, on_writable: Callable[[], None]) -> None:
         """Implement
         :py:meth:`.utils.nbio_interface.AbstractFileDescriptorServices.set_writer()`.
@@ -239,6 +251,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         self._loop.add_writer(fd, on_writable)
         LOGGER.debug('set_writer(%s, _)', fd)
 
+    @override
     def remove_writer(self, fd: int) -> bool:
         """Implement
         :py:meth:`.utils.nbio_interface.AbstractFileDescriptorServices.remove_writer()`.
@@ -278,6 +291,7 @@ class _TimerHandle(nbio_interface.AbstractTimerReference):
         """
         self._handle: asyncio.Handle | None = handle
 
+    @override
     def cancel(self) -> None:
         """Cancel the timer handle."""
         if self._handle is not None:
@@ -317,6 +331,7 @@ class _AsyncioIOReference(nbio_interface.AbstractIOReference):
 
         future.add_done_callback(on_done_adapter)
 
+    @override
     def cancel(self) -> bool:
         """
         Cancel pending operation.

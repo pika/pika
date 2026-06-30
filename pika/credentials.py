@@ -21,6 +21,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Type, Union
 
+from pika._utils import override
+
 from ._utils import as_bytes
 
 if TYPE_CHECKING:
@@ -61,6 +63,7 @@ class PlainCredentials:
         self.password: str | None = password
         self.erase_on_connect: bool = erase_on_connect
 
+    @override
     def __eq__(self, other) -> bool:
         if isinstance(other, PlainCredentials):
             return (self.username == other.username and
@@ -68,6 +71,7 @@ class PlainCredentials:
                     self.erase_on_connect == other.erase_on_connect)
         return NotImplemented
 
+    @override
     def __ne__(self, other) -> bool:
         result = self.__eq__(other)
         if result is not NotImplemented:
@@ -106,11 +110,13 @@ class ExternalCredentials:
         """Create a new instance of ExternalCredentials."""
         self.erase_on_connect = False
 
+    @override
     def __eq__(self, other) -> bool:
         if isinstance(other, ExternalCredentials):
             return self.erase_on_connect == other.erase_on_connect
         return NotImplemented
 
+    @override
     def __ne__(self, other) -> bool:
         result = self.__eq__(other)
         if result is not NotImplemented:

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Callable, Sequence
 
 from tornado import ioloop
 
+from pika._utils import override
 from pika.adapters import base_connection
 from pika.adapters.utils import nbio_interface, selector_ioloop_adapter
 
@@ -80,6 +81,7 @@ class TornadoConnection(base_connection.BaseConnection):
             internal_connection_workflow=internal_connection_workflow)
 
     @classmethod
+    @override
     def create_connection(
         cls,
         connection_configs: Sequence[connection.Parameters],

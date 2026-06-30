@@ -36,6 +36,7 @@ import pika.frame as frame
 import pika.heartbeat
 import pika.spec as spec
 import pika.validators as validators
+from pika._utils import override
 
 if TYPE_CHECKING:
     from pika import amqp_object
@@ -136,17 +137,20 @@ class Parameters:
         self.virtual_host = self.DEFAULT_VIRTUAL_HOST
         self.tcp_options = self.DEFAULT_TCP_OPTIONS
 
+    @override
     def __repr__(self) -> str:
         """Represent the info about the instance."""
         return (
             f'<{self.__class__.__name__} host={self.host} port={self.port} virtual_host={self.virtual_host} ssl={bool(self.ssl_options)}>'
         )
 
+    @override
     def __eq__(self, other) -> bool:
         if isinstance(other, Parameters):
             return self._host == other._host and self._port == other._port
         return NotImplemented
 
+    @override
     def __ne__(self, other) -> bool:
         result = self.__eq__(other)
         if result is not NotImplemented:
