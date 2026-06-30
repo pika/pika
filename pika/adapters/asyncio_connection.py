@@ -147,28 +147,18 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
     @override
     def get_native_ioloop(self) -> asyncio.AbstractEventLoop:
-        """Implement
-        :py:meth:`.utils.nbio_interface.AbstractIOServices.get_native_ioloop()`.
-
-        """
         return self._loop
 
     @override
     def close(self) -> None:
-        """Implement
-        :py:meth:`.utils.nbio_interface.AbstractIOServices.close()`.
-
-        """
         self._loop.close()
 
     @override
     def run(self) -> None:
-        """Implement :py:meth:`.utils.nbio_interface.AbstractIOServices.run()`."""
         self._loop.run_forever()
 
     @override
     def stop(self) -> None:
-        """Implement :py:meth:`.utils.nbio_interface.AbstractIOServices.stop()`."""
         self._loop.stop()
 
     @override

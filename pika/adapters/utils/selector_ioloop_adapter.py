@@ -185,33 +185,22 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
     @override
     def get_native_ioloop(self) -> AbstractSelectorIOLoop:
-        """Implement
-        :py:meth:`.nbio_interface.AbstractIOServices.get_native_ioloop()`.
-
-        """
         return self._loop
 
     @override
     def close(self) -> None:
-        """Implement :py:meth:`.nbio_interface.AbstractIOServices.close()`."""
         self._loop.close()
 
     @override
     def run(self) -> None:
-        """Implement :py:meth:`.nbio_interface.AbstractIOServices.run()`."""
         self._loop.start()
 
     @override
     def stop(self) -> None:
-        """Implement :py:meth:`.nbio_interface.AbstractIOServices.stop()`."""
         self._loop.stop()
 
     @override
     def add_callback_threadsafe(self, callback) -> None:
-        """Implement
-        :py:meth:`.nbio_interface.AbstractIOServices.add_callback_threadsafe()`.
-
-        """
         self._loop.add_callback(callback)
 
     @override
