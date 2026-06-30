@@ -13,7 +13,7 @@ import abc
 import functools
 import logging
 import socket
-from typing import TYPE_CHECKING, Any, Callable, Iterator, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Iterator, Sequence, Tuple, Union, cast
 
 import pika._utils
 import pika.connection
@@ -460,10 +460,10 @@ class AMQPConnector:
         # result is a two-tuple (transport, protocol)
         _LOG.info('Streaming transport linked up: %r.', result)
         assert isinstance(result, tuple)
+        # The protocol is pika's _StreamingProtocolShim, which delegates to the
+        # Connection it wraps (via __getattr__); treat it as that Connection.
         _transport, protocol = result
-        # The protocol produced by `_conn_factory` is the pika Connection.
-        assert isinstance(protocol, pika.connection.Connection)
-        self._amqp_conn = protocol
+        self._amqp_conn = cast('pika.connection.Connection', protocol)
 
         # AMQP handshake is in progress - initiated during transport link-up
         self._state = self._STATE_AMQP
