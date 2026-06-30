@@ -115,8 +115,7 @@ class GeventConnection(BaseConnection):
         workflow: None |
         (connection_workflow.AbstractAMQPConnectionWorkflow) = None
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
-        """Implement
-        :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
+        """
         :param connection_configs: One or more connection parameter objects
         :param on_done: Callback to report when connection workflow is done
         :param custom_ioloop: Optional custom Gevent ILoop to use for the
@@ -382,8 +381,6 @@ class _GeventSelectorIOServicesAdapter(SelectorIOServicesAdapter):
                     proto: int = 0,
                     flags: int = 0) -> nbio_interface.AbstractIOReference:
         """
-        Implement :py:meth:`.nbio_interface.AbstractIOServices.getaddrinfo()`.
-
         :param host: Hostname or IP address
         :param port: TCP port number
         :param on_done: The callback to call with the result of getaddrinfo

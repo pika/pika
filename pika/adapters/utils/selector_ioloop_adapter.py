@@ -206,8 +206,6 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
     @override
     def call_later(self, delay, callback: Callable[..., None]) -> _TimerHandle:
         """
-        Implement :py:meth:`.nbio_interface.AbstractIOServices.call_later()`.
-
         :param delay: The number of seconds to wait to call callback
         :param callback: The callback to call after delay seconds
         """
@@ -223,8 +221,6 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
                     proto: int = 0,
                     flags: int = 0) -> nbio_interface.AbstractIOReference:
         """
-        Implement :py:meth:`.nbio_interface.AbstractIOServices.getaddrinfo()`.
-
         :param host: Hostname or IP address
         :param port: TCP port number
         :param on_done: Callback to report when done
@@ -245,9 +241,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
     @override
     def set_reader(self, fd: int, on_readable: Callable[[], None]) -> None:
-        """Implement
-        :py:meth:`.nbio_interface.AbstractFileDescriptorServices.set_reader()`.
-
+        """
         :param fd: File descriptor
         :param on_readable: The callback to call when the file descriptor is readable
         """
@@ -277,9 +271,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
     @override
     def remove_reader(self, fd: int) -> bool:
-        """Implement
-        :py:meth:`.nbio_interface.AbstractFileDescriptorServices.remove_reader()`.
-
+        """
         :param fd: File descriptor
         """
         LOGGER.debug('SelectorIOServicesAdapter.remove_reader(%s)', fd)
@@ -311,9 +303,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
     @override
     def set_writer(self, fd: int, on_writable: Callable[[], None]) -> None:
-        """Implement
-        :py:meth:`.nbio_interface.AbstractFileDescriptorServices.set_writer()`.
-
+        """
         :param fd: File descriptor
         :param on_writable: The callback to call when the file descriptor is writable
         """
@@ -346,9 +336,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
     @override
     def remove_writer(self, fd: int) -> bool:
-        """Implement
-        :py:meth:`.nbio_interface.AbstractFileDescriptorServices.remove_writer()`.
-
+        """
         :param fd: File descriptor
         """
         LOGGER.debug('SelectorIOServicesAdapter.remove_writer(%s)', fd)

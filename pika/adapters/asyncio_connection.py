@@ -84,9 +84,7 @@ class AsyncioConnection(base_connection.BaseConnection):
         workflow: None |
         (connection_workflow.AbstractAMQPConnectionWorkflow) = None
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
-        """Implement
-        :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
-
+        """
         :param connection_configs: One or more connection parameter objects
         :param on_done: Callback to report when connection workflow is done
         :param custom_ioloop: Optional custom event loop to use for the connection workflow
@@ -163,9 +161,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
     @override
     def add_callback_threadsafe(self, callback: Callable[[], None]) -> None:
-        """Implement
-        :py:meth:`.utils.nbio_interface.AbstractIOServices.add_callback_threadsafe()`.
-
+        """
         :param callback: The callback to call from the thread
         """
         self._loop.call_soon_threadsafe(callback)
@@ -173,9 +169,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
     @override
     def call_later(self, delay: float,
                    callback: Callable[[], None]) -> _TimerHandle:
-        """Implement
-        :py:meth:`.utils.nbio_interface.AbstractIOServices.call_later()`.
-
+        """
         :param delay: Delay in seconds
         :param callback: The callback to call after the delay
         """
@@ -190,9 +184,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
                     socktype: int = 0,
                     proto: int = 0,
                     flags: int = 0) -> nbio_interface.AbstractIOReference:
-        """Implement
-        :py:meth:`.utils.nbio_interface.AbstractIOServices.getaddrinfo()`.
-
+        """
         :param host: Hostname or IP address
         :param port: TCP port number
         :param on_done: The callback to call with the result of getaddrinfo
@@ -211,9 +203,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
     @override
     def set_reader(self, fd: int, on_readable: Callable[[], None]) -> None:
-        """Implement
-        :py:meth:`.utils.nbio_interface.AbstractFileDescriptorServices.set_reader()`.
-
+        """
         :param fd: File descriptor
         :param on_readable: The callback to call when the file descriptor is readable
         """
@@ -222,9 +212,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
     @override
     def remove_reader(self, fd: int) -> bool:
-        """Implement
-        :py:meth:`.utils.nbio_interface.AbstractFileDescriptorServices.remove_reader()`.
-
+        """
         :param fd: File descriptor
         """
         LOGGER.debug('remove_reader(%s)', fd)
@@ -232,9 +220,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
     @override
     def set_writer(self, fd: int, on_writable: Callable[[], None]) -> None:
-        """Implement
-        :py:meth:`.utils.nbio_interface.AbstractFileDescriptorServices.set_writer()`.
-
+        """
         :param fd: File descriptor
         :param on_writable: The callback to call when the file descriptor is writable
         """
@@ -243,9 +229,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
     @override
     def remove_writer(self, fd: int) -> bool:
-        """Implement
-        :py:meth:`.utils.nbio_interface.AbstractFileDescriptorServices.remove_writer()`.
-
+        """
         :param fd: File descriptor
         """
         LOGGER.debug('remove_writer(%s)', fd)

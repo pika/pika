@@ -1083,9 +1083,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
     @override
     def _adapter_call_later(self, delay: float,
                             callback: Callable[..., None]) -> _TimerHandle:
-        """Implement
-        :py:meth:`pika.connection.Connection._adapter_call_later()`.
-
+        """
         :param delay: Delay in seconds
         :param callback: The callback to call after the delay
         """
@@ -1096,9 +1094,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
 
     @override
     def _adapter_remove_timeout(self, timeout_id: Any) -> None:
-        """Implement
-        :py:meth:`pika.connection.Connection._adapter_remove_timeout()`.
-
+        """
         :param timeout_id: Opaque timeout handle returned by ``callLater``
         """
         timeout_id.cancel()
@@ -1106,9 +1102,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
     @override
     def _adapter_add_callback_threadsafe(self,
                                          callback: Callable[..., None]) -> None:
-        """Implement
-        :py:meth:`pika.connection.Connection._adapter_add_callback_threadsafe()`.
-
+        """
         :param callback: The callback to call from the thread
         """
         check_callback_arg(callback, 'callback')
@@ -1117,30 +1111,19 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
 
     @override
     def _adapter_connect_stream(self) -> None:
-        """Implement pure virtual
-        :py:ref:meth:`pika.connection.Connection._adapter_connect_stream()`
-         method.
-
-        NOTE: This should not be called due to our initialization of Connection
-        via `internal_connection_workflow=False`
+        """NOTE: This should not be called due to our initialization of Connection via
+        `internal_connection_workflow=False`
         """
         raise NotImplementedError
 
     @override
     def _adapter_disconnect_stream(self) -> None:
-        """Implement pure virtual
-        :py:ref:meth:`pika.connection.Connection._adapter_disconnect_stream()`
-         method.
-
-        """
         assert self._transport is not None
         self._transport.loseConnection()  # type: ignore[misc]
 
     @override
     def _adapter_emit_data(self, data: bytes) -> None:
-        """Implement pure virtual
-        :py:ref:meth:`pika.connection.Connection._adapter_emit_data()` method.
-
+        """
         :param data: Raw bytes to write to the transport
         """
         assert self._transport is not None
