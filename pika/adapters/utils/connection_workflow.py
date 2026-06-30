@@ -9,6 +9,7 @@ implementing custom connection workflows.
 
 from __future__ import annotations
 
+import abc
 import functools
 import logging
 import socket
@@ -456,7 +457,10 @@ class AMQPConnector:
         # result is a two-tuple (transport, protocol)
         _LOG.info('Streaming transport linked up: %r.', result)
         assert isinstance(result, tuple)
-        _transport, self._amqp_conn = result
+        _transport, protocol = result
+        # The protocol produced by `_conn_factory` is the pika Connection.
+        assert isinstance(protocol, pika.connection.Connection)
+        self._amqp_conn = protocol
 
         # AMQP handshake is in progress - initiated during transport link-up
         self._state = self._STATE_AMQP
@@ -523,9 +527,7 @@ class AMQPConnector:
         self._report_completion_and_cleanup(result)
 
 
-class AbstractAMQPConnectionWorkflow(
-        pika._utils.AbstractBase  # type: ignore[valid-type, misc]
-):
+class AbstractAMQPConnectionWorkflow(abc.ABC):
     """Interface for implementing a custom TCP/[SSL]/AMQP connection workflow."""
 
     def start(
@@ -603,9 +605,6 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
 
     def __init__(self, _until_first_amqp_attempt: bool = False) -> None:
         """
-        :param retry_pause: Non-negative number of seconds to wait
-            before retrying the config sequence. Meaningful only if retries is
-            greater than 0. Defaults to 2 seconds.
         :param _until_first_amqp_attempt: INTERNAL USE ONLY; ends workflow
             after first AMQP handshake attempt, regardless of outcome (success
             or failure). The automatic connection logic in

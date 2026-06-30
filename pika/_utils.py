@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import abc
 import os
 import re
 import socket
@@ -14,9 +13,6 @@ RE_NUM = re.compile(r'(\d+).+')
 ON_LINUX = sys.platform.startswith('linux')
 ON_OSX = sys.platform == 'darwin'
 ON_WINDOWS = sys.platform == 'win32'
-
-# Portable Abstract Base Class
-AbstractBase = abc.ABCMeta('AbstractBase', (object,), {})
 
 SOCKET_ERROR = OSError
 

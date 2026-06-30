@@ -17,14 +17,12 @@ from __future__ import annotations
 import abc
 from typing import TYPE_CHECKING, Any, Callable
 
-import pika._utils
-
 if TYPE_CHECKING:
     import socket
     import ssl
 
 
-class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]  # yapf: disable
+class AbstractIOServices(abc.ABC):
     """
     Interface to I/O services required by `pika.adapters.BaseConnection` and related utilities.
 
@@ -229,9 +227,7 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
         raise NotImplementedError
 
 
-class AbstractFileDescriptorServices(
-        pika._utils.AbstractBase  # type: ignore[valid-type, misc]
-):
+class AbstractFileDescriptorServices(abc.ABC):
     """
     Interface definition of common non-blocking file descriptor services required by some utility
     implementations.
@@ -296,9 +292,19 @@ class AbstractFileDescriptorServices(
         raise NotImplementedError
 
 
-class AbstractTimerReference(
-        pika._utils.AbstractBase  # type: ignore[valid-type, misc]
-):
+class AbstractFileDescriptorIOServices(AbstractIOServices,
+                                       AbstractFileDescriptorServices):
+    """
+    Combination of `AbstractIOServices` and `AbstractFileDescriptorServices`.
+
+    This is the interface actually required by the socket/stream connectors and transports in
+    `pika.adapters.utils.io_services_utils`: they rely on the base asynchronous services (e.g.
+    `add_callback_threadsafe`) as well as the file-descriptor watcher services (e.g.
+    `set_reader`/`set_writer`). The concrete I/O services adapters implement both.
+    """
+
+
+class AbstractTimerReference(abc.ABC):
     """Reference to asynchronous operation."""
 
     @abc.abstractmethod
@@ -311,7 +317,7 @@ class AbstractTimerReference(
         raise NotImplementedError
 
 
-class AbstractIOReference(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]  # yapf: disable
+class AbstractIOReference(abc.ABC):
     """Reference to asynchronous I/O operation."""
 
     @abc.abstractmethod
@@ -324,9 +330,7 @@ class AbstractIOReference(pika._utils.AbstractBase):  # type: ignore[valid-type,
         raise NotImplementedError
 
 
-class AbstractStreamProtocol(
-        pika._utils.AbstractBase  # type: ignore[valid-type, misc]
-):
+class AbstractStreamProtocol(abc.ABC):
     """
     Stream protocol interface.
 
@@ -402,9 +406,7 @@ class AbstractStreamProtocol(
     #     raise NotImplementedError
 
 
-class AbstractStreamTransport(
-        pika._utils.AbstractBase  # type: ignore[valid-type, misc]
-):
+class AbstractStreamTransport(abc.ABC):
     """
     Stream transport interface.
 

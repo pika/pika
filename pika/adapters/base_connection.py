@@ -285,9 +285,11 @@ class BaseConnection(connection.Connection):
             :py:meth:`connection_workflow.AbstractAMQPConnectionWorkflow.start()`.
         :param shim_or_exc: `_StreamingProtocolShim | Exception`
         """
-        result = shim_or_exc
-        if isinstance(result, _StreamingProtocolShim):
-            result = result.conn
+        result: BaseConnection | BaseException
+        if isinstance(shim_or_exc, _StreamingProtocolShim):
+            result = shim_or_exc.conn
+        else:
+            result = shim_or_exc
 
         user_on_done(result)
 

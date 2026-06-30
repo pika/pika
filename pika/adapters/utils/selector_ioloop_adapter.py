@@ -148,8 +148,8 @@ class AbstractSelectorIOLoop:
 
 class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
                                 io_services_utils.StreamingConnectionMixin,
-                                nbio_interface.AbstractIOServices,
-                                nbio_interface.AbstractFileDescriptorServices):
+                                nbio_interface.AbstractFileDescriptorIOServices
+                               ):
     """Implements the
     :py:class:`.nbio_interface.AbstractIOServices` interface
     on top of selector-style native loop having the

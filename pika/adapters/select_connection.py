@@ -444,7 +444,7 @@ class IOLoop(AbstractSelectorIOLoop):
 
         :returns: The instantiated poller instance supporting `_PollerBase` API
         """
-        poller = None
+        poller: _PollerBase | None = None
 
         kwargs: POLLER_PARAMS = {
             "get_wait_seconds": get_wait_seconds,
@@ -616,7 +616,7 @@ class IOLoop(AbstractSelectorIOLoop):
         self._poller.poll()
 
 
-class _PollerBase(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
+class _PollerBase(abc.ABC):
     """Base class for select-based IOLoop implementations."""
 
     # Drop out of the poll loop every _MAX_POLL_TIMEOUT secs as a worst case;

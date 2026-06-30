@@ -116,8 +116,8 @@ class AsyncioConnection(base_connection.BaseConnection):
 
 class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
                                 io_services_utils.StreamingConnectionMixin,
-                                nbio_interface.AbstractIOServices,
-                                nbio_interface.AbstractFileDescriptorServices):
+                                nbio_interface.AbstractFileDescriptorIOServices
+                               ):
     """Implements
     :py:class:`.utils.nbio_interface.AbstractIOServices` interface
     on top of `asyncio`.
