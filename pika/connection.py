@@ -1524,7 +1524,6 @@ class Connection(abc.ABC):
         :param callback: The callback will be called without args.
         :returns: Handle that can be passed to `_adapter_remove_timeout()` to cancel the callback.
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def _adapter_remove_timeout(self, timeout_id: object) -> None:
@@ -1533,7 +1532,6 @@ class Connection(abc.ABC):
 
         :param timeout_id: The timeout handle to remove
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def _adapter_add_callback_threadsafe(self, callback: Callable[...,
@@ -1548,7 +1546,6 @@ class Connection(abc.ABC):
 
         :param callback: The callback method; must be callable.
         """
-        raise NotImplementedError
 
     #
     # Internal methods for managing the communication process
@@ -1563,7 +1560,6 @@ class Connection(abc.ABC):
         NOTE: On success, the stack will be up already, so there is no
               corresponding callback.
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def _adapter_disconnect_stream(self) -> None:
@@ -1573,7 +1569,6 @@ class Connection(abc.ABC):
         :raises NotImplementedError:
 
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def _adapter_emit_data(self, data: bytes) -> None:
@@ -1584,7 +1579,6 @@ class Connection(abc.ABC):
 
         :param data:
         """
-        raise NotImplementedError
 
     def _add_channel_callbacks(self, channel_number: int) -> None:
         """

@@ -155,7 +155,6 @@ class BaseConnection(connection.Connection):
         :returns: Connection workflow instance in use. The user should limit
             their interaction with this object only to it's `abort()` method.
         """
-        raise NotImplementedError
 
     @classmethod
     def _start_connection_workflow(

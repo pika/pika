@@ -36,7 +36,6 @@ class AbstractIOServices(abc.ABC):
         """Returns the native I/O loop instance, such as Twisted reactor, asyncio's or tornado's
         event loop.
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def close(self) -> None:
@@ -52,7 +51,6 @@ class AbstractIOServices(abc.ABC):
         implementations. Pika users should use the native I/O loop's API
         instead.
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def run(self) -> None:
@@ -69,7 +67,6 @@ class AbstractIOServices(abc.ABC):
                 methods named start/stop). Pika users should use the native I/O loop's
                 API instead.
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def stop(self) -> None:
@@ -92,7 +89,6 @@ class AbstractIOServices(abc.ABC):
 
             `ioloop.add_callback_threadsafe(ioloop.stop)`
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def add_callback_threadsafe(self, callback: Callable[..., None]) -> None:
@@ -111,7 +107,6 @@ class AbstractIOServices(abc.ABC):
 
         :param callback: The callback method; must be callable.
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def call_later(self, delay: float,
@@ -126,7 +121,6 @@ class AbstractIOServices(abc.ABC):
         :param callback: The callback method
         :returns: A handle that can be used to cancel the request.
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def getaddrinfo(self,
@@ -152,7 +146,6 @@ class AbstractIOServices(abc.ABC):
         :param proto: Protocol number (0 for default)
         :param flags: :func:`socket.getaddrinfo` flags
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def connect_socket(
@@ -183,7 +176,6 @@ class AbstractIOServices(abc.ABC):
             address or is inconsistent with the socket's address family as
             validated via `socket.inet_pton()`
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def create_streaming_connection(
@@ -224,7 +216,6 @@ class AbstractIOServices(abc.ABC):
             establishment to match against the target server's certificate. The
             value `None` disables this check (which is a huge security risk)
         """
-        raise NotImplementedError
 
 
 class AbstractFileDescriptorServices(abc.ABC):
@@ -247,7 +238,6 @@ class AbstractFileDescriptorServices(abc.ABC):
         :param fd: file descriptor
         :param on_readable: a callback taking no args to be notified when fd becomes readable.
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def remove_reader(self, fd: int) -> bool:
@@ -257,7 +247,6 @@ class AbstractFileDescriptorServices(abc.ABC):
         :param fd: file descriptor
         :returns: True if reader was removed; False if none was registered.
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def set_writer(self, fd: int, on_writable: Callable[[], None]) -> None:
@@ -279,7 +268,6 @@ class AbstractFileDescriptorServices(abc.ABC):
         :param on_writable: a callback taking no args to be notified
             when fd becomes writable.
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def remove_writer(self, fd: int) -> bool:
@@ -289,7 +277,6 @@ class AbstractFileDescriptorServices(abc.ABC):
         :param fd: file descriptor
         :returns: True if reader was removed; False if none was registered.
         """
-        raise NotImplementedError
 
 
 class AbstractFileDescriptorIOServices(AbstractIOServices,
@@ -314,7 +301,6 @@ class AbstractTimerReference(abc.ABC):
 
         If already cancelled, has no affect.
         """
-        raise NotImplementedError
 
 
 class AbstractIOReference(abc.ABC):
@@ -327,7 +313,6 @@ class AbstractIOReference(abc.ABC):
 
         :returns: False if was already done or cancelled; True otherwise
         """
-        raise NotImplementedError
 
 
 class AbstractStreamProtocol(abc.ABC):
@@ -346,7 +331,6 @@ class AbstractStreamProtocol(abc.ABC):
         :param transport:
         :raises Exception: Exception-based exception on error
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def connection_lost(self, error: BaseException | None) -> None:
@@ -363,7 +347,6 @@ class AbstractStreamProtocol(abc.ABC):
             doesn't evaluate to True.
         :raises Exception: Exception-based exception on error
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def eof_received(self) -> bool | None:
@@ -375,7 +358,6 @@ class AbstractStreamProtocol(abc.ABC):
             returned, it will be the protocol's responsibility to close/abort the transport.
         :raises Exception: Exception-based exception on error
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def data_received(self, data: bytes) -> None:
@@ -385,7 +367,7 @@ class AbstractStreamProtocol(abc.ABC):
         :param data: Non-empty data bytes.
         :raises Exception: Exception-based exception on error
         """
-        raise NotImplementedError
+        ...
 
     # TODO Undecided whether we need write flow-control yet, although it seems
     #      like a good idea.
@@ -424,7 +406,6 @@ class AbstractStreamTransport(abc.ABC):
 
         :raises Exception: Exception-based exception on error
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def get_protocol(self) -> AbstractStreamProtocol:
@@ -433,7 +414,6 @@ class AbstractStreamTransport(abc.ABC):
 
         :raises Exception: Exception-based exception on error
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def write(self, data: bytes) -> None:
@@ -444,14 +424,13 @@ class AbstractStreamTransport(abc.ABC):
         :raises ValueError: if called with empty data
         :raises Exception: Exception-based exception on error
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def get_write_buffer_size(self) -> int:
         """
         :returns: Current size of output data buffered by the transport
         """
-        raise NotImplementedError
+        ...
 
     # TODO Udecided whether we need write flow-control yet, although it seems
     #      like a good idea.

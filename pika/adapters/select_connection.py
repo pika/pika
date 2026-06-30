@@ -881,17 +881,14 @@ class _PollerBase(abc.ABC):
     @abc.abstractmethod
     def poll(self) -> None:
         """Wait for events on interested filedescriptors."""
-        raise NotImplementedError
 
     @abc.abstractmethod
     def _init_poller(self) -> None:
         """Notify the implementation to allocate the poller resource."""
-        raise NotImplementedError
 
     @abc.abstractmethod
     def _uninit_poller(self) -> None:
         """Notify the implementation to release the poller resource."""
-        raise NotImplementedError
 
     @abc.abstractmethod
     def _register_fd(self, fileno: int, events: int) -> None:
@@ -903,7 +900,6 @@ class _PollerBase(abc.ABC):
         :param fileno: The file descriptor
         :param events: The event mask (READ, WRITE, ERROR)
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def _modify_fd_events(self, fileno: int, events: int, events_to_clear: int,
@@ -917,7 +913,6 @@ class _PollerBase(abc.ABC):
         :param events_to_clear: The events to clear (READ, WRITE, ERROR)
         :param events_to_set: The events to set (READ, WRITE, ERROR)
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def _unregister_fd(self, fileno: int, events_to_clear: int) -> None:
@@ -929,7 +924,6 @@ class _PollerBase(abc.ABC):
         :param fileno: The file descriptor
         :param events_to_clear: The events to clear (READ, WRITE, ERROR)
         """
-        raise NotImplementedError
 
     def _dispatch_fd_events(self, fd_event_map: dict[int, int]) -> None:
         """
