@@ -17,14 +17,12 @@ from __future__ import annotations
 import abc
 from typing import TYPE_CHECKING, Any, Callable
 
-import pika._utils
-
 if TYPE_CHECKING:
     import socket
     import ssl
 
 
-class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]  # yapf: disable
+class AbstractIOServices(abc.ABC):
     """
     Interface to I/O services required by `pika.adapters.BaseConnection` and related utilities.
 
@@ -38,7 +36,6 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
         """Returns the native I/O loop instance, such as Twisted reactor, asyncio's or tornado's
         event loop.
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def close(self) -> None:
@@ -54,7 +51,6 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
         implementations. Pika users should use the native I/O loop's API
         instead.
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def run(self) -> None:
@@ -71,7 +67,6 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
                 methods named start/stop). Pika users should use the native I/O loop's
                 API instead.
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def stop(self) -> None:
@@ -94,7 +89,6 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
 
             `ioloop.add_callback_threadsafe(ioloop.stop)`
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def add_callback_threadsafe(self, callback: Callable[..., None]) -> None:
@@ -113,7 +107,6 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
 
         :param callback: The callback method; must be callable.
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def call_later(self, delay: float,
@@ -128,7 +121,6 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
         :param callback: The callback method
         :returns: A handle that can be used to cancel the request.
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def getaddrinfo(self,
@@ -154,7 +146,6 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
         :param proto: Protocol number (0 for default)
         :param flags: :func:`socket.getaddrinfo` flags
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def connect_socket(
@@ -185,7 +176,6 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
             address or is inconsistent with the socket's address family as
             validated via `socket.inet_pton()`
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def create_streaming_connection(
@@ -226,12 +216,9 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
             establishment to match against the target server's certificate. The
             value `None` disables this check (which is a huge security risk)
         """
-        raise NotImplementedError
 
 
-class AbstractFileDescriptorServices(
-        pika._utils.AbstractBase  # type: ignore[valid-type, misc]
-):
+class AbstractFileDescriptorServices(abc.ABC):
     """
     Interface definition of common non-blocking file descriptor services required by some utility
     implementations.
@@ -251,7 +238,6 @@ class AbstractFileDescriptorServices(
         :param fd: file descriptor
         :param on_readable: a callback taking no args to be notified when fd becomes readable.
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def remove_reader(self, fd: int) -> bool:
@@ -261,7 +247,6 @@ class AbstractFileDescriptorServices(
         :param fd: file descriptor
         :returns: True if reader was removed; False if none was registered.
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def set_writer(self, fd: int, on_writable: Callable[[], None]) -> None:
@@ -283,7 +268,6 @@ class AbstractFileDescriptorServices(
         :param on_writable: a callback taking no args to be notified
             when fd becomes writable.
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def remove_writer(self, fd: int) -> bool:
@@ -293,12 +277,21 @@ class AbstractFileDescriptorServices(
         :param fd: file descriptor
         :returns: True if reader was removed; False if none was registered.
         """
-        raise NotImplementedError
 
 
-class AbstractTimerReference(
-        pika._utils.AbstractBase  # type: ignore[valid-type, misc]
-):
+class AbstractFileDescriptorIOServices(AbstractIOServices,
+                                       AbstractFileDescriptorServices):
+    """
+    Combination of `AbstractIOServices` and `AbstractFileDescriptorServices`.
+
+    This is the interface actually required by the socket/stream connectors and transports in
+    `pika.adapters.utils.io_services_utils`: they rely on the base asynchronous services (e.g.
+    `add_callback_threadsafe`) as well as the file-descriptor watcher services (e.g.
+    `set_reader`/`set_writer`). The concrete I/O services adapters implement both.
+    """
+
+
+class AbstractTimerReference(abc.ABC):
     """Reference to asynchronous operation."""
 
     @abc.abstractmethod
@@ -308,10 +301,9 @@ class AbstractTimerReference(
 
         If already cancelled, has no affect.
         """
-        raise NotImplementedError
 
 
-class AbstractIOReference(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]  # yapf: disable
+class AbstractIOReference(abc.ABC):
     """Reference to asynchronous I/O operation."""
 
     @abc.abstractmethod
@@ -321,12 +313,9 @@ class AbstractIOReference(pika._utils.AbstractBase):  # type: ignore[valid-type,
 
         :returns: False if was already done or cancelled; True otherwise
         """
-        raise NotImplementedError
 
 
-class AbstractStreamProtocol(
-        pika._utils.AbstractBase  # type: ignore[valid-type, misc]
-):
+class AbstractStreamProtocol(abc.ABC):
     """
     Stream protocol interface.
 
@@ -342,7 +331,6 @@ class AbstractStreamProtocol(
         :param transport:
         :raises Exception: Exception-based exception on error
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def connection_lost(self, error: BaseException | None) -> None:
@@ -359,7 +347,6 @@ class AbstractStreamProtocol(
             doesn't evaluate to True.
         :raises Exception: Exception-based exception on error
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def eof_received(self) -> bool | None:
@@ -371,7 +358,6 @@ class AbstractStreamProtocol(
             returned, it will be the protocol's responsibility to close/abort the transport.
         :raises Exception: Exception-based exception on error
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def data_received(self, data: bytes) -> None:
@@ -381,7 +367,7 @@ class AbstractStreamProtocol(
         :param data: Non-empty data bytes.
         :raises Exception: Exception-based exception on error
         """
-        raise NotImplementedError
+        ...
 
     # TODO Undecided whether we need write flow-control yet, although it seems
     #      like a good idea.
@@ -402,9 +388,7 @@ class AbstractStreamProtocol(
     #     raise NotImplementedError
 
 
-class AbstractStreamTransport(
-        pika._utils.AbstractBase  # type: ignore[valid-type, misc]
-):
+class AbstractStreamTransport(abc.ABC):
     """
     Stream transport interface.
 
@@ -422,7 +406,6 @@ class AbstractStreamTransport(
 
         :raises Exception: Exception-based exception on error
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def get_protocol(self) -> AbstractStreamProtocol:
@@ -431,7 +414,6 @@ class AbstractStreamTransport(
 
         :raises Exception: Exception-based exception on error
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def write(self, data: bytes) -> None:
@@ -442,14 +424,13 @@ class AbstractStreamTransport(
         :raises ValueError: if called with empty data
         :raises Exception: Exception-based exception on error
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def get_write_buffer_size(self) -> int:
         """
         :returns: Current size of output data buffered by the transport
         """
-        raise NotImplementedError
+        ...
 
     # TODO Udecided whether we need write flow-control yet, although it seems
     #      like a good idea.

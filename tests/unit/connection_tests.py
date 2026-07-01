@@ -7,6 +7,7 @@ from unittest import mock
 
 import pika
 from pika import channel, connection, credentials, exceptions, frame, spec
+from pika._utils import override
 
 
 def dummy_callback():
@@ -18,21 +19,27 @@ class ConstructibleConnection(connection.Connection):
     it.
     """
 
+    @override
     def _adapter_connect_stream(self):
         raise NotImplementedError
 
+    @override
     def _adapter_disconnect_stream(self):
         raise NotImplementedError
 
+    @override
     def _adapter_call_later(self, delay, callback):
         raise NotImplementedError
 
+    @override
     def _adapter_remove_timeout(self, timeout_id):
         raise NotImplementedError
 
+    @override
     def _adapter_add_callback_threadsafe(self, callback):
         raise NotImplementedError
 
+    @override
     def _adapter_emit_data(self, data):
         raise NotImplementedError
 

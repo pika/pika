@@ -4,6 +4,8 @@ methods.
 
 from __future__ import annotations
 
+from pika._utils import override
+
 
 class AMQPObject:
     """Base object that is extended by AMQP low level frames and AMQP classes and methods."""
@@ -11,6 +13,7 @@ class AMQPObject:
     NAME: str = 'AMQPObject'
     INDEX: int | None = None
 
+    @override
     def __repr__(self) -> str:
         items = []
         for key, value in self.__dict__.items():
@@ -20,6 +23,7 @@ class AMQPObject:
             return f"<{self.NAME}>"
         return f"<{self.NAME}({sorted(items)})>"
 
+    @override
     def __eq__(self, other: object) -> bool:
         if other is not None:
             return self.__dict__ == other.__dict__

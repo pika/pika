@@ -2,21 +2,36 @@
 
 from __future__ import annotations
 
-import abc
 import os
 import re
 import socket
 import sys
 import time
+from typing import TYPE_CHECKING
+
+# `override` is a type-check-time marker (PEP 698); it has no runtime effect
+# beyond returning the function unchanged. It landed in the stdlib in 3.12.
+# To keep pika dependency-free we do NOT require typing_extensions at runtime:
+# type checkers (which always provide typing_extensions) see the real decorator
+# via the TYPE_CHECKING branch, while older runtimes use a no-op fallback.
+# Re-exported across pika (declared in __all__ below).
+if sys.version_info >= (3, 12):
+    from typing import override
+elif TYPE_CHECKING:
+    from typing_extensions import override
+else:
+
+    def override(func):
+        return func
+
+
+__all__ = ['override']
 
 RE_NUM = re.compile(r'(\d+).+')
 
 ON_LINUX = sys.platform.startswith('linux')
 ON_OSX = sys.platform == 'darwin'
 ON_WINDOWS = sys.platform == 'win32'
-
-# Portable Abstract Base Class
-AbstractBase = abc.ABCMeta('AbstractBase', (object,), {})
 
 SOCKET_ERROR = OSError
 
