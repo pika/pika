@@ -413,7 +413,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
     def create_accept_socket(self):
         """Create a socket and setup 'accept' handler."""
         listen_sock = socket.socket()
-        listen_sock.setblocking(0)
+        listen_sock.setblocking(False)
         listen_sock.bind(('localhost', 0))
         listen_sock.listen(1)
         fd_ = self.save_sock(listen_sock)
@@ -423,7 +423,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
     def create_write_socket(self, on_connected):
         """Create a pair of socket and setup 'connected' handler."""
         write_sock = socket.socket()
-        write_sock.setblocking(0)
+        write_sock.setblocking(False)
         err = write_sock.connect_ex(self.listen_addr)
         # NOTE we get errno.EWOULDBLOCK 10035 on Windows
         self.assertIn(err, (errno.EINPROGRESS, errno.EWOULDBLOCK))
