@@ -30,7 +30,7 @@ class ConstructableConnection(connection.Connection):
     def _adapter_add_callback_threadsafe(self, callback):
         raise NotImplementedError
 
-    def _adapter_call_later(self, deadline, callback):
+    def _adapter_call_later(self, delay, callback):
         raise NotImplementedError
 
     def _adapter_remove_timeout(self, timeout_id):
