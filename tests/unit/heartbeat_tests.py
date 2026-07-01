@@ -5,6 +5,7 @@ from unittest import mock
 
 import pika.exceptions
 from pika import connection, frame, heartbeat
+from pika._utils import override
 
 
 class ConstructableConnection(connection.Connection):
@@ -12,27 +13,27 @@ class ConstructableConnection(connection.Connection):
     it.
     """
 
+    @override
     def _adapter_connect_stream(self):
         pass
 
+    @override
     def _adapter_disconnect_stream(self):
         raise NotImplementedError
 
-    def call_later(self, delay, callback):
-        raise NotImplementedError
-
-    def remove_timeout(self, timeout_id):
-        raise NotImplementedError
-
+    @override
     def _adapter_emit_data(self, data):
         raise NotImplementedError
 
+    @override
     def _adapter_add_callback_threadsafe(self, callback):
         raise NotImplementedError
 
+    @override
     def _adapter_call_later(self, delay, callback):
         raise NotImplementedError
 
+    @override
     def _adapter_remove_timeout(self, timeout_id):
         raise NotImplementedError
 
