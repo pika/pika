@@ -14,9 +14,6 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
-if sys.platform == 'win32':
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
 
 class AsyncioConnection(base_connection.BaseConnection):
     """ The AsyncioConnection runs on the Asyncio EventLoop.
@@ -133,7 +130,10 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
             try:
                 loop = asyncio.get_running_loop()
             except RuntimeError:
-                loop = asyncio.new_event_loop()
+                if sys.platform == 'win32':
+                    loop = asyncio.SelectorEventLoop()
+                else:
+                    loop = asyncio.new_event_loop()
         self._loop = loop
 
     def get_native_ioloop(self) -> asyncio.AbstractEventLoop:
