@@ -4,18 +4,22 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Sequence
 
+from pika._utils import override
+
 if TYPE_CHECKING:
     from pika.adapters.blocking_connection import ReturnedMessage
 
 
 class AMQPError(Exception):
 
+    @override
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: An unspecified AMQP error has occurred; {self.args}'
 
 
 class AMQPConnectionError(AMQPError):
 
+    @override
     def __repr__(self) -> str:
         if len(self.args) == 2:
             return f'{self.__class__.__name__}: ({self.args[0]}) {self.args[1]}'
@@ -32,6 +36,7 @@ class StreamLostError(AMQPConnectionError):
 
 class IncompatibleProtocolError(AMQPConnectionError):
 
+    @override
     def __repr__(self) -> str:
         return (
             f'{self.__class__.__name__}: The protocol returned by the server is not supported: {self.args}'
@@ -40,6 +45,7 @@ class IncompatibleProtocolError(AMQPConnectionError):
 
 class AuthenticationError(AMQPConnectionError):
 
+    @override
     def __repr__(self) -> str:
         return (
             f'{self.__class__.__name__}: Server and client could not negotiate use of the {self.args[0]} '
@@ -48,6 +54,7 @@ class AuthenticationError(AMQPConnectionError):
 
 class ProbableAuthenticationError(AMQPConnectionError):
 
+    @override
     def __repr__(self) -> str:
         return (
             f'{self.__class__.__name__}: Client was disconnected at a connection stage indicating a '
@@ -56,6 +63,7 @@ class ProbableAuthenticationError(AMQPConnectionError):
 
 class ProbableAccessDeniedError(AMQPConnectionError):
 
+    @override
     def __repr__(self) -> str:
         return (
             f'{self.__class__.__name__}: Client was disconnected at a connection stage indicating a '
@@ -65,6 +73,7 @@ class ProbableAccessDeniedError(AMQPConnectionError):
 
 class NoFreeChannels(AMQPConnectionError):
 
+    @override
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: The connection has run out of free channels'
 
@@ -72,6 +81,7 @@ class NoFreeChannels(AMQPConnectionError):
 class ConnectionWrongStateError(AMQPConnectionError):
     """Connection is in wrong state for the requested operation."""
 
+    @override
     def __repr__(self) -> str:
         if self.args:
             return super().__repr__()
@@ -93,6 +103,7 @@ class ConnectionClosed(AMQPConnectionError):
         """
         super().__init__(int(reply_code), str(reply_text))
 
+    @override
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: ({self.reply_code}) {self.reply_text!r}'
 
@@ -125,6 +136,7 @@ class AMQPHeartbeatTimeout(AMQPConnectionError):
 
 class AMQPChannelError(AMQPError):
 
+    @override
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: {self.args!r}'
 
@@ -150,6 +162,7 @@ class ChannelClosed(AMQPChannelError):
         """
         super().__init__(int(reply_code), str(reply_text))
 
+    @override
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: ({self.reply_code}) {self.reply_text!r}'
 
@@ -184,6 +197,7 @@ class ChannelClosedByClient(ChannelClosed):
 
 class DuplicateConsumerTag(AMQPChannelError):
 
+    @override
     def __repr__(self) -> str:
         return (
             f'{self.__class__.__name__}: The consumer tag specified already exists for this '
@@ -192,6 +206,7 @@ class DuplicateConsumerTag(AMQPChannelError):
 
 class ConsumerCancelled(AMQPChannelError):
 
+    @override
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: Server cancelled consumer'
 
@@ -214,6 +229,7 @@ class UnroutableError(AMQPChannelError):
 
         self.messages = messages
 
+    @override
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: {len(self.messages)} unroutable messages returned by broker'
 
@@ -234,36 +250,42 @@ class NackError(AMQPChannelError):
 
         self.messages = messages
 
+    @override
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: {len(self.messages)} unroutable messages returned by broker'
 
 
 class InvalidChannelNumber(AMQPError):
 
+    @override
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: An invalid channel number has been specified: {self.args[0]}'
 
 
 class ProtocolSyntaxError(AMQPError):
 
+    @override
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: An unspecified protocol syntax error occurred'
 
 
 class UnexpectedFrameError(ProtocolSyntaxError):
 
+    @override
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: Received a frame out of sequence: {self.args[0]!r}'
 
 
 class ProtocolVersionMismatch(ProtocolSyntaxError):
 
+    @override
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: Protocol versions did not match: {self.args[0]!r} vs {self.args[1]!r}'
 
 
 class BodyTooLongError(ProtocolSyntaxError):
 
+    @override
     def __repr__(self) -> str:
         return (
             f'{self.__class__.__name__}: Received too many bytes for a message delivery: '
@@ -272,18 +294,21 @@ class BodyTooLongError(ProtocolSyntaxError):
 
 class InvalidFrameError(ProtocolSyntaxError):
 
+    @override
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: Invalid frame received: {self.args[0]!r}'
 
 
 class InvalidFieldTypeException(ProtocolSyntaxError):
 
+    @override
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: Unsupported field kind {self.args[0]}'
 
 
 class UnsupportedAMQPFieldException(ProtocolSyntaxError):
 
+    @override
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: Unsupported field kind {type(self.args[1])}'
 
@@ -294,6 +319,7 @@ class MethodNotImplemented(AMQPError):
 
 class ChannelError(Exception):
 
+    @override
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: An unspecified error occurred with the Channel'
 
@@ -308,6 +334,7 @@ class ReentrancyError(Exception):
 
 class ShortStringTooLong(AMQPError):
 
+    @override
     def __repr__(self) -> str:
         return (
             f'{self.__class__.__name__}: AMQP Short String can contain up to 255 bytes: '
@@ -316,6 +343,7 @@ class ShortStringTooLong(AMQPError):
 
 class DuplicateGetOkCallback(ChannelError):
 
+    @override
     def __repr__(self) -> str:
         return (
             f'{self.__class__.__name__}: basic_get can only be called again after the callback for '

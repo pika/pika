@@ -9,16 +9,18 @@ implementing custom connection workflows.
 
 from __future__ import annotations
 
+import abc
 import functools
 import logging
 import socket
-from typing import TYPE_CHECKING, Any, Callable, Iterator, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Iterator, Sequence, Tuple, Union, cast
 
 import pika._utils
 import pika.connection
 import pika.exceptions
 import pika.tcp_socket_opts
 from pika import __version__
+from pika._utils import override
 
 if TYPE_CHECKING:
     from pika.adapters.utils import nbio_interface
@@ -61,6 +63,7 @@ class AMQPConnectorPhaseErrorBase(AMQPConnectorException):
         super().__init__(*args)
         self.exception = exception
 
+    @override
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: {self.exception!r}'
 
@@ -100,6 +103,7 @@ class AMQPConnectionWorkflowFailed(AMQPConnectorException):
         super().__init__(*args)
         self.exceptions = tuple(exceptions)
 
+    @override
     def __repr__(self) -> str:
         return (
             f'{self.__class__.__name__}: {len(self.exceptions)} exceptions in all; last exception - {self.exceptions[-1]!r}; first '
@@ -456,7 +460,10 @@ class AMQPConnector:
         # result is a two-tuple (transport, protocol)
         _LOG.info('Streaming transport linked up: %r.', result)
         assert isinstance(result, tuple)
-        _transport, self._amqp_conn = result
+        # The protocol is pika's _StreamingProtocolShim, which delegates to the
+        # Connection it wraps (via __getattr__); treat it as that Connection.
+        _transport, protocol = result
+        self._amqp_conn = cast('pika.connection.Connection', protocol)
 
         # AMQP handshake is in progress - initiated during transport link-up
         self._state = self._STATE_AMQP
@@ -523,11 +530,10 @@ class AMQPConnector:
         self._report_completion_and_cleanup(result)
 
 
-class AbstractAMQPConnectionWorkflow(
-        pika._utils.AbstractBase  # type: ignore[valid-type, misc]
-):
+class AbstractAMQPConnectionWorkflow(abc.ABC):
     """Interface for implementing a custom TCP/[SSL]/AMQP connection workflow."""
 
+    @abc.abstractmethod
     def start(
         self, connection_configs: Sequence[pika.connection.Parameters],
         connector_factory: Callable[..., Any], native_loop,
@@ -559,8 +565,8 @@ class AbstractAMQPConnectionWorkflow(
         :raises AMQPConnectionWorkflowWrongState: If called in wrong state, such
             as after starting the workflow.
         """
-        raise NotImplementedError
 
+    @abc.abstractmethod
     def abort(self) -> None:
         """
         Abort the workflow asynchronously.
@@ -573,7 +579,6 @@ class AbstractAMQPConnectionWorkflow(
         :raises AMQPConnectionWorkflowWrongState: If called in wrong state, such
             as before starting or after completion has been reported.
         """
-        raise NotImplementedError
 
 
 class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
@@ -603,9 +608,6 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
 
     def __init__(self, _until_first_amqp_attempt: bool = False) -> None:
         """
-        :param retry_pause: Non-negative number of seconds to wait
-            before retrying the config sequence. Meaningful only if retries is
-            greater than 0. Defaults to 2 seconds.
         :param _until_first_amqp_attempt: INTERNAL USE ONLY; ends workflow
             after first AMQP handshake attempt, regardless of outcome (success
             or failure). The automatic connection logic in
@@ -661,6 +663,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         """
         self._nbio = nbio
 
+    @override
     def start(
         self, connection_configs: Sequence[pika.connection.Parameters],
         connector_factory: Callable[..., Any], native_loop,
@@ -719,6 +722,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         self._task_ref = self._nbio.call_later(
             0, functools.partial(self._start_new_cycle_async, first=True))
 
+    @override
     def abort(self) -> None:
         """Override `AbstractAMQPConnectionWorkflow.abort()`."""
         if self._state == self._STATE_INIT:

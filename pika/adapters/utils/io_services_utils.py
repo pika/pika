@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Callable, cast
 
 import pika._utils
 import pika.diagnostic_utils
+from pika._utils import override
 from pika.adapters.utils.nbio_interface import AbstractIOReference, AbstractStreamTransport
 
 if TYPE_CHECKING:
@@ -93,9 +94,9 @@ class SocketConnectionMixin:
     """
 
     def connect_socket(
-        self, sock: socket.socket, resolved_addr: tuple[str, int],
-        on_done: Callable[[BaseException | None], None]
-    ) -> _AsyncServiceAsyncHandle:
+            self, sock: socket.socket, resolved_addr: tuple[str, int],
+            on_done: Callable[[BaseException | None],
+                              None]) -> AbstractIOReference:
         """Implement
         :py:meth:`.nbio_interface.AbstractIOServices.connect_socket()`.
 
@@ -105,7 +106,7 @@ class SocketConnectionMixin:
 
         """
         return _AsyncSocketConnector(nbio=cast(
-            'nbio_interface.AbstractFileDescriptorServices', self),
+            'nbio_interface.AbstractFileDescriptorIOServices', self),
                                      sock=sock,
                                      resolved_addr=resolved_addr,
                                      on_done=on_done).start()
@@ -141,7 +142,7 @@ class StreamingConnectionMixin:
         """
         try:
             return _AsyncStreamConnector(nbio=cast(
-                'nbio_interface.AbstractFileDescriptorServices', self),
+                'nbio_interface.AbstractFileDescriptorIOServices', self),
                                          protocol_factory=protocol_factory,
                                          sock=sock,
                                          ssl_context=ssl_context,
@@ -172,6 +173,7 @@ class _AsyncServiceAsyncHandle(AbstractIOReference):
         """
         self._cancel = subject.cancel
 
+    @override
     def cancel(self) -> bool:
         """
         Cancel pending operation.
@@ -195,8 +197,7 @@ class _AsyncSocketConnector:
     _STATE_CANCELED = 2  # workflow aborted by user's cancel() call
     _STATE_COMPLETED = 3  # workflow completed: succeeded or failed
 
-    def __init__(self, nbio: (nbio_interface.AbstractIOServices |
-                              nbio_interface.AbstractFileDescriptorServices),
+    def __init__(self, nbio: nbio_interface.AbstractFileDescriptorIOServices,
                  sock: socket.socket, resolved_addr: tuple[str, int],
                  on_done: Callable[[BaseException | None], None]) -> None:
         """
@@ -377,8 +378,7 @@ class _AsyncStreamConnector:
     _STATE_COMPLETED = 3  # workflow terminated by success or failure
 
     def __init__(
-        self, nbio: (nbio_interface.AbstractIOServices |
-                     nbio_interface.AbstractFileDescriptorServices),
+        self, nbio: nbio_interface.AbstractFileDescriptorIOServices,
         protocol_factory: Callable[[], nbio_interface.AbstractStreamProtocol],
         sock: socket.socket, ssl_context: ssl.SSLContext | None,
         server_hostname: str | None,
@@ -420,9 +420,8 @@ class _AsyncStreamConnector:
                 'Expected connected socket, but getpeername() failed: '
                 f'error={error!r}; {sock}; ')
 
-        self._nbio: None | (
-            nbio_interface.AbstractIOServices |
-            nbio_interface.AbstractFileDescriptorServices) = nbio
+        self._nbio: (nbio_interface.AbstractFileDescriptorIOServices |
+                     None) = nbio
         self._protocol_factory: None | (
             Callable[[],
                      nbio_interface.AbstractStreamProtocol]) = protocol_factory
@@ -593,7 +592,7 @@ class _AsyncStreamConnector:
         """
         _LOGGER.debug('_AsyncStreamConnector._linkup()')
 
-        transport = None
+        transport: nbio_interface.AbstractStreamTransport | None = None
 
         assert self._sock is not None
         assert self._nbio is not None
@@ -627,6 +626,8 @@ class _AsyncStreamConnector:
                                       error, self._sock)
                     raise
 
+            # Both branches above assign transport or raise.
+            assert transport is not None
             _LOGGER.debug('_linkup(): created transport %r', transport)
 
             # Acquaint protocol with its transport
@@ -732,12 +733,9 @@ class _AsyncTransportBase(AbstractStreamTransport):
         def __init__(self) -> None:
             super().__init__(-1, 'End of input stream (EOF)')
 
-    def __init__(
-        self, sock: socket.socket | ssl.SSLSocket,
-        protocol: nbio_interface.AbstractStreamProtocol,
-        nbio: (nbio_interface.AbstractIOServices |
-               nbio_interface.AbstractFileDescriptorServices)
-    ) -> None:
+    def __init__(self, sock: socket.socket | ssl.SSLSocket,
+                 protocol: nbio_interface.AbstractStreamProtocol,
+                 nbio: nbio_interface.AbstractFileDescriptorIOServices) -> None:
         """
 
         :param sock: connected socket
@@ -750,14 +748,14 @@ class _AsyncTransportBase(AbstractStreamTransport):
         _LOGGER.debug('_AsyncTransportBase.__init__: %s', sock)
         self._sock: socket.socket | ssl.SSLSocket | None = sock
         self._protocol: nbio_interface.AbstractStreamProtocol | None = protocol
-        self._nbio: (nbio_interface.AbstractIOServices |
-                     nbio_interface.AbstractFileDescriptorServices |
+        self._nbio: (nbio_interface.AbstractFileDescriptorIOServices |
                      None) = nbio
 
         self._state = self._STATE_ACTIVE
         self._tx_buffers: collections.deque[bytes] = collections.deque()
         self._tx_buffered_byte_count = 0
 
+    @override
     def abort(self) -> None:
         """
         Close connection abruptly without waiting for pending I/O to complete.
@@ -772,11 +770,13 @@ class _AsyncTransportBase(AbstractStreamTransport):
 
         self._initiate_abort(None)
 
+    @override
     def get_protocol(self) -> nbio_interface.AbstractStreamProtocol:
         """Return the protocol linked to this transport."""
         assert self._protocol is not None
         return self._protocol
 
+    @override
     def get_write_buffer_size(self) -> int:
         """
         :returns: Current size of output data buffered by the transport
@@ -1023,12 +1023,9 @@ class _AsyncTransportBase(AbstractStreamTransport):
 class _AsyncPlaintextTransport(_AsyncTransportBase):
     """Implementation of `nbio_interface.AbstractStreamTransport` for a plaintext connection."""
 
-    def __init__(
-        self, sock: socket.socket | ssl.SSLSocket,
-        protocol: nbio_interface.AbstractStreamProtocol,
-        nbio: (nbio_interface.AbstractIOServices |
-               nbio_interface.AbstractFileDescriptorServices)
-    ) -> None:
+    def __init__(self, sock: socket.socket | ssl.SSLSocket,
+                 protocol: nbio_interface.AbstractStreamProtocol,
+                 nbio: nbio_interface.AbstractFileDescriptorIOServices) -> None:
         """
 
         :param sock: non-blocking connected socket
@@ -1046,6 +1043,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
         assert self._sock is not None
         self._nbio.set_reader(self._sock.fileno(), self._on_socket_readable)
 
+    @override
     def write(self, data: bytes) -> None:
         """
         Buffer the given data until it can be sent asynchronously.
@@ -1171,12 +1169,9 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
 class _AsyncSSLTransport(_AsyncTransportBase):
     """Implementation of `.nbio_interface.AbstractStreamTransport` for an SSL connection."""
 
-    def __init__(
-        self, sock: ssl.SSLSocket,
-        protocol: nbio_interface.AbstractStreamProtocol,
-        nbio: nbio_interface.AbstractIOServices |
-        nbio_interface.AbstractFileDescriptorServices
-    ) -> None:
+    def __init__(self, sock: ssl.SSLSocket,
+                 protocol: nbio_interface.AbstractStreamProtocol,
+                 nbio: nbio_interface.AbstractFileDescriptorIOServices) -> None:
         """
 
         :param sock: non-blocking connected socket
@@ -1198,6 +1193,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
         # Try reading asap just in case read-ahead caused some
         self._nbio.add_callback_threadsafe(self._on_socket_readable)
 
+    @override
     def write(self, data: bytes) -> None:
         """
         Buffer the given data until it can be sent asynchronously.
@@ -1270,6 +1266,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                 self._sock)
 
     @_log_exceptions
+    @override
     def _consume(self) -> None:
         """
         [override] Ingest data from socket and dispatch it to protocol until exception occurs
@@ -1345,6 +1342,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
             self._nbio.set_writer(self._sock.fileno(), self._on_socket_writable)
 
     @_log_exceptions
+    @override
     def _produce(self) -> None:
         """
         [override] Emit data from tx_buffers all chunks are exhausted or sending is interrupted by

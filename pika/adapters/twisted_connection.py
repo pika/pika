@@ -27,6 +27,7 @@ import pika.connection
 import pika.frame
 import pika.spec
 from pika import exceptions, spec
+from pika._utils import override
 from pika.adapters.utils import nbio_interface
 from pika.adapters.utils.io_services_utils import check_callback_arg
 from pika.exchange_type import ExchangeType
@@ -51,6 +52,7 @@ class ClosableDeferredQueue(defer.DeferredQueue):
         self.closed: Exception | None = None
         super().__init__(size, backlog)
 
+    @override
     def put(self, obj: Any) -> None | (  # type: ignore[override]
             defer.Deferred[Any]):
         """
@@ -65,6 +67,7 @@ class ClosableDeferredQueue(defer.DeferredQueue):
         return defer.DeferredQueue.put(self,
                                        obj)  # type: ignore[func-returns-value]
 
+    @override
     def get(self) -> defer.Deferred[Any]:
         """
         Returns a Deferred that will fire with the next item in the queue, when it's available.
@@ -137,6 +140,7 @@ class TwistedChannel:
         self._channel.add_on_cancel_callback(
             self._on_consumer_cancelled_by_broker)
 
+    @override
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} channel={self._channel!r}>'
 
@@ -1076,11 +1080,10 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
             twisted.internet.interfaces.ITransport
         ) = None  # to be provided by `connection_made()`
 
+    @override
     def _adapter_call_later(self, delay: float,
                             callback: Callable[..., None]) -> _TimerHandle:
-        """Implement
-        :py:meth:`pika.connection.Connection._adapter_call_later()`.
-
+        """
         :param delay: Delay in seconds
         :param callback: The callback to call after the delay
         """
@@ -1089,48 +1092,38 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
             self._reactor.callLater(delay=delay, callable=callback)
         )  # pyright: ignore[reportAttributeAccessIssue]
 
+    @override
     def _adapter_remove_timeout(self, timeout_id: Any) -> None:
-        """Implement
-        :py:meth:`pika.connection.Connection._adapter_remove_timeout()`.
-
+        """
         :param timeout_id: Opaque timeout handle returned by ``callLater``
         """
         timeout_id.cancel()
 
+    @override
     def _adapter_add_callback_threadsafe(self,
                                          callback: Callable[..., None]) -> None:
-        """Implement
-        :py:meth:`pika.connection.Connection._adapter_add_callback_threadsafe()`.
-
+        """
         :param callback: The callback to call from the thread
         """
         check_callback_arg(callback, 'callback')
         self._reactor.callFromThread(
             callback)  # pyright: ignore[reportAttributeAccessIssue]
 
+    @override
     def _adapter_connect_stream(self) -> None:
-        """Implement pure virtual
-        :py:ref:meth:`pika.connection.Connection._adapter_connect_stream()`
-         method.
-
-        NOTE: This should not be called due to our initialization of Connection
-        via `internal_connection_workflow=False`
+        """NOTE: This should not be called due to our initialization of Connection via
+        `internal_connection_workflow=False`
         """
         raise NotImplementedError
 
+    @override
     def _adapter_disconnect_stream(self) -> None:
-        """Implement pure virtual
-        :py:ref:meth:`pika.connection.Connection._adapter_disconnect_stream()`
-         method.
-
-        """
         assert self._transport is not None
         self._transport.loseConnection()  # type: ignore[misc]
 
+    @override
     def _adapter_emit_data(self, data: bytes) -> None:
-        """Implement pure virtual
-        :py:ref:meth:`pika.connection.Connection._adapter_emit_data()` method.
-
+        """
         :param data: Raw bytes to write to the transport
         """
         assert self._transport is not None
@@ -1256,10 +1249,12 @@ class TwistedProtocolConnection(protocol.Protocol):
 
     # IProtocol methods
 
+    @override
     def dataReceived(self, data: bytes) -> None:
         # Pass the bytes to Pika for parsing
         self._impl.data_received(data)
 
+    @override
     def connectionLost(
         self,
         reason: twisted.python.failure.Failure = protocol.connectionDone
@@ -1270,6 +1265,7 @@ class TwistedProtocolConnection(protocol.Protocol):
         if d:
             d.errback(reason)
 
+    @override
     def makeConnection(
             self, transport: twisted.internet.interfaces.ITransport) -> None:
         self._impl.connection_made(transport)
@@ -1330,6 +1326,7 @@ class _TimerHandle(nbio_interface.AbstractTimerReference):
         """
         self._handle: twisted.internet.base.DelayedCall | None = handle
 
+    @override
     def cancel(self) -> None:
         if self._handle is not None:
             try:

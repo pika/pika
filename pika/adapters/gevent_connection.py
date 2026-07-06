@@ -16,6 +16,7 @@ import gevent.hub  # type: ignore[import-untyped]
 import gevent.socket  # type: ignore[import-untyped]
 
 import pika._utils
+from pika._utils import override
 from pika.adapters.base_connection import BaseConnection
 from pika.adapters.utils.io_services_utils import check_callback_arg
 from pika.adapters.utils.nbio_interface import (
@@ -104,6 +105,7 @@ class GeventConnection(BaseConnection):
             internal_connection_workflow=internal_connection_workflow)
 
     @classmethod
+    @override
     def create_connection(
         cls,
         connection_configs: Sequence[connection.Parameters],
@@ -113,8 +115,7 @@ class GeventConnection(BaseConnection):
         workflow: None |
         (connection_workflow.AbstractAMQPConnectionWorkflow) = None
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
-        """Implement
-        :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
+        """
         :param connection_configs: One or more connection parameter objects
         :param on_done: Callback to report when connection workflow is done
         :param custom_ioloop: Optional custom Gevent ILoop to use for the
@@ -237,11 +238,13 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
         self.add_handler(self._callback_queue.fd, run_callback_in_main_thread,
                          self.READ)
 
+    @override
     def close(self) -> None:
         """Release the loop's resources."""
         self._hub.loop.destroy()  # pyright: ignore[reportOptionalMemberAccess]
         self._hub = None
 
+    @override
     def start(self) -> None:
         """
         Run the I/O loop.
@@ -254,6 +257,7 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
         LOGGER.debug("Control was passed back from Gevent's IOLoop")
         self._waiter.clear()
 
+    @override
     def stop(self) -> None:
         """
         Request exit from the ioloop.
@@ -267,6 +271,7 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
         """
         self._waiter.switch(None)
 
+    @override
     def add_callback(self, callback: Callable[[], None]) -> None:
         """
         Requests a call to the given function as soon as possible in the context of this IOLoop's
@@ -296,6 +301,7 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
             )  # pyright: ignore[reportAssignmentType, reportOptionalMemberAccess]
             self._callback_queue.add_callback_threadsafe(callback)
 
+    @override
     def call_later(self, delay: float, callback: Callable[[], None]) -> Any:
         """
         Add the callback to the IOLoop timer to be called after delay seconds from the time of call
@@ -310,6 +316,7 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
         timer.start(callback)
         return timer
 
+    @override
     def remove_timeout(self, timeout_handle: Any) -> None:
         """
         Remove a timeout.
@@ -318,6 +325,7 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
         """
         timeout_handle.close()
 
+    @override
     def add_handler(self, fd: int, handler: Callable[[int, int], None],
                     events: int) -> None:
         """
@@ -332,6 +340,7 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
         self._io_watchers_by_fd[fd] = io_watcher
         io_watcher.start(handler, fd, events)
 
+    @override
     def update_handler(self, fd: int, events: int) -> None:
         """
         Change the events being watched for.
@@ -347,6 +356,7 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
         del self._io_watchers_by_fd[fd]
         self.add_handler(fd, callback, events)
 
+    @override
     def remove_handler(self, fd: int) -> None:
         """
         Stop watching the given file descriptor for events.
@@ -361,6 +371,7 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
 class _GeventSelectorIOServicesAdapter(SelectorIOServicesAdapter):
     """SelectorIOServicesAdapter implementation using Gevent's DNS resolver."""
 
+    @override
     def getaddrinfo(self,
                     host: str,
                     port: int,
@@ -370,8 +381,6 @@ class _GeventSelectorIOServicesAdapter(SelectorIOServicesAdapter):
                     proto: int = 0,
                     flags: int = 0) -> nbio_interface.AbstractIOReference:
         """
-        Implement :py:meth:`.nbio_interface.AbstractIOServices.getaddrinfo()`.
-
         :param host: Hostname or IP address
         :param port: TCP port number
         :param on_done: The callback to call with the result of getaddrinfo
@@ -406,6 +415,7 @@ class _GeventIOLoopIOHandle(AbstractIOReference):
         """
         self._cancel = subject.cancel
 
+    @override
     def cancel(self) -> bool:
         """
         Cancel pending operation.

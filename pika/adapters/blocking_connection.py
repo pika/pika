@@ -41,6 +41,7 @@ import pika.connection
 import pika.exceptions as exceptions
 import pika.spec
 import pika.validators as validators
+from pika._utils import override
 
 # NOTE: import SelectConnection after others to avoid circular depenency
 from pika.adapters import select_connection
@@ -241,6 +242,7 @@ class _TimerEvt:
         # `_adapter_call_later` method
         self.timer_id: object | None = None
 
+    @override
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} timer_id={self.timer_id} callback={self._callback}>'
 
@@ -267,6 +269,7 @@ class _ConnectionBlockedUnblockedEvtBase(Generic[T]):
         self._callback = callback
         self._method_frame = method_frame
 
+    @override
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} callback={self._callback}, frame={self._method_frame}>'
 
@@ -401,6 +404,7 @@ class BlockingConnection:
         self._impl = self._create_connection(parameters, _impl_class)
         self._impl.add_on_close_callback(self._closed_result.set_value_once)
 
+    @override
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} impl={self._impl!r}>'
 
@@ -1058,6 +1062,7 @@ class _ConsumerCancellationEvt(_ChannelPendingEvt):
         """
         self.method_frame = method_frame
 
+    @override
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} method_frame={self.method_frame!r}>'
 
@@ -1095,6 +1100,7 @@ class _ReturnedMessageEvt(_ChannelPendingEvt):
         self.properties = properties
         self.body = body
 
+    @override
     def __repr__(self) -> str:
         return (
             f'<{self.__class__.__name__} callback={self.callback!r} channel={self.channel!r}'
@@ -1220,6 +1226,7 @@ class _QueueConsumerGeneratorInfo:
         # _ConsumerCancellationEvt
         self.pending_events: deque[Any] = deque()
 
+    @override
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} params={self.params!r} consumer_tag={self.consumer_tag!r}>'
 
@@ -1332,6 +1339,7 @@ class BlockingChannel:
         """
         return self.channel_number
 
+    @override
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} impl={self._impl!r}>'
 

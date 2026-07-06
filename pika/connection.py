@@ -28,7 +28,6 @@ from urllib.parse import parse_qs as url_parse_qs
 from urllib.parse import unquote as url_unquote
 from urllib.parse import urlparse
 
-import pika._utils
 import pika.callback
 import pika.channel
 import pika.credentials
@@ -37,6 +36,7 @@ import pika.frame as frame
 import pika.heartbeat
 import pika.spec as spec
 import pika.validators as validators
+from pika._utils import override
 
 if TYPE_CHECKING:
     from pika import amqp_object
@@ -137,17 +137,20 @@ class Parameters:
         self.virtual_host = self.DEFAULT_VIRTUAL_HOST
         self.tcp_options = self.DEFAULT_TCP_OPTIONS
 
+    @override
     def __repr__(self) -> str:
         """Represent the info about the instance."""
         return (
             f'<{self.__class__.__name__} host={self.host} port={self.port} virtual_host={self.virtual_host} ssl={bool(self.ssl_options)}>'
         )
 
+    @override
     def __eq__(self, other) -> bool:
         if isinstance(other, Parameters):
             return self._host == other._host and self._port == other._port
         return NotImplemented
 
+    @override
     def __ne__(self, other) -> bool:
         result = self.__eq__(other)
         if result is not NotImplemented:
@@ -970,7 +973,7 @@ class SSLOptions:
         self.server_hostname = server_hostname
 
 
-class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
+class Connection(abc.ABC):
     """
     This is the core class that implements communication with RabbitMQ.
 
@@ -1521,7 +1524,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         :param callback: The callback will be called without args.
         :returns: Handle that can be passed to `_adapter_remove_timeout()` to cancel the callback.
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def _adapter_remove_timeout(self, timeout_id: object) -> None:
@@ -1530,7 +1532,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
 
         :param timeout_id: The timeout handle to remove
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def _adapter_add_callback_threadsafe(self, callback: Callable[...,
@@ -1545,7 +1546,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
 
         :param callback: The callback method; must be callable.
         """
-        raise NotImplementedError
 
     #
     # Internal methods for managing the communication process
@@ -1560,17 +1560,12 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         NOTE: On success, the stack will be up already, so there is no
               corresponding callback.
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def _adapter_disconnect_stream(self) -> None:
         """Asynchronously bring down the streaming transport layer and invoke
         `Connection._on_stream_terminated()` asynchronously when complete.
-
-        :raises NotImplementedError:
-
         """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def _adapter_emit_data(self, data: bytes) -> None:
@@ -1581,7 +1576,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
 
         :param data:
         """
-        raise NotImplementedError
 
     def _add_channel_callbacks(self, channel_number: int) -> None:
         """
