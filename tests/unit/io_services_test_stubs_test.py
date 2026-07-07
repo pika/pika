@@ -2,8 +2,6 @@
 Test for io_services_test_stubs.py
 """
 
-import pika.compat
-
 try:
     import asyncio
 except ImportError:
@@ -15,7 +13,7 @@ import unittest
 import tornado.ioloop
 
 from pika.adapters import select_connection
-
+from tests.base.asyncio_loop import new_pika_asyncio_loop
 from tests.stubs.io_services_test_stubs import IOServicesTestStubs
 
 # Suppress invalid-name, since our test names are descriptive and quite long
@@ -26,9 +24,7 @@ from tests.stubs.io_services_test_stubs import IOServicesTestStubs
 # pylint: disable=C0111
 
 if asyncio is not None:
-    if pika.compat.ON_WINDOWS:
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    loop = asyncio.new_event_loop()
+    loop = new_pika_asyncio_loop()
     asyncio.set_event_loop(loop)
 else:
     loop = None
