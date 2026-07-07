@@ -1148,8 +1148,9 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
 
         """
         check_callback_arg(callback, 'callback')
-        return _TimerHandle(self._reactor.callLater(
-            delay, callback))  # pyright: ignore[reportAttributeAccessIssue]
+        return _TimerHandle(
+            self._reactor.callLater(delay=delay, callable=callback)
+        )  # pyright: ignore[reportAttributeAccessIssue]
 
     def _adapter_remove_timeout(self, timeout_id: Any) -> None:
         """Implement
