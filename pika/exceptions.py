@@ -28,14 +28,19 @@ class AMQPConnectionError(AMQPError):
         self.host = host
         self.port = port
 
+    def _host_port_suffix(self) -> str:
+        """Return a ` (host=..., port=...)` repr suffix, or '' when unset."""
+        if self.host is not None:
+            return f' (host={self.host!r}, port={self.port})'
+        return ''
+
+    @override
     def __repr__(self) -> str:
         if len(self.args) == 2:
             base = f'{self.__class__.__name__}: ({self.args[0]}) {self.args[1]}'
         else:
             base = f'{self.__class__.__name__}: {self.args}'
-        if self.host is not None:
-            return f'{base} (host={self.host!r}, port={self.port})'
-        return base
+        return f'{base}{self._host_port_suffix()}'
 
 
 class ConnectionOpenAborted(AMQPConnectionError):
@@ -52,7 +57,7 @@ class IncompatibleProtocolError(AMQPConnectionError):
     def __repr__(self) -> str:
         return (
             f'{self.__class__.__name__}: The protocol returned by the server is not supported: {self.args}'
-        )
+            f'{self._host_port_suffix()}')
 
 
 class AuthenticationError(AMQPConnectionError):
@@ -61,7 +66,7 @@ class AuthenticationError(AMQPConnectionError):
     def __repr__(self) -> str:
         return (
             f'{self.__class__.__name__}: Server and client could not negotiate use of the {self.args[0]} '
-            'authentication mechanism')
+            f'authentication mechanism{self._host_port_suffix()}')
 
 
 class ProbableAuthenticationError(AMQPConnectionError):
@@ -70,7 +75,8 @@ class ProbableAuthenticationError(AMQPConnectionError):
     def __repr__(self) -> str:
         return (
             f'{self.__class__.__name__}: Client was disconnected at a connection stage indicating a '
-            f'probable authentication error: {self.args}')
+            f'probable authentication error: {self.args}{self._host_port_suffix()}'
+        )
 
 
 class ProbableAccessDeniedError(AMQPConnectionError):
@@ -80,14 +86,16 @@ class ProbableAccessDeniedError(AMQPConnectionError):
         return (
             f'{self.__class__.__name__}: Client was disconnected at a connection stage indicating a '
             f'probable denial of access to the specified virtual host: {self.args}'
-        )
+            f'{self._host_port_suffix()}')
 
 
 class NoFreeChannels(AMQPConnectionError):
 
     @override
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}: The connection has run out of free channels'
+        return (
+            f'{self.__class__.__name__}: The connection has run out of free channels'
+            f'{self._host_port_suffix()}')
 
 
 class ConnectionWrongStateError(AMQPConnectionError):
@@ -99,7 +107,7 @@ class ConnectionWrongStateError(AMQPConnectionError):
             return super().__repr__()
         return (
             f'{self.__class__.__name__}: The connection is in wrong state for the requested '
-            'operation.')
+            f'operation.{self._host_port_suffix()}')
 
 
 class ConnectionClosed(AMQPConnectionError):
@@ -123,7 +131,9 @@ class ConnectionClosed(AMQPConnectionError):
 
     @override
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}: ({self.reply_code}) {self.reply_text!r}'
+        return (
+            f'{self.__class__.__name__}: ({self.reply_code}) {self.reply_text!r}'
+            f'{self._host_port_suffix()}')
 
     @property
     def reply_code(self) -> int:

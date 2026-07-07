@@ -43,6 +43,17 @@ class ExceptionTests(unittest.TestCase):
         exc = exceptions.StreamLostError('eof', host='10.0.0.1', port=5672)
         self.assertEqual(exc.host, '10.0.0.1')
         self.assertEqual(exc.port, 5672)
+        self.assertIn("(host='10.0.0.1', port=5672)", repr(exc))
+
+    def test_custom_repr_subclass_omits_host_port_when_unset(self):
+        # Subclasses that override __repr__ must not emit a host/port suffix
+        # when neither is set.
+        for exc in (exceptions.NoFreeChannels(),
+                    exceptions.AuthenticationError('PLAIN'),
+                    exceptions.IncompatibleProtocolError('bad'),
+                    exceptions.ConnectionClosedByBroker(320, 'forced')):
+            self.assertNotIn('host=', repr(exc))
+            self.assertNotIn('port=', repr(exc))
 
     def test_incompatible_protocol_error_host_port(self):
         exc = exceptions.IncompatibleProtocolError('bad',
@@ -50,16 +61,19 @@ class ExceptionTests(unittest.TestCase):
                                                    port=5672)
         self.assertEqual(exc.host, 'host1')
         self.assertEqual(exc.port, 5672)
+        self.assertIn("(host='host1', port=5672)", repr(exc))
 
     def test_probable_authentication_error_host_port(self):
         exc = exceptions.ProbableAuthenticationError('x', host='h', port=5672)
         self.assertEqual(exc.host, 'h')
         self.assertEqual(exc.port, 5672)
+        self.assertIn("(host='h', port=5672)", repr(exc))
 
     def test_probable_access_denied_error_host_port(self):
         exc = exceptions.ProbableAccessDeniedError('x', host='h', port=5672)
         self.assertEqual(exc.host, 'h')
         self.assertEqual(exc.port, 5672)
+        self.assertIn("(host='h', port=5672)", repr(exc))
 
     def test_connection_blocked_timeout_host_port(self):
         exc = exceptions.ConnectionBlockedTimeout('timeout',
@@ -90,6 +104,7 @@ class ExceptionTests(unittest.TestCase):
                                                   port=5672)
         self.assertEqual(exc.host, 'r')
         self.assertEqual(exc.port, 5672)
+        self.assertIn("(host='r', port=5672)", repr(exc))
 
     def test_connection_closed_no_host_port_by_default(self):
         exc = exceptions.ConnectionClosed(200, 'OK')
@@ -100,11 +115,13 @@ class ExceptionTests(unittest.TestCase):
         exc = exceptions.AuthenticationError('PLAIN', host='broker', port=5672)
         self.assertEqual(exc.host, 'broker')
         self.assertEqual(exc.port, 5672)
+        self.assertIn("(host='broker', port=5672)", repr(exc))
 
     def test_no_free_channels_host_port(self):
         exc = exceptions.NoFreeChannels(host='broker', port=5672)
         self.assertEqual(exc.host, 'broker')
         self.assertEqual(exc.port, 5672)
+        self.assertIn("(host='broker', port=5672)", repr(exc))
 
     def test_authentication_error_repr(self):
         self.assertEqual(
