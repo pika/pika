@@ -6,13 +6,14 @@ import unittest
 from unittest.mock import patch
 
 from pika.adapters.asyncio_connection import _AsyncioIOServicesAdapter
+from tests.base.asyncio_loop import new_pika_asyncio_loop
 
 
 class AsyncioIOServicesAdapterLoopInitTests(unittest.TestCase):
     """Tests for _AsyncioIOServicesAdapter loop initialisation logic."""
 
     def test_explicit_loop_is_used_as_is(self):
-        loop = asyncio.new_event_loop()
+        loop = new_pika_asyncio_loop()
         try:
             adapter = _AsyncioIOServicesAdapter(loop)
             self.assertIs(adapter.get_native_ioloop(), loop)
@@ -26,7 +27,7 @@ class AsyncioIOServicesAdapterLoopInitTests(unittest.TestCase):
             adapter = _AsyncioIOServicesAdapter()
             results.append(adapter.get_native_ioloop())
 
-        loop = asyncio.new_event_loop()
+        loop = new_pika_asyncio_loop()
         try:
             loop.run_until_complete(_run())
             self.assertIs(results[0], loop)

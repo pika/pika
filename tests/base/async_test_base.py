@@ -341,8 +341,7 @@ class AsyncAdapters:
     @run_test_in_thread_with_timeout
     def test_with_asyncio(self):
         """AsyncioConnection."""
-        import asyncio
-
         from pika.adapters.asyncio_connection import AsyncioConnection
-        ioloop_factory = asyncio.new_event_loop
+        from tests.base.asyncio_loop import new_pika_asyncio_loop
+        ioloop_factory = new_pika_asyncio_loop
         self.start(AsyncioConnection, ioloop_factory)

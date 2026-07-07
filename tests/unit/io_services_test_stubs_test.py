@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pika._utils
-
 try:
     import asyncio
 except ImportError:
@@ -16,12 +14,11 @@ from typing import ClassVar
 import tornado.ioloop
 
 from pika.adapters import select_connection
+from tests.base.asyncio_loop import new_pika_asyncio_loop
 from tests.stubs.io_services_test_stubs import IOServicesTestStubs
 
 if asyncio is not None:
-    if pika._utils.ON_WINDOWS:
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    loop = asyncio.new_event_loop()
+    loop = new_pika_asyncio_loop()
     asyncio.set_event_loop(loop)
 else:
     loop = None
