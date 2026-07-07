@@ -86,6 +86,16 @@ class TestStartCalledFromOtherThreadAndWithVaryingNativeLoops(
         self.assertNotEqual(threading.current_thread().ident,
                             self._runner_thread_id)
 
-        # And make sure the loop actually works using this rudimentary test
-        nbio.add_callback_threadsafe(nbio.stop)
+        # And make sure the loop actually works using this rudimentary test.
+        #
+        # NOTE: stop is scheduled two turns out rather than one. On Windows,
+        # Tornado wraps the Proactor loop in an AddThreadSelectorEventLoop
+        # whose SelectorThread defers starting (and thus awaiting its
+        # `thread_manager_anext` bootstrap task) until the loop's first turn.
+        # Stopping after a single turn destroys that task while still pending,
+        # producing a "coroutine was never awaited" RuntimeWarning. Letting the
+        # loop run one extra turn lets the task start so close() tears it down
+        # cleanly.
+        nbio.add_callback_threadsafe(
+            lambda: nbio.add_callback_threadsafe(nbio.stop))
         nbio.run()
