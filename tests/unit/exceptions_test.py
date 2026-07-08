@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import MagicMock
 
 from pika import exceptions
+from pika.adapters.utils import connection_workflow
 
 
 class ExceptionTests(unittest.TestCase):
@@ -15,6 +16,112 @@ class ExceptionTests(unittest.TestCase):
     def test_amqp_connection_error_two_params_repr(self):
         self.assertEqual(repr(exceptions.AMQPConnectionError(1, 'Test')),
                          'AMQPConnectionError: (1) Test')
+
+    def test_amqp_connection_error_host_port(self):
+        exc = exceptions.AMQPConnectionError('fail',
+                                             host='rabbit.local',
+                                             port=5672)
+        self.assertEqual(exc.host, 'rabbit.local')
+        self.assertEqual(exc.port, 5672)
+        self.assertIn("host='rabbit.local'", repr(exc))
+        self.assertIn('port=5672', repr(exc))
+
+    def test_amqp_connection_error_no_host_port_by_default(self):
+        exc = exceptions.AMQPConnectionError('fail')
+        self.assertIsNone(exc.host)
+        self.assertIsNone(exc.port)
+        self.assertNotIn('host=', repr(exc))
+
+    def test_connection_open_aborted_host_port(self):
+        exc = exceptions.ConnectionOpenAborted('aborted',
+                                               host='broker1',
+                                               port=5671)
+        self.assertEqual(exc.host, 'broker1')
+        self.assertEqual(exc.port, 5671)
+
+    def test_stream_lost_error_host_port(self):
+        exc = exceptions.StreamLostError('eof', host='10.0.0.1', port=5672)
+        self.assertEqual(exc.host, '10.0.0.1')
+        self.assertEqual(exc.port, 5672)
+        self.assertIn("(host='10.0.0.1', port=5672)", repr(exc))
+
+    def test_custom_repr_subclass_omits_host_port_when_unset(self):
+        # Subclasses that override __repr__ must not emit a host/port suffix
+        # when neither is set.
+        for exc in (exceptions.NoFreeChannels(),
+                    exceptions.AuthenticationError('PLAIN'),
+                    exceptions.IncompatibleProtocolError('bad'),
+                    exceptions.ConnectionClosedByBroker(320, 'forced')):
+            self.assertNotIn('host=', repr(exc))
+            self.assertNotIn('port=', repr(exc))
+
+    def test_incompatible_protocol_error_host_port(self):
+        exc = exceptions.IncompatibleProtocolError('bad',
+                                                   host='host1',
+                                                   port=5672)
+        self.assertEqual(exc.host, 'host1')
+        self.assertEqual(exc.port, 5672)
+        self.assertIn("(host='host1', port=5672)", repr(exc))
+
+    def test_probable_authentication_error_host_port(self):
+        exc = exceptions.ProbableAuthenticationError('x', host='h', port=5672)
+        self.assertEqual(exc.host, 'h')
+        self.assertEqual(exc.port, 5672)
+        self.assertIn("(host='h', port=5672)", repr(exc))
+
+    def test_probable_access_denied_error_host_port(self):
+        exc = exceptions.ProbableAccessDeniedError('x', host='h', port=5672)
+        self.assertEqual(exc.host, 'h')
+        self.assertEqual(exc.port, 5672)
+        self.assertIn("(host='h', port=5672)", repr(exc))
+
+    def test_connection_blocked_timeout_host_port(self):
+        exc = exceptions.ConnectionBlockedTimeout('timeout',
+                                                  host='h',
+                                                  port=5672)
+        self.assertEqual(exc.host, 'h')
+        self.assertEqual(exc.port, 5672)
+
+    def test_amqp_heartbeat_timeout_host_port(self):
+        exc = exceptions.AMQPHeartbeatTimeout('timeout', host='h', port=5672)
+        self.assertEqual(exc.host, 'h')
+        self.assertEqual(exc.port, 5672)
+
+    def test_connection_closed_host_port(self):
+        exc = exceptions.ConnectionClosed(200,
+                                          'Normal shutdown',
+                                          host='rabbit',
+                                          port=5672)
+        self.assertEqual(exc.host, 'rabbit')
+        self.assertEqual(exc.port, 5672)
+        self.assertEqual(exc.reply_code, 200)
+        self.assertEqual(exc.reply_text, 'Normal shutdown')
+
+    def test_connection_closed_by_broker_host_port(self):
+        exc = exceptions.ConnectionClosedByBroker(320,
+                                                  'forced',
+                                                  host='r',
+                                                  port=5672)
+        self.assertEqual(exc.host, 'r')
+        self.assertEqual(exc.port, 5672)
+        self.assertIn("(host='r', port=5672)", repr(exc))
+
+    def test_connection_closed_no_host_port_by_default(self):
+        exc = exceptions.ConnectionClosed(200, 'OK')
+        self.assertIsNone(exc.host)
+        self.assertIsNone(exc.port)
+
+    def test_authentication_error_host_port(self):
+        exc = exceptions.AuthenticationError('PLAIN', host='broker', port=5672)
+        self.assertEqual(exc.host, 'broker')
+        self.assertEqual(exc.port, 5672)
+        self.assertIn("(host='broker', port=5672)", repr(exc))
+
+    def test_no_free_channels_host_port(self):
+        exc = exceptions.NoFreeChannels(host='broker', port=5672)
+        self.assertEqual(exc.host, 'broker')
+        self.assertEqual(exc.port, 5672)
+        self.assertIn("(host='broker', port=5672)", repr(exc))
 
     def test_authentication_error_repr(self):
         self.assertEqual(
@@ -173,3 +280,38 @@ class ExceptionTests(unittest.TestCase):
             repr(exceptions.DuplicateGetOkCallback()),
             'DuplicateGetOkCallback: basic_get can only be called again after the callback for '
             'the previous basic_get is executed')
+
+
+class ConnectorPhaseErrorTests(unittest.TestCase):
+
+    def test_socket_connect_error_host_port(self):
+        inner = OSError('Connection refused')
+        exc = connection_workflow.AMQPConnectorSocketConnectError(
+            inner, host='rabbit.local', port=5672)
+        self.assertEqual(exc.host, 'rabbit.local')
+        self.assertEqual(exc.port, 5672)
+        self.assertEqual(exc.exception, inner)
+        self.assertIn("host='rabbit.local'", repr(exc))
+        self.assertIn('port=5672', repr(exc))
+
+    def test_socket_connect_error_no_host_port(self):
+        inner = OSError('Connection refused')
+        exc = connection_workflow.AMQPConnectorSocketConnectError(inner)
+        self.assertIsNone(exc.host)
+        self.assertIsNone(exc.port)
+        self.assertNotIn('host=', repr(exc))
+
+    def test_transport_setup_error_host_port(self):
+        inner = Exception('SSL failed')
+        exc = connection_workflow.AMQPConnectorTransportSetupError(
+            inner, host='10.0.0.1', port=5671)
+        self.assertEqual(exc.host, '10.0.0.1')
+        self.assertEqual(exc.port, 5671)
+
+    def test_amqp_handshake_error_host_port(self):
+        inner = Exception('auth failed')
+        exc = connection_workflow.AMQPConnectorAMQPHandshakeError(inner,
+                                                                  host='broker',
+                                                                  port=5672)
+        self.assertEqual(exc.host, 'broker')
+        self.assertEqual(exc.port, 5672)
