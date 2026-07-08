@@ -1,6 +1,8 @@
 """Common validation functions."""
 
-from typing import Any, Callable, Optional
+from __future__ import annotations
+
+from typing import Any, Callable
 
 
 def require_string(value: Any, value_name: str) -> None:
@@ -29,7 +31,7 @@ def require_callback(callback: Callable[..., Any],
             f'callback {callback_name} must be callable, but got {callback!r}')
 
 
-def rpc_completion_callback(callback: Optional[Callable[..., Any]]) -> bool:
+def rpc_completion_callback(callback: Callable[..., Any] | None) -> bool:
     """
     Verify callback is callable if not None.
 

@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 import asyncio
 import functools
 import logging
 import ssl
 import time
 from enum import Enum
-from typing import Dict, Optional
 
 import msgpack
 from pydantic import BaseModel, validator
@@ -33,7 +34,7 @@ class Priority(Enum):
 class Headers(BaseModel):
     job_id: str
     priority: Priority
-    task_type: Optional[str] = None
+    task_type: str | None = None
 
     @validator("priority", pre=True)
     def _convert_priority(self, value):
@@ -131,7 +132,7 @@ class BasicPikaClient:
 
 class BasicMessageSender(BasicPikaClient):
 
-    def encode_message(self, body: Dict, encoding_type: str = "bytes"):
+    def encode_message(self, body: dict, encoding_type: str = "bytes"):
         if encoding_type == "bytes":
             return msgpack.packb(body)
         raise NotImplementedError
@@ -140,8 +141,8 @@ class BasicMessageSender(BasicPikaClient):
         self,
         exchange_name: str,
         routing_key: str,
-        body: Dict,
-        headers: Optional[Headers],
+        body: dict,
+        headers: Headers | None,
     ):
         body = self.encode_message(body=body)
         self.channel.basic_publish(

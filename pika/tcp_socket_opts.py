@@ -1,12 +1,13 @@
+from __future__ import annotations
+
 import logging
 import socket
-from typing import Dict, Optional
 
 import pika._utils
 
 LOGGER = logging.getLogger(__name__)
 
-_SUPPORTED_TCP_OPTIONS: Dict[str, int] = {}
+_SUPPORTED_TCP_OPTIONS: dict[str, int] = {}
 
 if hasattr(socket, 'TCP_USER_TIMEOUT'):
     try:
@@ -33,12 +34,12 @@ else:
     _SUPPORTED_TCP_OPTIONS['TCP_KEEPINTVL'] = tcp_keepintvl
 
 
-def socket_requires_keepalive(tcp_options: Dict[str, int]) -> bool:
+def socket_requires_keepalive(tcp_options: dict[str, int]) -> bool:
     return ('TCP_KEEPIDLE' in tcp_options or 'TCP_KEEPCNT' in tcp_options or
             'TCP_KEEPINTVL' in tcp_options)
 
 
-def set_sock_opts(tcp_options: Optional[Dict[str, int]],
+def set_sock_opts(tcp_options: dict[str, int] | None,
                   sock: socket.socket) -> None:
     if not tcp_options:
         return
