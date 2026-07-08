@@ -85,6 +85,7 @@ select = [
     "G",    # flake8-logging-format: lazy %-formatting in log calls
     "ISC",  # implicit string concatenation
     "PGH",  # pygrep-hooks: blanket type-ignore / eval
+    "FA",   # flake8-future-annotations: use `from __future__ import annotations`
 ]
 
 ignore = [
