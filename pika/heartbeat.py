@@ -89,8 +89,13 @@ class HeartbeatChecker:
     def connection_is_idle(self) -> bool:
         """Returns true if the byte count hasn't changed in enough intervals to trip the max idle
         threshold.
+
+        Per the AMQP spec and the RabbitMQ documentation, a connection is considered idle only
+        after *two* consecutive check intervals with no activity.  Using ``> 0`` would close the
+        connection after a single missed interval, which is far too aggressive and causes spurious
+        disconnects under transient load or GC pauses.
         """
-        return self._idle_byte_intervals > 0
+        return self._idle_byte_intervals > 1
 
     def received(self) -> None:
         """Called when a heartbeat is received."""

@@ -102,8 +102,20 @@ class HeartbeatTests(unittest.TestCase):
     def test_connection_is_idle_false(self):
         self.assertFalse(self.obj.connection_is_idle)
 
+    def test_connection_is_idle_false_after_one_interval(self):
+        # A single missed check interval must NOT be considered idle.
+        # The AMQP spec requires two consecutive missed heartbeats before
+        # declaring the connection dead.
+        self.obj._idle_byte_intervals = 1
+        self.assertFalse(self.obj.connection_is_idle)
+
     def test_connection_is_idle_true(self):
         self.obj._idle_byte_intervals = self.INTERVAL
+        self.assertTrue(self.obj.connection_is_idle)
+
+    def test_connection_is_idle_true_after_two_intervals(self):
+        # Two missed check intervals is the minimum that triggers idle.
+        self.obj._idle_byte_intervals = 2
         self.assertTrue(self.obj.connection_is_idle)
 
     def test_received(self):
