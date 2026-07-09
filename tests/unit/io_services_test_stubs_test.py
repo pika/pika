@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pika._utils
-
 try:
     import asyncio
 except ImportError:
@@ -16,12 +14,11 @@ from typing import ClassVar
 import tornado.ioloop
 
 from pika.adapters import select_connection
+from tests.base.asyncio_loop import new_pika_asyncio_loop
 from tests.stubs.io_services_test_stubs import IOServicesTestStubs
 
 if asyncio is not None:
-    if pika._utils.ON_WINDOWS:
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    loop = asyncio.new_event_loop()
+    loop = new_pika_asyncio_loop()
     asyncio.set_event_loop(loop)
 else:
     loop = None
@@ -82,6 +79,16 @@ class TestStartCalledFromOtherThreadAndWithVaryingNativeLoops(
         self.assertNotEqual(threading.current_thread().ident,
                             self._runner_thread_id)
 
-        # And make sure the loop actually works using this rudimentary test
-        nbio.add_callback_threadsafe(nbio.stop)
+        # And make sure the loop actually works using this rudimentary test.
+        #
+        # NOTE: stop is scheduled two turns out rather than one. On Windows,
+        # Tornado wraps the Proactor loop in an AddThreadSelectorEventLoop
+        # whose SelectorThread defers starting (and thus awaiting its
+        # `thread_manager_anext` bootstrap task) until the loop's first turn.
+        # Stopping after a single turn destroys that task while still pending,
+        # producing a "coroutine was never awaited" RuntimeWarning. Letting the
+        # loop run one extra turn lets the task start so close() tears it down
+        # cleanly.
+        nbio.add_callback_threadsafe(
+            lambda: nbio.add_callback_threadsafe(nbio.stop))
         nbio.run()

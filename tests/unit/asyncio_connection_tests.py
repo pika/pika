@@ -3,15 +3,17 @@
 import asyncio
 import threading
 import unittest
+from unittest.mock import patch
 
 from pika.adapters.asyncio_connection import _AsyncioIOServicesAdapter
+from tests.base.asyncio_loop import new_pika_asyncio_loop
 
 
 class AsyncioIOServicesAdapterLoopInitTests(unittest.TestCase):
     """Tests for _AsyncioIOServicesAdapter loop initialisation logic."""
 
     def test_explicit_loop_is_used_as_is(self):
-        loop = asyncio.new_event_loop()
+        loop = new_pika_asyncio_loop()
         try:
             adapter = _AsyncioIOServicesAdapter(loop)
             self.assertIs(adapter.get_native_ioloop(), loop)
@@ -25,7 +27,7 @@ class AsyncioIOServicesAdapterLoopInitTests(unittest.TestCase):
             adapter = _AsyncioIOServicesAdapter()
             results.append(adapter.get_native_ioloop())
 
-        loop = asyncio.new_event_loop()
+        loop = new_pika_asyncio_loop()
         try:
             loop.run_until_complete(_run())
             self.assertIs(results[0], loop)
@@ -61,3 +63,51 @@ class AsyncioIOServicesAdapterLoopInitTests(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertEqual(len(results), 1)
         self.assertIsInstance(results[0], asyncio.AbstractEventLoop)
+
+    @patch('pika.adapters.asyncio_connection.sys')
+    def test_windows_proactor_loop_raises_type_error(self, mock_sys):
+        mock_sys.platform = 'win32'
+        mock_sys.version_info = (3, 12)
+        if not hasattr(asyncio, 'ProactorEventLoop'):
+            self.skipTest('ProactorEventLoop not available on this OS')
+        loop = asyncio.ProactorEventLoop()
+        try:
+            with self.assertRaises(TypeError) as ctx:
+                _AsyncioIOServicesAdapter(loop)
+            self.assertIn('SelectorEventLoop', str(ctx.exception))
+        finally:
+            loop.close()
+
+    @patch('pika.adapters.asyncio_connection.sys')
+    def test_windows_selector_loop_accepted(self, mock_sys):
+        mock_sys.platform = 'win32'
+        mock_sys.version_info = (3, 12)
+        loop = asyncio.SelectorEventLoop()
+        try:
+            adapter = _AsyncioIOServicesAdapter(loop)
+            self.assertIs(adapter.get_native_ioloop(), loop)
+        finally:
+            loop.close()
+
+    @patch('pika.adapters.asyncio_connection.sys')
+    def test_windows_no_loop_creates_selector_event_loop(self, mock_sys):
+        mock_sys.platform = 'win32'
+        mock_sys.version_info = (3, 12)
+        results = []
+        errors = []
+
+        def _thread_target():
+            try:
+                adapter = _AsyncioIOServicesAdapter()
+                results.append(adapter.get_native_ioloop())
+            except Exception as exc:
+                errors.append(exc)
+
+        t = threading.Thread(target=_thread_target)
+        t.start()
+        t.join()
+
+        self.assertEqual(errors, [])
+        self.assertEqual(len(results), 1)
+        self.assertIsInstance(results[0], asyncio.SelectorEventLoop)
+        results[0].close()
