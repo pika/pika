@@ -113,10 +113,10 @@ class IOServicesTestStubs(object):
         # Test entry point for `asyncio` event loop-based io services
         # implementation.
 
-        import asyncio
         from pika.adapters.asyncio_connection import (_AsyncioIOServicesAdapter)
+        from tests.base.asyncio_loop import new_pika_asyncio_loop
 
-        native_loop = asyncio.new_event_loop()
+        native_loop = new_pika_asyncio_loop()
         self._run_start(
             nbio_factory=lambda: _AsyncioIOServicesAdapter(native_loop),
             native_loop=native_loop)

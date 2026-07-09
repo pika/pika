@@ -14,9 +14,6 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
-if sys.platform == 'win32':
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
 
 class AsyncioConnection(base_connection.BaseConnection):
     """ The AsyncioConnection runs on the Asyncio EventLoop.
@@ -133,7 +130,18 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
             try:
                 loop = asyncio.get_running_loop()
             except RuntimeError:
-                loop = asyncio.new_event_loop()
+                if sys.platform == 'win32':
+                    loop = asyncio.SelectorEventLoop()
+                else:
+                    loop = asyncio.new_event_loop()
+        if sys.platform == 'win32' and not isinstance(
+                loop, asyncio.SelectorEventLoop):
+            raise TypeError(
+                'On Windows, Pika requires an asyncio.SelectorEventLoop '
+                'because it uses add_reader/add_writer. The running loop '
+                f'is {type(loop).__name__}. Either pass a SelectorEventLoop '
+                'via custom_ioloop, or run with '
+                'asyncio.run(main(), loop_factory=asyncio.SelectorEventLoop).')
         self._loop = loop
 
     def get_native_ioloop(self) -> asyncio.AbstractEventLoop:
