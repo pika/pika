@@ -49,6 +49,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # Needed to dispatch the deploy-docs workflow below.
+      actions: write
     outputs:
       version: ${{ steps.version.outputs.new }}
     steps:
@@ -161,6 +163,17 @@ jobs:
         run: |
           git ls-remote --tags origin "refs/tags/$NEW_VERSION" | grep -q "$NEW_VERSION" \
             || { echo "::error::Tag $NEW_VERSION not found on remote after push"; exit 1; }
+
+      # The tag push above uses GITHUB_TOKEN, and events triggered by
+      # GITHUB_TOKEN do not create new workflow runs, so deploy-docs.yaml's
+      # on.push.tags trigger never fires for release tags. Dispatch it
+      # explicitly (workflow_dispatch events are exempt from that rule).
+      - name: Deploy release docs
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEW_VERSION: ${{ steps.version.outputs.new }}
+        run: gh workflow run deploy-docs.yaml --ref "$NEW_VERSION"
 
       - name: Dry-run summary
         if: ${{ inputs.mode == 'dry-run' }}
