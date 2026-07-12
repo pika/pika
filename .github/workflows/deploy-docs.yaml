@@ -8,6 +8,11 @@ name: Deploy Docs
 #                              alias (and the default redirect) to it
 #   - pre-release tag       -> publishes under the full tag, leaves `latest`
 #                              pointing at the last stable release
+#
+# NOTE: tags pushed by release.yaml use GITHUB_TOKEN and therefore do NOT
+# fire the on.push.tags trigger below; release.yaml dispatches this workflow
+# explicitly on the tag ref instead. The tag trigger remains for manually
+# pushed tags.
 on:
   push:
     branches:
