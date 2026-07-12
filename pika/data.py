@@ -63,7 +63,7 @@ def decode_short_string(encoded: bytes, offset: int) -> tuple[str | bytes, int]:
 
 def encode_table(pieces: list[bytes], table: dict[str, Any] | None) -> int:
     """
-    Encode a dict as an AMQP table appending the encded table to the pieces list passed in.
+    Encode a dict as an AMQP table appending the encoded table to the pieces list passed in.
 
     :param pieces: Already encoded frame pieces
     :param table: The dict to encode

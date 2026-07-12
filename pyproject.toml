@@ -86,6 +86,7 @@ select = [
     "ISC",  # implicit string concatenation
     "PGH",  # pygrep-hooks: blanket type-ignore / eval
     "FA",   # flake8-future-annotations: use `from __future__ import annotations`
+    "TC",   # flake8-type-checking: guard type-only imports behind TYPE_CHECKING
 ]
 
 ignore = [
@@ -93,6 +94,7 @@ ignore = [
     "C901",    # function is too complex
     "PLC0415", # import should be at the top level of a file
     "PERF203", # `try`-`except` within a loop incurs performance overhead
+    "TC006",   # add quotes to `cast()` type expr: churny and hurts editor "go to definition"
 ]
 
 [tool.yapf]
