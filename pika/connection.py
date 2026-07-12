@@ -2035,10 +2035,10 @@ class Connection(abc.ABC):
                 raise TypeError('heartbeat callback must not return None '
                                 f'or callable, but got {ret_heartbeat!r}')
 
-            # Leave it to hearbeat setter deal with the rest of the validation
+            # Leave it to heartbeat setter deal with the rest of the validation
             self.params.heartbeat = ret_heartbeat
 
-        # Negotiate heatbeat timeout
+        # Negotiate heartbeat timeout
         self.params.heartbeat = self._tune_heartbeat_timeout(
             client_value=self.params.heartbeat,
             server_value=method_frame.method.heartbeat)

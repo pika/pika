@@ -674,9 +674,9 @@ class Channel:
         """
         if not callable(ack_nack_callback):
             # confirm_deliver requires a callback; it's meaningless
-            # without a user callback to receieve Basic.Ack/Basic.Nack notifications
+            # without a user callback to receive Basic.Ack/Basic.Nack notifications
             raise ValueError('confirm_delivery requires a callback '
-                             'to receieve Basic.Ack/Basic.Nack notifications')
+                             'to receive Basic.Ack/Basic.Nack notifications')
 
         self._raise_if_not_open()
         nowait = validators.rpc_completion_callback(callback)
@@ -1587,7 +1587,7 @@ class ContentFrameAssembler:
     """
 
     def __init__(self) -> None:
-        """Create a new instance of the conent frame assembler."""
+        """Create a new instance of the content frame assembler."""
         self._method_frame: frame.Method | None = None
         self._header_frame: frame.Header | None = None
         self._seen_so_far = 0
