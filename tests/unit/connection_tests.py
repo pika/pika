@@ -526,8 +526,6 @@ class ConnectionTests(unittest.TestCase):
         method_frame.method.mechanisms = str(credentials.PlainCredentials.TYPE)
         method_frame.method.version_major = 0
         method_frame.method.version_minor = 9
-        # This may be incorrectly mocked, or the code is wrong
-        # TODO: Code does hasattr check, should this be a has_key/in check?
         method_frame.method.server_properties = {
             'capabilities': {
                 'basic.nack': True,
@@ -535,7 +533,7 @@ class ConnectionTests(unittest.TestCase):
                 'exchange_exchange_bindings': False
             }
         }
-        # This will be called, but should not be implmented here, just mock it
+        # This will be called, but should not be implemented here, just mock it
         self.connection._flush_outbound = mock.Mock()
         self.connection._adapter_emit_data = mock.Mock()
         self.connection._on_connection_start(method_frame)
@@ -543,6 +541,8 @@ class ConnectionTests(unittest.TestCase):
         self.assertEqual(False, self.connection.consumer_cancel_notify)
         self.assertEqual(False, self.connection.exchange_exchange_bindings)
         self.assertEqual(False, self.connection.publisher_confirms)
+        # 'capabilities' is moved into server_capabilities, not left behind
+        self.assertNotIn('capabilities', self.connection.server_properties)
 
     @mock.patch('pika.heartbeat.HeartbeatChecker')
     @mock.patch('pika.frame.Method')

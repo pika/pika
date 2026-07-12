@@ -93,28 +93,6 @@ class BaseConnection(connection.Connection):
 
     @override
     def __repr__(self) -> str:
-
-        # def get_socket_repr(sock):
-        #     """Return socket info suitable for use in repr"""
-        #     if sock is None:
-        #         return None
-        #
-        #     sockname = None
-        #     peername = None
-        #     try:
-        #         sockname = sock.getsockname()
-        #     except pika._utils.SOCKET_ERROR:
-        #         # closed?
-        #         pass
-        #     else:
-        #         try:
-        #             peername = sock.getpeername()
-        #         except pika._utils.SOCKET_ERROR:
-        #             # not connected?
-        #             pass
-        #
-        #     return '%s->%s' % (sockname, peername)
-        # TODO need helpful __repr__ in transports
         return (
             f'<{self.__class__.__name__} {self._STATE_NAMES[self.connection_state]} transport={self._transport} params={self.params}>'
         )

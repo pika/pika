@@ -2421,11 +2421,8 @@ class Connection(abc.ABC):
         :param method_frame: The Connection.Start frame
         """
         self.server_properties = method_frame.method.server_properties  # pyright: ignore[reportAttributeAccessIssue]
-        self.server_capabilities = self.server_properties.get(  # pyright: ignore[reportOptionalMemberAccess]
-            'capabilities', {})
-        if hasattr(self.server_properties, 'capabilities'):
-            del self.server_properties[
-                'capabilities']  # pyright: ignore[reportOptionalSubscript]
+        assert self.server_properties is not None
+        self.server_capabilities = self.server_properties.pop('capabilities', {})
 
     def _trim_frame_buffer(self, byte_count: int) -> None:
         """
