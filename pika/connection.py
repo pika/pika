@@ -2421,11 +2421,13 @@ class Connection(abc.ABC):
         :param method_frame: The Connection.Start frame
         """
         self.server_properties = method_frame.method.server_properties  # pyright: ignore[reportAttributeAccessIssue]
-        self.server_capabilities = self.server_properties.get(  # pyright: ignore[reportOptionalMemberAccess]
+        assert self.server_properties is not None
+        # Note: 'capabilities' is deliberately kept in server_properties.
+        # Code that removed it never worked (it used hasattr on a dict, dead
+        # since 2011), so callers have always seen the key there; removing it
+        # now would break them.
+        self.server_capabilities = self.server_properties.get(
             'capabilities', {})
-        if hasattr(self.server_properties, 'capabilities'):
-            del self.server_properties[
-                'capabilities']  # pyright: ignore[reportOptionalSubscript]
 
     def _trim_frame_buffer(self, byte_count: int) -> None:
         """
