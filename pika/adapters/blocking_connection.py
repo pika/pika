@@ -39,6 +39,7 @@ import pika._utils
 import pika.channel
 import pika.connection
 import pika.exceptions as exceptions
+import pika.frame
 import pika.spec
 import pika.validators as validators
 from pika._utils import override
@@ -47,13 +48,12 @@ from pika._utils import override
 from pika.adapters import select_connection
 from pika.adapters.utils import connection_workflow
 from pika.exchange_type import ExchangeType
-from pika.spec import Basic
 
 if TYPE_CHECKING:
     from traceback import TracebackException
     from types import TracebackType
 
-    import pika.frame
+    from pika.spec import Basic
 
 T = TypeVar(
     'T', bound='pika.spec.Connection.Blocked | pika.spec.Connection.Unblocked')

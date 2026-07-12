@@ -7,7 +7,6 @@ from __future__ import annotations
 import logging
 import uuid
 from collections import deque
-from collections.abc import Sequence
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Union
 
@@ -19,6 +18,8 @@ from pika._utils import as_bytes, override
 from pika.exchange_type import ExchangeType
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from pika import amqp_object
     from pika.connection import Connection
 

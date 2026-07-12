@@ -20,7 +20,6 @@ import twisted.internet.base
 import twisted.python.failure
 from twisted.internet import defer, protocol, reactor
 from twisted.internet import error as twisted_error
-from twisted.internet.defer import Deferred
 from twisted.python.failure import Failure
 
 import pika.connection
@@ -34,6 +33,7 @@ from pika.exchange_type import ExchangeType
 
 if TYPE_CHECKING:
     import twisted.internet.interfaces
+    from twisted.internet.defer import Deferred
 
     from pika import amqp_object, channel
 
