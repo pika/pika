@@ -541,8 +541,11 @@ class ConnectionTests(unittest.TestCase):
         self.assertEqual(False, self.connection.consumer_cancel_notify)
         self.assertEqual(False, self.connection.exchange_exchange_bindings)
         self.assertEqual(False, self.connection.publisher_confirms)
-        # 'capabilities' is moved into server_capabilities, not left behind
-        self.assertNotIn('capabilities', self.connection.server_properties)
+        # 'capabilities' stays in server_properties as sent by the broker;
+        # server_capabilities is a convenience view of the same dict.
+        self.assertIn('capabilities', self.connection.server_properties)
+        self.assertIs(self.connection.server_capabilities,
+                      self.connection.server_properties['capabilities'])
 
     @mock.patch('pika.heartbeat.HeartbeatChecker')
     @mock.patch('pika.frame.Method')
