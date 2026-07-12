@@ -44,7 +44,7 @@ import pika.spec
 import pika.validators as validators
 from pika._utils import override
 
-# NOTE: import SelectConnection after others to avoid circular depenency
+# NOTE: import SelectConnection after others to avoid circular dependency
 from pika.adapters import select_connection
 from pika.adapters.utils import connection_workflow
 from pika.exchange_type import ExchangeType
@@ -723,7 +723,7 @@ class BlockingConnection:
             functools.partial(
                 self._on_connection_blocked,
                 functools.partial(callback,
-                                  cast(pika.connection.Connection, self))))
+                                  cast('pika.connection.Connection', self))))
 
     def add_on_connection_unblocked_callback(
         self, callback: Callable[[
@@ -745,7 +745,7 @@ class BlockingConnection:
             functools.partial(
                 self._on_connection_unblocked,
                 functools.partial(callback,
-                                  cast(pika.connection.Connection, self))))
+                                  cast('pika.connection.Connection', self))))
 
     def call_later(self, delay: float, callback: Callable[[], None]) -> int:
         """
@@ -769,7 +769,7 @@ class BlockingConnection:
 
         evt = _TimerEvt(callback=callback)
         timer_id = cast(
-            int,
+            'int',
             self._impl._adapter_call_later(
                 delay, functools.partial(self._on_timer_ready, evt)))
         evt.timer_id = timer_id
