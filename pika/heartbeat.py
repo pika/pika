@@ -87,8 +87,15 @@ class HeartbeatChecker:
 
     @property
     def connection_is_idle(self) -> bool:
-        """Returns true if the byte count hasn't changed in enough intervals to trip the max idle
-        threshold.
+        """
+        Returns true if no bytes were received during the last check interval.
+
+        A single idle check interval is the threshold by design, not an off-by-one: the check
+        interval is ``timeout + 5`` seconds while the broker sends a heartbeat every ``timeout / 2``
+        seconds, so one check interval with zero bytes received already spans at least two missed
+        broker heartbeats as required by the AMQP spec. See the ``_check_interval`` comment in
+        ``__init__`` and
+        https://github.com/pika/pika/pull/1072.
         """
         return self._idle_byte_intervals > 0
 
