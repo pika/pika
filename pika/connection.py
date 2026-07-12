@@ -2422,7 +2422,8 @@ class Connection(abc.ABC):
         """
         self.server_properties = method_frame.method.server_properties  # pyright: ignore[reportAttributeAccessIssue]
         assert self.server_properties is not None
-        self.server_capabilities = self.server_properties.pop('capabilities', {})
+        self.server_capabilities = self.server_properties.pop(
+            'capabilities', {})
 
     def _trim_frame_buffer(self, byte_count: int) -> None:
         """
