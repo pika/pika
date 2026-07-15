@@ -22,7 +22,7 @@ class SelectConnectionTemplate(
     # _get_write_buffer_size (method) are inherited and already part of the
     # mock spec. Only the instance attributes below need declaring at class
     # level so spec_set exposes them.
-    _channels = {}  # noqa: RUF012 -- throwaway mock-spec template, not real state
+    _channels = {}  # noqa: RUF012
     _transport = None
 
 
@@ -407,10 +407,11 @@ class BlockingConnectionTests(unittest.TestCase):
 
     @staticmethod
     def _make_open_connection(select_connection_class_mock):
-        """Create a BlockingConnection and return it with its impl mock.
+        """
+        Create a BlockingConnection and return it with its impl mock.
 
-        Set attributes on the returned mock (not connection._impl) so pyright
-        sees a MagicMock rather than the real SelectConnection properties.
+        Set attributes on the returned mock (not connection._impl) so pyright sees a MagicMock
+        rather than the real SelectConnection properties.
         """
         impl_mock = select_connection_class_mock.return_value
         impl_mock.is_closed = False

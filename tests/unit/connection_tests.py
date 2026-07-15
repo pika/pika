@@ -228,9 +228,9 @@ class ConnectionTests(unittest.TestCase):
             self.connection, mock.ANY)
 
         with self.assertRaises(AssertionError):
-            process_mock.assert_any_call(
-                0, self.connection.ON_CONNECTION_ERROR, self.connection,
-                self.connection, mock.ANY)
+            process_mock.assert_any_call(0, self.connection.ON_CONNECTION_ERROR,
+                                         self.connection, self.connection,
+                                         mock.ANY)
 
     def test_on_stream_terminated_invokes_protocol_on_connection_error_and_closed(
             self):
@@ -251,9 +251,9 @@ class ConnectionTests(unittest.TestCase):
 
             self.assertEqual(process_mock.call_count, 1)
 
-            process_mock.assert_any_call(
-                0, self.connection.ON_CONNECTION_ERROR, self.connection,
-                self.connection, mock.ANY)
+            process_mock.assert_any_call(0, self.connection.ON_CONNECTION_ERROR,
+                                         self.connection, self.connection,
+                                         mock.ANY)
 
             conn_exc = process_mock.call_args_list[0][0][4]
             self.assertIs(type(conn_exc), exceptions.IncompatibleProtocolError)
@@ -278,9 +278,9 @@ class ConnectionTests(unittest.TestCase):
 
             self.assertEqual(process_mock.call_count, 1)
 
-            process_mock.assert_any_call(
-                0, self.connection.ON_CONNECTION_ERROR, self.connection,
-                self.connection, mock.ANY)
+            process_mock.assert_any_call(0, self.connection.ON_CONNECTION_ERROR,
+                                         self.connection, self.connection,
+                                         mock.ANY)
 
             conn_exc = process_mock.call_args_list[0][0][4]
             self.assertIs(type(conn_exc),
@@ -306,9 +306,9 @@ class ConnectionTests(unittest.TestCase):
 
             self.assertEqual(process_mock.call_count, 1)
 
-            process_mock.assert_any_call(
-                0, self.connection.ON_CONNECTION_ERROR, self.connection,
-                self.connection, mock.ANY)
+            process_mock.assert_any_call(0, self.connection.ON_CONNECTION_ERROR,
+                                         self.connection, self.connection,
+                                         mock.ANY)
 
             conn_exc = process_mock.call_args_list[0][0][4]
             self.assertIs(type(conn_exc), exceptions.ProbableAccessDeniedError)

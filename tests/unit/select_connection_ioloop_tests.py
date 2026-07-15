@@ -567,10 +567,9 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
     @unittest.skipUnless(pika._utils.HAVE_SIGNAL,
                          "This platform doesn't support posix signals")
     @mock.patch('pika.adapters.select_connection._is_resumable')
-    def test_eintr(
-            self,
-            is_resumable_mock,
-            is_resumable_raw=select_connection._is_resumable):
+    def test_eintr(self,
+                   is_resumable_mock,
+                   is_resumable_raw=select_connection._is_resumable):
         """
         Test that poll() is properly restarted after receiving EINTR error.
 

@@ -28,7 +28,7 @@ class BlockingChannelTests(unittest.TestCase):
                                            is_closed=False,
                                            is_open=True)
         self.obj = blocking_connection.BlockingChannel(self.channel_impl_mock,
-                                                        self.connection)
+                                                       self.connection)
 
     def tearDown(self):
         del self.connection

@@ -776,17 +776,9 @@ class Channel:
         if isinstance(exchange_type, Enum):
             exchange_type = exchange_type.value
         return self._rpc(
-            spec.Exchange.Declare(
-                0,
-                exchange,
-                exchange_type,
-                passive,
-                durable,
-                auto_delete,
-                internal,
-                nowait,
-                arguments or {}),
-            callback,
+            spec.Exchange.Declare(0, exchange, exchange_type, passive, durable,
+                                  auto_delete, internal, nowait, arguments or
+                                  {}), callback,
             [spec.Exchange.DeclareOk] if not nowait else [])
 
     def exchange_delete(

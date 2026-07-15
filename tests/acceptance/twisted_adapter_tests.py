@@ -824,7 +824,8 @@ class TwistedProtocolConnectionTestCase(TestCase):
         self.conn.closed = "TESTING"
         value = self.conn.close()
         self.assertEqual(value, "TESTING")
-        self.conn_impl_mock.close.assert_called_once_with(200, "Normal shutdown")
+        self.conn_impl_mock.close.assert_called_once_with(
+            200, "Normal shutdown")
 
     def test_close_twice(self):
         # Verify that the close method is only transmitted when open.

@@ -146,8 +146,7 @@ class ThreadSafeChannel:
                 pass
 
     def _blocking_rpc(self, method_name: str, channel_method,
-                      timeout: float | None,
-                      *args, **kwargs) -> Any:
+                      timeout: float | None, *args, **kwargs) -> Any:
         """
         Execute a channel RPC and block until the broker responds.
 
@@ -351,10 +350,11 @@ class ThreadSafeChannel:
             global_qos=global_qos,
         )
 
-    def basic_get(self,
-                  queue,
-                  auto_ack: bool = False,
-                  timeout: float | None = DEFAULT_RPC_TIMEOUT) -> tuple[None, ...]:
+    def basic_get(
+            self,
+            queue,
+            auto_ack: bool = False,
+            timeout: float | None = DEFAULT_RPC_TIMEOUT) -> tuple[None, ...]:
         """
         Get a single message from the broker and block until it arrives.
 
@@ -790,7 +790,9 @@ class ThreadSafeChannel:
             if_empty=if_empty,
         )
 
-    def queue_purge(self, queue, timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
+    def queue_purge(self,
+                    queue,
+                    timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
         """
         Purge all messages from a queue and block until Queue.PurgeOk arrives.
 
@@ -1194,7 +1196,9 @@ class ThreadSafeConnection:
     # Public API
     # ------------------------------------------------------------------
 
-    def channel(self, timeout: float | None = DEFAULT_RPC_TIMEOUT) -> ThreadSafeChannel:
+    def channel(
+            self,
+            timeout: float | None = DEFAULT_RPC_TIMEOUT) -> ThreadSafeChannel:
         """
         Open a new channel and return a :class:`ThreadSafeChannel`.
 
