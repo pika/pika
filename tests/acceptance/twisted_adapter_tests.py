@@ -149,10 +149,11 @@ class TwistedChannelTestCase(TestCase):
         self.pika_channel.add_on_close_callback.assert_called_with(
             self.channel._on_channel_closed)
         calls = self.channel._calls = [defer.Deferred()]
-        consumers = self.channel._consumers = {"test-delivery-tag": mock.Mock()}
+        consumer_mock = mock.Mock()
+        self.channel._consumers = {"test-delivery-tag": consumer_mock}
         error = RuntimeError("testing")
         self.channel._on_channel_closed(None, error)
-        consumers["test-delivery-tag"].close.assert_called_once_with(error)
+        consumer_mock.close.assert_called_once_with(error)
         self.assertEqual(len(self.channel._calls), 0)
         self.assertEqual(len(self.channel._consumers), 0)
         self.assertFailure(calls[0], RuntimeError)
@@ -655,7 +656,10 @@ class TwistedProtocolConnectionTestCase(TestCase):
 
     def setUp(self):
         self.conn = TwistedProtocolConnection()
-        self.conn._impl = mock.Mock()
+        # Assert/set on self.conn_impl_mock (a Mock) rather than through
+        # self.conn._impl, whose static type is the real connection.
+        self.conn_impl_mock = mock.Mock()
+        self.conn._impl = self.conn_impl_mock
 
     @pytest.mark.timeout(5)
     def test_connection(self):
@@ -663,7 +667,7 @@ class TwistedProtocolConnectionTestCase(TestCase):
         transport = mock.Mock()
         self.conn.connectionMade = mock.Mock()
         self.conn.makeConnection(transport)
-        self.conn._impl.connection_made.assert_called_once_with(transport)
+        self.conn_impl_mock.connection_made.assert_called_once_with(transport)
         self.conn.connectionMade.assert_called_once()
         d = self.conn.ready
         self.conn._on_connection_ready(None)
@@ -673,9 +677,9 @@ class TwistedProtocolConnectionTestCase(TestCase):
     def test_channel(self):
         # Verify that the request for a channel works properly.
         channel = mock.Mock()
-        self.conn._impl.channel.side_effect = lambda n, cb: cb(channel)
+        self.conn_impl_mock.channel.side_effect = lambda n, cb: cb(channel)
         d = self.conn.channel()
-        self.conn._impl.channel.assert_called_once()
+        self.conn_impl_mock.channel.assert_called_once()
 
         def check(result):
             self.assertTrue(isinstance(result, TwistedChannel))
@@ -700,7 +704,7 @@ class TwistedProtocolConnectionTestCase(TestCase):
     def test_dataReceived(self):
         # Verify that the data is transmitted to the callback method.
         self.conn.dataReceived("testdata")
-        self.conn._impl.data_received.assert_called_once_with("testdata")
+        self.conn_impl_mock.data_received.assert_called_once_with("testdata")
 
     @pytest.mark.timeout(5)
     def test_connectionLost(self):
@@ -709,7 +713,7 @@ class TwistedProtocolConnectionTestCase(TestCase):
         ready_d = self.conn.ready
         error = RuntimeError("testreason")
         self.conn.connectionLost(error)
-        self.conn._impl.connection_lost.assert_called_with(error)
+        self.conn_impl_mock.connection_lost.assert_called_with(error)
         self.assertIsNone(self.conn.ready)
         self.assertFailure(ready_d, RuntimeError)
         assert ready_d.called
@@ -816,17 +820,17 @@ class TwistedProtocolConnectionTestCase(TestCase):
 
     def test_close(self):
         # Verify that the close method is properly wrapped.
-        self.conn._impl.is_closed = False
+        self.conn_impl_mock.is_closed = False
         self.conn.closed = "TESTING"
         value = self.conn.close()
         self.assertEqual(value, "TESTING")
-        self.conn._impl.close.assert_called_once_with(200, "Normal shutdown")
+        self.conn_impl_mock.close.assert_called_once_with(200, "Normal shutdown")
 
     def test_close_twice(self):
         # Verify that the close method is only transmitted when open.
-        self.conn._impl.is_closed = True
+        self.conn_impl_mock.is_closed = True
         self.conn.close()
-        self.conn._impl.close.assert_not_called()
+        self.conn_impl_mock.close.assert_not_called()
 
 
 class TwistedConnectionAdapterTestCase(TestCase):
