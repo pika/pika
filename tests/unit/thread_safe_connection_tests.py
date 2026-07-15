@@ -2,7 +2,7 @@
 
 import threading
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 from pika.adapters.thread_safe_connection import ThreadSafeChannel, ThreadSafeConnection
 
@@ -269,7 +269,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
             exclusive=False,
             auto_delete=False,
             arguments=None,
-            callback=unittest.mock.ANY,
+            callback=ANY,
         )
 
     def test_queue_declare_raises_when_connection_already_closed(self):
@@ -324,7 +324,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
             prefetch_size=0,
             prefetch_count=10,
             global_qos=False,
-            callback=unittest.mock.ANY,
+            callback=ANY,
         )
 
     def test_basic_qos_raises_when_connection_already_closed(self):
@@ -417,7 +417,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         self.assertIs(result, mock_frame)
         raw_ch.basic_cancel.assert_called_once_with(
             consumer_tag='ctag1',
-            callback=unittest.mock.ANY,
+            callback=ANY,
         )
 
     def test_basic_cancel_raises_when_connection_already_closed(self):
