@@ -781,7 +781,7 @@ class Channel:
                 exchange,
                 exchange_type,
                 passive,
-                durable,  # pyright: ignore[reportArgumentType]
+                durable,
                 auto_delete,
                 internal,
                 nowait,

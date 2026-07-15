@@ -1890,7 +1890,7 @@ class Connection(abc.ABC):
                 reply_code,  # pyright: ignore[reportArgumentType]
                 method_frame.method.reply_text,
                 host=self.params.host,
-                port=self.params.port))  # pyright: ignore[reportArgumentType]
+                port=self.params.port))
 
     def _on_connection_close_ok(
             self, method_frame: frame.Method[spec.Connection.CloseOk]) -> None:
