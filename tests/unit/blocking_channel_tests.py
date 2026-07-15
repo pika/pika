@@ -23,11 +23,11 @@ class BlockingChannelTests(unittest.TestCase):
 
     def setUp(self):
         self.connection = self._create_connection()
-        channel_impl_mock = mock.Mock(spec=ChannelTemplate,
-                                      is_closing=False,
-                                      is_closed=False,
-                                      is_open=True)
-        self.obj = blocking_connection.BlockingChannel(channel_impl_mock,
+        self.channel_impl_mock = mock.Mock(spec=ChannelTemplate,
+                                           is_closing=False,
+                                           is_closed=False,
+                                           is_open=True)
+        self.obj = blocking_connection.BlockingChannel(self.channel_impl_mock,
                                                        self.connection)
 
     def tearDown(self):
@@ -75,8 +75,8 @@ class BlockingChannelTests(unittest.TestCase):
 
     def test_basic_consume(self):
         with mock.patch.object(self.obj._impl, '_generate_consumer_tag'):
-            self.obj._impl._generate_consumer_tag.return_value = 'ctag0'
-            self.obj._impl.basic_consume.return_value = 'ctag0'
+            self.channel_impl_mock._generate_consumer_tag.return_value = 'ctag0'
+            self.channel_impl_mock.basic_consume.return_value = 'ctag0'
 
             self.obj.basic_consume('queue', mock.Mock())
 
@@ -84,10 +84,10 @@ class BlockingChannelTests(unittest.TestCase):
                              blocking_connection._ConsumerInfo.ACTIVE)
 
     def test_context_manager(self):
-        with self.obj as chan:
-            self.assertFalse(chan._impl.close.called)
-        chan._impl.close.assert_called_once_with(reply_code=0,
-                                                 reply_text='Normal shutdown')
+        with self.obj:
+            self.assertFalse(self.channel_impl_mock.close.called)
+        self.channel_impl_mock.close.assert_called_once_with(
+            reply_code=0, reply_text='Normal shutdown')
 
     def test_context_manager_does_not_suppress_exception(self):
 
@@ -95,24 +95,24 @@ class BlockingChannelTests(unittest.TestCase):
             pass
 
         with self.assertRaises(TestException):
-            with self.obj as chan:
-                self.assertFalse(chan._impl.close.called)
+            with self.obj:
+                self.assertFalse(self.channel_impl_mock.close.called)
                 raise TestException()
-        chan._impl.close.assert_called_once_with(reply_code=0,
-                                                 reply_text='Normal shutdown')
+        self.channel_impl_mock.close.assert_called_once_with(
+            reply_code=0, reply_text='Normal shutdown')
 
     def test_context_manager_exit_with_closed_channel(self):
         with self.obj as chan:
-            self.assertFalse(chan._impl.close.called)
+            self.assertFalse(self.channel_impl_mock.close.called)
             chan.close()
-        chan._impl.close.assert_called_with(reply_code=0,
-                                            reply_text='Normal shutdown')
+        self.channel_impl_mock.close.assert_called_with(
+            reply_code=0, reply_text='Normal shutdown')
 
     def test_consumer_tags_property(self):
         with mock.patch.object(self.obj._impl, '_generate_consumer_tag'):
             self.assertEqual(0, len(self.obj.consumer_tags))
-            self.obj._impl._generate_consumer_tag.return_value = 'ctag0'
-            self.obj._impl.basic_consume.return_value = 'ctag0'
+            self.channel_impl_mock._generate_consumer_tag.return_value = 'ctag0'
+            self.channel_impl_mock.basic_consume.return_value = 'ctag0'
             self.obj.basic_consume('queue', mock.Mock())
             self.assertEqual(1, len(self.obj.consumer_tags))
             self.assertIn('ctag0', self.obj.consumer_tags)

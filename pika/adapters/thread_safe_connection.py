@@ -145,8 +145,8 @@ class ThreadSafeChannel:
             except ValueError:
                 pass
 
-    def _blocking_rpc(self, method_name: str, channel_method, timeout: int,
-                      *args, **kwargs) -> Any:
+    def _blocking_rpc(self, method_name: str, channel_method,
+                      timeout: float | None, *args, **kwargs) -> Any:
         """
         Execute a channel RPC and block until the broker responds.
 
@@ -326,7 +326,7 @@ class ThreadSafeChannel:
                   prefetch_size: int = 0,
                   prefetch_count: int = 0,
                   global_qos: bool = False,
-                  timeout: int = DEFAULT_RPC_TIMEOUT) -> None:
+                  timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
         """Set channel QoS and block until Basic.QosOk arrives.
 
         Safe to call from any thread.
@@ -350,10 +350,11 @@ class ThreadSafeChannel:
             global_qos=global_qos,
         )
 
-    def basic_get(self,
-                  queue,
-                  auto_ack: bool = False,
-                  timeout: int = DEFAULT_RPC_TIMEOUT) -> tuple[None, ...]:
+    def basic_get(
+            self,
+            queue,
+            auto_ack: bool = False,
+            timeout: float | None = DEFAULT_RPC_TIMEOUT) -> tuple[None, ...]:
         """
         Get a single message from the broker and block until it arrives.
 
@@ -497,7 +498,7 @@ class ThreadSafeChannel:
 
     def confirm_delivery(self,
                          ack_nack_callback,
-                         timeout: int = DEFAULT_RPC_TIMEOUT):
+                         timeout: float | None = DEFAULT_RPC_TIMEOUT):
         """
         Enable publisher confirms and block until Confirm.SelectOk arrives.
 
@@ -552,7 +553,7 @@ class ThreadSafeChannel:
                       exclusive: bool = False,
                       consumer_tag=None,
                       arguments=None,
-                      timeout: int = DEFAULT_RPC_TIMEOUT):
+                      timeout: float | None = DEFAULT_RPC_TIMEOUT):
         """
         Register a consumer and block until Basic.ConsumeOk arrives.
 
@@ -602,7 +603,7 @@ class ThreadSafeChannel:
 
     def basic_cancel(self,
                      consumer_tag,
-                     timeout: int = DEFAULT_RPC_TIMEOUT) -> None:
+                     timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
         """
         Cancel a consumer and block until Basic.CancelOk arrives.
 
@@ -629,7 +630,7 @@ class ThreadSafeChannel:
                       exclusive: bool = False,
                       auto_delete: bool = False,
                       arguments=None,
-                      timeout: int = DEFAULT_RPC_TIMEOUT) -> None:
+                      timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
         """
         Declare a queue and block the calling thread until Queue.DeclareOk arrives.
 
@@ -667,7 +668,7 @@ class ThreadSafeChannel:
                          auto_delete: bool = False,
                          internal: bool = False,
                          arguments=None,
-                         timeout: int = DEFAULT_RPC_TIMEOUT) -> None:
+                         timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
         """
         Declare an exchange and block until Exchange.DeclareOk arrives.
 
@@ -704,7 +705,7 @@ class ThreadSafeChannel:
                    exchange,
                    routing_key=None,
                    arguments=None,
-                   timeout: int = DEFAULT_RPC_TIMEOUT) -> None:
+                   timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
         """
         Bind a queue to an exchange and block until Queue.BindOk arrives.
 
@@ -735,7 +736,7 @@ class ThreadSafeChannel:
                      exchange=None,
                      routing_key=None,
                      arguments=None,
-                     timeout: int = DEFAULT_RPC_TIMEOUT) -> None:
+                     timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
         """
         Unbind a queue from an exchange and block until Queue.UnbindOk arrives.
 
@@ -765,7 +766,7 @@ class ThreadSafeChannel:
                      queue,
                      if_unused: bool = False,
                      if_empty: bool = False,
-                     timeout: int = DEFAULT_RPC_TIMEOUT) -> None:
+                     timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
         """
         Delete a queue and block until Queue.DeleteOk arrives.
 
@@ -789,7 +790,9 @@ class ThreadSafeChannel:
             if_empty=if_empty,
         )
 
-    def queue_purge(self, queue, timeout: int = DEFAULT_RPC_TIMEOUT) -> None:
+    def queue_purge(self,
+                    queue,
+                    timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
         """
         Purge all messages from a queue and block until Queue.PurgeOk arrives.
 
@@ -814,7 +817,7 @@ class ThreadSafeChannel:
                       source,
                       routing_key: str = '',
                       arguments=None,
-                      timeout: int = DEFAULT_RPC_TIMEOUT) -> None:
+                      timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
         """
         Bind an exchange to another exchange and block until Exchange.BindOk.
 
@@ -845,7 +848,7 @@ class ThreadSafeChannel:
                         source,
                         routing_key: str = '',
                         arguments=None,
-                        timeout: int = DEFAULT_RPC_TIMEOUT) -> None:
+                        timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
         """
         Unbind an exchange from another exchange and block until Exchange.UnbindOk.
 
@@ -874,7 +877,7 @@ class ThreadSafeChannel:
     def exchange_delete(self,
                         exchange=None,
                         if_unused: bool = False,
-                        timeout: int = DEFAULT_RPC_TIMEOUT) -> None:
+                        timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
         """
         Delete an exchange and block until Exchange.DeleteOk arrives.
 
@@ -899,7 +902,7 @@ class ThreadSafeChannel:
     def close(self,
               reply_code: int = 0,
               reply_text: str = 'Normal shutdown',
-              timeout: int = 10) -> None:
+              timeout: float | None = 10) -> None:
         """
         Close the channel and block until the Channel.CloseOk arrives.
 
@@ -953,7 +956,7 @@ class ThreadSafeChannel:
     def abort(self,
               reply_code: int = 0,
               reply_text: str = 'Normal shutdown',
-              timeout: int = 10) -> None:
+              timeout: float | None = 10) -> None:
         """
         Close the channel, swallowing any errors.
 
@@ -1059,7 +1062,7 @@ class ThreadSafeConnection:
                  parameters,
                  on_open_error_callback=None,
                  on_close_callback=None,
-                 timeout: int = DEFAULT_RPC_TIMEOUT) -> None:
+                 timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
         self._user_on_open_error_callback = on_open_error_callback
         self._user_on_close_callback = on_close_callback
 
@@ -1193,7 +1196,9 @@ class ThreadSafeConnection:
     # Public API
     # ------------------------------------------------------------------
 
-    def channel(self, timeout: int = DEFAULT_RPC_TIMEOUT) -> ThreadSafeChannel:
+    def channel(
+            self,
+            timeout: float | None = DEFAULT_RPC_TIMEOUT) -> ThreadSafeChannel:
         """
         Open a new channel and return a :class:`ThreadSafeChannel`.
 
@@ -1253,7 +1258,7 @@ class ThreadSafeConnection:
             self._channels.append(ch)
         return ch
 
-    def close(self, timeout: int = 10) -> None:
+    def close(self, timeout: float | None = 10) -> None:
         """
         Close the connection and block until the IOLoop thread exits.
 
@@ -1314,7 +1319,7 @@ class ThreadSafeConnection:
             self._shutdown_all_consumer_pools()
             self._shutdown_connection_pool()
 
-    def abort(self, timeout: int = 10) -> None:
+    def abort(self, timeout: float | None = 10) -> None:
         """
         Close the connection, swallowing any errors.
 

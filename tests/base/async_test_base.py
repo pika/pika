@@ -110,7 +110,7 @@ class AsyncTestCase(unittest.TestCase):
             return f"{self.DESCRIPTION} ({method_desc})"
         return method_desc
 
-    def begin(self, channel):
+    def begin(self, channel) -> None:
         """Extend to start the actual tests on the channel."""
         self.fail("AsyncTestCase.begin_test not extended")
 

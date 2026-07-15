@@ -81,14 +81,14 @@ class IOLoopBaseTest(unittest.TestCase):
             self.ioloop._poller,
             'activate_poller',
             wraps=self.ioloop._poller.activate_poller)
-        activate_poller_patch.start()
+        self._activate_poller_mock = activate_poller_patch.start()
         self.addCleanup(activate_poller_patch.stop)
 
         deactivate_poller_patch = mock.patch.object(
             self.ioloop._poller,
             'deactivate_poller',
             wraps=self.ioloop._poller.deactivate_poller)
-        deactivate_poller_patch.start()
+        self._deactivate_poller_mock = deactivate_poller_patch.start()
         self.addCleanup(deactivate_poller_patch.stop)
 
     def shortDescription(self):
@@ -101,8 +101,8 @@ class IOLoopBaseTest(unittest.TestCase):
         self.addCleanup(self.ioloop.remove_timeout, fail_timer)
         self.ioloop.start()
 
-        self.ioloop._poller.activate_poller.assert_called_once_with()
-        self.ioloop._poller.deactivate_poller.assert_called_once_with()
+        self._activate_poller_mock.assert_called_once_with()
+        self._deactivate_poller_mock.assert_called_once_with()
 
     def on_timeout(self):
         """Called when stuck waiting for connection to close."""
@@ -439,11 +439,11 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         fd_ = self.save_sock(read_sock)
         self.ioloop.add_handler(fd_, self.do_read, self.ioloop.READ)
 
-    def connected(self, _fd, _events):
+    def connected(self, _fd, _events) -> None:
         """
         Create socket from given _fd and respond to 'connected'.
 
-        Implemenation is subclass's responsibility.
+        Implementation is subclass's responsibility.
         """
         self.fail("IOLoopSocketBase.connected not extended")
 
@@ -453,7 +453,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         # NOTE Use socket.recv instead of os.read for Windows compatibility
         self.verify_message(self.sock_map[fd_].recv(self.READ_SIZE))
 
-    def verify_message(self, _msg):
+    def verify_message(self, _msg) -> None:
         """
         See if 'msg' matches what is expected.
 
@@ -567,10 +567,9 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
     @unittest.skipUnless(pika._utils.HAVE_SIGNAL,
                          "This platform doesn't support posix signals")
     @mock.patch('pika.adapters.select_connection._is_resumable')
-    def test_eintr(
-            self,
-            is_resumable_mock,
-            is_resumable_raw=pika.adapters.select_connection._is_resumable):
+    def test_eintr(self,
+                   is_resumable_mock,
+                   is_resumable_raw=select_connection._is_resumable):
         """
         Test that poll() is properly restarted after receiving EINTR error.
 
