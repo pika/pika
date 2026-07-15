@@ -29,12 +29,12 @@ class ContentFrameAssemblerTests(unittest.TestCase):
         self.assertEqual(self.obj._method_frame, value)
 
     def test_process_with_content_header(self):
-        value = frame.Header(1, 100, spec.BasicProperties)
+        value = frame.Header(1, 100, spec.BasicProperties())
         self.obj.process(value)
         self.assertEqual(self.obj._header_frame, value)
 
     def test_process_with_body_frame_partial(self):
-        value = frame.Header(1, 100, spec.BasicProperties)
+        value = frame.Header(1, 100, spec.BasicProperties())
         self.obj.process(value)
         value = frame.Method(1, spec.Basic.Deliver())
         self.obj.process(value)
@@ -45,7 +45,7 @@ class ContentFrameAssemblerTests(unittest.TestCase):
     def test_process_with_full_message(self):
         method_frame = frame.Method(1, spec.Basic.Deliver())
         self.obj.process(method_frame)
-        header_frame = frame.Header(1, 6, spec.BasicProperties)
+        header_frame = frame.Header(1, 6, spec.BasicProperties())
         self.obj.process(header_frame)
         body_frame = frame.Body(1, b'abc123')
         response = self.obj.process(body_frame)
@@ -54,7 +54,7 @@ class ContentFrameAssemblerTests(unittest.TestCase):
     def test_process_with_body_frame_six_bytes(self):
         method_frame = frame.Method(1, spec.Basic.Deliver())
         self.obj.process(method_frame)
-        header_frame = frame.Header(1, 10, spec.BasicProperties)
+        header_frame = frame.Header(1, 10, spec.BasicProperties())
         self.obj.process(header_frame)
         body_frame = frame.Body(1, b'abc123')
         self.obj.process(body_frame)
@@ -63,7 +63,7 @@ class ContentFrameAssemblerTests(unittest.TestCase):
     def test_process_with_body_frame_too_big(self):
         method_frame = frame.Method(1, spec.Basic.Deliver())
         self.obj.process(method_frame)
-        header_frame = frame.Header(1, 6, spec.BasicProperties)
+        header_frame = frame.Header(1, 6, spec.BasicProperties())
         self.obj.process(header_frame)
         body_frame = frame.Body(1, b'abcd1234')
         self.assertRaises(exceptions.BodyTooLongError, self.obj.process,
@@ -77,7 +77,7 @@ class ContentFrameAssemblerTests(unittest.TestCase):
     def test_reset_method_frame(self):
         method_frame = frame.Method(1, spec.Basic.Deliver())
         self.obj.process(method_frame)
-        header_frame = frame.Header(1, 10, spec.BasicProperties)
+        header_frame = frame.Header(1, 10, spec.BasicProperties())
         self.obj.process(header_frame)
         body_frame = frame.Body(1, b'abc123')
         self.obj.process(body_frame)
@@ -87,7 +87,7 @@ class ContentFrameAssemblerTests(unittest.TestCase):
     def test_reset_header_frame(self):
         method_frame = frame.Method(1, spec.Basic.Deliver())
         self.obj.process(method_frame)
-        header_frame = frame.Header(1, 10, spec.BasicProperties)
+        header_frame = frame.Header(1, 10, spec.BasicProperties())
         self.obj.process(header_frame)
         body_frame = frame.Body(1, b'abc123')
         self.obj.process(body_frame)
@@ -97,7 +97,7 @@ class ContentFrameAssemblerTests(unittest.TestCase):
     def test_reset_seen_so_far(self):
         method_frame = frame.Method(1, spec.Basic.Deliver())
         self.obj.process(method_frame)
-        header_frame = frame.Header(1, 10, spec.BasicProperties)
+        header_frame = frame.Header(1, 10, spec.BasicProperties())
         self.obj.process(header_frame)
         body_frame = frame.Body(1, b'abc123')
         self.obj.process(body_frame)
@@ -107,7 +107,7 @@ class ContentFrameAssemblerTests(unittest.TestCase):
     def test_reset_body_fragments(self):
         method_frame = frame.Method(1, spec.Basic.Deliver())
         self.obj.process(method_frame)
-        header_frame = frame.Header(1, 10, spec.BasicProperties)
+        header_frame = frame.Header(1, 10, spec.BasicProperties())
         self.obj.process(header_frame)
         body_frame = frame.Body(1, b'abc123')
         self.obj.process(body_frame)
@@ -117,7 +117,7 @@ class ContentFrameAssemblerTests(unittest.TestCase):
     def test_ascii_bytes_body_instance(self):
         method_frame = frame.Method(1, spec.Basic.Deliver())
         self.obj.process(method_frame)
-        header_frame = frame.Header(1, 11, spec.BasicProperties)
+        header_frame = frame.Header(1, 11, spec.BasicProperties())
         self.obj.process(header_frame)
         body_frame = frame.Body(1, b'foo-bar-baz')
         method_frame, header_frame, body_value = self.obj.process(body_frame)
@@ -128,7 +128,7 @@ class ContentFrameAssemblerTests(unittest.TestCase):
         self.obj = channel.ContentFrameAssembler()
         method_frame = frame.Method(1, spec.Basic.Deliver())
         self.obj.process(method_frame)
-        header_frame = frame.Header(1, 11, spec.BasicProperties)
+        header_frame = frame.Header(1, 11, spec.BasicProperties())
         self.obj.process(header_frame)
         body_frame = frame.Body(1, b'foo-bar-baz')
         method_frame, header_frame, body_value = self.obj.process(body_frame)
@@ -142,7 +142,7 @@ class ContentFrameAssemblerTests(unittest.TestCase):
         self.obj.process(method_frame)
         marshalled_body = marshal.dumps(expectation)
         header_frame = frame.Header(1, len(marshalled_body),
-                                    spec.BasicProperties)
+                                    spec.BasicProperties())
         self.obj.process(header_frame)
         body_frame = frame.Body(1, marshalled_body)
         method_frame, header_frame, body_value = self.obj.process(body_frame)
