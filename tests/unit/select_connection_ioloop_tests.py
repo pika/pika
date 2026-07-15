@@ -81,14 +81,14 @@ class IOLoopBaseTest(unittest.TestCase):
             self.ioloop._poller,
             'activate_poller',
             wraps=self.ioloop._poller.activate_poller)
-        activate_poller_patch.start()
+        self._activate_poller_mock = activate_poller_patch.start()
         self.addCleanup(activate_poller_patch.stop)
 
         deactivate_poller_patch = mock.patch.object(
             self.ioloop._poller,
             'deactivate_poller',
             wraps=self.ioloop._poller.deactivate_poller)
-        deactivate_poller_patch.start()
+        self._deactivate_poller_mock = deactivate_poller_patch.start()
         self.addCleanup(deactivate_poller_patch.stop)
 
     def shortDescription(self):
@@ -101,8 +101,8 @@ class IOLoopBaseTest(unittest.TestCase):
         self.addCleanup(self.ioloop.remove_timeout, fail_timer)
         self.ioloop.start()
 
-        self.ioloop._poller.activate_poller.assert_called_once_with()
-        self.ioloop._poller.deactivate_poller.assert_called_once_with()
+        self._activate_poller_mock.assert_called_once_with()
+        self._deactivate_poller_mock.assert_called_once_with()
 
     def on_timeout(self):
         """Called when stuck waiting for connection to close."""

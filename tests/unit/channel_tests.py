@@ -1703,7 +1703,7 @@ class ChannelTests(unittest.TestCase):
     def test_send_method(self):
         expectation = [2, 3]
         self.obj._send_method(*expectation)
-        self.obj.connection._send_method.assert_called_once_with(
+        cast(mock.Mock, self.obj.connection)._send_method.assert_called_once_with(
             self.obj.channel_number, *expectation)
 
     def test_set_state(self):

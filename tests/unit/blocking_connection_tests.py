@@ -40,7 +40,8 @@ class BlockingConnectionTests(unittest.TestCase):
 
         _create_connection_mock.assert_called_once_with('params', None)
 
-        connection._impl.add_on_close_callback.assert_called_once_with(
+        impl_mock = _create_connection_mock.return_value
+        impl_mock.add_on_close_callback.assert_called_once_with(
             connection._closed_result.set_value_once)
 
     @patch.object(blocking_connection.select_connection,
