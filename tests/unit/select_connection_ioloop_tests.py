@@ -570,7 +570,7 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
     def test_eintr(
             self,
             is_resumable_mock,
-            is_resumable_raw=pika.adapters.select_connection._is_resumable):
+            is_resumable_raw=select_connection._is_resumable):
         """
         Test that poll() is properly restarted after receiving EINTR error.
 
