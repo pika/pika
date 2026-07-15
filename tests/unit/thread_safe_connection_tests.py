@@ -6,8 +6,6 @@ from unittest.mock import ANY, MagicMock, patch
 
 from pika.adapters.thread_safe_connection import ThreadSafeChannel, ThreadSafeConnection
 
-# pylint: disable=W0212,C0111,C0103
-
 
 class ThreadSafeChannelTests(unittest.TestCase):
 
