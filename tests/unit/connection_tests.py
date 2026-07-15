@@ -216,19 +216,19 @@ class ConnectionTests(unittest.TestCase):
 
     def test_on_stream_terminated_invokes_connection_closed_callback(self):
         """_on_stream_terminated invokes `Connection.ON_CONNECTION_CLOSED` callbacks."""
-        self.connection.callbacks.process = mock.Mock(
-            wraps=self.connection.callbacks.process)
+        process_mock = mock.Mock(wraps=self.connection.callbacks.process)
+        self.connection.callbacks.process = process_mock
 
         self.connection._adapter_disconnect_stream = mock.Mock()
 
         self.connection._on_stream_terminated(Exception(1, 'error text'))
 
-        self.connection.callbacks.process.assert_called_once_with(
+        process_mock.assert_called_once_with(
             0, self.connection.ON_CONNECTION_CLOSED, self.connection,
             self.connection, mock.ANY)
 
         with self.assertRaises(AssertionError):
-            self.connection.callbacks.process.assert_any_call(
+            process_mock.assert_any_call(
                 0, self.connection.ON_CONNECTION_ERROR, self.connection,
                 self.connection, mock.ANY)
 
@@ -237,7 +237,8 @@ class ConnectionTests(unittest.TestCase):
         r"""_on_stream_terminated invokes `ON_CONNECTION_ERROR` with \ `IncompatibleProtocolError`
         and `ON_CONNECTION_CLOSED` callbacks.
         """
-        with mock.patch.object(self.connection.callbacks, 'process'):
+        with mock.patch.object(self.connection.callbacks,
+                               'process') as process_mock:
 
             self.connection._adapter_disconnect_stream = mock.Mock()
 
@@ -248,13 +249,13 @@ class ConnectionTests(unittest.TestCase):
             original_exc = exceptions.StreamLostError(1, 'error text')
             self.connection._on_stream_terminated(original_exc)
 
-            self.assertEqual(self.connection.callbacks.process.call_count, 1)
+            self.assertEqual(process_mock.call_count, 1)
 
-            self.connection.callbacks.process.assert_any_call(
+            process_mock.assert_any_call(
                 0, self.connection.ON_CONNECTION_ERROR, self.connection,
                 self.connection, mock.ANY)
 
-            conn_exc = self.connection.callbacks.process.call_args_list[0][0][4]
+            conn_exc = process_mock.call_args_list[0][0][4]
             self.assertIs(type(conn_exc), exceptions.IncompatibleProtocolError)
             self.assertSequenceEqual(conn_exc.args, [repr(original_exc)])
 
@@ -263,7 +264,8 @@ class ConnectionTests(unittest.TestCase):
         r"""_on_stream_terminated invokes `ON_CONNECTION_ERROR` with \ `ProbableAuthenticationError`
         and `ON_CONNECTION_CLOSED` callbacks.
         """
-        with mock.patch.object(self.connection.callbacks, 'process'):
+        with mock.patch.object(self.connection.callbacks,
+                               'process') as process_mock:
 
             self.connection._adapter_disconnect_stream = mock.Mock()
 
@@ -274,13 +276,13 @@ class ConnectionTests(unittest.TestCase):
             original_exc = exceptions.StreamLostError(1, 'error text')
             self.connection._on_stream_terminated(original_exc)
 
-            self.assertEqual(self.connection.callbacks.process.call_count, 1)
+            self.assertEqual(process_mock.call_count, 1)
 
-            self.connection.callbacks.process.assert_any_call(
+            process_mock.assert_any_call(
                 0, self.connection.ON_CONNECTION_ERROR, self.connection,
                 self.connection, mock.ANY)
 
-            conn_exc = self.connection.callbacks.process.call_args_list[0][0][4]
+            conn_exc = process_mock.call_args_list[0][0][4]
             self.assertIs(type(conn_exc),
                           exceptions.ProbableAuthenticationError)
             self.assertSequenceEqual(conn_exc.args, [repr(original_exc)])
@@ -290,7 +292,8 @@ class ConnectionTests(unittest.TestCase):
         r"""_on_stream_terminated invokes `ON_CONNECTION_ERROR` with \ `ProbableAccessDeniedError`
         and `ON_CONNECTION_CLOSED` callbacks.
         """
-        with mock.patch.object(self.connection.callbacks, 'process'):
+        with mock.patch.object(self.connection.callbacks,
+                               'process') as process_mock:
 
             self.connection._adapter_disconnect_stream = mock.Mock()
 
@@ -301,13 +304,13 @@ class ConnectionTests(unittest.TestCase):
             original_exc = exceptions.StreamLostError(1, 'error text')
             self.connection._on_stream_terminated(original_exc)
 
-            self.assertEqual(self.connection.callbacks.process.call_count, 1)
+            self.assertEqual(process_mock.call_count, 1)
 
-            self.connection.callbacks.process.assert_any_call(
+            process_mock.assert_any_call(
                 0, self.connection.ON_CONNECTION_ERROR, self.connection,
                 self.connection, mock.ANY)
 
-            conn_exc = self.connection.callbacks.process.call_args_list[0][0][4]
+            conn_exc = process_mock.call_args_list[0][0][4]
             self.assertIs(type(conn_exc), exceptions.ProbableAccessDeniedError)
             self.assertSequenceEqual(conn_exc.args, [repr(original_exc)])
 
