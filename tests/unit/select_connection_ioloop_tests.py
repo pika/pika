@@ -439,7 +439,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         fd_ = self.save_sock(read_sock)
         self.ioloop.add_handler(fd_, self.do_read, self.ioloop.READ)
 
-    def connected(self, _fd, _events):
+    def connected(self, _fd, _events) -> None:
         """
         Create socket from given _fd and respond to 'connected'.
 
@@ -453,7 +453,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         # NOTE Use socket.recv instead of os.read for Windows compatibility
         self.verify_message(self.sock_map[fd_].recv(self.READ_SIZE))
 
-    def verify_message(self, _msg):
+    def verify_message(self, _msg) -> None:
         """
         See if 'msg' matches what is expected.
 
