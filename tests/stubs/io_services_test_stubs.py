@@ -55,7 +55,7 @@ class IOServicesTestStubs:
 
     def _run_start(self, nbio_factory, native_loop, use_ssl=False):
         """
-        Called by framework-specific test stubs to initialize test paramters and execute the
+        Called by framework-specific test stubs to initialize test parameters and execute the
         `self.start()` method.
 
         :param nbio_interface.AbstractIOServices _() nbio_factory: function to call to create an
