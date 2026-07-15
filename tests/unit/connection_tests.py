@@ -513,7 +513,6 @@ class ConnectionTests(unittest.TestCase):
     def test_on_stream_connected(self, frame_protocol_header):
         """Make sure the _on_stream_connected() sets the state and sends a frame."""
         self.connection.connection_state = self.connection.CONNECTION_INIT
-        self.connection._adapter_connect = mock.Mock(return_value=None)
         self.connection._send_frame = mock.Mock()
         frame_protocol_header.spec = frame.ProtocolHeader
         frame_protocol_header.return_value = 'frame object'
@@ -536,8 +535,6 @@ class ConnectionTests(unittest.TestCase):
                 'exchange_exchange_bindings': False
             }
         }
-        # This will be called, but should not be implemented here, just mock it
-        self.connection._flush_outbound = mock.Mock()
         self.connection._adapter_emit_data = mock.Mock()
         self.connection._on_connection_start(method_frame)
         self.assertEqual(True, self.connection.basic_nack)
@@ -559,7 +556,6 @@ class ConnectionTests(unittest.TestCase):
                                 heartbeat_checker):
         """Make sure _on_connection_tune tunes the connection params."""
         heartbeat_checker.return_value = 'hearbeat obj'
-        self.connection._flush_outbound = mock.Mock()
         marshal = mock.Mock(return_value='ab')
         method.return_value = mock.Mock(marshal=marshal)
         # may be good to test this here, but i don't want to test too much
@@ -1038,7 +1034,6 @@ class ConnectionTests(unittest.TestCase):
                        spec_set=connection.Connection._adapter_emit_data)
     def test_send_message_updates_frames_sent_and_bytes_sent(
             self, _adapter_emit_data):
-        self.connection._flush_outbound = mock.Mock()
         self.connection._body_max_length = 10000
         method = spec.Basic.Publish(exchange='my-exchange',
                                     routing_key='my-route')
