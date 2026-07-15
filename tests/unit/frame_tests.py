@@ -60,8 +60,9 @@ class FrameTests(unittest.TestCase):
         self.assertEqual(frame.decode_frame(self.BASIC_ACK)[0], 21)
 
     def test_decode_method_frame_method(self):
-        self.assertIsInstance(
-            frame.decode_frame(self.BASIC_ACK)[1].method, spec.Basic.Ack)
+        decoded = frame.decode_frame(self.BASIC_ACK)[1]
+        assert isinstance(decoded, frame.Method)
+        self.assertIsInstance(decoded.method, spec.Basic.Ack)
 
     def test_decode_header_frame_instance(self):
         self.assertIsInstance(
@@ -72,6 +73,7 @@ class FrameTests(unittest.TestCase):
 
     def test_decode_header_frame_properties(self):
         frame_value = frame.decode_frame(self.CONTENT_HEADER)[1]
+        assert isinstance(frame_value, frame.Header)
         self.assertIsInstance(frame_value.properties, spec.BasicProperties)
 
     def test_decode_frame_decoding_failure(self):
@@ -90,9 +92,9 @@ class FrameTests(unittest.TestCase):
             frame.decode_frame(self.BODY_FRAME)[1], frame.Body)
 
     def test_decode_body_frame_fragment(self):
-        self.assertEqual(
-            frame.decode_frame(self.BODY_FRAME)[1].fragment,
-            self.BODY_FRAME_VALUE)
+        decoded = frame.decode_frame(self.BODY_FRAME)[1]
+        assert isinstance(decoded, frame.Body)
+        self.assertEqual(decoded.fragment, self.BODY_FRAME_VALUE)
 
     def test_decode_body_frame_fragment_consumed_bytes(self):
         self.assertEqual(frame.decode_frame(self.BODY_FRAME)[0], 28)
