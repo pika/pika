@@ -18,13 +18,12 @@ class BlockingConnectionMockTemplate(blocking_connection.BlockingConnection):
 
 class SelectConnectionTemplate(
         blocking_connection.select_connection.SelectConnection):
-    is_closed = None
-    is_closing = None
-    is_open = None
-    _channels = None
-    ioloop = None
+    # is_closed/is_closing/is_open/ioloop (properties) and
+    # _get_write_buffer_size (method) are inherited and already part of the
+    # mock spec. Only the instance attributes below need declaring at class
+    # level so spec_set exposes them.
+    _channels = {}  # noqa: RUF012 -- throwaway mock-spec template, not real state
     _transport = None
-    _get_write_buffer_size = None
 
 
 class BlockingConnectionTests(unittest.TestCase):
