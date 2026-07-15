@@ -443,7 +443,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         """
         Create socket from given _fd and respond to 'connected'.
 
-        Implemenation is subclass's responsibility.
+        Implementation is subclass's responsibility.
         """
         self.fail("IOLoopSocketBase.connected not extended")
 
