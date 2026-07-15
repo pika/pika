@@ -27,7 +27,7 @@ class SelectConnectionTemplate(
 
 
 class BlockingConnectionTests(unittest.TestCase):
-    """TODO: test properties."""
+    """Tests for BlockingConnection."""
 
     @patch.object(blocking_connection.select_connection,
                   'SelectConnection',
@@ -404,3 +404,79 @@ class BlockingConnectionTests(unittest.TestCase):
 
             self.assertEqual(cm.exception.reply_code, 406)
             self.assertEqual(cm.exception.reply_text, "consumer_timeout")
+
+    @staticmethod
+    def _make_open_connection(select_connection_class_mock):
+        """Create a BlockingConnection and return it with its impl mock.
+
+        Set attributes on the returned mock (not connection._impl) so pyright
+        sees a MagicMock rather than the real SelectConnection properties.
+        """
+        impl_mock = select_connection_class_mock.return_value
+        impl_mock.is_closed = False
+        with mock.patch.object(blocking_connection.BlockingConnection,
+                               '_create_connection',
+                               return_value=impl_mock):
+            return blocking_connection.BlockingConnection('params'), impl_mock
+
+    @patch.object(blocking_connection.select_connection,
+                  'SelectConnection',
+                  spec_set=SelectConnectionTemplate)
+    def test_is_closed_delegates_to_impl(self, select_connection_class_mock):
+        connection, impl_mock = self._make_open_connection(
+            select_connection_class_mock)
+        impl_mock.is_closed = True
+        self.assertIs(connection.is_closed, True)
+        impl_mock.is_closed = False
+        self.assertIs(connection.is_closed, False)
+
+    @patch.object(blocking_connection.select_connection,
+                  'SelectConnection',
+                  spec_set=SelectConnectionTemplate)
+    def test_is_open_delegates_to_impl(self, select_connection_class_mock):
+        connection, impl_mock = self._make_open_connection(
+            select_connection_class_mock)
+        impl_mock.is_open = True
+        self.assertIs(connection.is_open, True)
+        impl_mock.is_open = False
+        self.assertIs(connection.is_open, False)
+
+    @patch.object(blocking_connection.select_connection,
+                  'SelectConnection',
+                  spec_set=SelectConnectionTemplate)
+    def test_basic_nack_supported_delegates_to_impl(
+            self, select_connection_class_mock):
+        connection, impl_mock = self._make_open_connection(
+            select_connection_class_mock)
+        impl_mock.basic_nack = True
+        self.assertIs(connection.basic_nack_supported, True)
+
+    @patch.object(blocking_connection.select_connection,
+                  'SelectConnection',
+                  spec_set=SelectConnectionTemplate)
+    def test_consumer_cancel_notify_supported_delegates_to_impl(
+            self, select_connection_class_mock):
+        connection, impl_mock = self._make_open_connection(
+            select_connection_class_mock)
+        impl_mock.consumer_cancel_notify = True
+        self.assertIs(connection.consumer_cancel_notify_supported, True)
+
+    @patch.object(blocking_connection.select_connection,
+                  'SelectConnection',
+                  spec_set=SelectConnectionTemplate)
+    def test_exchange_exchange_bindings_supported_delegates_to_impl(
+            self, select_connection_class_mock):
+        connection, impl_mock = self._make_open_connection(
+            select_connection_class_mock)
+        impl_mock.exchange_exchange_bindings = True
+        self.assertIs(connection.exchange_exchange_bindings_supported, True)
+
+    @patch.object(blocking_connection.select_connection,
+                  'SelectConnection',
+                  spec_set=SelectConnectionTemplate)
+    def test_publisher_confirms_supported_delegates_to_impl(
+            self, select_connection_class_mock):
+        connection, impl_mock = self._make_open_connection(
+            select_connection_class_mock)
+        impl_mock.publisher_confirms = True
+        self.assertIs(connection.publisher_confirms_supported, True)
