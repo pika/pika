@@ -248,6 +248,7 @@ class TimerClassTests(unittest.TestCase):
         with mock.patch('pika._utils.time_now', return_value=now):
             timer = select_connection._Timer()
             timer.call_later(0, lambda: None)
+            assert timer._timeout_heap is not None
             self.assertEqual(timer._timeout_heap[0].deadline, now)
             self.assertEqual(timer.get_remaining_interval(), 0)
 
@@ -255,6 +256,7 @@ class TimerClassTests(unittest.TestCase):
         with mock.patch('pika._utils.time_now', return_value=now):
             timer = select_connection._Timer()
             timer.call_later(0.5, lambda: None)
+            assert timer._timeout_heap is not None
             self.assertEqual(timer._timeout_heap[0].deadline, now + 0.5)
             self.assertEqual(timer.get_remaining_interval(), 0.5)
 
@@ -283,6 +285,7 @@ class TimerClassTests(unittest.TestCase):
             self.assertEqual(timer.get_remaining_interval(), 0)
             timer.process_timeouts()
             self.assertEqual(bucket, [1])
+            assert timer._timeout_heap is not None
             self.assertEqual(len(timer._timeout_heap), 0)
             self.assertIsNone(timer.get_remaining_interval())
 
@@ -308,6 +311,7 @@ class TimerClassTests(unittest.TestCase):
             self.assertEqual(timer.get_remaining_interval(), 0)
             timer.process_timeouts()
             self.assertEqual(bucket, [1, 2])
+            assert timer._timeout_heap is not None
             self.assertEqual(len(timer._timeout_heap), 1)
             self.assertEqual(timer.get_remaining_interval(), 4)
 
@@ -316,6 +320,7 @@ class TimerClassTests(unittest.TestCase):
             self.assertEqual(timer.get_remaining_interval(), 0)
             timer.process_timeouts()
             self.assertEqual(bucket, [1, 2, 3])
+            assert timer._timeout_heap is not None
             self.assertEqual(len(timer._timeout_heap), 0)
             self.assertIsNone(timer.get_remaining_interval())
 
@@ -348,6 +353,7 @@ class TimerClassTests(unittest.TestCase):
             self.assertEqual(bucket, [])
             self.assertEqual(timer._num_cancellations, 2)
             self.assertEqual(timer.get_remaining_interval(), 5)
+            assert timer._timeout_heap is not None
             self.assertEqual(len(timer._timeout_heap), 3)
 
         # Advance time by 6 seconds to expire t1 and t2 and verify they don't
@@ -357,6 +363,7 @@ class TimerClassTests(unittest.TestCase):
             timer.process_timeouts()
             self.assertEqual(bucket, [])
             self.assertEqual(timer._num_cancellations, 0)
+            assert timer._timeout_heap is not None
             self.assertEqual(len(timer._timeout_heap), 1)
             self.assertEqual(timer.get_remaining_interval(), 4)
 
@@ -365,6 +372,7 @@ class TimerClassTests(unittest.TestCase):
             self.assertEqual(timer.get_remaining_interval(), 0)
             timer.process_timeouts()
             self.assertEqual(bucket, [3])
+            assert timer._timeout_heap is not None
             self.assertEqual(len(timer._timeout_heap), 0)
             self.assertIsNone(timer.get_remaining_interval())
 
@@ -387,6 +395,7 @@ class TimerClassTests(unittest.TestCase):
                 timer.process_timeouts()
                 self.assertEqual(timer._num_cancellations, 1)
                 self.assertEqual(bucket, [])
+                assert timer._timeout_heap is not None
                 self.assertEqual(len(timer._timeout_heap), 3)
                 self.assertEqual(timer.get_remaining_interval(), 5)
 
@@ -396,6 +405,7 @@ class TimerClassTests(unittest.TestCase):
                 self.assertEqual(timer._num_cancellations, 2)
                 timer.process_timeouts()
                 self.assertEqual(bucket, [])
+                assert timer._timeout_heap is not None
                 self.assertEqual(len(timer._timeout_heap), 1)
                 self.assertIs(t2, timer._timeout_heap[0])
                 self.assertEqual(timer.get_remaining_interval(), 6)
@@ -420,6 +430,7 @@ class TimerClassTests(unittest.TestCase):
             self.assertIsInstance(t2, select_connection._Timeout)
             self.assertIsNot(t2, t1)
             self.assertEqual(bucket, [])
+            assert timer._timeout_heap is not None
             self.assertEqual(len(timer._timeout_heap), 1)
             self.assertIs(t2, timer._timeout_heap[0])
             self.assertEqual(timer.get_remaining_interval(), 0)
@@ -438,6 +449,7 @@ class TimerClassTests(unittest.TestCase):
             t2 = timer.call_later(10, lambda: bucket.append(2))
             t1 = timer.call_later(5, lambda: timer.remove_timeout(t2))
 
+            assert timer._timeout_heap is not None
             self.assertIs(t1, timer._timeout_heap[0])
 
         # Advance time by 6 seconds and check that t2 is cancelled, but not
@@ -446,6 +458,7 @@ class TimerClassTests(unittest.TestCase):
             timer.process_timeouts()
             self.assertIsNone(t2.callback)
             self.assertEqual(timer.get_remaining_interval(), 4)
+            assert timer._timeout_heap is not None
             self.assertIs(t2, timer._timeout_heap[0])
             self.assertEqual(timer._num_cancellations, 1)
 
@@ -455,6 +468,7 @@ class TimerClassTests(unittest.TestCase):
             timer.process_timeouts()
             self.assertEqual(bucket, [])
             self.assertIsNone(timer.get_remaining_interval())
+            assert timer._timeout_heap is not None
             self.assertEqual(len(timer._timeout_heap), 0)
             self.assertEqual(timer._num_cancellations, 0)
 
@@ -469,6 +483,7 @@ class TimerClassTests(unittest.TestCase):
                 5, lambda: (self.assertEqual(timer._num_cancellations, 0),
                             timer.remove_timeout(t2)))
 
+            assert timer._timeout_heap is not None
             self.assertIs(t1, timer._timeout_heap[0])
 
         # Advance time by 10 seconds and check that t2 is cancelled and
@@ -478,5 +493,6 @@ class TimerClassTests(unittest.TestCase):
             self.assertEqual(bucket, [])
             self.assertIsNone(t2.callback)
             self.assertIsNone(timer.get_remaining_interval())
+            assert timer._timeout_heap is not None
             self.assertEqual(len(timer._timeout_heap), 0)
             self.assertEqual(timer._num_cancellations, 0)
