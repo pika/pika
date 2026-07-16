@@ -33,11 +33,12 @@ class BlockingConnectionTests(unittest.TestCase):
                   'SelectConnection',
                   spec_set=SelectConnectionTemplate)
     def test_constructor(self, _select_connection_class_mock):
+        params = pika.ConnectionParameters()
         with mock.patch.object(blocking_connection.BlockingConnection,
                                '_create_connection') as _create_connection_mock:
-            connection = blocking_connection.BlockingConnection('params')
+            connection = blocking_connection.BlockingConnection(params)
 
-        _create_connection_mock.assert_called_once_with('params', None)
+        _create_connection_mock.assert_called_once_with(params, None)
 
         impl_mock = _create_connection_mock.return_value
         impl_mock.add_on_close_callback.assert_called_once_with(
@@ -50,7 +51,7 @@ class BlockingConnectionTests(unittest.TestCase):
                                              select_connection_class_mock):
         with mock.patch.object(blocking_connection.BlockingConnection,
                                '_create_connection'):
-            connection = blocking_connection.BlockingConnection('params')
+            connection = blocking_connection.BlockingConnection(None)
 
         mock_connection = select_connection_class_mock.return_value
         with mock.patch.object(
@@ -71,7 +72,7 @@ class BlockingConnectionTests(unittest.TestCase):
             self, select_connection_class_mock):
         with mock.patch.object(blocking_connection.BlockingConnection,
                                '_create_connection'):
-            connection = blocking_connection.BlockingConnection('params')
+            connection = blocking_connection.BlockingConnection(None)
 
         exc_value = pika.exceptions.AMQPConnectionError('failed')
         with mock.patch.object(select_connection_class_mock,
@@ -93,7 +94,7 @@ class BlockingConnectionTests(unittest.TestCase):
         with mock.patch.object(blocking_connection.BlockingConnection,
                                '_create_connection',
                                return_value=impl_mock):
-            connection = blocking_connection.BlockingConnection('params')
+            connection = blocking_connection.BlockingConnection(None)
 
         get_buffer_size_mock = mock.Mock(
             name='_get_write_buffer_size',
@@ -118,7 +119,7 @@ class BlockingConnectionTests(unittest.TestCase):
         with mock.patch.object(blocking_connection.BlockingConnection,
                                '_create_connection',
                                return_value=impl_mock):
-            connection = blocking_connection.BlockingConnection('params')
+            connection = blocking_connection.BlockingConnection(None)
 
         original_exc = pika.exceptions.ConnectionClosedByClient(200, 'success')
         connection._closed_result.set_value_once(impl_mock, original_exc)
@@ -138,7 +139,7 @@ class BlockingConnectionTests(unittest.TestCase):
         with mock.patch.object(blocking_connection.BlockingConnection,
                                '_create_connection',
                                return_value=impl_mock):
-            connection = blocking_connection.BlockingConnection('params')
+            connection = blocking_connection.BlockingConnection(None)
 
         original_exc = pika.exceptions.ConnectionClosedByBroker(
             404, 'not found')
@@ -162,7 +163,7 @@ class BlockingConnectionTests(unittest.TestCase):
         with mock.patch.object(blocking_connection.BlockingConnection,
                                '_create_connection',
                                return_value=impl_mock):
-            connection = blocking_connection.BlockingConnection('params')
+            connection = blocking_connection.BlockingConnection(None)
 
         original_exc = pika.exceptions.ConnectionClosedByBroker(200, 'ok')
         connection._closed_result.set_value_once(impl_mock, original_exc)
@@ -185,7 +186,7 @@ class BlockingConnectionTests(unittest.TestCase):
         with mock.patch.object(blocking_connection.BlockingConnection,
                                '_create_connection',
                                return_value=impl_mock):
-            connection = blocking_connection.BlockingConnection('params')
+            connection = blocking_connection.BlockingConnection(None)
 
         impl_channel_mock = mock.Mock()
         connection._impl._channels = {1: impl_channel_mock}
@@ -212,7 +213,7 @@ class BlockingConnectionTests(unittest.TestCase):
         with mock.patch.object(blocking_connection.BlockingConnection,
                                '_create_connection',
                                return_value=impl_mock):
-            connection = blocking_connection.BlockingConnection('params')
+            connection = blocking_connection.BlockingConnection(None)
 
         channel1_mock = mock.Mock(is_open=True,
                                   close=mock.Mock(
@@ -261,7 +262,7 @@ class BlockingConnectionTests(unittest.TestCase):
         with mock.patch.object(blocking_connection.BlockingConnection,
                                '_create_connection',
                                return_value=impl_mock):
-            connection = blocking_connection.BlockingConnection('params')
+            connection = blocking_connection.BlockingConnection(None)
 
         with mock.patch.object(blocking_connection._CallbackResult,
                                'is_ready',
@@ -301,7 +302,7 @@ class BlockingConnectionTests(unittest.TestCase):
         with mock.patch.object(blocking_connection.BlockingConnection,
                                '_create_connection',
                                return_value=impl_mock):
-            connection = blocking_connection.BlockingConnection('params')
+            connection = blocking_connection.BlockingConnection(None)
 
         with mock.patch.object(blocking_connection.BlockingConnection,
                                '_flush_output',
@@ -314,7 +315,7 @@ class BlockingConnectionTests(unittest.TestCase):
     def test_sleep(self, select_connection_class_mock):
         with mock.patch.object(blocking_connection.BlockingConnection,
                                '_create_connection'):
-            connection = blocking_connection.BlockingConnection('params')
+            connection = blocking_connection.BlockingConnection(None)
 
         with mock.patch.object(blocking_connection.BlockingConnection,
                                '_flush_output',
@@ -352,7 +353,7 @@ class BlockingConnectionTests(unittest.TestCase):
         with mock.patch.object(blocking_connection.BlockingConnection,
                                "_create_connection",
                                return_value=impl_mock):
-            connection = blocking_connection.BlockingConnection("params")
+            connection = blocking_connection.BlockingConnection(None)
 
         exc = pika.exceptions.ChannelClosedByBroker(406, "consumer_timeout")
 
@@ -383,7 +384,7 @@ class BlockingConnectionTests(unittest.TestCase):
         with mock.patch.object(blocking_connection.BlockingConnection,
                                "_create_connection",
                                return_value=impl_mock):
-            connection = blocking_connection.BlockingConnection("params")
+            connection = blocking_connection.BlockingConnection(None)
 
         exc = pika.exceptions.ChannelClosedByBroker(406, "consumer_timeout")
 
@@ -418,7 +419,7 @@ class BlockingConnectionTests(unittest.TestCase):
         with mock.patch.object(blocking_connection.BlockingConnection,
                                '_create_connection',
                                return_value=impl_mock):
-            return blocking_connection.BlockingConnection('params'), impl_mock
+            return blocking_connection.BlockingConnection(None), impl_mock
 
     @patch.object(blocking_connection.select_connection,
                   'SelectConnection',
