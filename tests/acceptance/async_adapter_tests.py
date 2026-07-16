@@ -924,8 +924,8 @@ class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):
         self.parameters.blocked_connection_timeout = 0.001
         self.on_closed_error = None
         super().start(*args, **kwargs)
-        self.assertIsInstance(self.on_closed_error,
-                              pika.exceptions.ConnectionClosedByClient)
+        assert isinstance(self.on_closed_error,
+                          pika.exceptions.ConnectionClosedByClient)
         self.assertEqual(
             (self.on_closed_error.reply_code, self.on_closed_error.reply_text),
             (200, 'Normal shutdown'))
