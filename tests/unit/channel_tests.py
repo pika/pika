@@ -1507,7 +1507,7 @@ class ChannelTests(unittest.TestCase):
     @mock.patch('logging.Logger.debug')
     def test_on_getempty(self, debug):
         method_frame = frame.Method(self.obj.channel_number,
-                                    spec.Basic.GetEmpty)
+                                    spec.Basic.GetEmpty())
         self.obj._on_getempty(method_frame)
         debug.assert_called_with('Received Basic.GetEmpty: %r', method_frame)
 
