@@ -695,6 +695,8 @@ class ChannelTests(unittest.TestCase):
             spec.Channel.Close(200, 'Got to go', 0, 0), self.obj._on_closeok,
             [spec.Channel.CloseOk])
 
+        assert isinstance(self.obj._closing_reason,
+                          exceptions.ChannelClosedByClient)
         self.assertEqual(self.obj._closing_reason.reply_code, 200)
         self.assertEqual(self.obj._closing_reason.reply_text, 'Got to go')
         self.assertEqual(self.obj._state, self.obj.CLOSING)
@@ -1365,8 +1367,8 @@ class ChannelTests(unittest.TestCase):
         self.assertTrue(self.obj.is_closing,
                         f'Channel was not closed; state={self.obj._state}')
 
-        self.assertIsInstance(self.obj._closing_reason,
-                              exceptions.ChannelClosedByBroker)
+        assert isinstance(self.obj._closing_reason,
+                          exceptions.ChannelClosedByBroker)
         self.assertEqual(self.obj._closing_reason.reply_code, 400)
         self.assertEqual(self.obj._closing_reason.reply_text, 'error')
 
@@ -1447,6 +1449,8 @@ class ChannelTests(unittest.TestCase):
 
         # Close from user
         self.obj.close(200, 'All is well')
+        assert isinstance(self.obj._closing_reason,
+                          exceptions.ChannelClosedByClient)
         self.assertEqual(self.obj._closing_reason.reply_code, 200)
         self.assertEqual(self.obj._closing_reason.reply_text, 'All is well')
         self.assertEqual(self.obj._state, self.obj.CLOSING)
