@@ -2870,8 +2870,8 @@ class TestUnackedMessageAutoRestoredToQueueOnChannelClose(BlockingTestCaseBase):
         ch.queue_declare(q_name, exclusive=True)
 
         # Publish two messages to the queue by way of default exchange
-        ch.basic_publish(exchange='', routing_key=q_name, body=body1)
-        ch.basic_publish(exchange='', routing_key=q_name, body=body2)
+        ch.basic_publish(exchange='', routing_key=q_name, body=body1.encode())
+        ch.basic_publish(exchange='', routing_key=q_name, body=body2.encode())
 
         # Consume the events, but don't ack
         rx_messages = []
