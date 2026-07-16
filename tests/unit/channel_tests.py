@@ -1618,7 +1618,7 @@ class ChannelTests(unittest.TestCase):
             spec.Basic.Return(999, 'Reply Text', 'exchange_value',
                               'routing.key'))
         header_value = frame.Header(1, 10, spec.BasicProperties())
-        body_value = frame.Body(1, b'0123456789')
+        body_value = b'0123456789'
         self.obj._on_return(method_value, header_value, body_value)
         self.callbacks.process.assert_called_with(self.obj.channel_number,
                                                   '_on_return', self.obj,
