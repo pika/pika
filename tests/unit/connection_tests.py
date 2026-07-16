@@ -487,9 +487,9 @@ class ConnectionTests(unittest.TestCase):
                                     is_closed=False,
                                     is_closing=True)
         self.connection._channels = {
-            'openingc': opening_channel,
-            'openc': open_channel,
-            'closingc': closing_channel
+            1: opening_channel,
+            2: open_channel,
+            3: closing_channel
         }
 
         self.connection._close_channels(400, 'reply text')
@@ -498,9 +498,9 @@ class ConnectionTests(unittest.TestCase):
         open_channel.close.assert_called_once_with(400, 'reply text')
         self.assertFalse(closing_channel.close.called)
 
-        self.assertTrue('openingc' in self.connection._channels)
-        self.assertTrue('openc' in self.connection._channels)
-        self.assertTrue('closingc' in self.connection._channels)
+        self.assertTrue(1 in self.connection._channels)
+        self.assertTrue(2 in self.connection._channels)
+        self.assertTrue(3 in self.connection._channels)
 
         self.assertFalse(self.connection.callbacks.cleanup.called)
 
@@ -683,8 +683,8 @@ class ConnectionTests(unittest.TestCase):
     @mock.patch('pika.frame.decode_frame')
     def test_on_data_available(self, decode_frame):
         """Test on data available and process frame."""
-        data_in = ['data']
-        self.connection._frame_buffer = ['old_data']
+        data_in = b'd'
+        self.connection._frame_buffer = b'o'
         for frame_type in (frame.Method, spec.Basic.Deliver, frame.Heartbeat):
             frame_value = mock.Mock(spec=frame_type)
             frame_value.frame_type = 2
@@ -696,7 +696,7 @@ class ConnectionTests(unittest.TestCase):
             decode_frame.return_value = (2, frame_value)
             self.connection._on_data_available(data_in)
             # test value
-            self.assertListEqual([], self.connection._frame_buffer)
+            self.assertEqual(b'', self.connection._frame_buffer)
             self.assertEqual(2, self.connection.bytes_received)
             self.assertEqual(1, self.connection.frames_received)
             if frame_type == frame.Heartbeat:
