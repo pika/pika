@@ -695,6 +695,7 @@ class URLParametersTests(ParametersTestsBase):
             )
 
         # check all values from base URL
+        assert isinstance(params.credentials, credentials.PlainCredentials)
         self.assertEqual(params.credentials.username, 'myuser')
         self.assertEqual(params.credentials.password, 'mypass')
         self.assertEqual(params.host, 'www.test.com')
@@ -707,6 +708,7 @@ class URLParametersTests(ParametersTestsBase):
                                         'en_US')
         self.assertEqual(parameters.port, 5672)
         self.assertEqual(parameters.virtual_host, 'prtfqpeo')
+        assert isinstance(parameters.credentials, credentials.PlainCredentials)
         self.assertEqual(parameters.credentials.password, 'oihdglkhcp0')
         self.assertEqual(parameters.credentials.username, 'prtfqpeo')
         self.assertEqual(parameters.locale, 'en_US')
@@ -717,6 +719,7 @@ class URLParametersTests(ParametersTestsBase):
                                         'en_US')
         self.assertEqual(parameters.port, 5672)
         self.assertEqual(parameters.virtual_host, 'prtfqpeo')
+        assert isinstance(parameters.credentials, credentials.PlainCredentials)
         self.assertEqual(parameters.credentials.password, 'oihdglkhcp0')
         self.assertEqual(parameters.credentials.username, 'prtfqpeo')
         self.assertEqual(parameters.locale, 'en_US')
@@ -767,6 +770,7 @@ class URLParametersTests(ParametersTestsBase):
 
     def test_uses_default_username_and_password_if_not_specified(self):
         parameters = pika.URLParameters('amqp://myserver.mycompany.com')
+        assert isinstance(parameters.credentials, credentials.PlainCredentials)
         self.assertEqual(parameters.credentials.username,
                          pika.URLParameters.DEFAULT_USERNAME)
         self.assertEqual(parameters.credentials.password,
@@ -774,6 +778,7 @@ class URLParametersTests(ParametersTestsBase):
 
     def test_accepts_blank_username_and_password(self):
         parameters = pika.URLParameters('amqp://:@myserver.mycompany.com')
+        assert isinstance(parameters.credentials, credentials.PlainCredentials)
         self.assertEqual(parameters.credentials.username, '')
         self.assertEqual(parameters.credentials.password, '')
 
@@ -782,5 +787,6 @@ class URLParametersTests(ParametersTestsBase):
         password = '////'
         parameters = pika.URLParameters(
             'amqp://%40%40%40%40:%2F%2F%2F%2F@myserver.mycompany.com')
+        assert isinstance(parameters.credentials, credentials.PlainCredentials)
         self.assertEqual(parameters.credentials.username, username)
         self.assertEqual(parameters.credentials.password, password)
