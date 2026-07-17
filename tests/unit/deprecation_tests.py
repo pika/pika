@@ -60,7 +60,7 @@ class BlockingConnectionDeprecationTests(DeprecationTestCase):
                                '_create_connection'):
             self.assert_deprecated(
                 'BlockingConnection',
-                lambda: blocking_connection.BlockingConnection('params'))
+                lambda: blocking_connection.BlockingConnection(None))
 
 
 @unittest.skipUnless(HAS_TORNADO, 'tornado not installed')
