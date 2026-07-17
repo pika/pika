@@ -441,11 +441,11 @@ class CallbackTests(unittest.TestCase):
 
     def test_arguments_match_obj_argument_with_method(self):
 
-        class TestFrame:
-            method = None
-
         class MethodObj:
             foo = 'bar'
+
+        class TestFrame:
+            method: MethodObj | None = None
 
         test_instance = TestFrame()
         test_instance.method = MethodObj()
@@ -454,11 +454,11 @@ class CallbackTests(unittest.TestCase):
 
     def test_arguments_match_obj_argument_with_method_no_match(self):
 
-        class TestFrame:
-            method = None
-
         class MethodObj:
             foo = 'baz'
+
+        class TestFrame:
+            method: MethodObj | None = None
 
         test_instance = TestFrame()
         test_instance.method = MethodObj()
