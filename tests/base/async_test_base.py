@@ -165,6 +165,7 @@ class AsyncTestCase(unittest.TestCase):
 
         self.logger.info('Stopping test')
         self._public_stop_requested = True
+        assert self.connection is not None
         if self.connection.is_open:
             self.connection.close()  # NOTE: on_closed() will stop the ioloop
         elif self.connection.is_closed:
@@ -182,6 +183,7 @@ class AsyncTestCase(unittest.TestCase):
     def _safe_remove_test_timeout(self):
         if hasattr(self, 'timeout') and self.timeout is not None:
             self.logger.info("Removing timeout")
+            assert self.connection is not None
             self.connection._adapter_remove_timeout(self.timeout)
             self.timeout = None
 
