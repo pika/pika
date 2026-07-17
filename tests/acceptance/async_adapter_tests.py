@@ -26,6 +26,7 @@ class TestConstructAndImmediatelyCloseConnection(AsyncTestCase, AsyncAdapters):
 
     @async_test_base.stop_on_error_in_async_test_case_method
     def begin(self, channel):
+        assert self.connection is not None
         connection_class = self.connection.__class__
 
         params = self.new_connection_params()
@@ -52,6 +53,7 @@ class TestCloseConnectionDuringAMQPHandshake(AsyncTestCase, AsyncAdapters):
 
     @async_test_base.stop_on_error_in_async_test_case_method
     def begin(self, channel):
+        assert self.connection is not None
         base_class = self.connection.__class__  # type: pika.adapters.BaseConnection
 
         params = self.new_connection_params()
@@ -91,6 +93,7 @@ class TestSocketConnectTimeoutWithTinySocketTimeout(AsyncTestCase,
 
     @async_test_base.stop_on_error_in_async_test_case_method
     def begin(self, channel):
+        assert self.connection is not None
         connection_class = self.connection.__class__
 
         params = self.new_connection_params()
@@ -120,6 +123,7 @@ class TestStackConnectionTimeoutWithTinyStackTimeout(AsyncTestCase,
 
     @async_test_base.stop_on_error_in_async_test_case_method
     def begin(self, channel):
+        assert self.connection is not None
         connection_class = self.connection.__class__
 
         params = self.new_connection_params()
@@ -152,6 +156,7 @@ class TestCreateConnectionViaDefaultConnectionWorkflow(AsyncTestCase,
     @async_test_base.stop_on_error_in_async_test_case_method
     def begin(self, channel):
         configs = [self.parameters]
+        assert self.connection is not None
         connection_class = self.connection.__class__  # type: pika.adapters.BaseConnection
 
         @async_test_base.make_stop_on_error_with_self(self)
@@ -179,6 +184,7 @@ class TestCreateConnectionViaCustomConnectionWorkflow(AsyncTestCase,
     @async_test_base.stop_on_error_in_async_test_case_method
     def begin(self, channel):
         configs = [self.parameters]
+        assert self.connection is not None
         connection_class = self.connection.__class__  # type: pika.adapters.BaseConnection
 
         @async_test_base.make_stop_on_error_with_self(self)
@@ -223,6 +229,7 @@ class TestCreateConnectionMultipleConfigsDefaultConnectionWorkflow(
     @async_test_base.stop_on_error_in_async_test_case_method
     def begin(self, channel):
         good_params = self.parameters
+        assert self.connection is not None
         connection_class = self.connection.__class__  # type: pika.adapters.BaseConnection
 
         sock = socket.socket()
@@ -263,6 +270,7 @@ class TestCreateConnectionRetriesWithDefaultConnectionWorkflow(
 
     @async_test_base.stop_on_error_in_async_test_case_method
     def begin(self, channel):
+        assert self.connection is not None
         base_class = self.connection.__class__  # type: pika.adapters.BaseConnection
 
         first_config = self.parameters
@@ -328,6 +336,7 @@ class TestCreateConnectionConnectionWorkflowSocketConnectionFailure(
 
     @async_test_base.stop_on_error_in_async_test_case_method
     def begin(self, channel):
+        assert self.connection is not None
         connection_class = self.connection.__class__  # type: pika.adapters.BaseConnection
 
         sock = socket.socket()
@@ -358,6 +367,7 @@ class TestCreateConnectionAMQPHandshakeTimesOutDefaultWorkflow(
 
     @async_test_base.stop_on_error_in_async_test_case_method
     def begin(self, channel):
+        assert self.connection is not None
         base_class = self.connection.__class__  # type: pika.adapters.BaseConnection
 
         params = self.parameters
@@ -373,7 +383,9 @@ class TestCreateConnectionAMQPHandshakeTimesOutDefaultWorkflow(
                 # Now that AMQP handshake has begun, simulate imminent stack
                 # timeout in AMQPConnector
                 connector = workflow._connector  # type: connection_workflow.AMQPConnector
+                assert connector._stack_timeout_ref is not None
                 connector._stack_timeout_ref.cancel()
+                assert connector._nbio is not None
                 connector._stack_timeout_ref = connector._nbio.call_later(
                     0, connector._on_overall_timeout)
 
@@ -402,6 +414,7 @@ class TestCreateConnectionAndImmediatelyAbortDefaultConnectionWorkflow(
     @async_test_base.stop_on_error_in_async_test_case_method
     def begin(self, channel):
         configs = [self.parameters]
+        assert self.connection is not None
         connection_class = self.connection.__class__  # type: pika.adapters.BaseConnection
 
         @async_test_base.make_stop_on_error_with_self(self)
@@ -422,6 +435,7 @@ class TestCreateConnectionAndAsynchronouslyAbortDefaultConnectionWorkflow(
     @async_test_base.stop_on_error_in_async_test_case_method
     def begin(self, channel):
         configs = [self.parameters]
+        assert self.connection is not None
         connection_class = self.connection.__class__  # type: pika.adapters.BaseConnection
 
         @async_test_base.make_stop_on_error_with_self(self)
@@ -439,6 +453,7 @@ class TestUpdateSecret(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Update secret and receive confirmation"
 
     def begin(self, channel):
+        assert self.connection is not None
         self.connection.update_secret("new_secret", "reason",
                                       self.on_secret_update)
 
@@ -572,6 +587,7 @@ class TestExchangeRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
         self.stop()
 
     def on_channel_closed(self, _channel, _reason):
+        assert self.connection is not None
         self.connection.channel(on_open_callback=self.on_cleanup_channel)
 
     def on_exchange_declared(self, frame):
@@ -968,6 +984,7 @@ class TestAddCallbackThreadsafeRequestBeforeIOLoopStarts(
         """
         self.my_start_time = time_now()
         # Request a callback from our current (ioloop's) thread
+        assert self.connection is not None
         self.connection._adapter_add_callback_threadsafe(
             self.on_requested_callback)
 
