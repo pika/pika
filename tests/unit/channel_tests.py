@@ -703,8 +703,7 @@ class ChannelTests(unittest.TestCase):
 
         # OpenOk method from broker
         self.obj._on_openok(
-            frame.Method(self.obj.channel_number,
-                         spec.Channel.OpenOk(self.obj.channel_number)))
+            frame.Method(self.obj.channel_number, spec.Channel.OpenOk()))
         self.assertEqual(self.obj._state, self.obj.CLOSING)
         self.assertEqual(self.callbacks.process.call_count, 0)
 
