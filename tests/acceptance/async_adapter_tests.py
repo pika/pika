@@ -986,6 +986,7 @@ class TestAddCallbackThreadsafeRequestBeforeIOLoopStarts(
     def on_requested_callback(self):
         self.assertEqual(threading.current_thread().ident,
                          self.loop_thread_ident)
+        assert self.my_start_time is not None
         self.assertLess(time_now() - self.my_start_time, 0.25)
         self.got_callback = True
 
@@ -1010,6 +1011,7 @@ class TestAddCallbackThreadsafeFromIOLoopThread(AsyncTestCase, AsyncAdapters):
     def on_requested_callback(self):
         self.assertEqual(threading.current_thread().ident,
                          self.loop_thread_ident)
+        assert self.my_start_time is not None
         self.assertLess(time_now() - self.my_start_time, 0.25)
         self.got_callback = True
         self.stop()
@@ -1038,6 +1040,7 @@ class TestAddCallbackThreadsafeFromAnotherThread(AsyncTestCase, AsyncAdapters):
     def on_requested_callback(self):
         self.assertEqual(threading.current_thread().ident,
                          self.loop_thread_ident)
+        assert self.my_start_time is not None
         self.assertLess(time_now() - self.my_start_time, 0.25)
         self.got_callback = True
         self.stop()
