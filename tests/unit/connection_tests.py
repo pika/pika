@@ -543,6 +543,7 @@ class ConnectionTests(unittest.TestCase):
         self.assertEqual(False, self.connection.publisher_confirms)
         # 'capabilities' stays in server_properties as sent by the broker;
         # server_capabilities is a convenience view of the same dict.
+        assert self.connection.server_properties is not None
         self.assertIn('capabilities', self.connection.server_properties)
         self.assertIs(self.connection.server_capabilities,
                       self.connection.server_properties['capabilities'])
