@@ -1068,6 +1068,7 @@ class TestBasicGet(BlockingTestCaseBase):
         (method, properties, body) = ch.basic_get(q_name, auto_ack=False)
         LOGGER.info('%s GOT FROM NON-EMPTY QUEUE (%s)',
                     datetime.now(timezone.utc), self)
+        assert method is not None
         self.assertIsInstance(method, pika.spec.Basic.GetOk)
         self.assertEqual(method.delivery_tag, 1)
         self.assertFalse(method.redelivered)
@@ -1075,11 +1076,13 @@ class TestBasicGet(BlockingTestCaseBase):
         self.assertEqual(method.routing_key, q_name)
         self.assertEqual(method.message_count, 0)
 
+        assert properties is not None
         self.assertIsInstance(properties, pika.BasicProperties)
         self.assertIsNone(properties.headers)
         self.assertEqual(body, as_bytes(body))
 
         # Ack it
+        assert method.delivery_tag is not None
         ch.basic_ack(delivery_tag=method.delivery_tag)
         LOGGER.info('%s ACKED (%s)', datetime.now(timezone.utc), self)
 
@@ -1125,6 +1128,8 @@ class TestBasicReject(BlockingTestCaseBase):
         self.assertEqual(rx_body, as_bytes('TestBasicReject2'))
 
         # Nack the second message
+        assert rx_method is not None
+        assert rx_method.delivery_tag is not None
         ch.basic_reject(rx_method.delivery_tag, requeue=True)
 
         # Verify that exactly one message is present in the queue, namely the
@@ -1172,6 +1177,8 @@ class TestBasicRejectNoRequeue(BlockingTestCaseBase):
         self.assertEqual(rx_body, as_bytes('TestBasicRejectNoRequeue2'))
 
         # Nack the second message
+        assert rx_method is not None
+        assert rx_method.delivery_tag is not None
         ch.basic_reject(rx_method.delivery_tag, requeue=False)
 
         # Verify that no messages are present in the queue
@@ -1216,6 +1223,8 @@ class TestBasicNack(BlockingTestCaseBase):
         self.assertEqual(rx_body, as_bytes('TestBasicNack2'))
 
         # Nack the second message
+        assert rx_method is not None
+        assert rx_method.delivery_tag is not None
         ch.basic_nack(rx_method.delivery_tag, multiple=False, requeue=True)
 
         # Verify that exactly one message is present in the queue, namely the
@@ -1263,6 +1272,8 @@ class TestBasicNackNoRequeue(BlockingTestCaseBase):
         self.assertEqual(rx_body, as_bytes('TestBasicNackNoRequeue2'))
 
         # Nack the second message
+        assert rx_method is not None
+        assert rx_method.delivery_tag is not None
         ch.basic_nack(rx_method.delivery_tag, requeue=False)
 
         # Verify that no messages are present in the queue
@@ -1307,6 +1318,8 @@ class TestBasicNackMultiple(BlockingTestCaseBase):
         self.assertEqual(rx_body, as_bytes('TestBasicNackMultiple2'))
 
         # Nack both messages via the "multiple" option
+        assert rx_method is not None
+        assert rx_method.delivery_tag is not None
         ch.basic_nack(rx_method.delivery_tag, multiple=True, requeue=True)
 
         # Verify that both messages are present in the queue
@@ -1762,6 +1775,7 @@ class TestBasicPublishDeliveredWhenPendingUnroutable(BlockingTestCaseBase):
         # Check the first message
         self.assertIsInstance(msg, tuple)
         rx_method, rx_properties, rx_body = msg
+        assert rx_method is not None
         self.assertIsInstance(rx_method, pika.spec.Basic.GetOk)
         self.assertEqual(rx_method.delivery_tag, 1)
         self.assertFalse(rx_method.redelivered)
@@ -1775,6 +1789,7 @@ class TestBasicPublishDeliveredWhenPendingUnroutable(BlockingTestCaseBase):
         self.assertFalse(ch._pending_events)
 
         # Ack the message
+        assert rx_method.delivery_tag is not None
         ch.basic_ack(delivery_tag=rx_method.delivery_tag, multiple=False)
 
         # Verify that the queue is now empty
@@ -2676,6 +2691,7 @@ class TestNonPubAckPublishAndConsumeHugeMessage(BlockingTestCaseBase):
             break
 
         # There shouldn't be any more events now
+        assert ch._queue_consumer_generator is not None
         self.assertFalse(ch._queue_consumer_generator.pending_events)
 
         # Verify that the queue is now empty
@@ -2714,6 +2730,7 @@ class TestNonPubAckPublishAndConsumeManyMessages(BlockingTestCaseBase):
                                                        exclusive=False,
                                                        arguments=None):
             num_consumed += 1
+            assert rx_method is not None
             self.assertIsInstance(rx_method, pika.spec.Basic.Deliver)
             self.assertEqual(rx_method.delivery_tag, num_consumed)
             self.assertFalse(rx_method.redelivered)
@@ -2724,12 +2741,14 @@ class TestNonPubAckPublishAndConsumeManyMessages(BlockingTestCaseBase):
             self.assertEqual(rx_body, as_bytes(body))
 
             # Ack the message
+            assert rx_method.delivery_tag is not None
             ch.basic_ack(delivery_tag=rx_method.delivery_tag, multiple=False)
 
             if num_consumed >= num_messages_to_publish:
                 break
 
         # There shouldn't be any more events now
+        assert ch._queue_consumer_generator is not None
         self.assertFalse(ch._queue_consumer_generator.pending_events)
 
         ch.close()
@@ -2931,6 +2950,7 @@ class TestNoAckMessageNotRestoredToQueueOnChannelClose(BlockingTestCaseBase):
                                           exclusive=False):
             num_messages += 1
 
+            assert rx_method is not None
             self.assertEqual(rx_method.delivery_tag, num_messages)
 
             if num_messages == 2:
@@ -3021,10 +3041,12 @@ class TestConsumeGeneratorCancelEncountersCancelFromBroker(
             ch.queue_delete(q_name)
 
             # Wait for server's Basic.Cancel
+            assert ch._queue_consumer_generator is not None
             while not ch._queue_consumer_generator.pending_events:
                 connection.process_data_events()
 
             # Confirm it's Basic.Cancel
+            assert ch._queue_consumer_generator is not None
             self.assertIsInstance(
                 ch._queue_consumer_generator.pending_events[0],
                 blocking_connection._ConsumerCancellationEvt)
