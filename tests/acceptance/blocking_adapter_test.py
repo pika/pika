@@ -828,10 +828,12 @@ class TestExchangeDeclareAndDelete(BlockingTestCaseBase):
         frame = ch.exchange_declare(name, exchange_type=ExchangeType.direct)
         self.addCleanup(connection.channel().exchange_delete, name)
 
+        assert frame is not None
         self.assertIsInstance(frame.method, pika.spec.Exchange.DeclareOk)
 
         # Check if it exists by declaring it passively
         frame = ch.exchange_declare(name, passive=True)
+        assert frame is not None
         self.assertIsInstance(frame.method, pika.spec.Exchange.DeclareOk)
 
         # Delete the exchange
