@@ -104,6 +104,17 @@ class BoundedWorkPoolTests(unittest.TestCase):
         pool.shutdown(wait=True)
         pool.shutdown(wait=True)
 
+    def test_connection_params_propagate_to_channel_pool(self):
+        """Work-queue parameters passed to ThreadSafeChannel must reach its pool."""
+        raw_ch = MagicMock()
+        wrapper = MagicMock()
+        ch = ThreadSafeChannel(raw_ch,
+                               wrapper,
+                               work_queue_maxsize=7,
+                               work_queue_put_timeout=1.5)
+        self.assertEqual(ch._consumer_work_pool._queue.maxsize, 7)
+        self.assertEqual(ch._consumer_work_pool._put_timeout, 1.5)
+
 
 class ThreadSafeChannelTests(unittest.TestCase):
 
@@ -782,7 +793,12 @@ class ConsumerWorkPoolTests(unittest.TestCase):
     def test_pool_uses_single_worker(self):
         """The pool must use exactly one worker thread (for ordering)."""
         ch, _, _ = self._make_channel()
-        self.assertEqual(ch._consumer_work_pool._max_workers, 1)
+        pool = ch._consumer_work_pool
+        threads = []
+        for _ in range(5):
+            pool.submit(lambda: threads.append(threading.current_thread()))
+        pool.shutdown(wait=True)
+        self.assertEqual(len(set(threads)), 1)
 
     def test_callback_exception_is_logged(self):
         """Exceptions in delivery callbacks must be logged, not swallowed silently."""
@@ -1788,28 +1804,22 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
             captured = []
 
             # Capture the pool reference before __init__ raises so we can
-            # assert it shut down.  We patch ThreadPoolExecutor to record
+            # assert it shut down.  We patch _BoundedWorkPool to record
             # the instance that __init__ created.
-            real_executor_cls = (__import__('concurrent.futures',
-                                            fromlist=['ThreadPoolExecutor'
-                                                     ]).ThreadPoolExecutor)
-
-            def capturing_executor(*a, **kw):
-                inst = real_executor_cls(*a, **kw)
+            def capturing_pool(*a, **kw):
+                inst = _BoundedWorkPool(*a, **kw)
                 captured.append(inst)
                 return inst
 
-            with patch(
-                    'pika.adapters.thread_safe_connection.'
-                    'concurrent.futures.ThreadPoolExecutor',
-                    side_effect=capturing_executor):
+            with patch('pika.adapters.thread_safe_connection._BoundedWorkPool',
+                       side_effect=capturing_pool):
                 with self.assertRaises(RuntimeError) as ctx:
                     ThreadSafeConnection(parameters='params')
             self.assertIs(ctx.exception, boom)
             self.assertEqual(len(captured), 1)
-            # The captured executor must be shut down.  shutdown(wait=True)
+            # The captured pool must be shut down.  shutdown(wait=True)
             # will be a no-op if already shut down, but submit() raises
-            # RuntimeError on a shut-down executor; use that as the probe.
+            # RuntimeError on a shut-down pool; use that as the probe.
             with self.assertRaises(RuntimeError):
                 captured[0].submit(lambda: None)
 
@@ -2249,12 +2259,11 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         mock_conn.add_on_connection_blocked_callback.assert_called_once()
 
     def test_blocked_callback_dispatches_on_worker_thread(self):
-        import concurrent.futures
         conn, mock_conn, mock_ioloop = self._make_connection()
         # Recreate the work pool because _make_connection lets _run_ioloop
         # exit, which shuts the pool down.
-        conn._connection_work_pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix='pika-conn-test')
+        conn._connection_work_pool = _BoundedWorkPool(
+            maxsize=1000, put_timeout=None, thread_name='pika-conn-test')
         conn._connection_pool_shutdown = False
         callback_thread = []
         received = []
@@ -2313,10 +2322,9 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         mock_conn.add_on_connection_unblocked_callback.assert_not_called()
 
     def test_unblocked_callback_dispatches_on_worker_thread(self):
-        import concurrent.futures
         conn, mock_conn, mock_ioloop = self._make_connection()
-        conn._connection_work_pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix='pika-conn-test')
+        conn._connection_work_pool = _BoundedWorkPool(
+            maxsize=1000, put_timeout=None, thread_name='pika-conn-test')
         conn._connection_pool_shutdown = False
         received = []
 
@@ -2368,10 +2376,9 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         """A blocked-listener exception must be logged, not silently lost on an unobserved
         Future.
         """
-        import concurrent.futures
         conn, mock_conn, mock_ioloop = self._make_connection()
-        conn._connection_work_pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix='pika-conn-test')
+        conn._connection_work_pool = _BoundedWorkPool(
+            maxsize=1000, put_timeout=None, thread_name='pika-conn-test')
         conn._connection_pool_shutdown = False
 
         def boom(connection, method_frame):

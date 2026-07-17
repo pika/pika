@@ -14,7 +14,6 @@ multiple threads call basic_publish() on a shared connection directly
 
 from __future__ import annotations
 
-import concurrent.futures
 import itertools
 import logging
 import queue
@@ -160,12 +159,17 @@ class ThreadSafeChannel:
     blocking channel methods (which would deadlock).
     """
 
-    def __init__(self, channel, wrapper) -> None:
+    def __init__(self,
+                 channel,
+                 wrapper,
+                 work_queue_maxsize: int = DEFAULT_WORK_QUEUE_MAXSIZE,
+                 work_queue_put_timeout: float | None = None) -> None:
         self._channel = channel
         self._wrapper = wrapper
-        self._consumer_work_pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=1,
-            thread_name_prefix='pika-consumer',
+        self._consumer_work_pool = _BoundedWorkPool(
+            maxsize=work_queue_maxsize,
+            put_timeout=work_queue_put_timeout,
+            thread_name='pika-consumer',
         )
         self._pool_shutdown = False
         self._next_publish_seq_no: int | None = None
@@ -188,10 +192,9 @@ class ThreadSafeChannel:
         Execute *callback* on the pool worker, logging any exception.
 
         Used to wrap user callbacks before submitting them to a
-        :class:`concurrent.futures.ThreadPoolExecutor` so that exceptions
-        are not silently lost in the unobserved ``Future`` and so that one
-        failing dispatch does not prevent subsequent dispatches from being
-        processed.
+        :class:`_BoundedWorkPool` so that exceptions are not silently lost
+        and so that one failing dispatch does not prevent subsequent
+        dispatches from being processed.
 
         :param label: Human-readable name of the callback for log lines.
         :param callback: The user callback.
@@ -1146,6 +1149,20 @@ class ThreadSafeConnection:
         Pass ``None`` to wait indefinitely (relying on the socket timeout
         in *parameters*).  On timeout the IOLoop is stopped and
         :class:`TimeoutError` is raised.
+    :param work_queue_maxsize: Maximum number of user-callback dispatches
+        (deliveries, publisher confirms, returned messages, cancel and
+        blocked/unblocked notifications) that may be pending on each
+        worker's queue.  Defaults to :data:`DEFAULT_WORK_QUEUE_MAXSIZE`
+        (1000, matching the RabbitMQ Java client).  While a queue is full
+        the IOLoop blocks, applying back-pressure to the broker via TCP.
+        Heartbeats are not sent while the IOLoop is blocked, so the
+        broker's heartbeat timeout bounds how long a wedged consumer can
+        stall the connection.  Pass ``0`` for an unbounded queue.
+    :param work_queue_put_timeout: Seconds to wait for space on a full
+        work queue.  Defaults to ``None`` (wait indefinitely).  On timeout
+        :class:`pika.exceptions.WorkQueueFullError` is raised on the
+        IOLoop thread, closing the connection rather than silently
+        dropping the event.
     :raises Exception: if the connection cannot be established.
     :raises TimeoutError: if *timeout* expires before the connection opens.
     """
@@ -1156,9 +1173,13 @@ class ThreadSafeConnection:
                  parameters,
                  on_open_error_callback=None,
                  on_close_callback=None,
-                 timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
+                 timeout: float | None = DEFAULT_RPC_TIMEOUT,
+                 work_queue_maxsize: int = DEFAULT_WORK_QUEUE_MAXSIZE,
+                 work_queue_put_timeout: float | None = None) -> None:
         self._user_on_open_error_callback = on_open_error_callback
         self._user_on_close_callback = on_close_callback
+        self._work_queue_maxsize = work_queue_maxsize
+        self._work_queue_put_timeout = work_queue_put_timeout
 
         self._connect_error = None
         self._connected_event = threading.Event()
@@ -1174,9 +1195,10 @@ class ThreadSafeConnection:
         # Single-worker pool for connection-level event callbacks
         # (Connection.Blocked / Unblocked).  Keeps user code off the
         # IOLoop thread so a slow listener cannot stall heartbeats.
-        self._connection_work_pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=1,
-            thread_name_prefix=f'pika-conn-{self._instance_id}',
+        self._connection_work_pool = _BoundedWorkPool(
+            maxsize=work_queue_maxsize,
+            put_timeout=work_queue_put_timeout,
+            thread_name=f'pika-conn-{self._instance_id}',
         )
         self._connection_pool_shutdown = False
 
@@ -1348,7 +1370,11 @@ class ThreadSafeConnection:
         with self._channel_waiters_lock:
             if self._closed_reason is not None:
                 raise self._closed_reason
-            ch = ThreadSafeChannel(result[0], self)
+            ch = ThreadSafeChannel(
+                result[0],
+                self,
+                work_queue_maxsize=self._work_queue_maxsize,
+                work_queue_put_timeout=self._work_queue_put_timeout)
             self._channels.append(ch)
         return ch
 
