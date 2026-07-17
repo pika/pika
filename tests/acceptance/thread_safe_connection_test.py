@@ -82,6 +82,7 @@ class TestBasicLifecycle(ThreadSafeTestCaseBase):
         @retry_assertion(timeout_sec=5)
         def assert_message_arrived():
             frame = ch.queue_declare(queue=queue, passive=True)
+            assert frame is not None
             self.assertGreaterEqual(frame.method.message_count, 1)
 
         assert_message_arrived()
@@ -134,6 +135,7 @@ class TestConcurrentPublishing(ThreadSafeTestCaseBase):
         @retry_assertion(timeout_sec=10)
         def assert_all_arrived():
             frame = ch.queue_declare(queue=queue, passive=True)
+            assert frame is not None
             self.assertEqual(frame.method.message_count, n)
 
         assert_all_arrived()
