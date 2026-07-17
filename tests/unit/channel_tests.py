@@ -1280,7 +1280,7 @@ class ChannelTests(unittest.TestCase):
                                             b'0123456789')
 
     def test_handle_content_frame_basic_get_called(self):
-        method_value = frame.Method(1, spec.Basic.GetOk('ctag0', 1))
+        method_value = frame.Method(1, spec.Basic.GetOk('ctag0', True))
         self.obj._handle_content_frame(method_value)
         header_value = frame.Header(1, 10, spec.BasicProperties())
         self.obj._handle_content_frame(header_value)
@@ -1519,7 +1519,7 @@ class ChannelTests(unittest.TestCase):
 
     @mock.patch('logging.Logger.error')
     def test_on_getok_no_callback(self, error):
-        method_value = frame.Method(1, spec.Basic.GetOk('ctag0', 1))
+        method_value = frame.Method(1, spec.Basic.GetOk('ctag0', True))
         header_value = frame.Header(1, 10, spec.BasicProperties())
         body_value = b'0123456789'
         self.obj._on_getok(method_value, header_value, body_value)
@@ -1528,7 +1528,7 @@ class ChannelTests(unittest.TestCase):
     def test_on_getok_callback_called(self):
         mock_callback = mock.Mock()
         self.obj._on_getok_callback = mock_callback
-        method_value = frame.Method(1, spec.Basic.GetOk('ctag0', 1))
+        method_value = frame.Method(1, spec.Basic.GetOk('ctag0', True))
         header_value = frame.Header(1, 10, spec.BasicProperties())
         body_value = b'0123456789'
         self.obj._on_getok(method_value, header_value, body_value)
@@ -1539,7 +1539,7 @@ class ChannelTests(unittest.TestCase):
     def test_on_getok_callback_reset(self):
         mock_callback = mock.Mock()
         self.obj._on_getok_callback = mock_callback
-        method_value = frame.Method(1, spec.Basic.GetOk('ctag0', 1))
+        method_value = frame.Method(1, spec.Basic.GetOk('ctag0', True))
         header_value = frame.Header(1, 10, spec.BasicProperties())
         body_value = b'0123456789'
         self.obj._on_getok(method_value, header_value, body_value)
