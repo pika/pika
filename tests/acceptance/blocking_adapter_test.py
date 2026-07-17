@@ -2659,6 +2659,7 @@ class TestNonPubAckPublishAndConsumeHugeMessage(BlockingTestCaseBase):
                                                        auto_ack=False,
                                                        exclusive=False,
                                                        arguments=None):
+            assert rx_method is not None
             self.assertIsInstance(rx_method, pika.spec.Basic.Deliver)
             self.assertEqual(rx_method.delivery_tag, 1)
             self.assertFalse(rx_method.redelivered)
@@ -2669,6 +2670,7 @@ class TestNonPubAckPublishAndConsumeHugeMessage(BlockingTestCaseBase):
             self.assertEqual(rx_body, as_bytes(body))
 
             # Ack the message
+            assert rx_method.delivery_tag is not None
             ch.basic_ack(delivery_tag=rx_method.delivery_tag, multiple=False)
 
             break
