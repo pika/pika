@@ -43,6 +43,24 @@ The `on_message_callback` registered with `basic_consume` is dispatched on a per
 - Messages are delivered to the callback in order (single worker thread per channel)
 - All `ThreadSafeChannel` methods (`basic_ack`, `basic_nack`, `basic_reject`, `basic_publish`) are safe to call from within the callback
 
+## Work queue bounds and back-pressure
+
+Each worker thread consumes from a bounded queue holding at most `work_queue_maxsize` pending dispatches (default 1000, matching the RabbitMQ Java client). When a slow callback lets the queue fill up, further enqueues block the IOLoop thread, which stops reading from the socket and applies back-pressure to the broker through TCP flow control instead of buffering events in memory without limit.
+
+Heartbeats are not sent while the IOLoop is blocked, so the broker's heartbeat timeout bounds how long a wedged consumer can stall the connection before the broker closes it.
+
+Both knobs are constructor parameters on `ThreadSafeConnection`:
+
+```python
+conn = ThreadSafeConnection(
+    pika.ConnectionParameters('localhost'),
+    work_queue_maxsize=1000,     # 0 means unbounded
+    work_queue_put_timeout=None, # seconds; None blocks until space is available
+)
+```
+
+If `work_queue_put_timeout` is set and the queue stays full for that long, `pika.exceptions.WorkQueueFullError` is raised on the IOLoop thread, tearing the connection down rather than silently dropping the event.
+
 ## Comparison with other adapters
 
 | | BlockingConnection | SelectConnection + add_callback_threadsafe | ThreadSafeConnection |
