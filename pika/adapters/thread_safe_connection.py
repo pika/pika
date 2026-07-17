@@ -17,19 +17,113 @@ from __future__ import annotations
 import concurrent.futures
 import itertools
 import logging
+import queue
 import threading
 from threading import Event
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
     from typing_extensions import Literal, Self
 
 from pika import spec
 from pika.adapters.select_connection import SelectConnection
+from pika.exceptions import WorkQueueFullError
 
 LOGGER = logging.getLogger(__name__)
 
 DEFAULT_RPC_TIMEOUT = 10
+
+# Matches MAX_QUEUE_LENGTH in the RabbitMQ Java client's WorkPool.
+DEFAULT_WORK_QUEUE_MAXSIZE = 1000
+
+
+class _BoundedWorkPool:
+    """
+    Single worker thread consuming from a bounded work queue.
+
+    Replaces :class:`concurrent.futures.ThreadPoolExecutor`, whose internal
+    queue is unbounded and grows without limit when user callbacks cannot
+    keep up with incoming events (issue #1600).
+
+    ``submit`` runs on the IOLoop thread.  While the queue is full it
+    blocks, which stops frame reads from the socket and applies
+    back-pressure to the broker via TCP flow control - the same strategy
+    as the RabbitMQ Java client's ``WorkPool``.
+
+    The worker thread starts lazily on first submit so that channels which
+    never dispatch callbacks (e.g. publish-only channels) do not start one.
+
+    :param maxsize: Maximum number of pending work items.  Pass ``0`` for
+        an unbounded queue.
+    :param put_timeout: Seconds :meth:`submit` waits for queue space before
+        raising :class:`pika.exceptions.WorkQueueFullError`.  Pass ``None``
+        to wait indefinitely.
+    :param thread_name: Name of the worker thread.
+    """
+
+    _SHUTDOWN = object()
+
+    def __init__(self, maxsize: int, put_timeout: float | None,
+                 thread_name: str) -> None:
+        self._queue: queue.Queue[Any] = queue.Queue(maxsize=maxsize)
+        self._put_timeout = put_timeout
+        self._thread_name = thread_name
+        self._thread: threading.Thread | None = None
+        self._lock = threading.Lock()
+        self._shutdown = False
+
+    def submit(self, fn: Callable[..., None], *args: Any) -> None:
+        """
+        Enqueue ``fn(*args)`` for execution on the worker thread.
+
+        :raises RuntimeError: if the pool has been shut down.
+        :raises WorkQueueFullError: if the queue stays full for *put_timeout* seconds.
+        """
+        with self._lock:
+            if self._shutdown:
+                raise RuntimeError('cannot submit work after pool shutdown')
+            if self._thread is None:
+                self._thread = threading.Thread(
+                    target=self._run_worker,
+                    name=self._thread_name,
+                    daemon=True,
+                )
+                self._thread.start()
+        try:
+            self._queue.put((fn, args), timeout=self._put_timeout)
+        except queue.Full:
+            raise WorkQueueFullError(
+                f'work queue full for {self._put_timeout} seconds '
+                f'(maxsize={self._queue.maxsize})') from None
+
+    def _run_worker(self) -> None:
+        while True:
+            item = self._queue.get()
+            if item is self._SHUTDOWN:
+                return
+            fn, args = item
+            fn(*args)
+
+    def shutdown(self, wait: bool = True) -> None:
+        """
+        Shut down the pool, allowing in-flight work to finish.
+
+        Idempotent. Subsequent :meth:`submit` calls raise :class:`RuntimeError`.
+
+        :param wait: Block until the worker thread has drained the queue and exited.
+        """
+        with self._lock:
+            if self._shutdown:
+                return
+            self._shutdown = True
+            thread = self._thread
+        if thread is None:
+            return
+        # The sentinel lands behind all pending work, so the worker drains
+        # the queue before exiting.
+        self._queue.put(self._SHUTDOWN)
+        if wait:
+            thread.join()
 
 
 class ThreadSafeChannel:

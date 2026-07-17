@@ -4,7 +4,105 @@ import threading
 import unittest
 from unittest.mock import ANY, MagicMock, patch
 
-from pika.adapters.thread_safe_connection import ThreadSafeChannel, ThreadSafeConnection
+from pika.adapters.thread_safe_connection import (
+    ThreadSafeChannel,
+    ThreadSafeConnection,
+    _BoundedWorkPool,
+)
+from pika.exceptions import WorkQueueFullError
+
+
+class BoundedWorkPoolTests(unittest.TestCase):
+    """Tests for the bounded work queue backing the dispatch pools."""
+
+    def _make_blocked_pool(self, maxsize, put_timeout=None):
+        """Return (pool, release) where the pool's worker is stuck in its first work item until
+        *release* is set.
+        """
+        pool = _BoundedWorkPool(maxsize=maxsize,
+                                put_timeout=put_timeout,
+                                thread_name='test-pool')
+        release = threading.Event()
+        started = threading.Event()
+
+        def block():
+            started.set()
+            release.wait(timeout=5)
+
+        pool.submit(block)
+        self.assertTrue(started.wait(timeout=5))
+        return pool, release
+
+    def test_submit_with_timeout_raises_when_queue_stays_full(self):
+        """A submit() with put_timeout set must raise WorkQueueFullError when the queue stays
+        full.
+        """
+        pool, release = self._make_blocked_pool(maxsize=1, put_timeout=0.05)
+        try:
+            pool.submit(lambda: None)  # fills the queue
+            with self.assertRaises(WorkQueueFullError):
+                pool.submit(lambda: None)
+        finally:
+            release.set()
+            pool.shutdown(wait=True)
+
+    def test_submit_blocks_until_queue_has_space(self):
+        """A submit() on a full queue must block and proceed once the worker drains an item."""
+        pool, release = self._make_blocked_pool(maxsize=1)
+        pool.submit(lambda: None)  # fills the queue
+        submitted = threading.Event()
+
+        def blocked_submit():
+            pool.submit(lambda: None)
+            submitted.set()
+
+        producer = threading.Thread(target=blocked_submit, daemon=True)
+        producer.start()
+        # The producer must be stuck in put() while the queue is full...
+        self.assertFalse(submitted.wait(timeout=0.1))
+        # ...and proceed once the worker drains an item.
+        release.set()
+        self.assertTrue(submitted.wait(timeout=5))
+        producer.join(timeout=5)
+        pool.shutdown(wait=True)
+
+    def test_shutdown_drains_pending_work(self):
+        """Pool shutdown must let already-enqueued work finish before returning."""
+        pool, release = self._make_blocked_pool(maxsize=10)
+        done = []
+        for i in range(5):
+            pool.submit(done.append, i)
+        release.set()
+        pool.shutdown(wait=True)
+        self.assertEqual(done, list(range(5)))
+
+    def test_submit_after_shutdown_raises_runtime_error(self):
+        """A submit() on a shut-down pool must raise RuntimeError."""
+        pool = _BoundedWorkPool(maxsize=1,
+                                put_timeout=None,
+                                thread_name='test-pool')
+        pool.shutdown(wait=True)
+        with self.assertRaises(RuntimeError):
+            pool.submit(lambda: None)
+
+    def test_worker_thread_starts_lazily(self):
+        """The worker thread must not start until the first submit."""
+        pool = _BoundedWorkPool(maxsize=1,
+                                put_timeout=None,
+                                thread_name='test-pool')
+        self.assertIsNone(pool._thread)
+        pool.submit(lambda: None)
+        self.assertIsNotNone(pool._thread)
+        pool.shutdown(wait=True)
+
+    def test_shutdown_is_idempotent(self):
+        """Calling shutdown() multiple times must not raise."""
+        pool = _BoundedWorkPool(maxsize=1,
+                                put_timeout=None,
+                                thread_name='test-pool')
+        pool.submit(lambda: None)
+        pool.shutdown(wait=True)
+        pool.shutdown(wait=True)
 
 
 class ThreadSafeChannelTests(unittest.TestCase):
