@@ -29,7 +29,7 @@ def main():
 
     chan = conn.channel()
 
-    chan.basic_publish('', 'my-alphabet-queue', "abc")
+    chan.basic_publish('', 'my-alphabet-queue', b"abc")
 
     # If publish causes the connection to become blocked, then this conn.close()
     # would hang until the connection is unblocked, if ever. However, the

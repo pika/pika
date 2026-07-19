@@ -45,7 +45,7 @@ def main():
         channel.basic_publish(
             exchange='',
             routing_key=SERVER_QUEUE,
-            body='Marco',
+            body=b'Marco',
             properties=pika.BasicProperties(reply_to='amq.rabbitmq.reply-to'))
 
         channel.start_consuming()
