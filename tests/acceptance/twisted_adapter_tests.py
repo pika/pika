@@ -211,8 +211,8 @@ class TwistedChannelTestCase(TestCase):
         # Verify Deferreds that haven't had their callback invoked errback when
         # the channel closes.
         d = self.channel.basic_consume(queue="testqueue")
-        self.channel._on_channel_closed(
-            mock.Mock(), ChannelClosedByBroker(404, "NOT FOUND"))
+        self.channel._on_channel_closed(mock.Mock(),
+                                        ChannelClosedByBroker(404, "NOT FOUND"))
         self.assertFailure(d, ChannelClosedByBroker)
         assert d.called
 
@@ -435,8 +435,9 @@ class TwistedChannelTestCase(TestCase):
     def test_basic_nack(self):
         # Verify that basic_nack is transmitted properly.
         self.channel.basic_nack(123)
-        self.pika_channel.basic_nack.assert_called_once_with(
-            delivery_tag=123, multiple=False, requeue=True)
+        self.pika_channel.basic_nack.assert_called_once_with(delivery_tag=123,
+                                                             multiple=False,
+                                                             requeue=True)
 
     @pytest.mark.timeout(5)
     def test_basic_publish(self):
@@ -488,8 +489,8 @@ class TwistedChannelTestCase(TestCase):
     def test_basic_reject(self):
         # Verify that basic_reject is transmitted properly.
         self.channel.basic_reject(123)
-        self.pika_channel.basic_reject.assert_called_once_with(
-            delivery_tag=123, requeue=True)
+        self.pika_channel.basic_reject.assert_called_once_with(delivery_tag=123,
+                                                               requeue=True)
 
     @pytest.mark.timeout(5)
     def test_basic_recover(self):
@@ -645,7 +646,8 @@ class TwistedChannelTestCase(TestCase):
 
         def send_message_and_close_channel(_result):
             d = self.channel.basic_publish("testexch", "testrk", b"testbody")
-            self.channel._on_channel_closed(mock.Mock(), RuntimeError("testing"))
+            self.channel._on_channel_closed(mock.Mock(),
+                                            RuntimeError("testing"))
             self.assertEqual(len(self.channel._deliveries), 0)
             return d
 

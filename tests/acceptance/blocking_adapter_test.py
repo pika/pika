@@ -881,7 +881,10 @@ class TestExchangeBindAndUnbind(BlockingTestCaseBase):
 
         # Verify that the queue is unreachable without exchange-exchange binding
         with self.assertRaises(pika.exceptions.UnroutableError):
-            ch.basic_publish(src_exg_name, routing_key, body=b'', mandatory=True)
+            ch.basic_publish(src_exg_name,
+                             routing_key,
+                             body=b'',
+                             mandatory=True)
 
         # Bind the exchanges
         frame = ch.exchange_bind(destination=dest_exg_name,
@@ -908,7 +911,10 @@ class TestExchangeBindAndUnbind(BlockingTestCaseBase):
 
         # Verify that the queue is now unreachable via the source exchange
         with self.assertRaises(pika.exceptions.UnroutableError):
-            ch.basic_publish(src_exg_name, routing_key, body=b'', mandatory=True)
+            ch.basic_publish(src_exg_name,
+                             routing_key,
+                             body=b'',
+                             mandatory=True)
 
 
 class TestQueueDeclareAndDelete(BlockingTestCaseBase):
@@ -1973,7 +1979,10 @@ class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
 
         # Publish 2 messages with mandatory=True for synchronous processing
         ch.basic_publish(exg_name, routing_key, body=b'msg1', mandatory=True)
-        ch.basic_publish(exg_name, routing_key, body=b'last-msg', mandatory=True)
+        ch.basic_publish(exg_name,
+                         routing_key,
+                         body=b'last-msg',
+                         mandatory=True)
 
         # Configure QoS for one message so that the 2nd message will be
         # delivered only after the 1st one is ACKed
@@ -2062,7 +2071,10 @@ class TestConsumeGeneratorWithAckFromAnotherThread(BlockingTestCaseBase):
 
         # Publish 2 messages with mandatory=True for synchronous processing
         ch.basic_publish(exg_name, routing_key, body=b'msg1', mandatory=True)
-        ch.basic_publish(exg_name, routing_key, body=b'last-msg', mandatory=True)
+        ch.basic_publish(exg_name,
+                         routing_key,
+                         body=b'last-msg',
+                         mandatory=True)
 
         # Configure QoS for one message so that the 2nd message will be
         # delivered only after the 1st one is ACKed
@@ -2725,7 +2737,9 @@ class TestNonPubAckPublishAndConsumeManyMessages(BlockingTestCaseBase):
 
         for _ in range(num_messages_to_publish):
             # Publish a message to the queue by way of default exchange
-            ch.basic_publish(exchange='', routing_key=q_name, body=body.encode())
+            ch.basic_publish(exchange='',
+                             routing_key=q_name,
+                             body=body.encode())
 
         # Consume the messages
         num_consumed = 0
