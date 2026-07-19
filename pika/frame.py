@@ -190,19 +190,22 @@ class ProtocolHeader(amqp_object.AMQPObject):
                                      self.revision)
 
 
-def decode_frame(data_in: bytes) -> tuple[int, Frame | ProtocolHeader | None]:
+def decode_frame(data_in: bytes | bytearray,
+                 offset: int = 0) -> tuple[int, Frame | ProtocolHeader | None]:
     """
     Receives raw socket data and attempts to turn it into a frame.
 
-    Returns the number of bytes consumed from the stream and the frame.
+    Returns the number of bytes consumed from the stream starting at ``offset`` and the frame.
 
     :param data_in: The raw data stream
+    :param offset: Offset into ``data_in`` at which the frame starts
     :raises: pika.exceptions.InvalidFrameError
     """
     # Look to see if it's a protocol header frame
     try:
-        if data_in[0:4] == b'AMQP':
-            major, minor, revision = struct.unpack_from('BBB', data_in, 5)
+        if data_in[offset:offset + 4] == b'AMQP':
+            major, minor, revision = struct.unpack_from('BBB', data_in,
+                                                        offset + 5)
             return 8, ProtocolHeader(major, minor, revision)
     except (IndexError, struct.error):
         return 0, None
@@ -210,7 +213,7 @@ def decode_frame(data_in: bytes) -> tuple[int, Frame | ProtocolHeader | None]:
     # Get the Frame Type, Channel Number and Frame Size
     try:
         (frame_type, channel_number,
-         frame_size) = struct.unpack('>BHL', data_in[0:7])
+         frame_size) = struct.unpack_from('>BHL', data_in, offset)
     except struct.error:
         return 0, None
 
@@ -218,15 +221,22 @@ def decode_frame(data_in: bytes) -> tuple[int, Frame | ProtocolHeader | None]:
     frame_end = spec.FRAME_HEADER_SIZE + frame_size + spec.FRAME_END_SIZE
 
     # We don't have all of the frame yet
-    if frame_end > len(data_in):
+    if offset + frame_end > len(data_in):
         return 0, None
 
     # The Frame termination chr is wrong
-    if data_in[frame_end - 1:frame_end] != bytes((spec.FRAME_END,)):
+    if data_in[offset + frame_end - 1] != spec.FRAME_END:
         raise exceptions.InvalidFrameError("Invalid FRAME_END marker")
 
-    # Get the raw frame data
-    frame_data = data_in[spec.FRAME_HEADER_SIZE:frame_end - 1]
+    # Get the raw frame data as immutable bytes. For large payloads copy via
+    # memoryview, which avoids a bytearray input's extra intermediate copy;
+    # for small frames a plain slice is cheaper than memoryview setup.
+    data_start = offset + spec.FRAME_HEADER_SIZE
+    data_end = offset + frame_end - 1
+    if frame_size > 1024:
+        frame_data = bytes(memoryview(data_in)[data_start:data_end])
+    else:
+        frame_data = bytes(data_in[data_start:data_end])
 
     if frame_type == spec.FRAME_METHOD:
 
