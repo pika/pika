@@ -21,8 +21,8 @@ main_channel.exchange_declare(exchange='com.micex.lasttrades',
 queue = main_channel.queue_declare('', exclusive=True).method.queue
 queue_tickers = main_channel.queue_declare('', exclusive=True).method.queue
 
-main_channel.queue_bind(exchange='com.micex.sten',
-                        queue=queue,
+main_channel.queue_bind(queue=queue,
+                        exchange='com.micex.sten',
                         routing_key='order.stop.create')
 
 
