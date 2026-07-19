@@ -556,7 +556,7 @@ class ConnectionTests(unittest.TestCase):
     def test_on_connection_tune(self, _adapter_emit_data, method,
                                 heartbeat_checker):
         """Make sure _on_connection_tune tunes the connection params."""
-        heartbeat_checker.return_value = 'hearbeat obj'
+        heartbeat_checker.return_value = 'heartbeat obj'
         marshal = mock.Mock(return_value='ab')
         method.return_value = mock.Mock(marshal=marshal)
         # may be good to test this here, but i don't want to test too much
@@ -575,7 +575,7 @@ class ConnectionTests(unittest.TestCase):
         # Test
         self.connection._on_connection_tune(method_frame)
 
-        # verfy
+        # verify
         self.assertEqual(self.connection.CONNECTION_TUNE,
                          self.connection.connection_state)
         self.assertEqual(20, self.connection.params.channel_max)
@@ -585,9 +585,9 @@ class ConnectionTests(unittest.TestCase):
         heartbeat_checker.assert_called_once_with(self.connection, 20)
         self.assertEqual(
             ['ab'], [call[0][0] for call in _adapter_emit_data.call_args_list])
-        self.assertEqual('hearbeat obj', self.connection._heartbeat_checker)
+        self.assertEqual('heartbeat obj', self.connection._heartbeat_checker)
 
-        # Pika gives precendence to client heartbeat values if set
+        # Pika gives precedence to client heartbeat values if set
         # See pika/pika#965.
 
         # Both client and server values set. Pick client value
@@ -595,7 +595,7 @@ class ConnectionTests(unittest.TestCase):
         self.connection.params.heartbeat = 20
         # Test
         self.connection._on_connection_tune(method_frame)
-        # verfy
+        # verify
         self.assertEqual(20, self.connection.params.heartbeat)
 
         # Client value is None, use the server's
@@ -603,7 +603,7 @@ class ConnectionTests(unittest.TestCase):
         self.connection.params.heartbeat = None
         # Test
         self.connection._on_connection_tune(method_frame)
-        # verfy
+        # verify
         self.assertEqual(500, self.connection.params.heartbeat)
 
         # Client value is 0, use it
@@ -611,7 +611,7 @@ class ConnectionTests(unittest.TestCase):
         self.connection.params.heartbeat = 0
         # Test
         self.connection._on_connection_tune(method_frame)
-        # verfy
+        # verify
         self.assertEqual(0, self.connection.params.heartbeat)
 
         # Server value is 0, client value is None
@@ -619,7 +619,7 @@ class ConnectionTests(unittest.TestCase):
         self.connection.params.heartbeat = None
         # Test
         self.connection._on_connection_tune(method_frame)
-        # verfy
+        # verify
         self.assertEqual(0, self.connection.params.heartbeat)
 
         # Both client and server values are 0
@@ -627,7 +627,7 @@ class ConnectionTests(unittest.TestCase):
         self.connection.params.heartbeat = 0
         # Test
         self.connection._on_connection_tune(method_frame)
-        # verfy
+        # verify
         self.assertEqual(0, self.connection.params.heartbeat)
 
         # Server value is 0, use the client's
@@ -635,7 +635,7 @@ class ConnectionTests(unittest.TestCase):
         self.connection.params.heartbeat = 60
         # Test
         self.connection._on_connection_tune(method_frame)
-        # verfy
+        # verify
         self.assertEqual(60, self.connection.params.heartbeat)
 
         # Server value is 10, client passes a heartbeat function that
@@ -649,7 +649,7 @@ class ConnectionTests(unittest.TestCase):
         self.connection.params.heartbeat = choose_max
         # Test
         self.connection._on_connection_tune(method_frame)
-        # verfy
+        # verify
         self.assertEqual(60, self.connection.params.heartbeat)
 
     def test_on_connection_close_from_broker_passes_correct_exception(self):

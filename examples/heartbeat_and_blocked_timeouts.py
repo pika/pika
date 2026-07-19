@@ -1,7 +1,7 @@
 """
 This example demonstrates explicit setting of heartbeat and blocked connection timeouts.
 
-Starting with RabbitMQ 3.5.5, the broker's default hearbeat timeout decreased from 580 seconds to 60
+Starting with RabbitMQ 3.5.5, the broker's default heartbeat timeout decreased from 580 seconds to 60
 seconds. As a result, applications that perform lengthy processing in the same thread that also runs
 their Pika connection may experience unexpected dropped connections due to heartbeat timeout. Here,
 we specify an explicit lower bound for heartbeat timeout.
@@ -21,7 +21,7 @@ import pika
 
 def main():
 
-    # NOTE: These paramerers work with all Pika connection types
+    # NOTE: These parameters work with all Pika connection types
     params = pika.ConnectionParameters(heartbeat=600,
                                        blocked_connection_timeout=300)
 
