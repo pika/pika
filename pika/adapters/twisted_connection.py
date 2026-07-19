@@ -14,6 +14,7 @@ import functools
 import logging
 import warnings
 from collections import namedtuple
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Callable
 
 import twisted.internet.base
@@ -298,8 +299,9 @@ class TwistedChannel:
 
     # Deferred-equivalents of public Channel methods
 
-    def callback_deferred(self, deferred: defer.Deferred[Any],
-                          replies: list[type[amqp_object.Method]]) -> None:
+    def callback_deferred(
+            self, deferred: defer.Deferred[Any],
+            replies: Sequence[type[amqp_object.Method]]) -> None:
         """
         Pass in a Deferred and a list replies from the RabbitMQ broker which you'd like the Deferred
         to be callbacked on with the frame as callback value.
