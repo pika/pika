@@ -80,8 +80,9 @@ class ClosableDeferredQueueTestCase(TestCase):
     def test_close(self):
         # Verify that the queue can be closed.
         q = ClosableDeferredQueue()
-        q.close("testing")
-        self.assertEqual(q.closed, "testing")
+        reason = RuntimeError("testing")
+        q.close(reason)
+        self.assertEqual(q.closed, reason)
         self.assertEqual(q.waiting, [])
         self.assertEqual(q.pending, [])
 
@@ -100,10 +101,11 @@ class ClosableDeferredQueueTestCase(TestCase):
     def test_close_twice(self):
         # If a queue it called twice, it must not crash.
         q = ClosableDeferredQueue()
-        q.close("testing")
-        self.assertEqual(q.closed, "testing")
-        q.close("testing")
-        self.assertEqual(q.closed, "testing")
+        reason = RuntimeError("testing")
+        q.close(reason)
+        self.assertEqual(q.closed, reason)
+        q.close(reason)
+        self.assertEqual(q.closed, reason)
 
 
 class TwistedChannelTestCase(TestCase):
@@ -136,7 +138,7 @@ class TwistedChannelTestCase(TestCase):
             getattr(self.pika_channel, meth_name).__name__ = meth_name
 
     def test_repr(self):
-        self.pika_channel.__repr__ = lambda _s: "<TestChannel>"
+        self.pika_channel.__repr__ = mock.Mock(return_value="<TestChannel>")
         self.assertEqual(
             repr(self.channel),
             "<TwistedChannel channel=<TestChannel>>",
@@ -148,16 +150,17 @@ class TwistedChannelTestCase(TestCase):
         # consumers are errbacked.
         self.pika_channel.add_on_close_callback.assert_called_with(
             self.channel._on_channel_closed)
-        calls = self.channel._calls = [defer.Deferred()]
+        call = defer.Deferred()
+        self.channel._calls = {call}
         consumer_mock = mock.Mock()
         self.channel._consumers = {"test-delivery-tag": consumer_mock}
         error = RuntimeError("testing")
-        self.channel._on_channel_closed(None, error)
+        self.channel._on_channel_closed(mock.Mock(), error)
         consumer_mock.close.assert_called_once_with(error)
         self.assertEqual(len(self.channel._calls), 0)
         self.assertEqual(len(self.channel._consumers), 0)
-        self.assertFailure(calls[0], RuntimeError)
-        assert calls[0].called
+        self.assertFailure(call, RuntimeError)
+        assert call.called
 
     @pytest.mark.timeout(5)
     def test_basic_consume(self):
@@ -190,7 +193,7 @@ class TwistedChannelTestCase(TestCase):
         # Verify that a Failure is returned when the channel's basic_consume
         # is called and the channel is closed.
         error = RuntimeError("testing")
-        self.channel._on_channel_closed(None, error)
+        self.channel._on_channel_closed(mock.Mock(), error)
         d = self.channel.basic_consume(queue="testqueue")
         self.assertFailure(d, RuntimeError)
         assert d.called
@@ -208,8 +211,8 @@ class TwistedChannelTestCase(TestCase):
         # Verify Deferreds that haven't had their callback invoked errback when
         # the channel closes.
         d = self.channel.basic_consume(queue="testqueue")
-        self.channel._on_channel_closed(self,
-                                        ChannelClosedByBroker(404, "NOT FOUND"))
+        self.channel._on_channel_closed(
+            mock.Mock(), ChannelClosedByBroker(404, "NOT FOUND"))
         self.assertFailure(d, ChannelClosedByBroker)
         assert d.called
 
@@ -264,7 +267,7 @@ class TwistedChannelTestCase(TestCase):
         # Verify that a Failure is returned when one of the channel's wrapped
         # methods is called and the channel is closed.
         error = RuntimeError("testing")
-        self.channel._on_channel_closed(None, error)
+        self.channel._on_channel_closed(mock.Mock(), error)
         self.pika_channel.queue_declare.__name__ = "queue_declare"
         d = self.channel.queue_declare(queue="testqueue")
         self.assertFailure(d, RuntimeError)
@@ -425,38 +428,38 @@ class TwistedChannelTestCase(TestCase):
         self.pika_channel.add_callback.assert_called_with(
             self.channel._on_getempty, [spec.Basic.GetEmpty], False)
         d = self.channel.basic_get(queue="testqueue")
-        self.channel._on_getempty("testmethod")
+        self.channel._on_getempty(mock.Mock())
         d.addCallback(self.assertIsNone)
         assert d.called
 
     def test_basic_nack(self):
         # Verify that basic_nack is transmitted properly.
-        self.channel.basic_nack("testdeliverytag")
+        self.channel.basic_nack(123)
         self.pika_channel.basic_nack.assert_called_once_with(
-            delivery_tag="testdeliverytag", multiple=False, requeue=True)
+            delivery_tag=123, multiple=False, requeue=True)
 
     @pytest.mark.timeout(5)
     def test_basic_publish(self):
         # Verify that basic_publish wraps properly.
-        args = [object()]
-        kwargs = {"routing_key": object(), "body": object()}
-        d = self.channel.basic_publish(*args, **kwargs)
-        kwargs.update({
+        d = self.channel.basic_publish("testexch",
+                                       routing_key="testrk",
+                                       body=b"testbody")
+        self.pika_channel.basic_publish.assert_called_once_with(
             # Args are converted to kwargs
-            "exchange": args[0],
+            exchange="testexch",
+            routing_key="testrk",
+            body=b"testbody",
             # Defaults
-            "mandatory": False,
-            "properties": None,
-        })
-        self.pika_channel.basic_publish.assert_called_once_with(**kwargs)
+            mandatory=False,
+            properties=None)
         assert d.called
 
     @pytest.mark.timeout(5)
     def test_basic_publish_closed(self):
         # Verify that a Failure is returned when the channel's basic_publish
         # is called and the channel is closed.
-        self.channel._on_channel_closed(None, RuntimeError("testing"))
-        d = self.channel.basic_publish(None, None, None)
+        self.channel._on_channel_closed(mock.Mock(), RuntimeError("testing"))
+        d = self.channel.basic_publish("", "", b"")
         self.pika_channel.basic_publish.assert_not_called()
         d = self.assertFailure(d, RuntimeError)
         d.addCallback(lambda e: self.assertEqual(e.args[0], "testing"))
@@ -476,18 +479,17 @@ class TwistedChannelTestCase(TestCase):
     @pytest.mark.timeout(5)
     def test_basic_qos(self):
         # Verify that basic_qos wraps properly.
-        kwargs = {"prefetch_size": 2}
-        d = self.channel.basic_qos(**kwargs)
+        d = self.channel.basic_qos(prefetch_size=2)
         # Defaults
-        kwargs.update({"prefetch_count": 0, "global_qos": False})
+        kwargs = {"prefetch_size": 2, "prefetch_count": 0, "global_qos": False}
         self._test_wrapped_func(self.pika_channel.basic_qos, kwargs, True)
         assert d.called
 
     def test_basic_reject(self):
         # Verify that basic_reject is transmitted properly.
-        self.channel.basic_reject("testdeliverytag")
+        self.channel.basic_reject(123)
         self.pika_channel.basic_reject.assert_called_once_with(
-            delivery_tag="testdeliverytag", requeue=True)
+            delivery_tag=123, requeue=True)
 
     @pytest.mark.timeout(5)
     def test_basic_recover(self):
@@ -513,7 +515,7 @@ class TwistedChannelTestCase(TestCase):
             ["ack_nack_callback"], self.channel._on_delivery_confirmation)
 
         def send_message(_result):
-            d = self.channel.basic_publish("testexch", "testrk", "testbody")
+            d = self.channel.basic_publish("testexch", "testrk", b"testbody")
             frame = Method(1, spec.Basic.Ack(delivery_tag=1))
             self.channel._on_delivery_confirmation(frame)
             return d
@@ -534,7 +536,7 @@ class TwistedChannelTestCase(TestCase):
         d = self.channel.confirm_delivery()
 
         def send_message(_result):
-            d = self.channel.basic_publish("testexch", "testrk", "testbody")
+            d = self.channel.basic_publish("testexch", "testrk", b"testbody")
             frame = Method(1, spec.Basic.Nack(delivery_tag=1))
             self.channel._on_delivery_confirmation(frame)
             return d
@@ -557,11 +559,11 @@ class TwistedChannelTestCase(TestCase):
         return_cb = self.pika_channel.add_on_return_callback.call_args[0][0]
 
         def send_message(_result):
-            d = self.channel.basic_publish("testexch", "testrk", "testbody")
+            d = self.channel.basic_publish("testexch", "testrk", b"testbody")
             # Send the Basic.Return frame
             method = spec.Basic.Return(exchange="testexch",
                                        routing_key="testrk")
-            return_cb(self.channel, method, spec.BasicProperties(), "testbody")
+            return_cb(self.channel, method, spec.BasicProperties(), b"testbody")
             # Send the Basic.Ack frame
             frame = Method(1, spec.Basic.Ack(delivery_tag=1))
             self.channel._on_delivery_confirmation(frame)
@@ -571,7 +573,7 @@ class TwistedChannelTestCase(TestCase):
             self.assertIsInstance(error.value, UnroutableError)
             self.assertEqual(len(error.value.messages), 1)
             msg = error.value.messages[0]
-            self.assertEqual(msg.body, "testbody")
+            self.assertEqual(msg.body, b"testbody")
 
         d.addCallbacks(send_message, self.fail)
         d.addCallbacks(self.fail, check_response)
@@ -588,11 +590,11 @@ class TwistedChannelTestCase(TestCase):
         return_cb = self.pika_channel.add_on_return_callback.call_args[0][0]
 
         def send_message(_result):
-            d = self.channel.basic_publish("testexch", "testrk", "testbody")
+            d = self.channel.basic_publish("testexch", "testrk", b"testbody")
             # Send the Basic.Return frame
             method = spec.Basic.Return(exchange="testexch",
                                        routing_key="testrk")
-            return_cb(self.channel, method, spec.BasicProperties(), "testbody")
+            return_cb(self.channel, method, spec.BasicProperties(), b"testbody")
             # Send the Basic.Nack frame
             frame = Method(1, spec.Basic.Nack(delivery_tag=1))
             self.channel._on_delivery_confirmation(frame)
@@ -602,7 +604,7 @@ class TwistedChannelTestCase(TestCase):
             self.assertTrue(isinstance(error.value, NackError))
             self.assertEqual(len(error.value.messages), 1)
             msg = error.value.messages[0]
-            self.assertEqual(msg.body, "testbody")
+            self.assertEqual(msg.body, b"testbody")
 
         d.addCallback(send_message)
         d.addCallbacks(self.fail, check_response)
@@ -642,8 +644,8 @@ class TwistedChannelTestCase(TestCase):
         self.pika_channel.confirm_delivery.call_args[1]["callback"](None)
 
         def send_message_and_close_channel(_result):
-            d = self.channel.basic_publish("testexch", "testrk", "testbody")
-            self.channel._on_channel_closed(None, RuntimeError("testing"))
+            d = self.channel.basic_publish("testexch", "testrk", b"testbody")
+            self.channel._on_channel_closed(mock.Mock(), RuntimeError("testing"))
             self.assertEqual(len(self.channel._deliveries), 0)
             return d
 
@@ -670,6 +672,7 @@ class TwistedProtocolConnectionTestCase(TestCase):
         self.conn_impl_mock.connection_made.assert_called_once_with(transport)
         self.conn.connectionMade.assert_called_once()
         d = self.conn.ready
+        assert d is not None
         self.conn._on_connection_ready(mock.Mock())
         assert d.called
 
@@ -703,14 +706,15 @@ class TwistedProtocolConnectionTestCase(TestCase):
 
     def test_dataReceived(self):
         # Verify that the data is transmitted to the callback method.
-        self.conn.dataReceived("testdata")
-        self.conn_impl_mock.data_received.assert_called_once_with("testdata")
+        self.conn.dataReceived(b"testdata")
+        self.conn_impl_mock.data_received.assert_called_once_with(b"testdata")
 
     @pytest.mark.timeout(5)
     def test_connectionLost(self):
         # Verify that the "ready" Deferred errbacks on connectionLost, and that
         # the underlying implementation callback is called.
         ready_d = self.conn.ready
+        assert ready_d is not None
         error = RuntimeError("testreason")
         self.conn.connectionLost(error)
         self.conn_impl_mock.connection_lost.assert_called_with(error)
@@ -722,6 +726,7 @@ class TwistedProtocolConnectionTestCase(TestCase):
         # Verify that calling connectionLost twice will not cause an
         # AlreadyCalled error on the Deferred.
         ready_d = self.conn.ready
+        assert ready_d is not None
         error = RuntimeError("testreason")
         self.conn.connectionLost(error)
         self.assertTrue(ready_d.called)
@@ -734,6 +739,7 @@ class TwistedProtocolConnectionTestCase(TestCase):
     def test_on_connection_ready(self):
         # Verify that the "ready" Deferred is resolved on _on_connection_ready.
         d = self.conn.ready
+        assert d is not None
         self.conn._on_connection_ready(mock.Mock())
         self.assertTrue(d.called)
         d.addCallback(
@@ -745,6 +751,7 @@ class TwistedProtocolConnectionTestCase(TestCase):
         # Verify that calling _on_connection_ready twice will not cause an
         # AlreadyCalled error on the Deferred.
         d = self.conn.ready
+        assert d is not None
         self.conn._on_connection_ready(mock.Mock())
         self.assertTrue(d.called)
         # A second call must not raise AlreadyCalled
@@ -755,6 +762,7 @@ class TwistedProtocolConnectionTestCase(TestCase):
         # Verify that the connectionReady method is called when the "ready"
         # Deferred is resolved.
         d = self.conn.ready
+        assert d is not None
         self.conn.connectionReady = mock.Mock()
         self.conn._on_connection_ready(mock.Mock())
         self.conn.connectionReady.assert_called_once()
@@ -764,6 +772,7 @@ class TwistedProtocolConnectionTestCase(TestCase):
     def test_on_connection_failed(self):
         # Verify that the "ready" Deferred errbacks on _on_connection_failed.
         d = self.conn.ready
+        assert d is not None
         self.conn._on_connection_failed(mock.Mock())
         self.assertFailure(d, AMQPConnectionError)
         assert d.called
@@ -772,6 +781,7 @@ class TwistedProtocolConnectionTestCase(TestCase):
         # Verify that calling _on_connection_failed twice will not cause an
         # AlreadyCalled error on the Deferred.
         d = self.conn.ready
+        assert d is not None
         self.conn._on_connection_failed(mock.Mock())
         self.assertTrue(d.called)
         d.addErrback(lambda f: None)  # silence the error
@@ -784,6 +794,7 @@ class TwistedProtocolConnectionTestCase(TestCase):
         # _on_connection_closed.
         self.conn._on_connection_ready(mock.Mock())
         d = self.conn.closed
+        assert d is not None
         reason = RuntimeError("test reason")
         self.conn._on_connection_closed(mock.Mock(), reason)
         self.assertTrue(d.called)
@@ -795,6 +806,7 @@ class TwistedProtocolConnectionTestCase(TestCase):
         # AlreadyCalled error on the Deferred.
         self.conn._on_connection_ready(mock.Mock())
         d = self.conn.closed
+        assert d is not None
         reason = RuntimeError("test reason")
         self.conn._on_connection_closed(mock.Mock(), reason)
         self.assertTrue(d.called)
@@ -808,6 +820,7 @@ class TwistedProtocolConnectionTestCase(TestCase):
         self.conn._on_connection_ready(mock.Mock())
         error = RuntimeError()
         d = self.conn.closed
+        assert d is not None
         self.conn._on_connection_closed(mock.Mock(), Failure(error))
         self.assertTrue(d.called)
 
@@ -857,8 +870,8 @@ class TwistedConnectionAdapterTestCase(TestCase):
         # Verify that the data is transmitted to the underlying transport.
         transport = mock.Mock()
         self.conn.connection_made(transport)
-        self.conn._adapter_emit_data("testdata")
-        transport.write.assert_called_with("testdata")
+        self.conn._adapter_emit_data(b"testdata")
+        transport.write.assert_called_with(b"testdata")
 
     def test_timeout(self):
         # Verify that timeouts are registered and cancelled properly.
