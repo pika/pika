@@ -1,10 +1,10 @@
 """
 This example demonstrates explicit setting of heartbeat and blocked connection timeouts.
 
-Starting with RabbitMQ 3.5.5, the broker's default heartbeat timeout decreased from 580 seconds to 60
-seconds. As a result, applications that perform lengthy processing in the same thread that also runs
-their Pika connection may experience unexpected dropped connections due to heartbeat timeout. Here,
-we specify an explicit lower bound for heartbeat timeout.
+Starting with RabbitMQ 3.5.5, the broker's default heartbeat timeout decreased from 580 seconds to
+60 seconds. As a result, applications that perform lengthy processing in the same thread that also
+runs their Pika connection may experience unexpected dropped connections due to heartbeat timeout.
+Here, we specify an explicit lower bound for heartbeat timeout.
 
 When RabbitMQ broker is running out of certain resources, such as memory and disk space, it may
 block connections that are performing resource-consuming operations, such as publishing messages.
