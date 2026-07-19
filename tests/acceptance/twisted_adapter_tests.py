@@ -616,8 +616,8 @@ class TwistedChannelTestCase(TestCase):
         d = self.channel.confirm_delivery()
 
         def send_message(_result):
-            d1 = self.channel.basic_publish("testexch", "testrk", "testbody1")
-            d2 = self.channel.basic_publish("testexch", "testrk", "testbody2")
+            d1 = self.channel.basic_publish("testexch", "testrk", b"testbody1")
+            d2 = self.channel.basic_publish("testexch", "testrk", b"testbody2")
             frame = Method(1, spec.Basic.Ack(delivery_tag=2, multiple=True))
             self.channel._on_delivery_confirmation(frame)
             return defer.DeferredList([d1, d2])
@@ -670,7 +670,7 @@ class TwistedProtocolConnectionTestCase(TestCase):
         self.conn_impl_mock.connection_made.assert_called_once_with(transport)
         self.conn.connectionMade.assert_called_once()
         d = self.conn.ready
-        self.conn._on_connection_ready(None)
+        self.conn._on_connection_ready(mock.Mock())
         assert d.called
 
     @pytest.mark.timeout(5)
@@ -691,11 +691,11 @@ class TwistedProtocolConnectionTestCase(TestCase):
     def test_channel_errback_if_connection_closed(self):
         # Verify calls to channel() that haven't had their callback invoked
         # errback when the connection closes.
-        self.conn._on_connection_ready("dummy")
+        self.conn._on_connection_ready(mock.Mock())
 
         d = self.conn.channel()
 
-        self.conn._on_connection_closed("test conn", RuntimeError("testing"))
+        self.conn._on_connection_closed(mock.Mock(), RuntimeError("testing"))
 
         self.assertEqual(len(self.conn._calls), 0)
         self.assertFailure(d, RuntimeError)
@@ -734,7 +734,7 @@ class TwistedProtocolConnectionTestCase(TestCase):
     def test_on_connection_ready(self):
         # Verify that the "ready" Deferred is resolved on _on_connection_ready.
         d = self.conn.ready
-        self.conn._on_connection_ready("testresult")
+        self.conn._on_connection_ready(mock.Mock())
         self.assertTrue(d.called)
         d.addCallback(
             functools.partial(self.assertIsInstance,
@@ -745,10 +745,10 @@ class TwistedProtocolConnectionTestCase(TestCase):
         # Verify that calling _on_connection_ready twice will not cause an
         # AlreadyCalled error on the Deferred.
         d = self.conn.ready
-        self.conn._on_connection_ready("testresult")
+        self.conn._on_connection_ready(mock.Mock())
         self.assertTrue(d.called)
         # A second call must not raise AlreadyCalled
-        self.conn._on_connection_ready("testresult")
+        self.conn._on_connection_ready(mock.Mock())
 
     @pytest.mark.timeout(5)
     def test_on_connection_ready_method(self):
@@ -756,7 +756,7 @@ class TwistedProtocolConnectionTestCase(TestCase):
         # Deferred is resolved.
         d = self.conn.ready
         self.conn.connectionReady = mock.Mock()
-        self.conn._on_connection_ready("testresult")
+        self.conn._on_connection_ready(mock.Mock())
         self.conn.connectionReady.assert_called_once()
         assert d.called
 
@@ -764,7 +764,7 @@ class TwistedProtocolConnectionTestCase(TestCase):
     def test_on_connection_failed(self):
         # Verify that the "ready" Deferred errbacks on _on_connection_failed.
         d = self.conn.ready
-        self.conn._on_connection_failed(None)
+        self.conn._on_connection_failed(mock.Mock())
         self.assertFailure(d, AMQPConnectionError)
         assert d.called
 
@@ -772,41 +772,43 @@ class TwistedProtocolConnectionTestCase(TestCase):
         # Verify that calling _on_connection_failed twice will not cause an
         # AlreadyCalled error on the Deferred.
         d = self.conn.ready
-        self.conn._on_connection_failed(None)
+        self.conn._on_connection_failed(mock.Mock())
         self.assertTrue(d.called)
         d.addErrback(lambda f: None)  # silence the error
         # A second call must not raise AlreadyCalled
-        self.conn._on_connection_failed(None)
+        self.conn._on_connection_failed(mock.Mock())
 
     @pytest.mark.timeout(5)
     def test_on_connection_closed(self):
         # Verify that the "closed" Deferred is resolved on
         # _on_connection_closed.
-        self.conn._on_connection_ready("dummy")
+        self.conn._on_connection_ready(mock.Mock())
         d = self.conn.closed
-        self.conn._on_connection_closed("test conn", "test reason")
+        reason = RuntimeError("test reason")
+        self.conn._on_connection_closed(mock.Mock(), reason)
         self.assertTrue(d.called)
-        d.addCallback(self.assertEqual, "test reason")
+        d.addCallback(self.assertEqual, reason)
         assert d.called
 
     def test_on_connection_closed_twice(self):
         # Verify that calling _on_connection_closed twice will not cause an
         # AlreadyCalled error on the Deferred.
-        self.conn._on_connection_ready("dummy")
+        self.conn._on_connection_ready(mock.Mock())
         d = self.conn.closed
-        self.conn._on_connection_closed("test conn", "test reason")
+        reason = RuntimeError("test reason")
+        self.conn._on_connection_closed(mock.Mock(), reason)
         self.assertTrue(d.called)
         # A second call must not raise AlreadyCalled
-        self.conn._on_connection_closed("test conn", "test reason")
+        self.conn._on_connection_closed(mock.Mock(), reason)
 
     @pytest.mark.timeout(5)
     def test_on_connection_closed_Failure(self):
         # Verify that the _on_connection_closed method can be called with
         # a Failure instance without triggering the errback path.
-        self.conn._on_connection_ready("dummy")
+        self.conn._on_connection_ready(mock.Mock())
         error = RuntimeError()
         d = self.conn.closed
-        self.conn._on_connection_closed("test conn", Failure(error))
+        self.conn._on_connection_closed(mock.Mock(), Failure(error))
         self.assertTrue(d.called)
 
         def _check_cb(result):
