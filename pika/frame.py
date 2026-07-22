@@ -13,6 +13,8 @@ LOGGER = logging.getLogger(__name__)
 
 _MethodT = TypeVar('_MethodT', bound=amqp_object.Method)
 
+_FRAME_END_BYTE = bytes((spec.FRAME_END,))
+
 
 class Frame(amqp_object.AMQPObject):
     """
@@ -42,7 +44,7 @@ class Frame(amqp_object.AMQPObject):
         """
         payload = b''.join(pieces)
         return struct.pack('>BHI', self.frame_type, self.channel_number,
-                           len(payload)) + payload + bytes((spec.FRAME_END,))
+                           len(payload)) + payload + _FRAME_END_BYTE
 
     def marshal(self) -> bytes:
         """

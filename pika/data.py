@@ -11,6 +11,29 @@ from typing import Any
 from pika import exceptions
 from pika._utils import as_bytes
 
+# AMQP field-table value type tags, as integer byte values. decode_value
+# dispatches on the raw byte rather than a 1-byte slice to avoid a bytes
+# allocation per decoded field.
+_FIELD_BOOL = ord('t')
+_FIELD_SHORT_SHORT_INT = ord('b')
+_FIELD_SHORT_SHORT_UINT = ord('B')
+_FIELD_SHORT_INT = ord('U')
+_FIELD_SHORT_UINT = ord('u')
+_FIELD_LONG_INT = ord('I')
+_FIELD_LONG_UINT = ord('i')
+_FIELD_LONG_LONG_INT = ord('L')
+_FIELD_LONG_LONG_INT_ALT = ord('l')
+_FIELD_FLOAT = ord('f')
+_FIELD_DOUBLE = ord('d')
+_FIELD_DECIMAL = ord('D')
+_FIELD_SHORT_INT_ALT = ord('s')
+_FIELD_LONG_STRING = ord('S')
+_FIELD_BYTE_ARRAY = ord('x')
+_FIELD_ARRAY = ord('A')
+_FIELD_TIMESTAMP = ord('T')
+_FIELD_TABLE = ord('F')
+_FIELD_VOID = ord('V')
+
 
 def encode_short_string(pieces: list[bytes], value: str) -> int:
     """
@@ -37,7 +60,7 @@ def encode_short_string(pieces: list[bytes], value: str) -> int:
     if length > 255:
         raise exceptions.ShortStringTooLong(encoded_value)
 
-    pieces.append(struct.pack('B', length))
+    pieces.append(bytes((length,)))
     pieces.append(encoded_value)
     return 1 + length
 
@@ -50,7 +73,7 @@ def decode_short_string(encoded: bytes, offset: int) -> tuple[str | bytes, int]:
     :param offset: starting offset in the encoded data
     :returns: tuple of (decoded value, new offset)
     """
-    length = struct.unpack_from('B', encoded, offset)[0]
+    length = encoded[offset]
     offset += 1
     raw = encoded[offset:offset + length]
     try:
@@ -170,83 +193,14 @@ def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:
     :param offset: The starting byte offset
     :raises: pika.exceptions.InvalidFieldTypeException
     """
-    # Slice to get bytes
-    kind = encoded[offset:offset + 1]
+    # Dispatch on the raw type-tag byte (avoids a bytes allocation per field);
+    # the most common field types are checked first.
+    value: Any
+    kind = encoded[offset]
     offset += 1
 
-    # Bool
-    if kind == b't':
-        value = struct.unpack_from('>B', encoded, offset)[0]
-        value = bool(value)
-        offset += 1
-
-    # Short-Short Int
-    elif kind == b'b':
-        value = struct.unpack_from('>b', encoded, offset)[0]
-        offset += 1
-
-    # Short-Short Unsigned Int
-    elif kind == b'B':
-        value = struct.unpack_from('>B', encoded, offset)[0]
-        offset += 1
-
-    # Short Int
-    elif kind == b'U':
-        value = struct.unpack_from('>h', encoded, offset)[0]
-        offset += 2
-
-    # Short Unsigned Int
-    elif kind == b'u':
-        value = struct.unpack_from('>H', encoded, offset)[0]
-        offset += 2
-
-    # Long Int
-    elif kind == b'I':
-        value = struct.unpack_from('>i', encoded, offset)[0]
-        offset += 4
-
-    # Long Unsigned Int
-    elif kind == b'i':
-        value = struct.unpack_from('>I', encoded, offset)[0]
-        offset += 4
-
-    # Long-Long Int
-    elif kind == b'L':
-        value = struct.unpack_from('>q', encoded, offset)[0]
-        offset += 8
-
-    # Long-Long Int (both 'l' and 'L' are signed per RabbitMQ and the
-    # AMQP 0-9-1 errata; see rabbitmq/rabbitmq-server#1093)
-    elif kind == b'l':
-        value = struct.unpack_from('>q', encoded, offset)[0]
-        offset += 8
-
-    # Float
-    elif kind == b'f':
-        value = struct.unpack_from('>f', encoded, offset)[0]
-        offset += 4
-
-    # Double
-    elif kind == b'd':
-        value = struct.unpack_from('>d', encoded, offset)[0]
-        offset += 8
-
-    # Decimal
-    elif kind == b'D':
-        decimals = struct.unpack_from('B', encoded, offset)[0]
-        offset += 1
-        raw = struct.unpack_from('>i', encoded, offset)[0]
-        offset += 4
-        value = decimal.Decimal(raw) * (decimal.Decimal(10)**-decimals)
-
-    # https://github.com/pika/pika/issues/1205
-    # Short Signed Int
-    elif kind == b's':
-        value = struct.unpack_from('>h', encoded, offset)[0]
-        offset += 2
-
     # Long String
-    elif kind == b'S':
+    if kind == _FIELD_LONG_STRING:
         length = struct.unpack_from('>I', encoded, offset)[0]
         offset += 4
         value = encoded[offset:offset + length]
@@ -256,14 +210,34 @@ def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:
             pass
         offset += length
 
-    elif kind == b'x':
-        length = struct.unpack_from('>I', encoded, offset)[0]
+    # Bool
+    elif kind == _FIELD_BOOL:
+        value = bool(encoded[offset])
+        offset += 1
+
+    # Long Int
+    elif kind == _FIELD_LONG_INT:
+        value = struct.unpack_from('>i', encoded, offset)[0]
         offset += 4
-        value = encoded[offset:offset + length]
-        offset += length
+
+    # Long-Long Int (both 'l' and 'L' are signed per RabbitMQ and the
+    # AMQP 0-9-1 errata; see rabbitmq/rabbitmq-server#1093)
+    elif kind == _FIELD_LONG_LONG_INT_ALT:
+        value = struct.unpack_from('>q', encoded, offset)[0]
+        offset += 8
+
+    # Timestamp
+    elif kind == _FIELD_TIMESTAMP:
+        value = datetime.fromtimestamp(
+            struct.unpack_from('>Q', encoded, offset)[0], timezone.utc)
+        offset += 8
+
+    # Field Table
+    elif kind == _FIELD_TABLE:
+        (value, offset) = decode_table(encoded, offset)
 
     # Field Array
-    elif kind == b'A':
+    elif kind == _FIELD_ARRAY:
         length = struct.unpack_from('>I', encoded, offset)[0]
         offset += 4
         offset_end = offset + length
@@ -272,20 +246,70 @@ def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:
             val, offset = decode_value(encoded, offset)
             value.append(val)
 
-    # Timestamp
-    elif kind == b'T':
-        value = datetime.fromtimestamp(
-            struct.unpack_from('>Q', encoded, offset)[0], timezone.utc)
+    elif kind == _FIELD_BYTE_ARRAY:
+        length = struct.unpack_from('>I', encoded, offset)[0]
+        offset += 4
+        value = encoded[offset:offset + length]
+        offset += length
+
+    # Short-Short Int
+    elif kind == _FIELD_SHORT_SHORT_INT:
+        value = struct.unpack_from('>b', encoded, offset)[0]
+        offset += 1
+
+    # Short-Short Unsigned Int
+    elif kind == _FIELD_SHORT_SHORT_UINT:
+        value = encoded[offset]
+        offset += 1
+
+    # Short Int
+    elif kind == _FIELD_SHORT_INT:
+        value = struct.unpack_from('>h', encoded, offset)[0]
+        offset += 2
+
+    # Short Unsigned Int
+    elif kind == _FIELD_SHORT_UINT:
+        value = struct.unpack_from('>H', encoded, offset)[0]
+        offset += 2
+
+    # Long Unsigned Int
+    elif kind == _FIELD_LONG_UINT:
+        value = struct.unpack_from('>I', encoded, offset)[0]
+        offset += 4
+
+    # Long-Long Int
+    elif kind == _FIELD_LONG_LONG_INT:
+        value = struct.unpack_from('>q', encoded, offset)[0]
         offset += 8
 
-    # Field Table
-    elif kind == b'F':
-        (value, offset) = decode_table(encoded, offset)
+    # Float
+    elif kind == _FIELD_FLOAT:
+        value = struct.unpack_from('>f', encoded, offset)[0]
+        offset += 4
+
+    # Double
+    elif kind == _FIELD_DOUBLE:
+        value = struct.unpack_from('>d', encoded, offset)[0]
+        offset += 8
+
+    # Decimal
+    elif kind == _FIELD_DECIMAL:
+        decimals = encoded[offset]
+        offset += 1
+        raw = struct.unpack_from('>i', encoded, offset)[0]
+        offset += 4
+        value = decimal.Decimal(raw) * (decimal.Decimal(10)**-decimals)
+
+    # https://github.com/pika/pika/issues/1205
+    # Short Signed Int
+    elif kind == _FIELD_SHORT_INT_ALT:
+        value = struct.unpack_from('>h', encoded, offset)[0]
+        offset += 2
 
     # Null / Void
-    elif kind == b'V':
+    elif kind == _FIELD_VOID:
         value = None
     else:
-        raise exceptions.InvalidFieldTypeException(kind)
+        raise exceptions.InvalidFieldTypeException(bytes((kind,)))
 
     return value, offset
