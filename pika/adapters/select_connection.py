@@ -88,19 +88,18 @@ class SelectConnection(BaseConnection):
     the given platform.
     """
 
-    def __init__(self,
-                 parameters: connection.Parameters | None = None,
-                 on_open_callback: None |
-                 (Callable[[connection.Connection], None]) = None,
-                 on_open_error_callback: None |
-                 (Callable[[connection.Connection, BaseException],
-                           None]) = None,
-                 on_close_callback: None |
-                 (Callable[[connection.Connection, BaseException],
-                           None]) = None,
-                 custom_ioloop: None |
-                 (nbio_interface.AbstractIOServices | IOLoop) = None,
-                 internal_connection_workflow: bool = True) -> None:
+    def __init__(
+            self,
+            parameters: connection.Parameters | None = None,
+            on_open_callback: Callable[[connection.Connection], None] |
+        None = None,
+            on_open_error_callback: Callable[
+                [connection.Connection, BaseException], None] | None = None,
+            on_close_callback: Callable[[connection.Connection, BaseException],
+                                        None] | None = None,
+            custom_ioloop: nbio_interface.AbstractIOServices | IOLoop |
+        None = None,
+            internal_connection_workflow: bool = True) -> None:
         """
         Create a new instance of the Connection object.
 
@@ -144,8 +143,8 @@ class SelectConnection(BaseConnection):
         on_done: Callable[[(connection.Connection |
                             connection_workflow.AMQPConnectorException)], None],
         custom_ioloop: Any | None = None,
-        workflow: None |
-        (connection_workflow.AbstractAMQPConnectionWorkflow) = None
+        workflow: connection_workflow.AbstractAMQPConnectionWorkflow |
+        None = None
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
         """
         :param connection_configs: One or more connection parameter objects

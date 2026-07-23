@@ -33,7 +33,17 @@ examples/               # usage examples
   is in `pyproject.toml` under `[tool.docformatter]`. Run
   `hatch run docfmt-check`.
 - **Linter:** [ruff](https://docs.astral.sh/ruff/). Configuration is in
-  `pyproject.toml` under `[tool.ruff]`. Run `hatch run lint`.
+  `pyproject.toml` under `[tool.ruff]`. `hatch run lint` applies fixes
+  (`ruff check --fix`); `hatch run lint-check` only reports (this is what
+  CI runs). Verify with `lint-check`, not `lint`, so you read the same
+  result CI will.
+- **Do not pin the ruff version.** Ruff is intentionally left unpinned so
+  CI always installs the latest release. When ruff stabilizes a new rule,
+  CI surfaces the violations immediately and we fix them, keeping the
+  codebase current with ruff's evolving idioms. A CI lint failure after a
+  ruff release is this mechanism working as intended, not a regression to
+  suppress. Fix the flagged code; never add a version pin to make the
+  failure go away.
 - **Type checking:** [mypy](https://mypy-lang.org/). Configuration is in
   `mypy.ini`. Run `hatch run typecheck`.
 - Use single quotes for strings unless the string contains a single quote.

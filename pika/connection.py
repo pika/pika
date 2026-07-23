@@ -107,8 +107,7 @@ class Parameters:
             pika.credentials.PlainCredentials |
             pika.credentials.ExternalCredentials) = self.DEFAULT_CREDENTIALS
         self._frame_max: int = 0
-        self._heartbeat: None | (int |
-                                 Callable[[Connection, float], int]) = None
+        self._heartbeat: int | Callable[[Connection, float], int] | None = None
         self._host: str = ''
         self._locale: str = ''
         self._port: int = 0
@@ -327,7 +326,8 @@ class Parameters:
 
     @heartbeat.setter
     def heartbeat(
-        self, value: None | (int | Callable[[Connection, float], int])) -> None:
+            self,
+            value: int | Callable[[Connection, float], int] | None) -> None:
         """
         :param value: Controls AMQP heartbeat timeout negotiation
             during connection tuning. An integer value always overrides the value
@@ -559,8 +559,8 @@ class ConnectionParameters(Parameters):
                      pika.credentials.ExternalCredentials)] = _DEFAULT,
                  channel_max: DefaultT[int] = _DEFAULT,
                  frame_max: DefaultT[int] = _DEFAULT,
-                 heartbeat: DefaultT[None | (int | Callable[[Connection, float],
-                                                            int])] = _DEFAULT,
+                 heartbeat: DefaultT[int | Callable[[Connection, float], int] |
+                                     None] = _DEFAULT,
                  ssl_options: DefaultT[SSLOptions | None] = _DEFAULT,
                  connection_attempts: DefaultT[int] = _DEFAULT,
                  retry_delay: DefaultT[float] = _DEFAULT,
@@ -1005,10 +1005,10 @@ class Connection(abc.ABC):
     def __init__(self,
                  parameters: Parameters | None = None,
                  on_open_callback: Callable[[Connection], Any] | None = None,
-                 on_open_error_callback: None |
-                 (Callable[[Connection, Exception], Any]) = None,
-                 on_close_callback: None |
-                 (Callable[[Connection, Exception], Any]) = None,
+                 on_open_error_callback: Callable[[Connection, Exception],
+                                                  Any] | None = None,
+                 on_close_callback: Callable[[Connection, Exception], Any] |
+                 None = None,
                  internal_connection_workflow: bool = True) -> None:
         """
         Connection initialization expects an object that has implemented the Parameters class and a
@@ -1050,7 +1050,7 @@ class Connection(abc.ABC):
         # Used to hold timer if configured for Connection.Blocked timeout
         self._blocked_conn_timer: object = None
 
-        self._heartbeat_checker: None | (pika.heartbeat.HeartbeatChecker) = None
+        self._heartbeat_checker: pika.heartbeat.HeartbeatChecker | None = None
 
         # Set our configuration options
         if parameters is not None:
@@ -1342,7 +1342,7 @@ class Connection(abc.ABC):
     def channel(
             self,
             channel_number: int | None = None,
-            on_open_callback: None | (Callable[[Channel], Any]) = None
+            on_open_callback: Callable[[Channel], Any] | None = None
     ) -> Channel:
         """
         Create a new channel with the next available channel number or pass in a channel number to
@@ -1372,8 +1372,8 @@ class Connection(abc.ABC):
         self,
         new_secret: str,
         reason: str,
-        callback: None |
-        (Callable[[frame.Method[spec.Connection.UpdateSecretOk]], Any]) = None
+        callback: Callable[[frame.Method[spec.Connection.UpdateSecretOk]],
+                           Any] | None = None
     ) -> None:
         """RabbitMQ AMQP extension - This method updates the secret used to authenticate this connection.
         It is used when secrets have an expiration date and need to be renewed, like OAuth 2 tokens.
@@ -2288,7 +2288,7 @@ class Connection(abc.ABC):
         channel_number: int,
         method: amqp_object.Method,
         callback: Callable[..., Any] | None = None,
-        acceptable_replies: None | (Sequence[type[amqp_object.Method]]) = None
+        acceptable_replies: Sequence[type[amqp_object.Method]] | None = None
     ) -> None:
         """
         Make an RPC call for the given callback, channel number and method.
@@ -2374,8 +2374,7 @@ class Connection(abc.ABC):
             self,
             channel_number: int,
             method: amqp_object.Method,
-            content: None | (tuple[spec.BasicProperties, bytes]) = None
-    ) -> None:
+            content: tuple[spec.BasicProperties, bytes] | None = None) -> None:
         """
         Constructs a RPC method frame and then sends it to the broker.
 

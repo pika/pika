@@ -27,16 +27,16 @@ class BaseConnection(connection.Connection):
     This class abstracts I/O loop and transport services from pika core.
     """
 
-    def __init__(self,
-                 parameters: connection.Parameters | None,
-                 on_open_callback: None |
-                 (Callable[[connection.Connection], None]),
-                 on_open_error_callback: None |
-                 (Callable[[connection.Connection, BaseException], None]),
-                 on_close_callback: None |
-                 (Callable[[connection.Connection, BaseException], None]),
-                 nbio: nbio_interface.AbstractIOServices,
-                 internal_connection_workflow: bool = True) -> None:
+    def __init__(
+            self,
+            parameters: connection.Parameters | None,
+            on_open_callback: Callable[[connection.Connection], None] | None,
+            on_open_error_callback: Callable[
+                [connection.Connection, BaseException], None] | None,
+            on_close_callback: Callable[[connection.Connection, BaseException],
+                                        None] | None,
+            nbio: nbio_interface.AbstractIOServices,
+            internal_connection_workflow: bool = True) -> None:
         """
         Create a new instance of the Connection object.
 
@@ -65,8 +65,7 @@ class BaseConnection(connection.Connection):
 
         self._nbio: nbio_interface.AbstractIOServices = nbio
 
-        self._connection_workflow: None | (
-            connection_workflow.AbstractAMQPConnectionWorkflow) = None
+        self._connection_workflow: connection_workflow.AbstractAMQPConnectionWorkflow | None = None
         self._transport: nbio_interface.AbstractStreamTransport | None = None
 
         self._got_eof: bool = False  # transport indicated EOF (connection reset)
@@ -105,8 +104,8 @@ class BaseConnection(connection.Connection):
         on_done: Callable[[(connection.Connection |
                             connection_workflow.AMQPConnectorException)], None],
         custom_ioloop: Any | None = None,
-        workflow: None |
-        (connection_workflow.AbstractAMQPConnectionWorkflow) = None
+        workflow: connection_workflow.AbstractAMQPConnectionWorkflow |
+        None = None
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
         """
         Asynchronously create a connection to an AMQP broker using the given configurations.

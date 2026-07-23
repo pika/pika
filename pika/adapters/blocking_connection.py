@@ -346,8 +346,8 @@ class BlockingConnection:
 
     def __init__(
             self,
-            parameters: None | (pika.connection.Parameters |
-                                Sequence[pika.connection.Parameters]) = None,
+            parameters: pika.connection.Parameters |
+        Sequence[pika.connection.Parameters] | None = None,
             _impl_class: select_connection.SelectConnection | None = None
     ) -> None:
         """
@@ -445,8 +445,8 @@ class BlockingConnection:
 
     def _create_connection(
         self,
-        configs: None | (pika.connection.Parameters |
-                         Sequence[pika.connection.Parameters]) = None,
+        configs: pika.connection.Parameters |
+        Sequence[pika.connection.Parameters] | None = None,
         impl_class: select_connection.SelectConnection | None = None
     ) -> select_connection.SelectConnection:
         """
@@ -1154,12 +1154,11 @@ class _ConsumerInfo:
         self,
         consumer_tag: str,
         auto_ack: bool,
-        on_message_callback: None | (Callable[[
+        on_message_callback: Callable[[
             BlockingChannel, pika.spec.Basic.Deliver, pika.spec.
             BasicProperties, bytes
-        ], None]) = None,
-        alternate_event_sink: None |
-        (Callable[[_ChannelPendingEvt], None]) = None
+        ], None] | None = None,
+        alternate_event_sink: Callable[[_ChannelPendingEvt], None] | None = None
     ) -> None:
         """
         NOTE: exactly one of callback/alternate_event_sink musts be non-None.
@@ -1289,8 +1288,7 @@ class BlockingChannel:
 
         # Queue consumer generator generator info of type
         # _QueueConsumerGeneratorInfo created by BlockingChannel.consume
-        self._queue_consumer_generator: None | (
-            _QueueConsumerGeneratorInfo) = None
+        self._queue_consumer_generator: _QueueConsumerGeneratorInfo | None = None
 
         # Whether RabbitMQ delivery confirmation has been enabled
         self._delivery_confirmation = False
@@ -1731,12 +1729,11 @@ class BlockingChannel:
         exclusive: bool,
         consumer_tag: str | None,
         arguments: dict[str, Any] | None = None,
-        on_message_callback: None | (Callable[[
+        on_message_callback: Callable[[
             BlockingChannel, pika.spec.Basic.Deliver, pika.spec.
             BasicProperties, bytes
-        ], None]) = None,
-        alternate_event_sink: None |
-        (Callable[[_ChannelPendingEvt], None]) = None
+        ], None] | None = None,
+        alternate_event_sink: Callable[[_ChannelPendingEvt], None] | None = None
     ) -> str:
         """
         The low-level implementation used by `basic_consume` and `consume`.
@@ -1765,9 +1762,9 @@ class BlockingChannel:
             consumer_tag is already present.
         """
         if (on_message_callback is None) == (alternate_event_sink is None):
-            raise ValueError(
-                ('exactly one of on_message_callback/alternate_event_sink must '
-                 'be non-None', on_message_callback, alternate_event_sink))
+            raise ValueError(((
+                'exactly one of on_message_callback/alternate_event_sink must '
+                'be non-None'), on_message_callback, alternate_event_sink))
 
         if not consumer_tag:
             # Need a consumer tag to register consumer info before sending

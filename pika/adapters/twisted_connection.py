@@ -55,8 +55,8 @@ class ClosableDeferredQueue(defer.DeferredQueue):
         super().__init__(size, backlog)
 
     @override
-    def put(self, obj: Any) -> None | (  # type: ignore[override]
-            defer.Deferred[Any]):
+    def put(  # type: ignore[override]
+            self, obj: Any) -> defer.Deferred[Any] | None:
         """
         Like the original :meth:`DeferredQueue.put` method, but returns an errback if the queue is
         closed.
@@ -1064,12 +1064,12 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
 
     def __init__(self,
                  parameters: pika.connection.Parameters | None,
-                 on_open_callback: None |
-                 (Callable[[pika.connection.Connection], Any]),
-                 on_open_error_callback: None |
-                 (Callable[[pika.connection.Connection, Exception], Any]),
-                 on_close_callback: None |
-                 (Callable[[pika.connection.Connection, Exception], Any]),
+                 on_open_callback: Callable[[pika.connection.Connection], Any] |
+                 None,
+                 on_open_error_callback: Callable[
+                     [pika.connection.Connection, Exception], Any] | None,
+                 on_close_callback: Callable[
+                     [pika.connection.Connection, Exception], Any] | None,
                  custom_reactor: Any = None) -> None:
         super().__init__(parameters=parameters,
                          on_open_callback=on_open_callback,
@@ -1078,9 +1078,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
                          internal_connection_workflow=False)
 
         self._reactor = custom_reactor or reactor
-        self._transport: None | (
-            twisted.internet.interfaces.ITransport
-        ) = None  # to be provided by `connection_made()`
+        self._transport: twisted.internet.interfaces.ITransport | None = None  # to be provided by `connection_made()`
 
     @override
     def _adapter_call_later(self, delay: float,

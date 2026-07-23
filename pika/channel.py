@@ -118,7 +118,7 @@ class Channel:
         self._on_flowok_callback: Callable[..., Any] | None = None
         self._on_getok_callback: Callable[..., Any] | None = None
         self._on_ack_nack_callback: _OnAckNackCallback | None = None
-        self._on_openok_callback: None | (Callable[..., Any]) = on_open_callback
+        self._on_openok_callback: Callable[..., Any] | None = on_open_callback
         self._state: int = self.CLOSED
 
         # We save the closing reason exception to be passed to on-channel-close
@@ -415,9 +415,9 @@ class Channel:
 
         self._consumers[consumer_tag] = on_message_callback
 
-        rpc_callback: None | (
-            Callable[...,
-                     Any]) = self._on_eventok if callback is None else callback
+        rpc_callback: Callable[
+            ...,
+            Any] | None = self._on_eventok if callback is None else callback
 
         self._rpc(
             spec.Basic.Consume(queue=queue,
@@ -1429,9 +1429,9 @@ class Channel:
         self,
         method: amqp_object.Method,
         callback: Callable[..., Any] | None = None,
-        acceptable_replies: None |
-        (Sequence[(type[amqp_object.Method] |
-                   tuple[type[amqp_object.Method], dict[str, Any]])]) = None
+        acceptable_replies: Sequence[type[amqp_object.Method] |
+                                     tuple[type[amqp_object.Method],
+                                           dict[str, Any]]] | None = None
     ) -> None:
         """
         Make a synchronous channel RPC call for a synchronous method frame.
@@ -1536,8 +1536,7 @@ class Channel:
     def _send_method(
             self,
             method: amqp_object.Method,
-            content: None | (tuple[spec.BasicProperties, bytes]) = None
-    ) -> None:
+            content: tuple[spec.BasicProperties, bytes] | None = None) -> None:
         """
         Shortcut wrapper to send a method through our connection, passing in the channel number.
 
