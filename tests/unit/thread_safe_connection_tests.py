@@ -79,6 +79,33 @@ class BoundedWorkPoolTests(unittest.TestCase):
         pool.shutdown(wait=True)
         self.assertEqual(done, list(range(5)))
 
+    def test_shutdown_does_not_block_when_queue_full(self):
+        """
+        Shutdown() must not block when the queue is full and the worker is wedged.
+
+        The worker holds its first item while a second fills the single queue slot, so no slot is
+        free.  An in-band shutdown sentinel would block here; the flag-based shutdown must return
+        promptly.
+        """
+        pool, release = self._make_blocked_pool(maxsize=1)
+        pool.submit(lambda: None)  # fills the one queue slot
+
+        returned = threading.Event()
+
+        def do_shutdown():
+            pool.shutdown(wait=False)
+            returned.set()
+
+        shutter = threading.Thread(target=do_shutdown, daemon=True)
+        shutter.start()
+        self.assertTrue(returned.wait(timeout=5),
+                        'shutdown(wait=False) blocked on a full queue')
+        shutter.join(timeout=5)
+
+        # Releasing the worker lets it drain and exit cleanly.
+        release.set()
+        pool.shutdown(wait=True)
+
     def test_submit_after_shutdown_raises_runtime_error(self):
         """A submit() on a shut-down pool must raise RuntimeError."""
         pool = _BoundedWorkPool(maxsize=1,
