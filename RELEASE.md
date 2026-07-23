@@ -1,22 +1,22 @@
 # Release process
 
-* Create `pika-1.5.0` branch
+* Create `pika-1.4.3` branch
 * Update `CHANGELOG.md`. Be sure to use the `--since-tag X.Y.Z` argument:
     ```
-    github_changelog_generator --token ghp_XXXX --user pika --project pika --since-tag 1.4.1 --future-release 1.5.0
+    github_changelog_generator --user pika --project pika --token $TOKEN --since-tag 1.4.2 --future-release 1.4.3 --release-branch 1.4.x
     ```
     Review the generated file for invalid entries. More than likely you will have to hand-edit `CHANGELOG.md`
 * Update version in `pyproject.toml` and `pika/__init__.py`
-* Commit changes to `pika-1.5.0` branch and push:
+* Commit changes to `pika-1.4.3` branch and push:
     ```
-    git commit -a -m 'pika 1.5.0' && git push
+    git commit -a -m 'pika 1.4.3' && git push
     ```
 * Open PR and ensure build is green
 * Merge PR
 * Update local `main`
 * Tag version (using your GPG keyid) and push:
     ```
-    git tag -a -s -u B1B82CC0CF84BA70147EBD05D99DE30E43EAE440 -m 'pika 1.5.0' '1.5.0' && git push --tags
+    git tag -a -s -u B1B82CC0CF84BA70147EBD05D99DE30E43EAE440 -m 'pika 1.4.3' '1.4.3' && git push --tags
     ```
 * Ensure build is green (if one triggered)
 * Note the release's milestone number, then create release via GitHub Release UI or `gh` command like:
@@ -25,22 +25,22 @@
     python -m build --sdist --wheel --outdir dist/ .
 
     # This creates the release on GitHub:
-    gh release create '1.5.0' --notes 'https://pypi.org/project/pika/1.5.0/ | [GitHub milestone](https://github.com/pika/pika/milestone/23?closed=1)' ./dist/*
+    gh release create '1.4.3' --notes 'https://pypi.org/project/pika/1.4.3/ | [GitHub milestone](https://github.com/pika/pika/milestone/23?closed=1)' ./dist/*
     ```
 * Ensure the publish build succeeded. Example success output looks like this:
     ```
-    Checking dist/pika-1.5.0-py3-none-any.whl: PASSED
-    Checking dist/pika-1.5.0.tar.gz: PASSED
+    Checking dist/pika-1.4.3-py3-none-any.whl: PASSED
+    Checking dist/pika-1.4.3.tar.gz: PASSED
     Uploading distributions to https://upload.pypi.org/legacy/
-    Uploading pika-1.5.0-py3-none-any.whl
+    Uploading pika-1.4.3-py3-none-any.whl
     ...
     ...
     ...
     View at:
-    https://pypi.org/project/pika/1.5.0/
+    https://pypi.org/project/pika/1.4.3/
     ```
 
-* View the release on PyPI: https://pypi.org/project/pika/1.5.0/
+* View the release on PyPI: https://pypi.org/project/pika/1.4.3/
 * Ensure the release works!
   * Start RabbitMQ
     ```
@@ -51,7 +51,7 @@
     cd path/to/pika/examples
     python -m venv venv
     source ./venv/bin/activate
-    pip install pika==1.5.0
+    pip install pika==1.4.3
     python ./asynchronous_publisher_example.py
     ```
 

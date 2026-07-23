@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pika"
-version = "1.4.1"
+version = "1.4.2"
 maintainers = [
     {name = "Gavin M. Roy", email = "gavinmroy@gmail.com"},
     {name = "Luke Bakken", email = "lukerbakken@gmail.com"}
