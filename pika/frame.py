@@ -15,6 +15,14 @@ _MethodT = TypeVar('_MethodT', bound=amqp_object.Method)
 
 _FRAME_END_BYTE = bytes((spec.FRAME_END,))
 
+# Payload size (bytes) above which decode_frame copies the frame body via a
+# memoryview rather than a plain slice. For a bytearray input a plain slice
+# makes an intermediate bytearray before the bytes() copy; a memoryview skips
+# that second allocation, which pays off only once the payload is large. Below
+# this threshold the memoryview setup costs more than the slice it replaces.
+# The crossover was measured empirically; see PR #1653.
+_MEMORYVIEW_COPY_THRESHOLD = 1024
+
 
 class Frame(amqp_object.AMQPObject):
     """
@@ -233,7 +241,7 @@ def decode_frame(data_in: bytes | bytearray,
     # for small frames a plain slice is cheaper than memoryview setup.
     data_start = offset + spec.FRAME_HEADER_SIZE
     data_end = offset + frame_end - 1
-    if frame_size > 1024:
+    if frame_size > _MEMORYVIEW_COPY_THRESHOLD:
         frame_data = bytes(memoryview(data_in)[data_start:data_end])
     else:
         frame_data = bytes(data_in[data_start:data_end])
