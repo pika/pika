@@ -931,6 +931,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         _LOG.debug('Attempting to connect using address record %r', addr_record)
 
         self._connector = self._connector_factory()
+        assert self._connector is not None
 
         self._connector.start(
             addr_record=addr_record,

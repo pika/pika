@@ -487,9 +487,9 @@ class ConnectionTests(unittest.TestCase):
                                     is_closed=False,
                                     is_closing=True)
         self.connection._channels = {
-            'openingc': opening_channel,
-            'openc': open_channel,
-            'closingc': closing_channel
+            1: opening_channel,
+            2: open_channel,
+            3: closing_channel
         }
 
         self.connection._close_channels(400, 'reply text')
@@ -498,9 +498,9 @@ class ConnectionTests(unittest.TestCase):
         open_channel.close.assert_called_once_with(400, 'reply text')
         self.assertFalse(closing_channel.close.called)
 
-        self.assertTrue('openingc' in self.connection._channels)
-        self.assertTrue('openc' in self.connection._channels)
-        self.assertTrue('closingc' in self.connection._channels)
+        self.assertTrue(1 in self.connection._channels)
+        self.assertTrue(2 in self.connection._channels)
+        self.assertTrue(3 in self.connection._channels)
 
         self.assertFalse(self.connection.callbacks.cleanup.called)
 
@@ -543,6 +543,7 @@ class ConnectionTests(unittest.TestCase):
         self.assertEqual(False, self.connection.publisher_confirms)
         # 'capabilities' stays in server_properties as sent by the broker;
         # server_capabilities is a convenience view of the same dict.
+        assert self.connection.server_properties is not None
         self.assertIn('capabilities', self.connection.server_properties)
         self.assertIs(self.connection.server_capabilities,
                       self.connection.server_properties['capabilities'])
@@ -555,7 +556,7 @@ class ConnectionTests(unittest.TestCase):
     def test_on_connection_tune(self, _adapter_emit_data, method,
                                 heartbeat_checker):
         """Make sure _on_connection_tune tunes the connection params."""
-        heartbeat_checker.return_value = 'hearbeat obj'
+        heartbeat_checker.return_value = 'heartbeat obj'
         marshal = mock.Mock(return_value='ab')
         method.return_value = mock.Mock(marshal=marshal)
         # may be good to test this here, but i don't want to test too much
@@ -574,7 +575,7 @@ class ConnectionTests(unittest.TestCase):
         # Test
         self.connection._on_connection_tune(method_frame)
 
-        # verfy
+        # verify
         self.assertEqual(self.connection.CONNECTION_TUNE,
                          self.connection.connection_state)
         self.assertEqual(20, self.connection.params.channel_max)
@@ -584,9 +585,9 @@ class ConnectionTests(unittest.TestCase):
         heartbeat_checker.assert_called_once_with(self.connection, 20)
         self.assertEqual(
             ['ab'], [call[0][0] for call in _adapter_emit_data.call_args_list])
-        self.assertEqual('hearbeat obj', self.connection._heartbeat_checker)
+        self.assertEqual('heartbeat obj', self.connection._heartbeat_checker)
 
-        # Pika gives precendence to client heartbeat values if set
+        # Pika gives precedence to client heartbeat values if set
         # See pika/pika#965.
 
         # Both client and server values set. Pick client value
@@ -594,7 +595,7 @@ class ConnectionTests(unittest.TestCase):
         self.connection.params.heartbeat = 20
         # Test
         self.connection._on_connection_tune(method_frame)
-        # verfy
+        # verify
         self.assertEqual(20, self.connection.params.heartbeat)
 
         # Client value is None, use the server's
@@ -602,7 +603,7 @@ class ConnectionTests(unittest.TestCase):
         self.connection.params.heartbeat = None
         # Test
         self.connection._on_connection_tune(method_frame)
-        # verfy
+        # verify
         self.assertEqual(500, self.connection.params.heartbeat)
 
         # Client value is 0, use it
@@ -610,7 +611,7 @@ class ConnectionTests(unittest.TestCase):
         self.connection.params.heartbeat = 0
         # Test
         self.connection._on_connection_tune(method_frame)
-        # verfy
+        # verify
         self.assertEqual(0, self.connection.params.heartbeat)
 
         # Server value is 0, client value is None
@@ -618,7 +619,7 @@ class ConnectionTests(unittest.TestCase):
         self.connection.params.heartbeat = None
         # Test
         self.connection._on_connection_tune(method_frame)
-        # verfy
+        # verify
         self.assertEqual(0, self.connection.params.heartbeat)
 
         # Both client and server values are 0
@@ -626,7 +627,7 @@ class ConnectionTests(unittest.TestCase):
         self.connection.params.heartbeat = 0
         # Test
         self.connection._on_connection_tune(method_frame)
-        # verfy
+        # verify
         self.assertEqual(0, self.connection.params.heartbeat)
 
         # Server value is 0, use the client's
@@ -634,7 +635,7 @@ class ConnectionTests(unittest.TestCase):
         self.connection.params.heartbeat = 60
         # Test
         self.connection._on_connection_tune(method_frame)
-        # verfy
+        # verify
         self.assertEqual(60, self.connection.params.heartbeat)
 
         # Server value is 10, client passes a heartbeat function that
@@ -648,7 +649,7 @@ class ConnectionTests(unittest.TestCase):
         self.connection.params.heartbeat = choose_max
         # Test
         self.connection._on_connection_tune(method_frame)
-        # verfy
+        # verify
         self.assertEqual(60, self.connection.params.heartbeat)
 
     def test_on_connection_close_from_broker_passes_correct_exception(self):
@@ -683,8 +684,8 @@ class ConnectionTests(unittest.TestCase):
     @mock.patch('pika.frame.decode_frame')
     def test_on_data_available(self, decode_frame):
         """Test on data available and process frame."""
-        data_in = ['data']
-        self.connection._frame_buffer = ['old_data']
+        data_in = b'd'
+        self.connection._frame_buffer = bytearray(b'o')
         for frame_type in (frame.Method, spec.Basic.Deliver, frame.Heartbeat):
             frame_value = mock.Mock(spec=frame_type)
             frame_value.frame_type = 2
@@ -696,7 +697,7 @@ class ConnectionTests(unittest.TestCase):
             decode_frame.return_value = (2, frame_value)
             self.connection._on_data_available(data_in)
             # test value
-            self.assertListEqual([], self.connection._frame_buffer)
+            self.assertEqual(bytearray(), self.connection._frame_buffer)
             self.assertEqual(2, self.connection.bytes_received)
             self.assertEqual(1, self.connection.frames_received)
             if frame_type == frame.Heartbeat:

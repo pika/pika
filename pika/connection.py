@@ -1078,7 +1078,7 @@ class Connection(abc.ABC):
         self._body_max_length: int = (spec.FRAME_MAX_SIZE -
                                       spec.FRAME_HEADER_SIZE -
                                       spec.FRAME_END_SIZE)
-        self.known_hosts: str | None = None
+        self.known_hosts: str | bytes | None = None
         self._frame_buffer: bytearray = bytearray()
         self._processing_frame_buffer: bool = False
         self._channels: dict[int, Channel] = {}
@@ -1927,7 +1927,7 @@ class Connection(abc.ABC):
         """
         self._opened = True
 
-        self.known_hosts = method_frame.method.known_hosts  # pyright: ignore[reportAttributeAccessIssue]
+        self.known_hosts = method_frame.method.known_hosts
 
         # We're now connected at the AMQP level
         self._set_connection_state(self.CONNECTION_OPEN)

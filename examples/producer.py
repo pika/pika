@@ -47,7 +47,7 @@ for i in range(_COUNT_):
     main_channel.basic_publish(
         exchange='com.micex.sten',
         routing_key='order.stop.create',
-        body=json.dumps(msg),
+        body=json.dumps(msg).encode(),
         properties=pika.BasicProperties(content_type='application/json'))
     print(f'send ticker {ticker}')
 

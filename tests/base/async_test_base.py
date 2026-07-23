@@ -114,9 +114,9 @@ class AsyncTestCase(unittest.TestCase):
         """Extend to start the actual tests on the channel."""
         self.fail("AsyncTestCase.begin_test not extended")
 
-    def start(self, adapter, ioloop_factory):
+    def start(self, adapter_class, ioloop_factory):
         self.logger.info('start at %s', datetime.now(timezone.utc))
-        self.adapter = adapter or self.ADAPTER
+        self.adapter = adapter_class or self.ADAPTER
 
         self.connection = self.adapter(self.parameters,
                                        self.on_open,
@@ -165,6 +165,7 @@ class AsyncTestCase(unittest.TestCase):
 
         self.logger.info('Stopping test')
         self._public_stop_requested = True
+        assert self.connection is not None
         if self.connection.is_open:
             self.connection.close()  # NOTE: on_closed() will stop the ioloop
         elif self.connection.is_closed:
@@ -182,6 +183,7 @@ class AsyncTestCase(unittest.TestCase):
     def _safe_remove_test_timeout(self):
         if hasattr(self, 'timeout') and self.timeout is not None:
             self.logger.info("Removing timeout")
+            assert self.connection is not None
             self.connection._adapter_remove_timeout(self.timeout)
             self.timeout = None
 
@@ -222,12 +224,12 @@ class AsyncTestCase(unittest.TestCase):
 
 class BoundQueueTestCase(AsyncTestCase):
 
-    def start(self, adapter, ioloop_factory):
+    def start(self, adapter_class, ioloop_factory):
         # Encoding
         self.exchange = 'e-' + self.__class__.__name__ + ':' + uuid.uuid1().hex
         self.queue = 'q-' + self.__class__.__name__ + ':' + uuid.uuid1().hex
         self.routing_key = self.__class__.__name__
-        super().start(adapter, ioloop_factory)
+        super().start(adapter_class, ioloop_factory)
 
     def begin(self, channel):
         self.channel.exchange_declare(self.exchange,

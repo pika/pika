@@ -16,9 +16,9 @@ class OnlyOneBasicGetTestCase(unittest.TestCase):
 
     def test_two_basic_get_with_callback(self):
         self.channel.basic_get('test-queue', self.callback)
-        self.channel._on_getok(MagicMock(Method)(), MagicMock(Header)(), '')
+        self.channel._on_getok(MagicMock(Method)(), MagicMock(Header)(), b'')
         self.channel.basic_get('test-queue', self.callback)
-        self.channel._on_getok(MagicMock(Method)(), MagicMock(Header)(), '')
+        self.channel._on_getok(MagicMock(Method)(), MagicMock(Header)(), b'')
         self.assertEqual(self.callback.call_count, 2)
 
     def test_two_basic_get_without_callback(self):

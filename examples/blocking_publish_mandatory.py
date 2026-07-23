@@ -20,7 +20,7 @@ channel.confirm_delivery()
 try:
     channel.basic_publish(exchange='test',
                           routing_key='test',
-                          body='Hello World!',
+                          body=b'Hello World!',
                           properties=pika.BasicProperties(
                               content_type='text/plain',
                               delivery_mode=pika.DeliveryMode.Transient),

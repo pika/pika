@@ -234,7 +234,7 @@ class TestService(service.Service):
         """
         Method for a time consuming task.
 
-        This function must return a deferred. If it is successfull, a `basic.ack` will be sent to
+        This function must return a deferred. If it is successful, a `basic.ack` will be sent to
         AMQP. If the task was not completed a `basic.nack` will be sent. In this example it will
         always return successfully after a 2 second pause.
         """

@@ -120,7 +120,9 @@ class ContentFrameAssemblerTests(unittest.TestCase):
         header_frame = frame.Header(1, 11, spec.BasicProperties())
         self.obj.process(header_frame)
         body_frame = frame.Body(1, b'foo-bar-baz')
-        method_frame, header_frame, body_value = self.obj.process(body_frame)
+        result = self.obj.process(body_frame)
+        assert result is not None
+        method_frame, header_frame, body_value = result
         self.assertIsInstance(body_value, bytes)
 
     def test_ascii_body_value(self):
@@ -131,7 +133,9 @@ class ContentFrameAssemblerTests(unittest.TestCase):
         header_frame = frame.Header(1, 11, spec.BasicProperties())
         self.obj.process(header_frame)
         body_frame = frame.Body(1, b'foo-bar-baz')
-        method_frame, header_frame, body_value = self.obj.process(body_frame)
+        result = self.obj.process(body_frame)
+        assert result is not None
+        method_frame, header_frame, body_value = result
         self.assertEqual(body_value, expectation)
         self.assertIsInstance(body_value, bytes)
 
@@ -145,5 +149,7 @@ class ContentFrameAssemblerTests(unittest.TestCase):
                                     spec.BasicProperties())
         self.obj.process(header_frame)
         body_frame = frame.Body(1, marshalled_body)
-        method_frame, header_frame, body_value = self.obj.process(body_frame)
+        result = self.obj.process(body_frame)
+        assert result is not None
+        method_frame, header_frame, body_value = result
         self.assertEqual(marshal.loads(body_value), expectation)

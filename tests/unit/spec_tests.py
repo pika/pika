@@ -28,4 +28,5 @@ class BasicPropertiesTests(unittest.TestCase):
         v = 912598613
         h = {hdr: v}
         p = spec.BasicProperties(content_type='text/plain', headers=h)
+        assert p.headers is not None
         self.assertEqual(repr(p.headers[hdr]), '912598613')

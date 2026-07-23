@@ -695,14 +695,15 @@ class ChannelTests(unittest.TestCase):
             spec.Channel.Close(200, 'Got to go', 0, 0), self.obj._on_closeok,
             [spec.Channel.CloseOk])
 
+        assert isinstance(self.obj._closing_reason,
+                          exceptions.ChannelClosedByClient)
         self.assertEqual(self.obj._closing_reason.reply_code, 200)
         self.assertEqual(self.obj._closing_reason.reply_text, 'Got to go')
         self.assertEqual(self.obj._state, self.obj.CLOSING)
 
         # OpenOk method from broker
         self.obj._on_openok(
-            frame.Method(self.obj.channel_number,
-                         spec.Channel.OpenOk(self.obj.channel_number)))
+            frame.Method(self.obj.channel_number, spec.Channel.OpenOk()))
         self.assertEqual(self.obj._state, self.obj.CLOSING)
         self.assertEqual(self.callbacks.process.call_count, 0)
 
@@ -1278,7 +1279,7 @@ class ChannelTests(unittest.TestCase):
                                             b'0123456789')
 
     def test_handle_content_frame_basic_get_called(self):
-        method_value = frame.Method(1, spec.Basic.GetOk('ctag0', 1))
+        method_value = frame.Method(1, spec.Basic.GetOk('ctag0', True))
         self.obj._handle_content_frame(method_value)
         header_value = frame.Header(1, 10, spec.BasicProperties())
         self.obj._handle_content_frame(header_value)
@@ -1365,8 +1366,8 @@ class ChannelTests(unittest.TestCase):
         self.assertTrue(self.obj.is_closing,
                         f'Channel was not closed; state={self.obj._state}')
 
-        self.assertIsInstance(self.obj._closing_reason,
-                              exceptions.ChannelClosedByBroker)
+        assert isinstance(self.obj._closing_reason,
+                          exceptions.ChannelClosedByBroker)
         self.assertEqual(self.obj._closing_reason.reply_code, 400)
         self.assertEqual(self.obj._closing_reason.reply_text, 'error')
 
@@ -1447,6 +1448,8 @@ class ChannelTests(unittest.TestCase):
 
         # Close from user
         self.obj.close(200, 'All is well')
+        assert isinstance(self.obj._closing_reason,
+                          exceptions.ChannelClosedByClient)
         self.assertEqual(self.obj._closing_reason.reply_code, 200)
         self.assertEqual(self.obj._closing_reason.reply_text, 'All is well')
         self.assertEqual(self.obj._state, self.obj.CLOSING)
@@ -1473,6 +1476,8 @@ class ChannelTests(unittest.TestCase):
 
         # Close from user
         self.obj.close(0, 'All is well')
+        assert isinstance(self.obj._closing_reason,
+                          exceptions.ChannelClosedByClient)
         self.assertEqual(self.obj._closing_reason.reply_code, 0)
         self.assertEqual(self.obj._closing_reason.reply_text, 'All is well')
         self.assertEqual(self.obj._state, self.obj.CLOSING)
@@ -1482,8 +1487,8 @@ class ChannelTests(unittest.TestCase):
             frame.Method(self.obj.channel_number,
                          spec.Channel.Close(400, 'broker is having a bad day')))
 
-        self.assertIsInstance(self.obj._closing_reason,
-                              exceptions.ChannelClosedByBroker)
+        assert isinstance(self.obj._closing_reason,
+                          exceptions.ChannelClosedByBroker)
         self.assertEqual((self.obj._closing_reason.reply_code,
                           self.obj._closing_reason.reply_text),
                          (400, 'broker is having a bad day'))
@@ -1507,13 +1512,13 @@ class ChannelTests(unittest.TestCase):
     @mock.patch('logging.Logger.debug')
     def test_on_getempty(self, debug):
         method_frame = frame.Method(self.obj.channel_number,
-                                    spec.Basic.GetEmpty)
+                                    spec.Basic.GetEmpty())
         self.obj._on_getempty(method_frame)
         debug.assert_called_with('Received Basic.GetEmpty: %r', method_frame)
 
     @mock.patch('logging.Logger.error')
     def test_on_getok_no_callback(self, error):
-        method_value = frame.Method(1, spec.Basic.GetOk('ctag0', 1))
+        method_value = frame.Method(1, spec.Basic.GetOk('ctag0', True))
         header_value = frame.Header(1, 10, spec.BasicProperties())
         body_value = b'0123456789'
         self.obj._on_getok(method_value, header_value, body_value)
@@ -1522,7 +1527,7 @@ class ChannelTests(unittest.TestCase):
     def test_on_getok_callback_called(self):
         mock_callback = mock.Mock()
         self.obj._on_getok_callback = mock_callback
-        method_value = frame.Method(1, spec.Basic.GetOk('ctag0', 1))
+        method_value = frame.Method(1, spec.Basic.GetOk('ctag0', True))
         header_value = frame.Header(1, 10, spec.BasicProperties())
         body_value = b'0123456789'
         self.obj._on_getok(method_value, header_value, body_value)
@@ -1533,7 +1538,7 @@ class ChannelTests(unittest.TestCase):
     def test_on_getok_callback_reset(self):
         mock_callback = mock.Mock()
         self.obj._on_getok_callback = mock_callback
-        method_value = frame.Method(1, spec.Basic.GetOk('ctag0', 1))
+        method_value = frame.Method(1, spec.Basic.GetOk('ctag0', True))
         header_value = frame.Header(1, 10, spec.BasicProperties())
         body_value = b'0123456789'
         self.obj._on_getok(method_value, header_value, body_value)
@@ -1612,7 +1617,7 @@ class ChannelTests(unittest.TestCase):
             spec.Basic.Return(999, 'Reply Text', 'exchange_value',
                               'routing.key'))
         header_value = frame.Header(1, 10, spec.BasicProperties())
-        body_value = frame.Body(1, b'0123456789')
+        body_value = b'0123456789'
         self.obj._on_return(method_value, header_value, body_value)
         self.callbacks.process.assert_called_with(self.obj.channel_number,
                                                   '_on_return', self.obj,

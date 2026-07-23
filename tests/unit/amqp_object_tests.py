@@ -48,28 +48,28 @@ class MethodTests(unittest.TestCase):
 
     def test_set_content_body(self):
         properties = amqp_object.Properties()
-        body = 'This is a test'
+        body = b'This is a test'
         obj = amqp_object.Method()
         obj._set_content(properties, body)
         self.assertEqual(obj._body, body)
 
     def test_set_content_properties(self):
         properties = amqp_object.Properties()
-        body = 'This is a test'
+        body = b'This is a test'
         obj = amqp_object.Method()
         obj._set_content(properties, body)
         self.assertEqual(obj._properties, properties)
 
     def test_get_body(self):
         properties = amqp_object.Properties()
-        body = 'This is a test'
+        body = b'This is a test'
         obj = amqp_object.Method()
         obj._set_content(properties, body)
         self.assertEqual(obj.get_body(), body)
 
     def test_get_properties(self):
         properties = amqp_object.Properties()
-        body = 'This is a test'
+        body = b'This is a test'
         obj = amqp_object.Method()
         obj._set_content(properties, body)
         self.assertEqual(obj.get_properties(), properties)

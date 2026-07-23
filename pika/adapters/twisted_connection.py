@@ -32,6 +32,8 @@ from pika.adapters.utils.io_services_utils import check_callback_arg
 from pika.exchange_type import ExchangeType
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     import twisted.internet.interfaces
     from twisted.internet.defer import Deferred
 
@@ -299,7 +301,7 @@ class TwistedChannel:
     # Deferred-equivalents of public Channel methods
 
     def callback_deferred(self, deferred: defer.Deferred[Any],
-                          replies: list[type[amqp_object.Method]]) -> None:
+                          replies: Sequence[type[amqp_object.Method]]) -> None:
         """
         Pass in a Deferred and a list replies from the RabbitMQ broker which you'd like the Deferred
         to be callbacked on with the frame as callback value.
