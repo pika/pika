@@ -703,6 +703,67 @@ class ConnectionTests(unittest.TestCase):
                 self.assertTrue(
                     self.connection._heartbeat_checker.received.called)
 
+    def test_on_data_available_reentrant_call_defers_to_outer_loop(self):
+        """A frame callback that re-enters `_on_data_available` (e.g. a blocking call that pumps the
+        ioloop) must only append: the outer loop owns the offset and consumes the appended data,
+        since trimming mid-loop would corrupt that offset.
+        """
+        heartbeat = frame.Heartbeat().marshal()
+        processed = []
+        reentered = []
+
+        def process_frame(frame_value):
+            processed.append(frame_value)
+            # Re-enter once, as if a callback pumped the ioloop and more
+            # data arrived while the outer invocation is still running.
+            if not reentered:
+                reentered.append(True)
+                self.assertTrue(self.connection._processing_frame_buffer)
+                self.connection._on_data_available(heartbeat)
+
+        self.connection._frame_buffer = bytearray()
+        self.connection.bytes_received = 0
+        with mock.patch.object(self.connection,
+                               '_process_frame',
+                               side_effect=process_frame):
+            self.connection._on_data_available(heartbeat + heartbeat)
+
+        # Two frames in the initial event plus the one appended re-entrantly,
+        # all decoded by the single outer loop.
+        self.assertEqual(3, len(processed))
+        self.assertEqual(3 * len(heartbeat), self.connection.bytes_received)
+        # Buffer fully consumed and trimmed exactly once, by the outer call.
+        self.assertEqual(bytearray(), self.connection._frame_buffer)
+        self.assertFalse(self.connection._processing_frame_buffer)
+
+    def test_on_data_available_state_reset_mid_loop_drops_stale_data(self):
+        """If a frame callback resets connection state, rebinding `_frame_buffer` (as
+        `_init_connection_state` does on stream termination), the loop stops and the stale tail of
+        the old buffer is neither processed nor trimmed onto the fresh buffer.
+        """
+        heartbeat = frame.Heartbeat().marshal()
+        fresh_buffer = bytearray()
+        processed = []
+
+        def process_frame(frame_value):
+            processed.append(frame_value)
+            # Simulate _init_connection_state binding a brand-new buffer.
+            self.connection._frame_buffer = fresh_buffer
+
+        self.connection._frame_buffer = bytearray()
+        with mock.patch.object(self.connection,
+                               '_process_frame',
+                               side_effect=process_frame):
+            self.connection._on_data_available(heartbeat + heartbeat)
+
+        # Only the first frame is processed; the second is abandoned with the
+        # old buffer when state resets.
+        self.assertEqual(1, len(processed))
+        # The fresh buffer is left untouched: no stale bytes trimmed into it.
+        self.assertIs(fresh_buffer, self.connection._frame_buffer)
+        self.assertEqual(bytearray(), self.connection._frame_buffer)
+        self.assertFalse(self.connection._processing_frame_buffer)
+
     def test_add_on_connection_blocked_callback(self):
         blocked_buffer = []
         self.connection.add_on_connection_blocked_callback(

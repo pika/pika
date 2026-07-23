@@ -1079,7 +1079,8 @@ class Connection(abc.ABC):
                                       spec.FRAME_HEADER_SIZE -
                                       spec.FRAME_END_SIZE)
         self.known_hosts: str | None = None
-        self._frame_buffer: bytes = b''
+        self._frame_buffer: bytearray = bytearray()
+        self._processing_frame_buffer: bool = False
         self._channels: dict[int, Channel] = {}
 
         self._init_connection_state()
@@ -1126,7 +1127,8 @@ class Connection(abc.ABC):
         self.server_properties = None
 
         # Inbound buffer for decoding frames
-        self._frame_buffer = b''
+        self._frame_buffer = bytearray()
+        self._processing_frame_buffer = False
 
         # Dict of open channels
         self._channels = {}
@@ -2063,14 +2065,36 @@ class Connection(abc.ABC):
 
         :param data_in: The data that is available to read
         """
-        self._frame_buffer += data_in
+        buffer = self._frame_buffer
+        buffer += data_in
 
-        while self._frame_buffer:
-            consumed_count, frame_value = self._read_frame()
-            if not frame_value:
-                return
-            self._trim_frame_buffer(consumed_count)
-            self._process_frame(frame_value)
+        if self._processing_frame_buffer:
+            # Re-entrant call: a frame callback caused more data to be read.
+            # The data was appended above; the outer invocation's loop will
+            # decode it, since trimming mid-loop would corrupt its offset.
+            return
+
+        # Decode frames by walking an offset and trim the buffer once per data
+        # event; trimming (copying) the buffer after every frame is quadratic
+        # when one read contains many frames.
+        self._processing_frame_buffer = True
+        offset = 0
+        try:
+            while offset < len(buffer):
+                consumed_count, frame_value = frame.decode_frame(buffer, offset)
+                if not frame_value:
+                    break
+                offset += consumed_count
+                self.bytes_received += consumed_count
+                self._process_frame(frame_value)
+                if self._frame_buffer is not buffer:
+                    # A frame callback reset the connection state (e.g. stream
+                    # terminated); leftover data is no longer relevant.
+                    return
+        finally:
+            self._processing_frame_buffer = False
+            if offset and self._frame_buffer is buffer:
+                del buffer[:offset]
 
     def _terminate_stream(self, error: Exception | None) -> None:
         """
@@ -2245,11 +2269,6 @@ class Connection(abc.ABC):
         # If the frame has a channel number beyond the base channel, deliver it
         elif frame_value.channel_number > 0:
             self._deliver_frame_to_channel(frame_value)
-
-    def _read_frame(
-            self) -> tuple[int, frame.Frame | frame.ProtocolHeader | None]:
-        """Try and read from the frame buffer and decode a frame."""
-        return frame.decode_frame(self._frame_buffer)
 
     def _remove_callbacks(
             self, channel_number: int,
@@ -2428,16 +2447,6 @@ class Connection(abc.ABC):
         # now would break them.
         self.server_capabilities = self.server_properties.get(
             'capabilities', {})
-
-    def _trim_frame_buffer(self, byte_count: int) -> None:
-        """
-        Trim the leading N bytes off the frame buffer and increment the counter that keeps track of
-        how many bytes have been read/used from the socket.
-
-        :param byte_count: The number of bytes consumed
-        """
-        self._frame_buffer = self._frame_buffer[byte_count:]
-        self.bytes_received += byte_count
 
     def _output_marshaled_frames(self,
                                  marshaled_frames: Sequence[bytes]) -> None:
