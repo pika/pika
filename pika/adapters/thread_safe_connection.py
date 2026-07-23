@@ -98,7 +98,11 @@ class _BoundedWorkPool:
     :param thread_name: Name of the worker thread.
     """
 
-    _SHUTDOWN = object()
+    # Seconds the idle worker waits on an empty queue before re-checking the
+    # shutdown flag.  Bounds how long shutdown(wait=True) lingers after the
+    # queue drains; small enough to feel instant, large enough that an idle
+    # pool wakes only a few times a second.
+    _SHUTDOWN_POLL_INTERVAL = 0.1
 
     def __init__(self, maxsize: int, put_timeout: float,
                  thread_name: str) -> None:
@@ -135,9 +139,14 @@ class _BoundedWorkPool:
 
     def _run_worker(self) -> None:
         while True:
-            item = self._queue.get()
-            if item is self._SHUTDOWN:
-                return
+            try:
+                item = self._queue.get(timeout=self._SHUTDOWN_POLL_INTERVAL)
+            except queue.Empty:
+                # No work pending; exit only once shutdown has been requested,
+                # otherwise keep waiting for the next item.
+                if self._shutdown:
+                    return
+                continue
             fn, args = item
             fn(*args)
 
@@ -146,6 +155,12 @@ class _BoundedWorkPool:
         Shut down the pool, allowing in-flight work to finish.
 
         Idempotent. Subsequent :meth:`submit` calls raise :class:`RuntimeError`.
+
+        Setting the shutdown flag (rather than enqueuing an in-band sentinel)
+        keeps this non-blocking even when the queue is full: a wedged worker
+        that has not freed a slot can never stall the caller here.  The worker
+        drains all pending work, then exits the next time it finds the queue
+        empty with the flag set.
 
         :param wait: Block until the worker thread has drained the queue and exited.
         """
@@ -156,9 +171,6 @@ class _BoundedWorkPool:
             thread = self._thread
         if thread is None:
             return
-        # The sentinel lands behind all pending work, so the worker drains
-        # the queue before exiting.
-        self._queue.put(self._SHUTDOWN)
         if wait:
             thread.join()
 
