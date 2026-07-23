@@ -156,11 +156,9 @@ class AMQPConnector:
         self._on_done: Callable[[pika.connection.Connection | BaseException],
                                 None] | None = None
         # TCP connection timeout
-        self._tcp_timeout_ref: None | (
-            nbio_interface.AbstractTimerReference) = None
+        self._tcp_timeout_ref: nbio_interface.AbstractTimerReference | None = None
         # Overall TCP/[SSL]/AMQP timeout
-        self._stack_timeout_ref: None | (
-            nbio_interface.AbstractTimerReference) = None
+        self._stack_timeout_ref: nbio_interface.AbstractTimerReference | None = None
         # Current task
         self._task_ref: nbio_interface.AbstractIOReference | None = None
         self._sock: socket.socket | None = None
@@ -666,10 +664,10 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
 
         self._connector: AMQPConnector | None = None
 
-        self._task_ref: None | (
+        self._task_ref: (
             nbio_interface.AbstractTimerReference |
-            nbio_interface.AbstractIOReference
-        ) = None  # current cancelable asynchronous task or timer
+            nbio_interface.AbstractIOReference |
+            None) = None  # current cancelable asynchronous task or timer
         self._addrinfo_iter: Iterator[ADDRESS_INFO] | None = None
 
         # Exceptions from all failed connection attempts in this workflow

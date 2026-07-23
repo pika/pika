@@ -283,12 +283,12 @@ class _AsyncSocketConnector:
         _LOGGER.debug('_AsyncSocketConnector._report_completion(%r); %s',
                       result, self._sock)
 
-        assert isinstance(result, (BaseException, type(None))), (
+        assert isinstance(result, (BaseException, type(None))), ((
             '_AsyncSocketConnector._report_completion() expected exception or '
-            'None as result.', result)
-        assert self._state == self._STATE_ACTIVE, (
+            'None as result.'), result)
+        assert self._state == self._STATE_ACTIVE, ((
             '_AsyncSocketConnector._report_completion() expected '
-            '_STATE_NOT_STARTED', self._state)
+            '_STATE_NOT_STARTED'), self._state)
 
         self._state = self._STATE_COMPLETED
         self._cleanup()
@@ -422,16 +422,15 @@ class _AsyncStreamConnector:
 
         self._nbio: (nbio_interface.AbstractFileDescriptorIOServices |
                      None) = nbio
-        self._protocol_factory: None | (
-            Callable[[],
-                     nbio_interface.AbstractStreamProtocol]) = protocol_factory
+        self._protocol_factory: Callable[
+            [], nbio_interface.AbstractStreamProtocol] | None = protocol_factory
         self._sock: socket.socket | None = sock
         self._ssl_context: ssl.SSLContext | None = ssl_context
         self._server_hostname: str | None = server_hostname
-        self._on_done: None | (Callable[[(
+        self._on_done: Callable[[
             tuple[nbio_interface.AbstractStreamTransport,
-                  nbio_interface.AbstractStreamProtocol] | BaseException)],
-                                        None]) = on_done
+                  nbio_interface.AbstractStreamProtocol] | BaseException
+        ], None] | None = on_done
 
         self._state = self._STATE_NOT_STARTED
         self._watching_socket = False
@@ -479,9 +478,9 @@ class _AsyncStreamConnector:
         """Kick off the workflow."""
         _LOGGER.debug('_AsyncStreamConnector.start(); %s', self._sock)
 
-        assert self._state == self._STATE_NOT_STARTED, (
+        assert self._state == self._STATE_NOT_STARTED, ((
             '_AsyncStreamConnector.start() expected '
-            '_STATE_NOT_STARTED', self._state)
+            '_STATE_NOT_STARTED'), self._state)
 
         self._state = self._STATE_ACTIVE
 
@@ -512,9 +511,9 @@ class _AsyncStreamConnector:
 
     @_log_exceptions
     def _report_completion(
-        self, result: None |
-        (BaseException | tuple[nbio_interface.AbstractStreamTransport,
-                               nbio_interface.AbstractStreamProtocol])
+        self, result: BaseException |
+        tuple[nbio_interface.AbstractStreamTransport,
+              nbio_interface.AbstractStreamProtocol] | None
     ) -> None:
         """
         Advance to COMPLETED state, cancel async operation(s), and invoke user's completion
@@ -526,12 +525,12 @@ class _AsyncStreamConnector:
         _LOGGER.debug('_AsyncStreamConnector._report_completion(%r); %s',
                       result, self._sock)
 
-        assert isinstance(result, (BaseException, tuple)), (
+        assert isinstance(result, (BaseException, tuple)), ((
             '_AsyncStreamConnector._report_completion() expected exception or '
-            'tuple as result.', result, self._state)
-        assert self._state == self._STATE_ACTIVE, (
+            'tuple as result.'), result, self._state)
+        assert self._state == self._STATE_ACTIVE, ((
             '_AsyncStreamConnector._report_completion() expected '
-            '_STATE_ACTIVE', self._state)
+            '_STATE_ACTIVE'), self._state)
 
         self._state = self._STATE_COMPLETED
 
@@ -943,9 +942,9 @@ class _AsyncTransportBase(AbstractStreamTransport):
             'asynchronous transport shutdown: state=%s; error=%r; %s',
             self._state, error, self._sock)
 
-        assert self._state != self._STATE_COMPLETED, (
+        assert self._state != self._STATE_COMPLETED, ((
             '_AsyncTransportBase._initate_abort() expected '
-            'non-_STATE_COMPLETED', self._state)
+            'non-_STATE_COMPLETED'), self._state)
 
         if self._state == self._STATE_COMPLETED:
             return
@@ -969,9 +968,9 @@ class _AsyncTransportBase(AbstractStreamTransport):
             # Connection failed
 
             if self._state != self._STATE_ACTIVE:
-                assert self._state == self._STATE_ABORTED_BY_USER, (
+                assert self._state == self._STATE_ABORTED_BY_USER, ((
                     '_AsyncTransportBase._initate_abort() expected '
-                    '_STATE_ABORTED_BY_USER', self._state)
+                    '_STATE_ABORTED_BY_USER'), self._state)
                 return
 
             self._state = self._STATE_FAILED
@@ -1001,9 +1000,9 @@ class _AsyncTransportBase(AbstractStreamTransport):
 
         if error is not None and self._state != self._STATE_FAILED:
             # Priority is given to user-initiated abort notification
-            assert self._state == self._STATE_ABORTED_BY_USER, (
+            assert self._state == self._STATE_ABORTED_BY_USER, ((
                 '_AsyncTransportBase._connection_lost_notify_async() '
-                'expected _STATE_ABORTED_BY_USER', self._state)
+                'expected _STATE_ABORTED_BY_USER'), self._state)
             return
 
         # Inform protocol
@@ -1142,9 +1141,9 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
         assert self._sock is not None
 
         # We shouldn't be getting called with empty tx buffers
-        assert self._tx_buffers, (
+        assert self._tx_buffers, ((
             '_AsyncPlaintextTransport._on_socket_writable() called, '
-            'but _tx_buffers is empty.', self._state)
+            'but _tx_buffers is empty.'), self._state)
 
         try:
             # Transmit buffered data to remote socket
@@ -1377,15 +1376,15 @@ class _AsyncSSLTransport(_AsyncTransportBase):
         else:
             # No exception, so everything must have been written to the socket
             assert not self._tx_buffers, (
-                '_AsyncSSLTransport._produce(): no exception from parent '
-                'class, but data remains in _tx_buffers.',
+                ('_AsyncSSLTransport._produce(): no exception from parent '
+                 'class, but data remains in _tx_buffers.'),
                 len(self._tx_buffers))
 
         # Update producer registration
         if self._tx_buffers:
-            assert next_produce_on_writable is not None, (
+            assert next_produce_on_writable is not None, ((
                 '_AsyncSSLTransport._produce(): next_produce_on_writable is '
-                'still None', self._state)
+                'still None'), self._state)
 
             if next_produce_on_writable:
                 if not self._ssl_writable_action:
@@ -1412,16 +1411,16 @@ class _AsyncSSLTransport(_AsyncTransportBase):
             if self._ssl_readable_action == self._produce:
                 self._nbio.remove_reader(self._sock.fileno())
                 self._ssl_readable_action = None
-                assert self._ssl_writable_action != self._produce, (
+                assert self._ssl_writable_action != self._produce, ((
                     '_AsyncSSLTransport._produce(): with empty tx_buffers, '
                     'writable_action cannot be _produce when readable is '
-                    '_produce', self._state)
+                    '_produce'), self._state)
             else:
                 # NOTE: can't use identity check, it fails for instance methods
                 assert self._ssl_writable_action == self._produce, (
-                    '_AsyncSSLTransport._produce(): with empty tx_buffers, '
-                    'expected writable_action as _produce when readable_action '
-                    'is not _produce', 'writable_action:',
+                    ('_AsyncSSLTransport._produce(): with empty tx_buffers, '
+                     'expected writable_action as _produce when readable_action '
+                     'is not _produce'), 'writable_action:',
                     self._ssl_writable_action, 'readable_action:',
                     self._ssl_readable_action, 'state:', self._state)
                 self._ssl_writable_action = None

@@ -42,19 +42,18 @@ class GeventConnection(BaseConnection):
     An async selector-based connection which integrates with Gevent.
     """
 
-    def __init__(self,
-                 parameters: connection.Parameters | None = None,
-                 on_open_callback: None |
-                 (Callable[[connection.Connection], None]) = None,
-                 on_open_error_callback: None |
-                 (Callable[[connection.Connection, BaseException],
-                           None]) = None,
-                 on_close_callback: None |
-                 (Callable[[connection.Connection, BaseException],
-                           None]) = None,
-                 custom_ioloop: None |
-                 (gevent._interfaces.ILoop | AbstractIOServices) = None,
-                 internal_connection_workflow: bool = True) -> None:
+    def __init__(
+            self,
+            parameters: connection.Parameters | None = None,
+            on_open_callback: Callable[[connection.Connection], None] |
+        None = None,
+            on_open_error_callback: Callable[
+                [connection.Connection, BaseException], None] | None = None,
+            on_close_callback: Callable[[connection.Connection, BaseException],
+                                        None] | None = None,
+            custom_ioloop: gevent._interfaces.ILoop | AbstractIOServices |
+        None = None,
+            internal_connection_workflow: bool = True) -> None:
         """
         Create a new GeventConnection instance and connect to RabbitMQ on Gevent's event-loop.
 
@@ -112,8 +111,8 @@ class GeventConnection(BaseConnection):
         on_done: Callable[[(connection.Connection |
                             connection_workflow.AMQPConnectorException)], None],
         custom_ioloop: gevent._interfaces.ILoop | None = None,
-        workflow: None |
-        (connection_workflow.AbstractAMQPConnectionWorkflow) = None
+        workflow: connection_workflow.AbstractAMQPConnectionWorkflow |
+        None = None
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
         """
         :param connection_configs: One or more connection parameter objects
