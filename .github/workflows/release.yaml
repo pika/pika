@@ -3,6 +3,22 @@ name: release
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: 'What to do'
+        required: true
+        type: choice
+        default: release
+        options:
+          # release:    bump, tag, publish X.Y.Z to PyPI, GitHub Release
+          # prerelease: bump, tag, publish X.Y.Z<tag> to PyPI (pip skips it
+          #             unless --pre or pinned), GitHub Release
+          # test:       publish a throwaway X.Y.Z.dev<run> to TestPyPI; no
+          #             commit, tag, or GitHub Release. Repeatable.
+          # dry-run:    compute the version and build, but publish nothing
+          - release
+          - prerelease
+          - test
+          - dry-run
       bump:
         description: 'Version bump type'
         required: true
@@ -11,21 +27,11 @@ on:
           - patch
           - minor
           - major
-      prerelease:
-        description: 'Mark as pre-release (publishes to TestPyPI)'
-        required: false
-        type: boolean
-        default: false
       prerelease_tag:
-        description: 'Pre-release suffix (e.g. b1, rc1). Required when prerelease is true.'
+        description: 'Pre-release suffix (e.g. b1, rc1). Required when mode is prerelease.'
         required: false
         type: string
         default: ''
-      dry_run:
-        description: 'Compute and bump the version but do not commit, tag, or publish'
-        required: false
-        type: boolean
-        default: false
 
 # Serialize releases so two near-simultaneous dispatches cannot race on the
 # version bump.
@@ -38,7 +44,7 @@ permissions:
 
 jobs:
   release:
-    name: Bump version and tag
+    name: Bump version and build
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -51,6 +57,10 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.14'
+
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
@@ -58,20 +68,25 @@ jobs:
 
       - name: Validate inputs
         env:
-          PRERELEASE: ${{ inputs.prerelease }}
+          MODE: ${{ inputs.mode }}
           PRERELEASE_TAG: ${{ inputs.prerelease_tag }}
         run: |
-          if [ "$PRERELEASE" = "true" ] && [ -z "$PRERELEASE_TAG" ]; then
-            echo "::error::prerelease_tag is required when prerelease is true (e.g. b1, rc1)"
+          if [ "$MODE" = "prerelease" ] && [ -z "$PRERELEASE_TAG" ]; then
+            echo "::error::prerelease_tag is required when mode is prerelease (e.g. b1, rc1)"
+            exit 1
+          fi
+          if [ "$MODE" != "prerelease" ] && [ -n "$PRERELEASE_TAG" ]; then
+            echo "::error::prerelease_tag is only valid when mode is prerelease"
             exit 1
           fi
 
       - name: Compute new version
         id: version
         env:
+          MODE: ${{ inputs.mode }}
           BUMP: ${{ inputs.bump }}
-          PRERELEASE: ${{ inputs.prerelease }}
           PRERELEASE_TAG: ${{ inputs.prerelease_tag }}
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
           current=$(sed -nE 's/^version = "([^"]+)".*/\1/p' pyproject.toml)
           echo "current=$current" >> "$GITHUB_OUTPUT"
@@ -85,16 +100,24 @@ jobs:
           esac
 
           new_version="${major}.${minor}.${patch}"
-          if [ "$PRERELEASE" = "true" ]; then
-            if ! echo "$PRERELEASE_TAG" | grep -qE '^[a-zA-Z0-9]+$'; then
-              echo "::error::prerelease_tag must be alphanumeric (e.g. b1, rc1)"
-              exit 1
-            fi
-            new_version="${new_version}${PRERELEASE_TAG}"
-          fi
+          case "$MODE" in
+            prerelease)
+              if ! echo "$PRERELEASE_TAG" | grep -qE '^[a-zA-Z0-9]+$'; then
+                echo "::error::prerelease_tag must be alphanumeric (e.g. b1, rc1)"
+                exit 1
+              fi
+              new_version="${new_version}${PRERELEASE_TAG}"
+              ;;
+            # A throwaway .devN build keyed on the run number: valid PEP 440,
+            # sorts below the real X.Y.Z, and unique per run so TestPyPI's
+            # immutable-version rule never bites on repeated test publishes.
+            test)
+              new_version="${new_version}.dev${RUN_NUMBER}"
+              ;;
+          esac
 
           echo "new=$new_version" >> "$GITHUB_OUTPUT"
-          echo "Bumping $current -> $new_version"
+          echo "Bumping $current -> $new_version (mode: $MODE)"
 
       - name: Update version
         env:
@@ -103,8 +126,26 @@ jobs:
           sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" pyproject.toml
           sed -i "s/^__version__ = ['\"].*['\"]/__version__ = '$NEW_VERSION'/" pika/__init__.py
 
+      # Build once, before mutating main, so a broken build aborts the release
+      # before any commit or tag. Every downstream publish consumes this exact
+      # artifact rather than rebuilding, so the bytes tested are the bytes
+      # shipped. Runs in all modes, including dry-run, so a dry run validates
+      # that the project still builds.
+      - name: Build distribution
+        run: |
+          python -m pip install build twine --upgrade
+          python -m build --sdist --wheel --outdir dist/ .
+          twine check dist/*
+
+      - name: Upload distribution artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
       - name: Commit, tag, and push
-        if: ${{ !inputs.dry_run }}
+        if: ${{ inputs.mode == 'release' || inputs.mode == 'prerelease' }}
         env:
           NEW_VERSION: ${{ steps.version.outputs.new }}
         run: |
@@ -114,7 +155,7 @@ jobs:
           git push origin HEAD:${{ github.ref }} --follow-tags
 
       - name: Verify tag exists on remote
-        if: ${{ !inputs.dry_run }}
+        if: ${{ inputs.mode == 'release' || inputs.mode == 'prerelease' }}
         env:
           NEW_VERSION: ${{ steps.version.outputs.new }}
         run: |
@@ -122,80 +163,121 @@ jobs:
             || { echo "::error::Tag $NEW_VERSION not found on remote after push"; exit 1; }
 
       - name: Dry-run summary
-        if: ${{ inputs.dry_run }}
+        if: ${{ inputs.mode == 'dry-run' }}
         env:
           NEW_VERSION: ${{ steps.version.outputs.new }}
         run: |
           echo "::notice::Dry run - would release pika $NEW_VERSION (no commit, tag, or publish)"
           git --no-pager diff
 
-  # The PyPI publish jobs MUST live in this top-level workflow: PyPI trusted
-  # publishing matches the OIDC job_workflow_ref claim against the configured
-  # workflow filename and rejects tokens minted inside a reusable workflow.
+  # The publish jobs only download and publish the artifact built by the
+  # release job; they never rebuild, so the bytes tested are the bytes
+  # shipped. Authentication uses the PYPI_API_TOKEN / TEST_PYPI_API_TOKEN
+  # repository secrets rather than trusted publishing, so the API token is
+  # exposed only to the publish jobs, not to the build.
   publish-pypi:
     name: Publish to PyPI
     needs: release
-    if: ${{ !inputs.prerelease && !inputs.dry_run }}
+    if: ${{ inputs.mode == 'release' || inputs.mode == 'prerelease' }}
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
     environment:
       name: pypi
       url: https://pypi.org/project/pika/${{ needs.release.outputs.version }}/
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Download distribution artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          ref: ${{ needs.release.outputs.version }}
-
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
-        with:
-          python-version: '3.14'
-
-      - name: Build
-        run: |
-          python -m pip install build twine --upgrade
-          python -m build --sdist --wheel --outdir dist/ .
-          twine check dist/*
+          name: dist
+          path: dist/
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          # Attestations require trusted publishing; with token auth they
+          # must be disabled explicitly or the action errors.
+          attestations: false
 
   publish-test-pypi:
     name: Publish to TestPyPI
     needs: release
-    if: ${{ inputs.prerelease && !inputs.dry_run }}
+    if: ${{ inputs.mode == 'test' }}
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
     environment:
       name: testpypi
       url: https://test.pypi.org/project/pika/${{ needs.release.outputs.version }}/
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Download distribution artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          ref: ${{ needs.release.outputs.version }}
-
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
-        with:
-          python-version: '3.14'
-
-      - name: Build
-        run: |
-          python -m pip install build twine --upgrade
-          python -m build --sdist --wheel --outdir dist/ .
-          twine check dist/*
+          name: dist
+          path: dist/
 
       - name: Publish to TestPyPI
         uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          # Attestations require trusted publishing; with token auth they
+          # must be disabled explicitly or the action errors.
+          attestations: false
+
+  smoke-test:
+    name: Smoke-test the published wheel
+    needs: [release, publish-pypi, publish-test-pypi]
+    # Run for whichever publish actually happened. This is skipped for
+    # dry-run (neither publish ran) and fires for the one publish job whose
+    # index received the wheel.
+    if: >-
+      always() && needs.release.result == 'success' &&
+      (needs.publish-pypi.result == 'success' ||
+       needs.publish-test-pypi.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.14'
+
+      - name: Start RabbitMQ
+        run: ./.ci/linux/gha-setup.sh
+
+      - name: Install pika and smoke-test
+        env:
+          NEW_VERSION: ${{ needs.release.outputs.version }}
+          # The TestPyPI index when the test publish ran, else empty (real
+          # PyPI). pika has no runtime dependencies, so installing from the
+          # TestPyPI index needs no fallback index for dependency resolution.
+          INDEX_URL: ${{ needs.publish-test-pypi.result == 'success' && 'https://test.pypi.org/simple/' || '' }}
+        run: |
+          python -m venv smoke-venv
+          pip_args=()
+          if [ -n "$INDEX_URL" ]
+          then
+            pip_args+=(--index-url "$INDEX_URL")
+          fi
+          # PyPI/TestPyPI are eventually consistent: a fresh install can 404
+          # for a minute or two right after publish. Retry until the
+          # just-published version installs, up to ~5 minutes.
+          attempt=0
+          until smoke-venv/bin/pip install "${pip_args[@]}" "pika==$NEW_VERSION"
+          do
+            attempt=$((attempt + 1))
+            if (( attempt >= 20 ))
+            then
+              echo "::error::pika $NEW_VERSION not installable after $attempt attempts"
+              exit 1
+            fi
+            echo "pika $NEW_VERSION not available yet; retrying in 15s (attempt $attempt)"
+            sleep 15
+          done
+          smoke-venv/bin/python .ci/smoke_test.py
 
   github-release:
     name: Create GitHub Release
-    needs: [release, publish-pypi, publish-test-pypi]
-    if: always() && (needs.publish-pypi.result == 'success' || needs.publish-test-pypi.result == 'success')
+    needs: [release, publish-pypi]
+    if: ${{ inputs.mode == 'release' || inputs.mode == 'prerelease' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -209,7 +291,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.release.outputs.version }}
-          IS_PRERELEASE: ${{ inputs.prerelease }}
+          IS_PRERELEASE: ${{ inputs.mode == 'prerelease' }}
         run: |
           PRERELEASE_FLAG=""
           if [ "$IS_PRERELEASE" = "true" ]; then
