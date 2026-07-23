@@ -685,7 +685,7 @@ class ConnectionTests(unittest.TestCase):
     def test_on_data_available(self, decode_frame):
         """Test on data available and process frame."""
         data_in = b'd'
-        self.connection._frame_buffer = b'o'
+        self.connection._frame_buffer = bytearray(b'o')
         for frame_type in (frame.Method, spec.Basic.Deliver, frame.Heartbeat):
             frame_value = mock.Mock(spec=frame_type)
             frame_value.frame_type = 2
@@ -697,7 +697,7 @@ class ConnectionTests(unittest.TestCase):
             decode_frame.return_value = (2, frame_value)
             self.connection._on_data_available(data_in)
             # test value
-            self.assertEqual(b'', self.connection._frame_buffer)
+            self.assertEqual(bytearray(), self.connection._frame_buffer)
             self.assertEqual(2, self.connection.bytes_received)
             self.assertEqual(1, self.connection.frames_received)
             if frame_type == frame.Heartbeat:
