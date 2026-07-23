@@ -204,7 +204,7 @@ class ThreadSafeChannel:
             work_queue_maxsize: int = DEFAULT_WORK_QUEUE_MAXSIZE,
             work_queue_put_timeout: float = DEFAULT_WORK_QUEUE_PUT_TIMEOUT
     ) -> None:
-        _validate_put_timeout(work_queue_put_timeout)
+        work_queue_put_timeout = _validate_put_timeout(work_queue_put_timeout)
         self._channel = channel
         self._wrapper = wrapper
         self._consumer_work_pool = _BoundedWorkPool(
@@ -1227,11 +1227,11 @@ class ThreadSafeConnection:
             work_queue_maxsize: int = DEFAULT_WORK_QUEUE_MAXSIZE,
             work_queue_put_timeout: float = DEFAULT_WORK_QUEUE_PUT_TIMEOUT
     ) -> None:
-        _validate_put_timeout(work_queue_put_timeout)
         self._user_on_open_error_callback = on_open_error_callback
         self._user_on_close_callback = on_close_callback
         self._work_queue_maxsize = work_queue_maxsize
-        self._work_queue_put_timeout = work_queue_put_timeout
+        self._work_queue_put_timeout = _validate_put_timeout(
+            work_queue_put_timeout)
 
         self._connect_error = None
         self._connected_event = threading.Event()
