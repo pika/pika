@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.4.2](https://github.com/pika/pika/tree/1.4.2) (2026-07-23)
+
+[Full Changelog](https://github.com/pika/pika/compare/1.4.1...1.4.2)
+
+**Closed issues:**
+
+- Importing pika.adapters can break asyncio subprocesses on Windows [\#1639](https://github.com/pika/pika/issues/1639)
+
+**Merged pull requests:**
+
+- Stop mutating global asyncio event loop policy on import [\#1642](https://github.com/pika/pika/pull/1642) ([lukebakken](https://github.com/lukebakken))
+
 ## [1.4.1](https://github.com/pika/pika/tree/1.4.1) (2026-05-22)
 
 **Merged pull requests:**
