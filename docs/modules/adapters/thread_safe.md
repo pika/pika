@@ -55,11 +55,11 @@ Both knobs are constructor parameters on `ThreadSafeConnection`:
 conn = ThreadSafeConnection(
     pika.ConnectionParameters('localhost'),
     work_queue_maxsize=1000,     # 0 means unbounded
-    work_queue_put_timeout=None, # seconds; None blocks until space is available
+    work_queue_put_timeout=30.0, # seconds; must be positive, default 30 s
 )
 ```
 
-If `work_queue_put_timeout` is set and the queue stays full for that long, `pika.exceptions.WorkQueueFullError` is raised on the IOLoop thread, tearing the connection down rather than silently dropping the event.
+`work_queue_put_timeout` defaults to 30 seconds and must be a positive number; `None` (infinite) is rejected with `ValueError` because it lets a full queue stall or deadlock the IOLoop thread. Set an override comfortably below the negotiated heartbeat-death window (twice the heartbeat interval) so a stall surfaces as `WorkQueueFullError` rather than an opaque broker-side close. When the queue stays full for that long, `pika.exceptions.WorkQueueFullError` is raised on the IOLoop thread, tearing the connection down rather than silently dropping the event (which would lose an auto-acked delivery or force redelivery of a manually-acked one).
 
 ## Comparison with other adapters
 

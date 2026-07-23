@@ -35,6 +35,43 @@ DEFAULT_RPC_TIMEOUT = 10
 # Matches MAX_QUEUE_LENGTH in the RabbitMQ Java client's WorkPool.
 DEFAULT_WORK_QUEUE_MAXSIZE = 1000
 
+# Default seconds the IOLoop thread waits for space on a full work queue
+# before raising WorkQueueFullError and tearing down the connection.
+# While the queue is full the IOLoop blocks - it sends no heartbeats and
+# reads no frames - so a wedged consumer stalls the connection for up to
+# this long.  Keep an override comfortably under the negotiated
+# heartbeat-death window (twice the heartbeat interval) so the stall
+# surfaces as a clean WorkQueueFullError before the broker drops the link
+# with an opaque StreamLostError.
+DEFAULT_WORK_QUEUE_PUT_TIMEOUT = 30.0
+
+
+def _validate_put_timeout(put_timeout: float) -> float:
+    """
+    Validate a public work-queue put timeout.
+
+    A ``None`` (infinite) timeout is rejected because it lets a full work queue block the IOLoop
+    thread forever.  A non-positive timeout - including ``0`` and ``float('nan')`` - is rejected
+    because it cannot bound the stall.
+
+    :param put_timeout: Seconds the IOLoop thread waits for queue space before raising
+        :class:`pika.exceptions.WorkQueueFullError`.
+    :returns: *put_timeout* unchanged.
+    :raises ValueError: if *put_timeout* is ``None`` or is not a positive number.
+    """
+    if put_timeout is None:
+        raise ValueError(
+            'work_queue_put_timeout must be a number of seconds, not None; '
+            'an infinite timeout lets a full work queue block the IOLoop '
+            'thread forever')
+    # ``not put_timeout > 0`` (rather than ``put_timeout <= 0``) also
+    # rejects float('nan'), for which every comparison is False.
+    if not put_timeout > 0:
+        raise ValueError(
+            f'work_queue_put_timeout must be a positive number of seconds, '
+            f'got {put_timeout!r}')
+    return put_timeout
+
 
 class _BoundedWorkPool:
     """
@@ -55,14 +92,15 @@ class _BoundedWorkPool:
     :param maxsize: Maximum number of pending work items.  Pass ``0`` for
         an unbounded queue.
     :param put_timeout: Seconds :meth:`submit` waits for queue space before
-        raising :class:`pika.exceptions.WorkQueueFullError`.  Pass ``None``
-        to wait indefinitely.
+        raising :class:`pika.exceptions.WorkQueueFullError`.  Must be
+        finite; an infinite (``None``) timeout would let a full queue block
+        the IOLoop thread forever.
     :param thread_name: Name of the worker thread.
     """
 
     _SHUTDOWN = object()
 
-    def __init__(self, maxsize: int, put_timeout: float | None,
+    def __init__(self, maxsize: int, put_timeout: float,
                  thread_name: str) -> None:
         self._queue: queue.Queue[Any] = queue.Queue(maxsize=maxsize)
         self._put_timeout = put_timeout
@@ -159,11 +197,14 @@ class ThreadSafeChannel:
     blocking channel methods (which would deadlock).
     """
 
-    def __init__(self,
-                 channel,
-                 wrapper,
-                 work_queue_maxsize: int = DEFAULT_WORK_QUEUE_MAXSIZE,
-                 work_queue_put_timeout: float | None = None) -> None:
+    def __init__(
+            self,
+            channel,
+            wrapper,
+            work_queue_maxsize: int = DEFAULT_WORK_QUEUE_MAXSIZE,
+            work_queue_put_timeout: float = DEFAULT_WORK_QUEUE_PUT_TIMEOUT
+    ) -> None:
+        _validate_put_timeout(work_queue_put_timeout)
         self._channel = channel
         self._wrapper = wrapper
         self._consumer_work_pool = _BoundedWorkPool(
@@ -1159,23 +1200,34 @@ class ThreadSafeConnection:
         broker's heartbeat timeout bounds how long a wedged consumer can
         stall the connection.  Pass ``0`` for an unbounded queue.
     :param work_queue_put_timeout: Seconds to wait for space on a full
-        work queue.  Defaults to ``None`` (wait indefinitely).  On timeout
-        :class:`pika.exceptions.WorkQueueFullError` is raised on the
-        IOLoop thread, closing the connection rather than silently
-        dropping the event.
+        work queue.  Defaults to :data:`DEFAULT_WORK_QUEUE_PUT_TIMEOUT`
+        (30 s); must be a positive number, and ``None`` (infinite) is
+        rejected because it lets a full queue stall or deadlock the IOLoop
+        thread.  Set an override comfortably below the negotiated
+        heartbeat-death window (twice the heartbeat interval) so a stall
+        surfaces here rather than as an opaque broker-side close.  On
+        timeout :class:`pika.exceptions.WorkQueueFullError` is raised on
+        the IOLoop thread, closing the connection rather than silently
+        dropping the event (which would lose an auto-acked delivery or
+        force redelivery of a manually-acked one).
+    :raises ValueError: if *work_queue_put_timeout* is ``None`` or is not a
+        positive number.
     :raises Exception: if the connection cannot be established.
     :raises TimeoutError: if *timeout* expires before the connection opens.
     """
 
     _instance_counter = itertools.count(1)
 
-    def __init__(self,
-                 parameters,
-                 on_open_error_callback=None,
-                 on_close_callback=None,
-                 timeout: float | None = DEFAULT_RPC_TIMEOUT,
-                 work_queue_maxsize: int = DEFAULT_WORK_QUEUE_MAXSIZE,
-                 work_queue_put_timeout: float | None = None) -> None:
+    def __init__(
+            self,
+            parameters,
+            on_open_error_callback=None,
+            on_close_callback=None,
+            timeout: float | None = DEFAULT_RPC_TIMEOUT,
+            work_queue_maxsize: int = DEFAULT_WORK_QUEUE_MAXSIZE,
+            work_queue_put_timeout: float = DEFAULT_WORK_QUEUE_PUT_TIMEOUT
+    ) -> None:
+        _validate_put_timeout(work_queue_put_timeout)
         self._user_on_open_error_callback = on_open_error_callback
         self._user_on_close_callback = on_close_callback
         self._work_queue_maxsize = work_queue_maxsize

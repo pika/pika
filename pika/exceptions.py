@@ -364,7 +364,7 @@ class WorkQueueFullError(Exception):
     """
     The work queue stayed full for longer than the configured ``work_queue_put_timeout``.
 
-    Used by ThreadSafeConnection/ThreadSafeChannel
+    Used by ThreadSafeConnection/ThreadSafeChannel.
     """
 
 

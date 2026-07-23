@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import ANY, MagicMock, patch
 
 from pika.adapters.thread_safe_connection import (
+    DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
     ThreadSafeChannel,
     ThreadSafeConnection,
     _BoundedWorkPool,
@@ -15,7 +16,9 @@ from pika.exceptions import WorkQueueFullError
 class BoundedWorkPoolTests(unittest.TestCase):
     """Tests for the bounded work queue backing the dispatch pools."""
 
-    def _make_blocked_pool(self, maxsize, put_timeout=None):
+    def _make_blocked_pool(self,
+                           maxsize,
+                           put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT):
         """Return (pool, release) where the pool's worker is stuck in its first work item until
         *release* is set.
         """
@@ -79,7 +82,7 @@ class BoundedWorkPoolTests(unittest.TestCase):
     def test_submit_after_shutdown_raises_runtime_error(self):
         """A submit() on a shut-down pool must raise RuntimeError."""
         pool = _BoundedWorkPool(maxsize=1,
-                                put_timeout=None,
+                                put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
                                 thread_name='test-pool')
         pool.shutdown(wait=True)
         with self.assertRaises(RuntimeError):
@@ -88,7 +91,7 @@ class BoundedWorkPoolTests(unittest.TestCase):
     def test_worker_thread_starts_lazily(self):
         """The worker thread must not start until the first submit."""
         pool = _BoundedWorkPool(maxsize=1,
-                                put_timeout=None,
+                                put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
                                 thread_name='test-pool')
         self.assertIsNone(pool._thread)
         pool.submit(lambda: None)
@@ -98,7 +101,7 @@ class BoundedWorkPoolTests(unittest.TestCase):
     def test_shutdown_is_idempotent(self):
         """Calling shutdown() multiple times must not raise."""
         pool = _BoundedWorkPool(maxsize=1,
-                                put_timeout=None,
+                                put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
                                 thread_name='test-pool')
         pool.submit(lambda: None)
         pool.shutdown(wait=True)
@@ -111,9 +114,37 @@ class BoundedWorkPoolTests(unittest.TestCase):
         ch = ThreadSafeChannel(raw_ch,
                                wrapper,
                                work_queue_maxsize=7,
-                               work_queue_put_timeout=1.5)
+                               work_queue_put_timeout=45.0)
         self.assertEqual(ch._consumer_work_pool._queue.maxsize, 7)
-        self.assertEqual(ch._consumer_work_pool._put_timeout, 1.5)
+        self.assertEqual(ch._consumer_work_pool._put_timeout, 45.0)
+
+    def test_channel_rejects_none_put_timeout(self):
+        """ThreadSafeChannel must reject a None put timeout (would block the IOLoop forever)."""
+        with self.assertRaises(ValueError):
+            ThreadSafeChannel(MagicMock(),
+                              MagicMock(),
+                              work_queue_put_timeout=None)
+
+    def test_channel_rejects_non_positive_put_timeout(self):
+        """ThreadSafeChannel must reject a zero, negative, or NaN put timeout."""
+        for bad in (0, -1.0, float('nan')):
+            with self.assertRaises(ValueError):
+                ThreadSafeChannel(MagicMock(),
+                                  MagicMock(),
+                                  work_queue_put_timeout=bad)
+
+    def test_channel_accepts_small_positive_put_timeout(self):
+        """A positive override below the default must be accepted (no floor)."""
+        ch = ThreadSafeChannel(MagicMock(),
+                               MagicMock(),
+                               work_queue_put_timeout=5.0)
+        self.assertEqual(ch._consumer_work_pool._put_timeout, 5.0)
+
+    def test_channel_accepts_default_put_timeout(self):
+        """The default put timeout must satisfy its own validation."""
+        ch = ThreadSafeChannel(MagicMock(), MagicMock())
+        self.assertEqual(ch._consumer_work_pool._put_timeout,
+                         DEFAULT_WORK_QUEUE_PUT_TIMEOUT)
 
 
 class ThreadSafeChannelTests(unittest.TestCase):
@@ -2263,7 +2294,9 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         # Recreate the work pool because _make_connection lets _run_ioloop
         # exit, which shuts the pool down.
         conn._connection_work_pool = _BoundedWorkPool(
-            maxsize=1000, put_timeout=None, thread_name='pika-conn-test')
+            maxsize=1000,
+            put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
+            thread_name='pika-conn-test')
         conn._connection_pool_shutdown = False
         callback_thread = []
         received = []
@@ -2324,7 +2357,9 @@ class ThreadSafeConnectionTests(unittest.TestCase):
     def test_unblocked_callback_dispatches_on_worker_thread(self):
         conn, mock_conn, mock_ioloop = self._make_connection()
         conn._connection_work_pool = _BoundedWorkPool(
-            maxsize=1000, put_timeout=None, thread_name='pika-conn-test')
+            maxsize=1000,
+            put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
+            thread_name='pika-conn-test')
         conn._connection_pool_shutdown = False
         received = []
 
@@ -2378,7 +2413,9 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         """
         conn, mock_conn, mock_ioloop = self._make_connection()
         conn._connection_work_pool = _BoundedWorkPool(
-            maxsize=1000, put_timeout=None, thread_name='pika-conn-test')
+            maxsize=1000,
+            put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
+            thread_name='pika-conn-test')
         conn._connection_pool_shutdown = False
 
         def boom(connection, method_frame):
