@@ -34,7 +34,11 @@ def main() -> int:
     connection = pika.BlockingConnection(pika.URLParameters(url))
     try:
         channel = connection.channel()
-        channel.queue_declare(queue=QUEUE, auto_delete=True)
+        # Exclusive so the queue is auto-deleted when this connection closes
+        # (no cleanup, no leftover state between repeated test runs) and to
+        # avoid the transient non-exclusive queue combination, which modern
+        # RabbitMQ rejects by default.
+        channel.queue_declare(queue=QUEUE, exclusive=True)
         channel.basic_publish(exchange='', routing_key=QUEUE, body=BODY)
 
         method, _properties, body = channel.basic_get(queue=QUEUE,
@@ -46,7 +50,11 @@ def main() -> int:
             print(f'smoke test FAILED: expected {BODY!r}, got {body!r}')
             return 1
     finally:
-        connection.close()
+        # The broker may have already closed the connection (e.g. on a
+        # rejected declare); closing an already-closed connection raises and
+        # would mask the original error.
+        if connection.is_open:
+            connection.close()
 
     print('smoke test PASSED')
     return 0
