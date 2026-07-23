@@ -146,6 +146,18 @@ class BoundedWorkPoolTests(unittest.TestCase):
         self.assertEqual(ch._consumer_work_pool._put_timeout,
                          DEFAULT_WORK_QUEUE_PUT_TIMEOUT)
 
+    def test_connection_rejects_invalid_put_timeout(self):
+        """
+        ThreadSafeConnection must validate its put timeout before connecting.
+
+        Validation happens ahead of SelectConnection construction, so a bad value raises without any
+        connection machinery or patching.
+        """
+        for bad in (None, 0, -1.0, float('nan')):
+            with self.assertRaises(ValueError):
+                ThreadSafeConnection(parameters='params',
+                                     work_queue_put_timeout=bad)
+
 
 class ThreadSafeChannelTests(unittest.TestCase):
 
