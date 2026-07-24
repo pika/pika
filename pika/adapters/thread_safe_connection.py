@@ -208,14 +208,29 @@ class ThreadSafeChannel:
     - Blocking operations (database writes, HTTP calls, even
       :meth:`queue_declare` / :meth:`basic_qos` / :meth:`basic_cancel`)
       are safe inside delivery callbacks.
-    - The IOLoop thread is never starved by slow consumer processing,
-      so heartbeats are always sent on time.
+    - As long as the callback keeps up with deliveries, the IOLoop
+      thread is not starved by consumer processing, so heartbeats are
+      sent on time.
     - Messages are delivered to the callback **in order** (a single
       worker thread per channel).
     - All :class:`ThreadSafeChannel` methods (:meth:`basic_ack`,
       :meth:`basic_nack`, :meth:`basic_reject`, :meth:`basic_publish`,
       :meth:`queue_declare`, etc.) are safe to call from within the
       callback.
+
+    .. rubric:: Sustained-backlog caveat
+
+    "Safe" assumes the callback keeps pace with incoming deliveries.
+    The worker consumes from a bounded queue (see *work_queue_maxsize*).
+    If a slow callback lets that queue fill, the IOLoop thread blocks
+    while enqueuing the next delivery - sending no heartbeats during the
+    stall - and, if the queue stays full for *work_queue_put_timeout*
+    seconds, raises :class:`pika.exceptions.WorkQueueFullError`, which
+    tears the connection down rather than silently dropping the event.
+    A persistently slow consumer therefore does not stall heartbeats
+    forever; it fails fast with an explicit error.  Keep callbacks
+    faster than the sustained delivery rate, or raise *work_queue_maxsize*
+    to absorb bursts.
 
     .. rubric:: IOLoop-thread callbacks
 
