@@ -106,6 +106,25 @@ class BoundedWorkPoolTests(unittest.TestCase):
         release.set()
         pool.shutdown(wait=True)
 
+    def test_shutdown_timeout_returns_false_when_worker_wedged(self):
+        """Shutdown(timeout) must return False and not hang when the worker will not exit."""
+        pool, release = self._make_blocked_pool(maxsize=1)
+        try:
+            # The worker is stuck in its first item, so it cannot observe the
+            # shutdown flag until released.  A short timeout must expire.
+            self.assertFalse(pool.shutdown(wait=True, timeout=0.1))
+            self.assertTrue(pool._thread.is_alive())
+        finally:
+            release.set()
+            self.assertTrue(pool.shutdown(wait=True, timeout=5))
+
+    def test_shutdown_timeout_returns_true_when_worker_exits(self):
+        """Shutdown(timeout) must return True once the worker drains and exits."""
+        pool, release = self._make_blocked_pool(maxsize=1)
+        release.set()
+        self.assertTrue(pool.shutdown(wait=True, timeout=5))
+        self.assertFalse(pool._thread.is_alive())
+
     def test_submit_after_shutdown_raises_runtime_error(self):
         """A submit() on a shut-down pool must raise RuntimeError."""
         pool = _BoundedWorkPool(maxsize=1,
@@ -670,6 +689,45 @@ class ThreadSafeChannelTests(unittest.TestCase):
         ch.abort(reply_code=320, reply_text='shutting down', timeout=5)
         # Verify the close path ran (work pool was shut down via close())
         self.assertTrue(ch._pool_shutdown)
+
+    def test_channel_close_honors_timeout_when_consumer_wedged(self):
+        """Close() must return within its timeout even if a delivery callback is wedged."""
+        ch, raw_ch, wrapper = self._make_channel()
+        raw_ch.is_closed = True  # make the close handshake an immediate no-op
+
+        def execute_immediately(cb):
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = execute_immediately
+
+        # Wedge the consumer worker in a never-releasing callback so the pool
+        # cannot drain and exit.
+        release = threading.Event()
+        started = threading.Event()
+
+        def block():
+            started.set()
+            release.wait(timeout=5)
+
+        try:
+            ch._consumer_work_pool.submit(block)
+            self.assertTrue(started.wait(timeout=5))
+
+            done = threading.Event()
+
+            def do_close():
+                ch.close(timeout=0.1)
+                done.set()
+
+            closer = threading.Thread(target=do_close, daemon=True)
+            closer.start()
+            self.assertTrue(done.wait(timeout=5),
+                            'close() hung on a wedged consumer worker')
+            closer.join(timeout=5)
+            self.assertTrue(ch._pool_shutdown)
+        finally:
+            release.set()
+            ch._consumer_work_pool.shutdown(wait=True, timeout=5)
 
     def test_properties_delegate_to_raw_channel(self):
         ch, raw_ch, _wrapper = self._make_channel()
