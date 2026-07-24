@@ -90,12 +90,27 @@ def _submit_or_terminate(pool: _BoundedWorkPool, connection: SelectConnection,
     :class:`~pika.exceptions.StreamLostError`.  A ``RuntimeError`` means the pool
     is already shut down, so the callback is dropped.
 
+    Once teardown has begun, ``connection._error`` is set synchronously (by the
+    first :meth:`~pika.connection.Connection._terminate_stream` call) while the
+    transport abort completes asynchronously on the IOLoop.  A broker that has
+    buffered a burst of deliveries would otherwise keep dispatching them on this
+    same thread before the abort runs, and each one would block for the full
+    ``work_queue_put_timeout`` and re-trigger teardown - so a backlog of ``N``
+    deliveries would take ``N * work_queue_put_timeout`` to close.  Short-circuit
+    once ``_error`` is set so the connection tears down within one put timeout;
+    the skipped deliveries were already lost to the overflow.
+
     :param pool: The work pool to submit to.
     :param connection: The underlying connection, torn down on overflow.
     :param drop_msg: Debug message logged when the pool is already shut down.
     :param fn: The callback to run on the pool worker.
     :param args: Positional arguments forwarded to *fn*.
     """
+    if connection._error is not None:
+        # Teardown already underway; do not block on a full queue or re-trigger
+        # it.  The delivery is dropped along with the rest of the overflow.
+        LOGGER.debug(drop_msg)
+        return
     try:
         pool.submit(fn, *args)
     except WorkQueueFullError as exc:

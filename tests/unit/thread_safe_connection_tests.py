@@ -22,6 +22,7 @@ class SubmitOrTerminateTests(unittest.TestCase):
         """A normal submit must forward fn and args to the pool untouched."""
         pool = MagicMock()
         connection = MagicMock()
+        connection._error = None
         fn = object()
         _submit_or_terminate(pool, connection, 'dropped', fn, 'a', 'b')
         pool.submit.assert_called_once_with(fn, 'a', 'b')
@@ -33,6 +34,7 @@ class SubmitOrTerminateTests(unittest.TestCase):
         pool = MagicMock()
         pool.submit.side_effect = exc
         connection = MagicMock()
+        connection._error = None
         _submit_or_terminate(pool, connection, 'dropped', lambda: None)
         connection._terminate_stream.assert_called_once_with(exc)
 
@@ -41,8 +43,22 @@ class SubmitOrTerminateTests(unittest.TestCase):
         pool = MagicMock()
         pool.submit.side_effect = RuntimeError('pool shut down')
         connection = MagicMock()
+        connection._error = None
         with patch('pika.adapters.thread_safe_connection.LOGGER') as logger:
             _submit_or_terminate(pool, connection, 'dropped msg', lambda: None)
+        connection._terminate_stream.assert_not_called()
+        logger.debug.assert_called_once_with('dropped msg')
+
+    def test_skips_submit_when_teardown_already_underway(self):
+        """When connection._error is set, the work must be dropped without a pool submit or a repeat
+        teardown.
+        """
+        pool = MagicMock()
+        connection = MagicMock()
+        connection._error = WorkQueueFullError('already tearing down')
+        with patch('pika.adapters.thread_safe_connection.LOGGER') as logger:
+            _submit_or_terminate(pool, connection, 'dropped msg', lambda: None)
+        pool.submit.assert_not_called()
         connection._terminate_stream.assert_not_called()
         logger.debug.assert_called_once_with('dropped msg')
 
@@ -268,6 +284,9 @@ class ThreadSafeChannelTests(unittest.TestCase):
         wrapper._closed_reason = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
+        # A healthy connection has no pending error; _submit_or_terminate
+        # short-circuits when _error is set, so it must be None here.
+        wrapper._connection._error = None
         return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_basic_publish_routes_through_add_callback_threadsafe(self):
@@ -845,6 +864,9 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         wrapper._closed_reason = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
+        # A healthy connection has no pending error; _submit_or_terminate
+        # short-circuits when _error is set, so it must be None here.
+        wrapper._connection._error = None
         return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_callback_runs_on_worker_thread_not_ioloop(self):
@@ -1351,6 +1373,9 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
         wrapper._closed_reason = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
+        # A healthy connection has no pending error; _submit_or_terminate
+        # short-circuits when _error is set, so it must be None here.
+        wrapper._connection._error = None
         return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_queue_declare_raises_timeout_error(self):
@@ -1517,6 +1542,9 @@ class BlockingRPCPassthroughTests(unittest.TestCase):
         wrapper._closed_reason = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
+        # A healthy connection has no pending error; _submit_or_terminate
+        # short-circuits when _error is set, so it must be None here.
+        wrapper._connection._error = None
         return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
 
     def _run_immediate_rpc(self, raw_method, *call_args, **call_kwargs):
@@ -1614,6 +1642,9 @@ class BlockingRPCErrorPathTests(unittest.TestCase):
         wrapper._closed_reason = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
+        # A healthy connection has no pending error; _submit_or_terminate
+        # short-circuits when _error is set, so it must be None here.
+        wrapper._connection._error = None
         return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_method_raise_propagates_to_caller(self):
@@ -1664,6 +1695,9 @@ class BasicGetTests(unittest.TestCase):
         wrapper._closed_reason = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
+        # A healthy connection has no pending error; _submit_or_terminate
+        # short-circuits when _error is set, so it must be None here.
+        wrapper._connection._error = None
         return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_basic_get_returns_message_tuple(self):
@@ -1744,6 +1778,9 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
         wrapper._closed_reason = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
+        # A healthy connection has no pending error; _submit_or_terminate
+        # short-circuits when _error is set, so it must be None here.
+        wrapper._connection._error = None
         return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_close_propagates_broker_initiated_close_reason(self):
@@ -1789,6 +1826,9 @@ class CallbackRegistrationFailureTests(unittest.TestCase):
         wrapper._closed_reason = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
+        # A healthy connection has no pending error; _submit_or_terminate
+        # short-circuits when _error is set, so it must be None here.
+        wrapper._connection._error = None
         return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_add_on_cancel_callback_logs_when_raw_register_raises(self):
@@ -1853,6 +1893,9 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
             mock_conn.is_open = True
             mock_conn.is_closed = False
             mock_conn.is_closing = False
+            # A healthy connection has no pending error; _submit_or_terminate
+            # short-circuits when _error is set, so it must be None here.
+            mock_conn._error = None
 
             def fake_init(parameters, on_open_callback, on_open_error_callback,
                           on_close_callback):
@@ -2209,6 +2252,9 @@ class ThreadSafeConnectionTests(unittest.TestCase):
             mock_conn.is_open = True
             mock_conn.is_closed = False
             mock_conn.is_closing = False
+            # A healthy connection has no pending error; _submit_or_terminate
+            # short-circuits when _error is set, so it must be None here.
+            mock_conn._error = None
 
             # Capture the on_open_callback passed to SelectConnection
             # and call it immediately so _connected_event gets set.
@@ -2325,6 +2371,9 @@ class ThreadSafeConnectionTests(unittest.TestCase):
             mock_conn.is_open = True
             mock_conn.is_closed = False
             mock_conn.is_closing = False
+            # A healthy connection has no pending error; _submit_or_terminate
+            # short-circuits when _error is set, so it must be None here.
+            mock_conn._error = None
 
             def fake_init(parameters, on_open_callback, on_open_error_callback,
                           on_close_callback):
@@ -2741,6 +2790,9 @@ class ConnectionCloseFromIOLoopTests(unittest.TestCase):
             mock_conn.is_open = True
             mock_conn.is_closed = False
             mock_conn.is_closing = False
+            # A healthy connection has no pending error; _submit_or_terminate
+            # short-circuits when _error is set, so it must be None here.
+            mock_conn._error = None
 
             def fake_init(parameters, on_open_callback, on_open_error_callback,
                           on_close_callback):
@@ -2782,6 +2834,9 @@ class ConnectionEventRegistrationFailureTests(unittest.TestCase):
             mock_conn.is_open = True
             mock_conn.is_closed = False
             mock_conn.is_closing = False
+            # A healthy connection has no pending error; _submit_or_terminate
+            # short-circuits when _error is set, so it must be None here.
+            mock_conn._error = None
 
             def fake_init(parameters, on_open_callback, on_open_error_callback,
                           on_close_callback):
@@ -2823,6 +2878,9 @@ class ChannelOpenExceptionPathTests(unittest.TestCase):
             mock_conn.is_open = True
             mock_conn.is_closed = False
             mock_conn.is_closing = False
+            # A healthy connection has no pending error; _submit_or_terminate
+            # short-circuits when _error is set, so it must be None here.
+            mock_conn._error = None
 
             def fake_init(parameters, on_open_callback, on_open_error_callback,
                           on_close_callback):
