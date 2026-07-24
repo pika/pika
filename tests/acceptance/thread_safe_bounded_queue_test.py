@@ -78,11 +78,15 @@ class TestSlowConsumerOverflowClosesConnection(
             close_reason.append(reason)
             closed.set()
 
-        # maxsize=2 with a 1 s put timeout so overflow surfaces quickly once the
-        # single worker wedges on its first delivery.
+        # maxsize=1 with a short put timeout so overflow surfaces quickly once
+        # the single worker wedges on its first delivery.  Teardown is bounded
+        # by roughly one put timeout because _submit_or_terminate short-circuits
+        # once _error is set (rather than paying a put timeout per buffered
+        # delivery), but broker delivery scheduling and CI load still add
+        # variable slack, so the wait window is generous.
         conn = self._connect(on_close_callback=on_close,
-                             work_queue_maxsize=2,
-                             work_queue_put_timeout=1.0)
+                             work_queue_maxsize=1,
+                             work_queue_put_timeout=0.5)
         ch = conn.channel()
         queue = self._unique_queue()
         self._declare_and_fill(ch, queue, count=50)
@@ -98,7 +102,7 @@ class TestSlowConsumerOverflowClosesConnection(
                          on_message_callback=wedged_consumer,
                          auto_ack=True)
 
-        self.assertTrue(closed.wait(BLOCKING_CALL_TIMEOUT),
+        self.assertTrue(closed.wait(BLOCKING_CALL_TIMEOUT * 3),
                         'connection did not close on queue overflow')
         self.assertIsInstance(
             close_reason[0], WorkQueueFullError,
