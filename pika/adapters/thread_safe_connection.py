@@ -18,6 +18,7 @@ import itertools
 import logging
 import queue
 import threading
+import time
 from threading import Event
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -150,11 +151,15 @@ class _BoundedWorkPool:
             fn, args = item
             fn(*args)
 
-    def shutdown(self, wait: bool = True) -> None:
+    def shutdown(self, wait: bool = True, timeout: float | None = None) -> bool:
         """
         Shut down the pool, allowing in-flight work to finish.
 
-        Idempotent. Subsequent :meth:`submit` calls raise :class:`RuntimeError`.
+        Idempotent: repeated calls are safe and subsequent :meth:`submit`
+        calls raise :class:`RuntimeError`.  A repeat call still joins (so a
+        caller whose first bounded call timed out can wait again for the
+        worker), which is why the flag is set unconditionally rather than
+        short-circuiting.
 
         Setting the shutdown flag (rather than enqueuing an in-band sentinel)
         keeps this non-blocking even when the queue is full: a wedged worker
@@ -162,17 +167,28 @@ class _BoundedWorkPool:
         drains all pending work, then exits the next time it finds the queue
         empty with the flag set.
 
-        :param wait: Block until the worker thread has drained the queue and exited.
+        When *wait* is true this joins the worker thread.  A finite *timeout*
+        bounds that join: if the worker is still running callbacks when the
+        timeout expires, the join returns anyway and the (daemon) worker is
+        left to finish and exit on its own.  A wedged worker therefore cannot
+        stall the caller past *timeout*, at the cost of possibly not draining
+        queued work before this returns.
+
+        :param wait: Block until the worker thread exits (subject to *timeout*).
+        :param timeout: Seconds to wait for the worker to exit.  ``None`` waits
+            indefinitely.  Ignored when *wait* is false.
+        :returns: ``True`` if the worker has exited (or never started),
+            ``False`` if *timeout* expired with the worker still alive.
         """
         with self._lock:
-            if self._shutdown:
-                return
             self._shutdown = True
             thread = self._thread
         if thread is None:
-            return
-        if wait:
-            thread.join()
+            return True
+        if not wait:
+            return not thread.is_alive()
+        thread.join(timeout=timeout)
+        return not thread.is_alive()
 
 
 class ThreadSafeChannel:
@@ -258,11 +274,22 @@ class ThreadSafeChannel:
         except Exception:
             LOGGER.exception('Unhandled exception in %s', label)
 
-    def _shutdown_pool(self) -> None:
-        """Shut down the consumer work pool, allowing in-flight work to finish."""
+    def _shutdown_pool(self, timeout: float | None = None) -> None:
+        """
+        Shut down the consumer work pool, allowing in-flight work to finish.
+
+        :param timeout: Seconds to wait for the worker to drain and exit. ``None`` waits
+            indefinitely. A wedged worker that outlives a finite *timeout* is left running (it is a
+            daemon thread) rather than stalling the caller; a warning is logged.
+        """
         if not self._pool_shutdown:
             self._pool_shutdown = True
-            self._consumer_work_pool.shutdown(wait=True)
+            if not self._consumer_work_pool.shutdown(wait=True,
+                                                     timeout=timeout):
+                LOGGER.warning(
+                    'Channel %s consumer work pool did not drain within '
+                    '%s seconds; abandoning its worker thread',
+                    self._channel.channel_number, timeout)
 
     def _register_waiter(self) -> tuple[Event, list[BaseException | None]]:
         """
@@ -1062,6 +1089,11 @@ class ThreadSafeChannel:
         If the channel is already closed or closing, returns immediately. Safe to call from any
         thread.
 
+        *timeout* bounds the whole call: it caps the wait for Channel.CloseOk and then the leftover
+        budget caps the consumer-pool drain, so a slow or wedged delivery callback cannot stall
+        ``close`` past *timeout*.  A worker still running when the budget is exhausted is left to
+        finish on its own (it is a daemon thread).
+
         :param reply_code: Close reason code to send to the broker.
         :param reply_text: Close reason text to send to the broker.
         :param timeout: Seconds to wait for Channel.CloseOk before treating the channel as closed
@@ -1070,6 +1102,7 @@ class ThreadSafeChannel:
             than by this client.
         """
         ready, error = self._register_waiter()
+        deadline = None if timeout is None else time.monotonic() + timeout
 
         def _close() -> None:
             if self._channel.is_closed or self._channel.is_closing:
@@ -1096,7 +1129,13 @@ class ThreadSafeChannel:
             if not ready.wait(timeout=timeout):
                 LOGGER.warning('Channel %s close timed out after %s seconds',
                                self._channel.channel_number, timeout)
-            self._shutdown_pool()
+            # Drain the pool within whatever remains of the caller's budget so
+            # the whole close honors *timeout* rather than up to twice it.
+            if deadline is None:
+                pool_timeout: float | None = None
+            else:
+                pool_timeout = max(0.0, deadline - time.monotonic())
+            self._shutdown_pool(timeout=pool_timeout)
         finally:
             self._unregister_waiter(ready, error)
 
@@ -1359,18 +1398,46 @@ class ThreadSafeConnection:
         if self._user_on_close_callback:
             self._user_on_close_callback(_connection, reason)
 
-    def _shutdown_all_consumer_pools(self) -> None:
-        """Shut down all tracked channel consumer pools."""
+    def _shutdown_all_consumer_pools(self,
+                                     timeout: float | None = None) -> None:
+        """
+        Shut down all tracked channel consumer pools.
+
+        :param timeout: Total seconds to wait across all channel pools. ``None`` waits indefinitely
+            (the clean-shutdown default). A finite budget is split across channels so the whole
+            sweep stays bounded.
+        """
         with self._channel_waiters_lock:
             channels = list(self._channels)
+        if not channels:
+            return
+        if timeout is None:
+            for ch in channels:
+                ch._shutdown_pool()
+            return
+        # Share the budget across channels using a common deadline so a slow
+        # early channel cannot consume the entire allowance and starve later
+        # ones of their chance to drain.
+        deadline = time.monotonic() + timeout
         for ch in channels:
-            ch._shutdown_pool()
+            ch._shutdown_pool(timeout=max(0.0, deadline - time.monotonic()))
 
-    def _shutdown_connection_pool(self) -> None:
-        """Shut down the connection-level event-callback pool."""
+    def _shutdown_connection_pool(self, timeout: float | None = None) -> None:
+        """
+        Shut down the connection-level event-callback pool.
+
+        :param timeout: Seconds to wait for the worker to drain and exit. ``None`` waits
+            indefinitely (the clean-shutdown default). A wedged worker outliving a finite *timeout*
+            is left running (daemon thread) rather than stalling the caller; a warning is logged.
+        """
         if not self._connection_pool_shutdown:
             self._connection_pool_shutdown = True
-            self._connection_work_pool.shutdown(wait=True)
+            if not self._connection_work_pool.shutdown(wait=True,
+                                                       timeout=timeout):
+                LOGGER.warning(
+                    'Connection %s event work pool did not drain within '
+                    '%s seconds; abandoning its worker thread',
+                    self._instance_id, timeout)
 
     # ------------------------------------------------------------------
     # Public API
@@ -1449,7 +1516,9 @@ class ThreadSafeConnection:
         Schedules a clean Connection.Close handshake and waits up to *timeout* seconds for the
         IOLoop thread to finish.  If the thread is still alive after the timeout (e.g. the broker
         never sends Connection.CloseOk), the IOLoop is force-stopped via ``add_callback_threadsafe``
-        and joined once more.
+        and joined once more under a second *timeout* budget.  A worker still draining when that
+        budget expires is left to finish on its own (it is a daemon thread), so a wedged delivery
+        callback cannot hang ``close`` indefinitely.
 
         Safe to call from any thread including the IOLoop thread itself (e.g. from within a channel
         callback).  When called from the IOLoop thread the close is initiated synchronously and the
@@ -1458,8 +1527,9 @@ class ThreadSafeConnection:
         Calling ``close()`` on an already-closed connection is a no-op.
 
         :param timeout: Seconds to wait for a clean close before force-stopping the IOLoop. Defaults
-            to 10 seconds, which is sufficient for a healthy broker on any reasonable network. Pass
-            ``None`` to wait indefinitely.
+            to 10 seconds, which is sufficient for a healthy broker on any reasonable network. The
+            pathological force path may wait up to twice this (once for the clean join, once for the
+            forced join). Pass ``None`` to wait indefinitely.
         """
         if threading.current_thread() is self._ioloop_thread:
             try:
@@ -1486,7 +1556,24 @@ class ThreadSafeConnection:
         if self._ioloop_thread.is_alive():
             self._connection.ioloop.add_callback_threadsafe(
                 self._connection.ioloop.stop)
-            self._ioloop_thread.join()
+            # The IOLoop thread runs its own pool-drain tail after
+            # ioloop.start() returns; a wedged consumer callback can keep it
+            # from exiting.  Bound the join (and the pool shutdowns below) by a
+            # fresh budget so a stuck worker cannot hang close() forever - the
+            # worker is a daemon thread and is left to finish on its own.
+            force_deadline = (None if timeout is None else time.monotonic() +
+                              timeout)
+
+            def _remaining() -> float | None:
+                if force_deadline is None:
+                    return None
+                return max(0.0, force_deadline - time.monotonic())
+
+            self._ioloop_thread.join(timeout=_remaining())
+            if self._ioloop_thread.is_alive():
+                LOGGER.warning(
+                    'Connection %s IOLoop thread did not exit within the close '
+                    'timeout; abandoning it', self._instance_id)
             # _on_connection_closed may not have fired if the IOLoop was
             # force-stopped before the broker sent Connection.CloseOk.
             # Wake any threads still blocked so they do not hang forever.
@@ -1500,8 +1587,10 @@ class ThreadSafeConnection:
                             err[0] = self._closed_reason
                         evt.set()
                     self._blocking_waiters.clear()
-            self._shutdown_all_consumer_pools()
-            self._shutdown_connection_pool()
+            # Normally the IOLoop tail already claimed these pools, making the
+            # calls no-ops; bound them in case this thread reaches them first.
+            self._shutdown_all_consumer_pools(timeout=_remaining())
+            self._shutdown_connection_pool(timeout=_remaining())
 
     def abort(self, timeout: float | None = 10) -> None:
         """
