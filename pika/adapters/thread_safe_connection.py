@@ -14,22 +14,226 @@ multiple threads call basic_publish() on a shared connection directly
 
 from __future__ import annotations
 
-import concurrent.futures
 import itertools
 import logging
+import queue
 import threading
+import time
 from threading import Event
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
     from typing_extensions import Literal, Self
 
 from pika import spec
 from pika.adapters.select_connection import SelectConnection
+from pika.exceptions import WorkQueueFullError
 
 LOGGER = logging.getLogger(__name__)
 
 DEFAULT_RPC_TIMEOUT = 10
+
+# Matches MAX_QUEUE_LENGTH in the RabbitMQ Java client's WorkPool.
+DEFAULT_WORK_QUEUE_MAXSIZE = 1000
+
+# Default seconds the IOLoop thread waits for space on a full work queue
+# before raising WorkQueueFullError and tearing down the connection.
+# While the queue is full the IOLoop blocks - it sends no heartbeats and
+# reads no frames - so a wedged consumer stalls the connection for up to
+# this long.  Keep an override comfortably under the negotiated
+# heartbeat-death window (twice the heartbeat interval) so the stall
+# surfaces as a clean WorkQueueFullError before the broker drops the link
+# with an opaque StreamLostError.
+DEFAULT_WORK_QUEUE_PUT_TIMEOUT = 30.0
+
+
+def _validate_put_timeout(put_timeout: float) -> float:
+    """
+    Validate a public work-queue put timeout.
+
+    A ``None`` (infinite) timeout is rejected because it lets a full work queue block the IOLoop
+    thread forever.  A non-positive timeout - including ``0`` and ``float('nan')`` - is rejected
+    because it cannot bound the stall.
+
+    :param put_timeout: Seconds the IOLoop thread waits for queue space before raising
+        :class:`pika.exceptions.WorkQueueFullError`.
+    :returns: *put_timeout* unchanged.
+    :raises ValueError: if *put_timeout* is ``None`` or is not a positive number.
+    """
+    if put_timeout is None:
+        raise ValueError(
+            'work_queue_put_timeout must be a number of seconds, not None; '
+            'an infinite timeout lets a full work queue block the IOLoop '
+            'thread forever')
+    # ``not put_timeout > 0`` (rather than ``put_timeout <= 0``) also
+    # rejects float('nan'), for which every comparison is False.
+    if not put_timeout > 0:
+        raise ValueError(
+            f'work_queue_put_timeout must be a positive number of seconds, '
+            f'got {put_timeout!r}')
+    return put_timeout
+
+
+def _submit_or_terminate(pool: _BoundedWorkPool, connection: SelectConnection,
+                         drop_msg: str, fn: Callable[...,
+                                                     None], *args: Any) -> None:
+    """
+    Submit *fn* to *pool*, tearing the connection down on queue overflow.
+
+    Called on the IOLoop thread from the wrappers that hand user callbacks to a
+    :class:`_BoundedWorkPool`.  A :class:`~pika.exceptions.WorkQueueFullError`
+    means a slow callback let the queue stay full past ``work_queue_put_timeout``;
+    it is routed through :meth:`~pika.connection.Connection._terminate_stream` so
+    the connection closes with :class:`~pika.exceptions.WorkQueueFullError` as the
+    reason the application observes, rather than being caught by the transport's
+    generic read-error handler and relabeled as an opaque
+    :class:`~pika.exceptions.StreamLostError`.  A ``RuntimeError`` means the pool
+    is already shut down, so the callback is dropped.
+
+    Once teardown has begun, ``connection._error`` is set synchronously (by the
+    first :meth:`~pika.connection.Connection._terminate_stream` call) while the
+    transport abort completes asynchronously on the IOLoop.  A broker that has
+    buffered a burst of deliveries would otherwise keep dispatching them on this
+    same thread before the abort runs, and each one would block for the full
+    ``work_queue_put_timeout`` and re-trigger teardown - so a backlog of ``N``
+    deliveries would take ``N * work_queue_put_timeout`` to close.  Short-circuit
+    once ``_error`` is set so the connection tears down within one put timeout;
+    the skipped deliveries were already lost to the overflow.
+
+    :param pool: The work pool to submit to.
+    :param connection: The underlying connection, torn down on overflow.
+    :param drop_msg: Debug message logged when the pool is already shut down.
+    :param fn: The callback to run on the pool worker.
+    :param args: Positional arguments forwarded to *fn*.
+    """
+    if connection._error is not None:
+        # Teardown already underway; do not block on a full queue or re-trigger
+        # it.  The delivery is dropped along with the rest of the overflow.
+        LOGGER.debug(drop_msg)
+        return
+    try:
+        pool.submit(fn, *args)
+    except WorkQueueFullError as exc:
+        connection._terminate_stream(exc)
+    except RuntimeError:
+        LOGGER.debug(drop_msg)
+
+
+class _BoundedWorkPool:
+    """
+    Single worker thread consuming from a bounded work queue.
+
+    Replaces :class:`concurrent.futures.ThreadPoolExecutor`, whose internal
+    queue is unbounded and grows without limit when user callbacks cannot
+    keep up with incoming events (issue #1600).
+
+    ``submit`` runs on the IOLoop thread.  While the queue is full it
+    blocks, which stops frame reads from the socket and applies
+    back-pressure to the broker via TCP flow control - the same strategy
+    as the RabbitMQ Java client's ``WorkPool``.
+
+    The worker thread starts lazily on first submit so that channels which
+    never dispatch callbacks (e.g. publish-only channels) do not start one.
+
+    :param maxsize: Maximum number of pending work items.  Pass ``0`` for
+        an unbounded queue.
+    :param put_timeout: Seconds :meth:`submit` waits for queue space before
+        raising :class:`pika.exceptions.WorkQueueFullError`.  Must be
+        finite; an infinite (``None``) timeout would let a full queue block
+        the IOLoop thread forever.
+    :param thread_name: Name of the worker thread.
+    """
+
+    # Seconds the idle worker waits on an empty queue before re-checking the
+    # shutdown flag.  Bounds how long shutdown(wait=True) lingers after the
+    # queue drains; small enough to feel instant, large enough that an idle
+    # pool wakes only a few times a second.
+    _SHUTDOWN_POLL_INTERVAL = 0.1
+
+    def __init__(self, maxsize: int, put_timeout: float,
+                 thread_name: str) -> None:
+        self._queue: queue.Queue[Any] = queue.Queue(maxsize=maxsize)
+        self._put_timeout = put_timeout
+        self._thread_name = thread_name
+        self._thread: threading.Thread | None = None
+        self._lock = threading.Lock()
+        self._shutdown = False
+
+    def submit(self, fn: Callable[..., None], *args: Any) -> None:
+        """
+        Enqueue ``fn(*args)`` for execution on the worker thread.
+
+        :raises RuntimeError: if the pool has been shut down.
+        :raises WorkQueueFullError: if the queue stays full for *put_timeout* seconds.
+        """
+        with self._lock:
+            if self._shutdown:
+                raise RuntimeError('cannot submit work after pool shutdown')
+            if self._thread is None:
+                self._thread = threading.Thread(
+                    target=self._run_worker,
+                    name=self._thread_name,
+                    daemon=True,
+                )
+                self._thread.start()
+        try:
+            self._queue.put((fn, args), timeout=self._put_timeout)
+        except queue.Full:
+            raise WorkQueueFullError(
+                f'work queue full for {self._put_timeout} seconds '
+                f'(maxsize={self._queue.maxsize})') from None
+
+    def _run_worker(self) -> None:
+        while True:
+            try:
+                item = self._queue.get(timeout=self._SHUTDOWN_POLL_INTERVAL)
+            except queue.Empty:
+                # No work pending; exit only once shutdown has been requested,
+                # otherwise keep waiting for the next item.
+                if self._shutdown:
+                    return
+                continue
+            fn, args = item
+            fn(*args)
+
+    def shutdown(self, wait: bool = True, timeout: float | None = None) -> bool:
+        """
+        Shut down the pool, allowing in-flight work to finish.
+
+        Idempotent: repeated calls are safe and subsequent :meth:`submit`
+        calls raise :class:`RuntimeError`.  A repeat call still joins (so a
+        caller whose first bounded call timed out can wait again for the
+        worker), which is why the flag is set unconditionally rather than
+        short-circuiting.
+
+        Setting the shutdown flag (rather than enqueuing an in-band sentinel)
+        keeps this non-blocking even when the queue is full: a wedged worker
+        that has not freed a slot can never stall the caller here.  The worker
+        drains all pending work, then exits the next time it finds the queue
+        empty with the flag set.
+
+        When *wait* is true this joins the worker thread.  A finite *timeout*
+        bounds that join: if the worker is still running callbacks when the
+        timeout expires, the join returns anyway and the (daemon) worker is
+        left to finish and exit on its own.  A wedged worker therefore cannot
+        stall the caller past *timeout*, at the cost of possibly not draining
+        queued work before this returns.
+
+        :param wait: Block until the worker thread exits (subject to *timeout*).
+        :param timeout: Seconds to wait for the worker to exit.  ``None`` waits
+            indefinitely.  Ignored when *wait* is false.
+        :returns: ``True`` if the worker has exited (or never started),
+            ``False`` if *timeout* expired with the worker still alive.
+        """
+        with self._lock:
+            self._shutdown = True
+            thread = self._thread
+        if thread is None:
+            return True
+        if not wait:
+            return not thread.is_alive()
+        thread.join(timeout=timeout)
+        return not thread.is_alive()
 
 
 class ThreadSafeChannel:
@@ -49,14 +253,29 @@ class ThreadSafeChannel:
     - Blocking operations (database writes, HTTP calls, even
       :meth:`queue_declare` / :meth:`basic_qos` / :meth:`basic_cancel`)
       are safe inside delivery callbacks.
-    - The IOLoop thread is never starved by slow consumer processing,
-      so heartbeats are always sent on time.
+    - As long as the callback keeps up with deliveries, the IOLoop
+      thread is not starved by consumer processing, so heartbeats are
+      sent on time.
     - Messages are delivered to the callback **in order** (a single
       worker thread per channel).
     - All :class:`ThreadSafeChannel` methods (:meth:`basic_ack`,
       :meth:`basic_nack`, :meth:`basic_reject`, :meth:`basic_publish`,
       :meth:`queue_declare`, etc.) are safe to call from within the
       callback.
+
+    .. rubric:: Sustained-backlog caveat
+
+    "Safe" assumes the callback keeps pace with incoming deliveries.
+    The worker consumes from a bounded queue (see *work_queue_maxsize*).
+    If a slow callback lets that queue fill, the IOLoop thread blocks
+    while enqueuing the next delivery - sending no heartbeats during the
+    stall - and, if the queue stays full for *work_queue_put_timeout*
+    seconds, raises :class:`pika.exceptions.WorkQueueFullError`, which
+    tears the connection down rather than silently dropping the event.
+    A persistently slow consumer therefore does not stall heartbeats
+    forever; it fails fast with an explicit error.  Keep callbacks
+    faster than the sustained delivery rate, or raise *work_queue_maxsize*
+    to absorb bursts.
 
     .. rubric:: IOLoop-thread callbacks
 
@@ -66,12 +285,20 @@ class ThreadSafeChannel:
     blocking channel methods (which would deadlock).
     """
 
-    def __init__(self, channel, wrapper) -> None:
+    def __init__(
+            self,
+            channel,
+            wrapper,
+            work_queue_maxsize: int = DEFAULT_WORK_QUEUE_MAXSIZE,
+            work_queue_put_timeout: float = DEFAULT_WORK_QUEUE_PUT_TIMEOUT
+    ) -> None:
+        work_queue_put_timeout = _validate_put_timeout(work_queue_put_timeout)
         self._channel = channel
         self._wrapper = wrapper
-        self._consumer_work_pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=1,
-            thread_name_prefix='pika-consumer',
+        self._consumer_work_pool = _BoundedWorkPool(
+            maxsize=work_queue_maxsize,
+            put_timeout=work_queue_put_timeout,
+            thread_name='pika-consumer',
         )
         self._pool_shutdown = False
         self._next_publish_seq_no: int | None = None
@@ -94,10 +321,9 @@ class ThreadSafeChannel:
         Execute *callback* on the pool worker, logging any exception.
 
         Used to wrap user callbacks before submitting them to a
-        :class:`concurrent.futures.ThreadPoolExecutor` so that exceptions
-        are not silently lost in the unobserved ``Future`` and so that one
-        failing dispatch does not prevent subsequent dispatches from being
-        processed.
+        :class:`_BoundedWorkPool` so that exceptions are not silently lost
+        and so that one failing dispatch does not prevent subsequent
+        dispatches from being processed.
 
         :param label: Human-readable name of the callback for log lines.
         :param callback: The user callback.
@@ -108,11 +334,22 @@ class ThreadSafeChannel:
         except Exception:
             LOGGER.exception('Unhandled exception in %s', label)
 
-    def _shutdown_pool(self) -> None:
-        """Shut down the consumer work pool, allowing in-flight work to finish."""
+    def _shutdown_pool(self, timeout: float | None = None) -> None:
+        """
+        Shut down the consumer work pool, allowing in-flight work to finish.
+
+        :param timeout: Seconds to wait for the worker to drain and exit. ``None`` waits
+            indefinitely. A wedged worker that outlives a finite *timeout* is left running (it is a
+            daemon thread) rather than stalling the caller; a warning is logged.
+        """
         if not self._pool_shutdown:
             self._pool_shutdown = True
-            self._consumer_work_pool.shutdown(wait=True)
+            if not self._consumer_work_pool.shutdown(wait=True,
+                                                     timeout=timeout):
+                LOGGER.warning(
+                    'Channel %s consumer work pool did not drain within '
+                    '%s seconds; abandoning its worker thread',
+                    self._channel.channel_number, timeout)
 
     def _register_waiter(self) -> tuple[Event, list[BaseException | None]]:
         """
@@ -442,13 +679,10 @@ class ThreadSafeChannel:
         self._check_not_closed()
 
         def _wrapped(method_frame) -> None:
-            try:
-                self._consumer_work_pool.submit(self._safe_dispatch,
-                                                'cancel listener', callback,
-                                                method_frame)
-            except RuntimeError:
-                LOGGER.debug(
-                    'Server-initiated cancel dropped: work pool shut down')
+            _submit_or_terminate(
+                self._consumer_work_pool, self._wrapper._connection,
+                'Server-initiated cancel dropped: work pool shut down',
+                self._safe_dispatch, 'cancel listener', callback, method_frame)
 
         def _register() -> None:
             try:
@@ -481,12 +715,11 @@ class ThreadSafeChannel:
         self._check_not_closed()
 
         def _wrapped(_raw_ch, method, properties, body) -> None:
-            try:
-                self._consumer_work_pool.submit(self._safe_dispatch,
-                                                'return listener', callback,
-                                                self, method, properties, body)
-            except RuntimeError:
-                LOGGER.debug('Returned message dropped: work pool shut down')
+            _submit_or_terminate(
+                self._consumer_work_pool, self._wrapper._connection,
+                'Returned message dropped: work pool shut down',
+                self._safe_dispatch, 'return listener', callback, self, method,
+                properties, body)
 
         def _register() -> None:
             try:
@@ -529,12 +762,11 @@ class ThreadSafeChannel:
             return self._confirm_select_ok
 
         def _wrapped_ack_nack(method_frame) -> None:
-            try:
-                self._consumer_work_pool.submit(self._safe_dispatch,
-                                                'publisher confirm callback',
-                                                ack_nack_callback, method_frame)
-            except RuntimeError:
-                LOGGER.debug('Publisher confirm dropped: work pool shut down')
+            _submit_or_terminate(
+                self._consumer_work_pool, self._wrapper._connection,
+                'Publisher confirm dropped: work pool shut down',
+                self._safe_dispatch, 'publisher confirm callback',
+                ack_nack_callback, method_frame)
 
         result = self._blocking_rpc(
             'confirm_delivery',
@@ -580,13 +812,11 @@ class ThreadSafeChannel:
         """
 
         def _wrapped_callback(ch, method, properties, body) -> None:
-            try:
-                self._consumer_work_pool.submit(self._safe_dispatch,
-                                                'consumer callback',
-                                                on_message_callback, self,
-                                                method, properties, body)
-            except RuntimeError:
-                LOGGER.debug('Consumer delivery dropped: work pool shut down')
+            _submit_or_terminate(
+                self._consumer_work_pool, self._wrapper._connection,
+                'Consumer delivery dropped: work pool shut down',
+                self._safe_dispatch, 'consumer callback', on_message_callback,
+                self, method, properties, body)
 
         frame = self._blocking_rpc(
             'basic_consume',
@@ -912,6 +1142,11 @@ class ThreadSafeChannel:
         If the channel is already closed or closing, returns immediately. Safe to call from any
         thread.
 
+        *timeout* bounds the whole call: it caps the wait for Channel.CloseOk and then the leftover
+        budget caps the consumer-pool drain, so a slow or wedged delivery callback cannot stall
+        ``close`` past *timeout*.  A worker still running when the budget is exhausted is left to
+        finish on its own (it is a daemon thread).
+
         :param reply_code: Close reason code to send to the broker.
         :param reply_text: Close reason text to send to the broker.
         :param timeout: Seconds to wait for Channel.CloseOk before treating the channel as closed
@@ -920,6 +1155,7 @@ class ThreadSafeChannel:
             than by this client.
         """
         ready, error = self._register_waiter()
+        deadline = None if timeout is None else time.monotonic() + timeout
 
         def _close() -> None:
             if self._channel.is_closed or self._channel.is_closing:
@@ -946,7 +1182,13 @@ class ThreadSafeChannel:
             if not ready.wait(timeout=timeout):
                 LOGGER.warning('Channel %s close timed out after %s seconds',
                                self._channel.channel_number, timeout)
-            self._shutdown_pool()
+            # Drain the pool within whatever remains of the caller's budget so
+            # the whole close honors *timeout* rather than up to twice it.
+            if deadline is None:
+                pool_timeout: float | None = None
+            else:
+                pool_timeout = max(0.0, deadline - time.monotonic())
+            self._shutdown_pool(timeout=pool_timeout)
         finally:
             self._unregister_waiter(ready, error)
 
@@ -1052,19 +1294,48 @@ class ThreadSafeConnection:
         Pass ``None`` to wait indefinitely (relying on the socket timeout
         in *parameters*).  On timeout the IOLoop is stopped and
         :class:`TimeoutError` is raised.
+    :param work_queue_maxsize: Maximum number of user-callback dispatches
+        (deliveries, publisher confirms, returned messages, cancel and
+        blocked/unblocked notifications) that may be pending on each
+        worker's queue.  Defaults to :data:`DEFAULT_WORK_QUEUE_MAXSIZE`
+        (1000, matching the RabbitMQ Java client).  While a queue is full
+        the IOLoop blocks, applying back-pressure to the broker via TCP.
+        Heartbeats are not sent while the IOLoop is blocked, so the
+        broker's heartbeat timeout bounds how long a wedged consumer can
+        stall the connection.  Pass ``0`` for an unbounded queue.
+    :param work_queue_put_timeout: Seconds to wait for space on a full
+        work queue.  Defaults to :data:`DEFAULT_WORK_QUEUE_PUT_TIMEOUT`
+        (30 s); must be a positive number, and ``None`` (infinite) is
+        rejected because it lets a full queue stall or deadlock the IOLoop
+        thread.  Set an override comfortably below the negotiated
+        heartbeat-death window (twice the heartbeat interval) so a stall
+        surfaces here rather than as an opaque broker-side close.  On
+        timeout :class:`pika.exceptions.WorkQueueFullError` is raised on
+        the IOLoop thread, closing the connection rather than silently
+        dropping the event (which would lose an auto-acked delivery or
+        force redelivery of a manually-acked one).
+    :raises ValueError: if *work_queue_put_timeout* is ``None`` or is not a
+        positive number.
     :raises Exception: if the connection cannot be established.
     :raises TimeoutError: if *timeout* expires before the connection opens.
     """
 
     _instance_counter = itertools.count(1)
 
-    def __init__(self,
-                 parameters,
-                 on_open_error_callback=None,
-                 on_close_callback=None,
-                 timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
+    def __init__(
+            self,
+            parameters,
+            on_open_error_callback=None,
+            on_close_callback=None,
+            timeout: float | None = DEFAULT_RPC_TIMEOUT,
+            work_queue_maxsize: int = DEFAULT_WORK_QUEUE_MAXSIZE,
+            work_queue_put_timeout: float = DEFAULT_WORK_QUEUE_PUT_TIMEOUT
+    ) -> None:
         self._user_on_open_error_callback = on_open_error_callback
         self._user_on_close_callback = on_close_callback
+        self._work_queue_maxsize = work_queue_maxsize
+        self._work_queue_put_timeout = _validate_put_timeout(
+            work_queue_put_timeout)
 
         self._connect_error = None
         self._connected_event = threading.Event()
@@ -1080,9 +1351,10 @@ class ThreadSafeConnection:
         # Single-worker pool for connection-level event callbacks
         # (Connection.Blocked / Unblocked).  Keeps user code off the
         # IOLoop thread so a slow listener cannot stall heartbeats.
-        self._connection_work_pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=1,
-            thread_name_prefix=f'pika-conn-{self._instance_id}',
+        self._connection_work_pool = _BoundedWorkPool(
+            maxsize=work_queue_maxsize,
+            put_timeout=work_queue_put_timeout,
+            thread_name=f'pika-conn-{self._instance_id}',
         )
         self._connection_pool_shutdown = False
 
@@ -1179,18 +1451,46 @@ class ThreadSafeConnection:
         if self._user_on_close_callback:
             self._user_on_close_callback(_connection, reason)
 
-    def _shutdown_all_consumer_pools(self) -> None:
-        """Shut down all tracked channel consumer pools."""
+    def _shutdown_all_consumer_pools(self,
+                                     timeout: float | None = None) -> None:
+        """
+        Shut down all tracked channel consumer pools.
+
+        :param timeout: Total seconds to wait across all channel pools. ``None`` waits indefinitely
+            (the clean-shutdown default). A finite budget is split across channels so the whole
+            sweep stays bounded.
+        """
         with self._channel_waiters_lock:
             channels = list(self._channels)
+        if not channels:
+            return
+        if timeout is None:
+            for ch in channels:
+                ch._shutdown_pool()
+            return
+        # Share the budget across channels using a common deadline so a slow
+        # early channel cannot consume the entire allowance and starve later
+        # ones of their chance to drain.
+        deadline = time.monotonic() + timeout
         for ch in channels:
-            ch._shutdown_pool()
+            ch._shutdown_pool(timeout=max(0.0, deadline - time.monotonic()))
 
-    def _shutdown_connection_pool(self) -> None:
-        """Shut down the connection-level event-callback pool."""
+    def _shutdown_connection_pool(self, timeout: float | None = None) -> None:
+        """
+        Shut down the connection-level event-callback pool.
+
+        :param timeout: Seconds to wait for the worker to drain and exit. ``None`` waits
+            indefinitely (the clean-shutdown default). A wedged worker outliving a finite *timeout*
+            is left running (daemon thread) rather than stalling the caller; a warning is logged.
+        """
         if not self._connection_pool_shutdown:
             self._connection_pool_shutdown = True
-            self._connection_work_pool.shutdown(wait=True)
+            if not self._connection_work_pool.shutdown(wait=True,
+                                                       timeout=timeout):
+                LOGGER.warning(
+                    'Connection %s event work pool did not drain within '
+                    '%s seconds; abandoning its worker thread',
+                    self._instance_id, timeout)
 
     # ------------------------------------------------------------------
     # Public API
@@ -1254,7 +1554,11 @@ class ThreadSafeConnection:
         with self._channel_waiters_lock:
             if self._closed_reason is not None:
                 raise self._closed_reason
-            ch = ThreadSafeChannel(result[0], self)
+            ch = ThreadSafeChannel(
+                result[0],
+                self,
+                work_queue_maxsize=self._work_queue_maxsize,
+                work_queue_put_timeout=self._work_queue_put_timeout)
             self._channels.append(ch)
         return ch
 
@@ -1265,7 +1569,9 @@ class ThreadSafeConnection:
         Schedules a clean Connection.Close handshake and waits up to *timeout* seconds for the
         IOLoop thread to finish.  If the thread is still alive after the timeout (e.g. the broker
         never sends Connection.CloseOk), the IOLoop is force-stopped via ``add_callback_threadsafe``
-        and joined once more.
+        and joined once more under a second *timeout* budget.  A worker still draining when that
+        budget expires is left to finish on its own (it is a daemon thread), so a wedged delivery
+        callback cannot hang ``close`` indefinitely.
 
         Safe to call from any thread including the IOLoop thread itself (e.g. from within a channel
         callback).  When called from the IOLoop thread the close is initiated synchronously and the
@@ -1274,8 +1580,9 @@ class ThreadSafeConnection:
         Calling ``close()`` on an already-closed connection is a no-op.
 
         :param timeout: Seconds to wait for a clean close before force-stopping the IOLoop. Defaults
-            to 10 seconds, which is sufficient for a healthy broker on any reasonable network. Pass
-            ``None`` to wait indefinitely.
+            to 10 seconds, which is sufficient for a healthy broker on any reasonable network. The
+            pathological force path may wait up to twice this (once for the clean join, once for the
+            forced join). Pass ``None`` to wait indefinitely.
         """
         if threading.current_thread() is self._ioloop_thread:
             try:
@@ -1302,7 +1609,24 @@ class ThreadSafeConnection:
         if self._ioloop_thread.is_alive():
             self._connection.ioloop.add_callback_threadsafe(
                 self._connection.ioloop.stop)
-            self._ioloop_thread.join()
+            # The IOLoop thread runs its own pool-drain tail after
+            # ioloop.start() returns; a wedged consumer callback can keep it
+            # from exiting.  Bound the join (and the pool shutdowns below) by a
+            # fresh budget so a stuck worker cannot hang close() forever - the
+            # worker is a daemon thread and is left to finish on its own.
+            force_deadline = (None if timeout is None else time.monotonic() +
+                              timeout)
+
+            def _remaining() -> float | None:
+                if force_deadline is None:
+                    return None
+                return max(0.0, force_deadline - time.monotonic())
+
+            self._ioloop_thread.join(timeout=_remaining())
+            if self._ioloop_thread.is_alive():
+                LOGGER.warning(
+                    'Connection %s IOLoop thread did not exit within the close '
+                    'timeout; abandoning it', self._instance_id)
             # _on_connection_closed may not have fired if the IOLoop was
             # force-stopped before the broker sent Connection.CloseOk.
             # Wake any threads still blocked so they do not hang forever.
@@ -1316,8 +1640,10 @@ class ThreadSafeConnection:
                             err[0] = self._closed_reason
                         evt.set()
                     self._blocking_waiters.clear()
-            self._shutdown_all_consumer_pools()
-            self._shutdown_connection_pool()
+            # Normally the IOLoop tail already claimed these pools, making the
+            # calls no-ops; bound them in case this thread reaches them first.
+            self._shutdown_all_consumer_pools(timeout=_remaining())
+            self._shutdown_connection_pool(timeout=_remaining())
 
     def abort(self, timeout: float | None = 10) -> None:
         """
@@ -1421,12 +1747,11 @@ class ThreadSafeConnection:
                 raise self._closed_reason
 
         def _wrapped(_raw_conn, method_frame) -> None:
-            try:
-                self._connection_work_pool.submit(
-                    ThreadSafeChannel._safe_dispatch, raw_method_name, callback,
-                    self, method_frame)
-            except RuntimeError:
-                LOGGER.debug('Connection event dropped: work pool shut down')
+            _submit_or_terminate(
+                self._connection_work_pool, self._connection,
+                'Connection event dropped: work pool shut down',
+                ThreadSafeChannel._safe_dispatch, raw_method_name, callback,
+                self, method_frame)
 
         def _register() -> None:
             try:

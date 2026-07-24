@@ -1,10 +1,276 @@
 """Tests for pika.adapters.thread_safe_connection."""
 
 import threading
+import time
 import unittest
 from unittest.mock import ANY, MagicMock, patch
 
-from pika.adapters.thread_safe_connection import ThreadSafeChannel, ThreadSafeConnection
+from pika.adapters.thread_safe_connection import (
+    DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
+    ThreadSafeChannel,
+    ThreadSafeConnection,
+    _BoundedWorkPool,
+    _submit_or_terminate,
+)
+from pika.exceptions import WorkQueueFullError
+
+
+class SubmitOrTerminateTests(unittest.TestCase):
+    """Tests for the _submit_or_terminate submit-wrapper helper."""
+
+    def test_submits_work_to_pool(self):
+        """A normal submit must forward fn and args to the pool untouched."""
+        pool = MagicMock()
+        connection = MagicMock()
+        connection._error = None
+        fn = object()
+        _submit_or_terminate(pool, connection, 'dropped', fn, 'a', 'b')
+        pool.submit.assert_called_once_with(fn, 'a', 'b')
+        connection._terminate_stream.assert_not_called()
+
+    def test_overflow_terminates_connection_with_the_error(self):
+        """A WorkQueueFullError must tear the connection down with that error."""
+        exc = WorkQueueFullError('full')
+        pool = MagicMock()
+        pool.submit.side_effect = exc
+        connection = MagicMock()
+        connection._error = None
+        _submit_or_terminate(pool, connection, 'dropped', lambda: None)
+        connection._terminate_stream.assert_called_once_with(exc)
+
+    def test_runtime_error_drops_work_without_terminating(self):
+        """A RuntimeError (pool shut down) must drop the work, not terminate."""
+        pool = MagicMock()
+        pool.submit.side_effect = RuntimeError('pool shut down')
+        connection = MagicMock()
+        connection._error = None
+        with patch('pika.adapters.thread_safe_connection.LOGGER') as logger:
+            _submit_or_terminate(pool, connection, 'dropped msg', lambda: None)
+        connection._terminate_stream.assert_not_called()
+        logger.debug.assert_called_once_with('dropped msg')
+
+    def test_skips_submit_when_teardown_already_underway(self):
+        """When connection._error is set, the work must be dropped without a pool submit or a repeat
+        teardown.
+        """
+        pool = MagicMock()
+        connection = MagicMock()
+        connection._error = WorkQueueFullError('already tearing down')
+        with patch('pika.adapters.thread_safe_connection.LOGGER') as logger:
+            _submit_or_terminate(pool, connection, 'dropped msg', lambda: None)
+        pool.submit.assert_not_called()
+        connection._terminate_stream.assert_not_called()
+        logger.debug.assert_called_once_with('dropped msg')
+
+
+class BoundedWorkPoolTests(unittest.TestCase):
+    """Tests for the bounded work queue backing the dispatch pools."""
+
+    def _make_blocked_pool(self,
+                           maxsize,
+                           put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT):
+        """Return (pool, release) where the pool's worker is stuck in its first work item until
+        *release* is set.
+        """
+        pool = _BoundedWorkPool(maxsize=maxsize,
+                                put_timeout=put_timeout,
+                                thread_name='test-pool')
+        release = threading.Event()
+        started = threading.Event()
+
+        def block():
+            started.set()
+            release.wait(timeout=5)
+
+        pool.submit(block)
+        self.assertTrue(started.wait(timeout=5))
+        return pool, release
+
+    def test_submit_with_timeout_raises_when_queue_stays_full(self):
+        """A submit() with put_timeout set must raise WorkQueueFullError when the queue stays
+        full.
+        """
+        pool, release = self._make_blocked_pool(maxsize=1, put_timeout=0.05)
+        try:
+            pool.submit(lambda: None)  # fills the queue
+            with self.assertRaises(WorkQueueFullError):
+                pool.submit(lambda: None)
+        finally:
+            release.set()
+            pool.shutdown(wait=True)
+
+    def test_submit_blocks_until_queue_has_space(self):
+        """A submit() on a full queue must block and proceed once the worker drains an item."""
+        pool, release = self._make_blocked_pool(maxsize=1)
+        pool.submit(lambda: None)  # fills the queue
+        submitted = threading.Event()
+
+        def blocked_submit():
+            pool.submit(lambda: None)
+            submitted.set()
+
+        producer = threading.Thread(target=blocked_submit, daemon=True)
+        producer.start()
+        # The producer must be stuck in put() while the queue is full...
+        self.assertFalse(submitted.wait(timeout=0.1))
+        # ...and proceed once the worker drains an item.
+        release.set()
+        self.assertTrue(submitted.wait(timeout=5))
+        producer.join(timeout=5)
+        pool.shutdown(wait=True)
+
+    def test_shutdown_drains_pending_work(self):
+        """Pool shutdown must let already-enqueued work finish before returning."""
+        pool, release = self._make_blocked_pool(maxsize=10)
+        done = []
+        for i in range(5):
+            pool.submit(done.append, i)
+        release.set()
+        pool.shutdown(wait=True)
+        self.assertEqual(done, list(range(5)))
+
+    def test_shutdown_does_not_block_when_queue_full(self):
+        """
+        Shutdown() must not block when the queue is full and the worker is wedged.
+
+        The worker holds its first item while a second fills the single queue slot, so no slot is
+        free.  An in-band shutdown sentinel would block here; the flag-based shutdown must return
+        promptly.
+        """
+        pool, release = self._make_blocked_pool(maxsize=1)
+        pool.submit(lambda: None)  # fills the one queue slot
+
+        returned = threading.Event()
+
+        def do_shutdown():
+            pool.shutdown(wait=False)
+            returned.set()
+
+        shutter = threading.Thread(target=do_shutdown, daemon=True)
+        shutter.start()
+        self.assertTrue(returned.wait(timeout=5),
+                        'shutdown(wait=False) blocked on a full queue')
+        shutter.join(timeout=5)
+
+        # Releasing the worker lets it drain and exit cleanly.
+        release.set()
+        pool.shutdown(wait=True)
+
+    def test_worker_idles_then_processes_later_work(self):
+        """An idle worker must keep polling and still process work submitted after it goes idle."""
+        pool = _BoundedWorkPool(maxsize=10,
+                                put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
+                                thread_name='test-pool')
+        first = threading.Event()
+        pool.submit(first.set)
+        self.assertTrue(first.wait(timeout=5))
+
+        # Let the worker sit idle across several poll intervals so it takes the
+        # empty-queue-but-not-shutdown branch, then hand it more work.
+        time.sleep(pool._SHUTDOWN_POLL_INTERVAL * 3)
+
+        second = threading.Event()
+        pool.submit(second.set)
+        self.assertTrue(second.wait(timeout=5))
+        pool.shutdown(wait=True)
+
+    def test_shutdown_timeout_returns_false_when_worker_wedged(self):
+        """Shutdown(timeout) must return False and not hang when the worker will not exit."""
+        pool, release = self._make_blocked_pool(maxsize=1)
+        try:
+            # The worker is stuck in its first item, so it cannot observe the
+            # shutdown flag until released.  A short timeout must expire.
+            self.assertFalse(pool.shutdown(wait=True, timeout=0.1))
+            self.assertTrue(pool._thread.is_alive())
+        finally:
+            release.set()
+            self.assertTrue(pool.shutdown(wait=True, timeout=5))
+
+    def test_shutdown_timeout_returns_true_when_worker_exits(self):
+        """Shutdown(timeout) must return True once the worker drains and exits."""
+        pool, release = self._make_blocked_pool(maxsize=1)
+        release.set()
+        self.assertTrue(pool.shutdown(wait=True, timeout=5))
+        self.assertFalse(pool._thread.is_alive())
+
+    def test_submit_after_shutdown_raises_runtime_error(self):
+        """A submit() on a shut-down pool must raise RuntimeError."""
+        pool = _BoundedWorkPool(maxsize=1,
+                                put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
+                                thread_name='test-pool')
+        pool.shutdown(wait=True)
+        with self.assertRaises(RuntimeError):
+            pool.submit(lambda: None)
+
+    def test_worker_thread_starts_lazily(self):
+        """The worker thread must not start until the first submit."""
+        pool = _BoundedWorkPool(maxsize=1,
+                                put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
+                                thread_name='test-pool')
+        self.assertIsNone(pool._thread)
+        pool.submit(lambda: None)
+        self.assertIsNotNone(pool._thread)
+        pool.shutdown(wait=True)
+
+    def test_shutdown_is_idempotent(self):
+        """Calling shutdown() multiple times must not raise."""
+        pool = _BoundedWorkPool(maxsize=1,
+                                put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
+                                thread_name='test-pool')
+        pool.submit(lambda: None)
+        pool.shutdown(wait=True)
+        pool.shutdown(wait=True)
+
+    def test_connection_params_propagate_to_channel_pool(self):
+        """Work-queue parameters passed to ThreadSafeChannel must reach its pool."""
+        raw_ch = MagicMock()
+        wrapper = MagicMock()
+        ch = ThreadSafeChannel(raw_ch,
+                               wrapper,
+                               work_queue_maxsize=7,
+                               work_queue_put_timeout=45.0)
+        self.assertEqual(ch._consumer_work_pool._queue.maxsize, 7)
+        self.assertEqual(ch._consumer_work_pool._put_timeout, 45.0)
+
+    def test_channel_rejects_none_put_timeout(self):
+        """ThreadSafeChannel must reject a None put timeout (would block the IOLoop forever)."""
+        with self.assertRaises(ValueError):
+            ThreadSafeChannel(MagicMock(),
+                              MagicMock(),
+                              work_queue_put_timeout=None)
+
+    def test_channel_rejects_non_positive_put_timeout(self):
+        """ThreadSafeChannel must reject a zero, negative, or NaN put timeout."""
+        for bad in (0, -1.0, float('nan')):
+            with self.assertRaises(ValueError):
+                ThreadSafeChannel(MagicMock(),
+                                  MagicMock(),
+                                  work_queue_put_timeout=bad)
+
+    def test_channel_accepts_small_positive_put_timeout(self):
+        """A positive override below the default must be accepted (no floor)."""
+        ch = ThreadSafeChannel(MagicMock(),
+                               MagicMock(),
+                               work_queue_put_timeout=5.0)
+        self.assertEqual(ch._consumer_work_pool._put_timeout, 5.0)
+
+    def test_channel_accepts_default_put_timeout(self):
+        """The default put timeout must satisfy its own validation."""
+        ch = ThreadSafeChannel(MagicMock(), MagicMock())
+        self.assertEqual(ch._consumer_work_pool._put_timeout,
+                         DEFAULT_WORK_QUEUE_PUT_TIMEOUT)
+
+    def test_connection_rejects_invalid_put_timeout(self):
+        """
+        ThreadSafeConnection must validate its put timeout before connecting.
+
+        Validation happens ahead of SelectConnection construction, so a bad value raises without any
+        connection machinery or patching.
+        """
+        for bad in (None, 0, -1.0, float('nan')):
+            with self.assertRaises(ValueError):
+                ThreadSafeConnection(parameters='params',
+                                     work_queue_put_timeout=bad)
 
 
 class ThreadSafeChannelTests(unittest.TestCase):
@@ -18,6 +284,9 @@ class ThreadSafeChannelTests(unittest.TestCase):
         wrapper._closed_reason = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
+        # A healthy connection has no pending error; _submit_or_terminate
+        # short-circuits when _error is set, so it must be None here.
+        wrapper._connection._error = None
         return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_basic_publish_routes_through_add_callback_threadsafe(self):
@@ -492,6 +761,58 @@ class ThreadSafeChannelTests(unittest.TestCase):
         # Verify the close path ran (work pool was shut down via close())
         self.assertTrue(ch._pool_shutdown)
 
+    def test_channel_close_honors_timeout_when_consumer_wedged(self):
+        """Close() must return within its timeout even if a delivery callback is wedged."""
+        ch, raw_ch, wrapper = self._make_channel()
+        raw_ch.is_closed = True  # make the close handshake an immediate no-op
+
+        def execute_immediately(cb):
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = execute_immediately
+
+        # Wedge the consumer worker in a never-releasing callback so the pool
+        # cannot drain and exit.
+        release = threading.Event()
+        started = threading.Event()
+
+        def block():
+            started.set()
+            release.wait(timeout=5)
+
+        try:
+            ch._consumer_work_pool.submit(block)
+            self.assertTrue(started.wait(timeout=5))
+
+            done = threading.Event()
+
+            def do_close():
+                ch.close(timeout=0.1)
+                done.set()
+
+            closer = threading.Thread(target=do_close, daemon=True)
+            closer.start()
+            self.assertTrue(done.wait(timeout=5),
+                            'close() hung on a wedged consumer worker')
+            closer.join(timeout=5)
+            self.assertTrue(ch._pool_shutdown)
+        finally:
+            release.set()
+            ch._consumer_work_pool.shutdown(wait=True, timeout=5)
+
+    def test_channel_close_with_none_timeout_drains_unbounded(self):
+        """Close(timeout=None) must drain the pool with no bound (the None-budget branch)."""
+        ch, raw_ch, wrapper = self._make_channel()
+        raw_ch.is_closed = True  # immediate no-op handshake
+
+        def execute_immediately(cb):
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = execute_immediately
+
+        ch.close(timeout=None)
+        self.assertTrue(ch._pool_shutdown)
+
     def test_properties_delegate_to_raw_channel(self):
         ch, raw_ch, _wrapper = self._make_channel()
         self.assertEqual(ch.channel_number, raw_ch.channel_number)
@@ -543,6 +864,9 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         wrapper._closed_reason = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
+        # A healthy connection has no pending error; _submit_or_terminate
+        # short-circuits when _error is set, so it must be None here.
+        wrapper._connection._error = None
         return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_callback_runs_on_worker_thread_not_ioloop(self):
@@ -684,7 +1008,12 @@ class ConsumerWorkPoolTests(unittest.TestCase):
     def test_pool_uses_single_worker(self):
         """The pool must use exactly one worker thread (for ordering)."""
         ch, _, _ = self._make_channel()
-        self.assertEqual(ch._consumer_work_pool._max_workers, 1)
+        pool = ch._consumer_work_pool
+        threads = []
+        for _ in range(5):
+            pool.submit(lambda: threads.append(threading.current_thread()))
+        pool.shutdown(wait=True)
+        self.assertEqual(len(set(threads)), 1)
 
     def test_callback_exception_is_logged(self):
         """Exceptions in delivery callbacks must be logged, not swallowed silently."""
@@ -1044,6 +1373,9 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
         wrapper._closed_reason = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
+        # A healthy connection has no pending error; _submit_or_terminate
+        # short-circuits when _error is set, so it must be None here.
+        wrapper._connection._error = None
         return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_queue_declare_raises_timeout_error(self):
@@ -1210,6 +1542,9 @@ class BlockingRPCPassthroughTests(unittest.TestCase):
         wrapper._closed_reason = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
+        # A healthy connection has no pending error; _submit_or_terminate
+        # short-circuits when _error is set, so it must be None here.
+        wrapper._connection._error = None
         return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
 
     def _run_immediate_rpc(self, raw_method, *call_args, **call_kwargs):
@@ -1307,6 +1642,9 @@ class BlockingRPCErrorPathTests(unittest.TestCase):
         wrapper._closed_reason = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
+        # A healthy connection has no pending error; _submit_or_terminate
+        # short-circuits when _error is set, so it must be None here.
+        wrapper._connection._error = None
         return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_method_raise_propagates_to_caller(self):
@@ -1357,6 +1695,9 @@ class BasicGetTests(unittest.TestCase):
         wrapper._closed_reason = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
+        # A healthy connection has no pending error; _submit_or_terminate
+        # short-circuits when _error is set, so it must be None here.
+        wrapper._connection._error = None
         return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_basic_get_returns_message_tuple(self):
@@ -1437,6 +1778,9 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
         wrapper._closed_reason = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
+        # A healthy connection has no pending error; _submit_or_terminate
+        # short-circuits when _error is set, so it must be None here.
+        wrapper._connection._error = None
         return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_close_propagates_broker_initiated_close_reason(self):
@@ -1482,6 +1826,9 @@ class CallbackRegistrationFailureTests(unittest.TestCase):
         wrapper._closed_reason = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
+        # A healthy connection has no pending error; _submit_or_terminate
+        # short-circuits when _error is set, so it must be None here.
+        wrapper._connection._error = None
         return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_add_on_cancel_callback_logs_when_raw_register_raises(self):
@@ -1546,6 +1893,9 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
             mock_conn.is_open = True
             mock_conn.is_closed = False
             mock_conn.is_closing = False
+            # A healthy connection has no pending error; _submit_or_terminate
+            # short-circuits when _error is set, so it must be None here.
+            mock_conn._error = None
 
             def fake_init(parameters, on_open_callback, on_open_error_callback,
                           on_close_callback):
@@ -1652,6 +2002,68 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
 
         self.assertTrue(ch._pool_shutdown)
 
+    def test_force_stop_with_none_timeout_shuts_down_pools(self):
+        """Force-stop path with timeout=None must drain pools with an unbounded budget."""
+        conn, _mock_conn, _mock_ioloop = self._make_connection()
+        # First join returns with the thread still alive to enter the force
+        # path; after force-stop the second join sees it exited.
+        conn._ioloop_thread = MagicMock()
+        conn._ioloop_thread.is_alive.side_effect = [True, False]
+
+        ch = ThreadSafeChannel(MagicMock(), conn)
+        with conn._channel_waiters_lock:
+            conn._channels.append(ch)
+
+        conn.close(timeout=None)
+
+        self.assertTrue(ch._pool_shutdown)
+        self.assertTrue(conn._connection_pool_shutdown)
+
+    def test_shutdown_connection_pool_warns_when_worker_wedged(self):
+        """A wedged connection-event worker must be abandoned (not hang) with a warning logged."""
+        conn, _mock_conn, _mock_ioloop = self._make_connection()
+        # _make_connection runs the IOLoop tail, which already shut the
+        # connection pool down.  Replace it with a fresh pool wedged in a
+        # never-releasing callback and reset the guard so the shutdown runs.
+        release = threading.Event()
+        started = threading.Event()
+
+        def block():
+            started.set()
+            release.wait(timeout=5)
+
+        pool = _BoundedWorkPool(maxsize=10,
+                                put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
+                                thread_name='test-conn-pool')
+        conn._connection_work_pool = pool
+        conn._connection_pool_shutdown = False
+
+        try:
+            pool.submit(block)
+            self.assertTrue(started.wait(timeout=5))
+
+            done = threading.Event()
+
+            def do_shutdown():
+                with patch('pika.adapters.thread_safe_connection.LOGGER'
+                          ) as mock_logger:
+                    conn._shutdown_connection_pool(timeout=0.1)
+                    self.warned = mock_logger.warning.called
+                done.set()
+
+            shutter = threading.Thread(target=do_shutdown, daemon=True)
+            shutter.start()
+            self.assertTrue(
+                done.wait(timeout=5),
+                '_shutdown_connection_pool hung on a wedged worker')
+            shutter.join(timeout=5)
+            self.assertTrue(conn._connection_pool_shutdown)
+            self.assertTrue(self.warned,
+                            'expected a warning when abandoning the worker')
+        finally:
+            release.set()
+            pool.shutdown(wait=True, timeout=5)
+
     def test_init_raises_timeout_error(self):
         """Constructor must raise TimeoutError if connection is not established within the specified
         timeout.
@@ -1690,28 +2102,22 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
             captured = []
 
             # Capture the pool reference before __init__ raises so we can
-            # assert it shut down.  We patch ThreadPoolExecutor to record
+            # assert it shut down.  We patch _BoundedWorkPool to record
             # the instance that __init__ created.
-            real_executor_cls = (__import__('concurrent.futures',
-                                            fromlist=['ThreadPoolExecutor'
-                                                     ]).ThreadPoolExecutor)
-
-            def capturing_executor(*a, **kw):
-                inst = real_executor_cls(*a, **kw)
+            def capturing_pool(*a, **kw):
+                inst = _BoundedWorkPool(*a, **kw)
                 captured.append(inst)
                 return inst
 
-            with patch(
-                    'pika.adapters.thread_safe_connection.'
-                    'concurrent.futures.ThreadPoolExecutor',
-                    side_effect=capturing_executor):
+            with patch('pika.adapters.thread_safe_connection._BoundedWorkPool',
+                       side_effect=capturing_pool):
                 with self.assertRaises(RuntimeError) as ctx:
                     ThreadSafeConnection(parameters='params')
             self.assertIs(ctx.exception, boom)
             self.assertEqual(len(captured), 1)
-            # The captured executor must be shut down.  shutdown(wait=True)
+            # The captured pool must be shut down.  shutdown(wait=True)
             # will be a no-op if already shut down, but submit() raises
-            # RuntimeError on a shut-down executor; use that as the probe.
+            # RuntimeError on a shut-down pool; use that as the probe.
             with self.assertRaises(RuntimeError):
                 captured[0].submit(lambda: None)
 
@@ -1846,6 +2252,9 @@ class ThreadSafeConnectionTests(unittest.TestCase):
             mock_conn.is_open = True
             mock_conn.is_closed = False
             mock_conn.is_closing = False
+            # A healthy connection has no pending error; _submit_or_terminate
+            # short-circuits when _error is set, so it must be None here.
+            mock_conn._error = None
 
             # Capture the on_open_callback passed to SelectConnection
             # and call it immediately so _connected_event gets set.
@@ -1962,6 +2371,9 @@ class ThreadSafeConnectionTests(unittest.TestCase):
             mock_conn.is_open = True
             mock_conn.is_closed = False
             mock_conn.is_closing = False
+            # A healthy connection has no pending error; _submit_or_terminate
+            # short-circuits when _error is set, so it must be None here.
+            mock_conn._error = None
 
             def fake_init(parameters, on_open_callback, on_open_error_callback,
                           on_close_callback):
@@ -2151,12 +2563,13 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         mock_conn.add_on_connection_blocked_callback.assert_called_once()
 
     def test_blocked_callback_dispatches_on_worker_thread(self):
-        import concurrent.futures
         conn, mock_conn, mock_ioloop = self._make_connection()
         # Recreate the work pool because _make_connection lets _run_ioloop
         # exit, which shuts the pool down.
-        conn._connection_work_pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix='pika-conn-test')
+        conn._connection_work_pool = _BoundedWorkPool(
+            maxsize=1000,
+            put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
+            thread_name='pika-conn-test')
         conn._connection_pool_shutdown = False
         callback_thread = []
         received = []
@@ -2215,10 +2628,11 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         mock_conn.add_on_connection_unblocked_callback.assert_not_called()
 
     def test_unblocked_callback_dispatches_on_worker_thread(self):
-        import concurrent.futures
         conn, mock_conn, mock_ioloop = self._make_connection()
-        conn._connection_work_pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix='pika-conn-test')
+        conn._connection_work_pool = _BoundedWorkPool(
+            maxsize=1000,
+            put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
+            thread_name='pika-conn-test')
         conn._connection_pool_shutdown = False
         received = []
 
@@ -2270,10 +2684,11 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         """A blocked-listener exception must be logged, not silently lost on an unobserved
         Future.
         """
-        import concurrent.futures
         conn, mock_conn, mock_ioloop = self._make_connection()
-        conn._connection_work_pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix='pika-conn-test')
+        conn._connection_work_pool = _BoundedWorkPool(
+            maxsize=1000,
+            put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
+            thread_name='pika-conn-test')
         conn._connection_pool_shutdown = False
 
         def boom(connection, method_frame):
@@ -2375,6 +2790,9 @@ class ConnectionCloseFromIOLoopTests(unittest.TestCase):
             mock_conn.is_open = True
             mock_conn.is_closed = False
             mock_conn.is_closing = False
+            # A healthy connection has no pending error; _submit_or_terminate
+            # short-circuits when _error is set, so it must be None here.
+            mock_conn._error = None
 
             def fake_init(parameters, on_open_callback, on_open_error_callback,
                           on_close_callback):
@@ -2416,6 +2834,9 @@ class ConnectionEventRegistrationFailureTests(unittest.TestCase):
             mock_conn.is_open = True
             mock_conn.is_closed = False
             mock_conn.is_closing = False
+            # A healthy connection has no pending error; _submit_or_terminate
+            # short-circuits when _error is set, so it must be None here.
+            mock_conn._error = None
 
             def fake_init(parameters, on_open_callback, on_open_error_callback,
                           on_close_callback):
@@ -2457,6 +2878,9 @@ class ChannelOpenExceptionPathTests(unittest.TestCase):
             mock_conn.is_open = True
             mock_conn.is_closed = False
             mock_conn.is_closing = False
+            # A healthy connection has no pending error; _submit_or_terminate
+            # short-circuits when _error is set, so it must be None here.
+            mock_conn._error = None
 
             def fake_init(parameters, on_open_callback, on_open_error_callback,
                           on_close_callback):
