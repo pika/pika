@@ -74,6 +74,36 @@ def _validate_put_timeout(put_timeout: float) -> float:
     return put_timeout
 
 
+def _submit_or_terminate(pool: _BoundedWorkPool, connection: SelectConnection,
+                         drop_msg: str, fn: Callable[...,
+                                                     None], *args: Any) -> None:
+    """
+    Submit *fn* to *pool*, tearing the connection down on queue overflow.
+
+    Called on the IOLoop thread from the wrappers that hand user callbacks to a
+    :class:`_BoundedWorkPool`.  A :class:`~pika.exceptions.WorkQueueFullError`
+    means a slow callback let the queue stay full past ``work_queue_put_timeout``;
+    it is routed through :meth:`~pika.connection.Connection._terminate_stream` so
+    the connection closes with :class:`~pika.exceptions.WorkQueueFullError` as the
+    reason the application observes, rather than being caught by the transport's
+    generic read-error handler and relabeled as an opaque
+    :class:`~pika.exceptions.StreamLostError`.  A ``RuntimeError`` means the pool
+    is already shut down, so the callback is dropped.
+
+    :param pool: The work pool to submit to.
+    :param connection: The underlying connection, torn down on overflow.
+    :param drop_msg: Debug message logged when the pool is already shut down.
+    :param fn: The callback to run on the pool worker.
+    :param args: Positional arguments forwarded to *fn*.
+    """
+    try:
+        pool.submit(fn, *args)
+    except WorkQueueFullError as exc:
+        connection._terminate_stream(exc)
+    except RuntimeError:
+        LOGGER.debug(drop_msg)
+
+
 class _BoundedWorkPool:
     """
     Single worker thread consuming from a bounded work queue.
@@ -634,13 +664,10 @@ class ThreadSafeChannel:
         self._check_not_closed()
 
         def _wrapped(method_frame) -> None:
-            try:
-                self._consumer_work_pool.submit(self._safe_dispatch,
-                                                'cancel listener', callback,
-                                                method_frame)
-            except RuntimeError:
-                LOGGER.debug(
-                    'Server-initiated cancel dropped: work pool shut down')
+            _submit_or_terminate(
+                self._consumer_work_pool, self._wrapper._connection,
+                'Server-initiated cancel dropped: work pool shut down',
+                self._safe_dispatch, 'cancel listener', callback, method_frame)
 
         def _register() -> None:
             try:
@@ -673,12 +700,11 @@ class ThreadSafeChannel:
         self._check_not_closed()
 
         def _wrapped(_raw_ch, method, properties, body) -> None:
-            try:
-                self._consumer_work_pool.submit(self._safe_dispatch,
-                                                'return listener', callback,
-                                                self, method, properties, body)
-            except RuntimeError:
-                LOGGER.debug('Returned message dropped: work pool shut down')
+            _submit_or_terminate(
+                self._consumer_work_pool, self._wrapper._connection,
+                'Returned message dropped: work pool shut down',
+                self._safe_dispatch, 'return listener', callback, self, method,
+                properties, body)
 
         def _register() -> None:
             try:
@@ -721,12 +747,11 @@ class ThreadSafeChannel:
             return self._confirm_select_ok
 
         def _wrapped_ack_nack(method_frame) -> None:
-            try:
-                self._consumer_work_pool.submit(self._safe_dispatch,
-                                                'publisher confirm callback',
-                                                ack_nack_callback, method_frame)
-            except RuntimeError:
-                LOGGER.debug('Publisher confirm dropped: work pool shut down')
+            _submit_or_terminate(
+                self._consumer_work_pool, self._wrapper._connection,
+                'Publisher confirm dropped: work pool shut down',
+                self._safe_dispatch, 'publisher confirm callback',
+                ack_nack_callback, method_frame)
 
         result = self._blocking_rpc(
             'confirm_delivery',
@@ -772,13 +797,11 @@ class ThreadSafeChannel:
         """
 
         def _wrapped_callback(ch, method, properties, body) -> None:
-            try:
-                self._consumer_work_pool.submit(self._safe_dispatch,
-                                                'consumer callback',
-                                                on_message_callback, self,
-                                                method, properties, body)
-            except RuntimeError:
-                LOGGER.debug('Consumer delivery dropped: work pool shut down')
+            _submit_or_terminate(
+                self._consumer_work_pool, self._wrapper._connection,
+                'Consumer delivery dropped: work pool shut down',
+                self._safe_dispatch, 'consumer callback', on_message_callback,
+                self, method, properties, body)
 
         frame = self._blocking_rpc(
             'basic_consume',
@@ -1709,12 +1732,11 @@ class ThreadSafeConnection:
                 raise self._closed_reason
 
         def _wrapped(_raw_conn, method_frame) -> None:
-            try:
-                self._connection_work_pool.submit(
-                    ThreadSafeChannel._safe_dispatch, raw_method_name, callback,
-                    self, method_frame)
-            except RuntimeError:
-                LOGGER.debug('Connection event dropped: work pool shut down')
+            _submit_or_terminate(
+                self._connection_work_pool, self._connection,
+                'Connection event dropped: work pool shut down',
+                ThreadSafeChannel._safe_dispatch, raw_method_name, callback,
+                self, method_frame)
 
         def _register() -> None:
             try:
