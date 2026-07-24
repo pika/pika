@@ -10,8 +10,41 @@ from pika.adapters.thread_safe_connection import (
     ThreadSafeChannel,
     ThreadSafeConnection,
     _BoundedWorkPool,
+    _submit_or_terminate,
 )
 from pika.exceptions import WorkQueueFullError
+
+
+class SubmitOrTerminateTests(unittest.TestCase):
+    """Tests for the _submit_or_terminate submit-wrapper helper."""
+
+    def test_submits_work_to_pool(self):
+        """A normal submit must forward fn and args to the pool untouched."""
+        pool = MagicMock()
+        connection = MagicMock()
+        fn = object()
+        _submit_or_terminate(pool, connection, 'dropped', fn, 'a', 'b')
+        pool.submit.assert_called_once_with(fn, 'a', 'b')
+        connection._terminate_stream.assert_not_called()
+
+    def test_overflow_terminates_connection_with_the_error(self):
+        """A WorkQueueFullError must tear the connection down with that error."""
+        exc = WorkQueueFullError('full')
+        pool = MagicMock()
+        pool.submit.side_effect = exc
+        connection = MagicMock()
+        _submit_or_terminate(pool, connection, 'dropped', lambda: None)
+        connection._terminate_stream.assert_called_once_with(exc)
+
+    def test_runtime_error_drops_work_without_terminating(self):
+        """A RuntimeError (pool shut down) must drop the work, not terminate."""
+        pool = MagicMock()
+        pool.submit.side_effect = RuntimeError('pool shut down')
+        connection = MagicMock()
+        with patch('pika.adapters.thread_safe_connection.LOGGER') as logger:
+            _submit_or_terminate(pool, connection, 'dropped msg', lambda: None)
+        connection._terminate_stream.assert_not_called()
+        logger.debug.assert_called_once_with('dropped msg')
 
 
 class BoundedWorkPoolTests(unittest.TestCase):
