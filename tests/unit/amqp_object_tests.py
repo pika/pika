@@ -23,10 +23,10 @@ class AMQPObjectTests(unittest.TestCase):
         b = amqp_object.AMQPObject()
         self.assertEqual(a, b)
 
-        setattr(a, "a_property", "test")
+        setattr(a, 'a_property', 'test')
         self.assertNotEqual(a, b)
 
-        setattr(b, "a_property", "test")
+        setattr(b, 'a_property', 'test')
         self.assertEqual(a, b)
 
 

@@ -234,7 +234,7 @@ def decode_frame(data_in: bytes | bytearray,
 
     # The Frame termination chr is wrong
     if data_in[offset + frame_end - 1] != spec.FRAME_END:
-        raise exceptions.InvalidFrameError("Invalid FRAME_END marker")
+        raise exceptions.InvalidFrameError('Invalid FRAME_END marker')
 
     # Get the raw frame data as immutable bytes. For large payloads copy via
     # memoryview, which avoids a bytearray input's extra intermediate copy;
@@ -284,4 +284,4 @@ def decode_frame(data_in: bytes | bytearray,
         # Return the amount of data and a Heartbeat frame
         return frame_end, Heartbeat()
 
-    raise exceptions.InvalidFrameError(f"Unknown frame type: {frame_type}")
+    raise exceptions.InvalidFrameError(f'Unknown frame type: {frame_type}')

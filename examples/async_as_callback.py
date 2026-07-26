@@ -36,7 +36,7 @@ class Headers(BaseModel):
     priority: Priority
     task_type: str | None = None
 
-    @validator("priority", pre=True)
+    @validator('priority', pre=True)
     def _convert_priority(self, value):
         return Priority[value]
 
@@ -52,11 +52,11 @@ class RabbitMQConfig(BaseModel):
 class BasicPikaClient:
 
     def __init__(self):
-        self.username = "username"
-        self.password = "password"
-        self.host = "localhost"
+        self.username = 'username'
+        self.password = 'password'
+        self.host = 'localhost'
         self.port = 5672
-        self.protocol = "amqp"
+        self.protocol = 'amqp'
 
         self._init_connection_parameters()
         self._connect()
@@ -80,13 +80,13 @@ class BasicPikaClient:
         self.parameters = pika.ConnectionParameters(
             self.host,
             int(self.port),
-            "/",
+            '/',
             self.credentials,
         )
-        if self.protocol == "amqps":
+        if self.protocol == 'amqps':
             # SSL Context for TLS configuration of Amazon MQ for RabbitMQ
             ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-            ssl_context.set_ciphers("ECDHE+AESGCM:!ECDSA")
+            ssl_context.set_ciphers('ECDHE+AESGCM:!ECDSA')
             self.parameters.ssl_options = pika.SSLOptions(context=ssl_context)
 
     def check_connection(self):
@@ -102,17 +102,17 @@ class BasicPikaClient:
                       exclusive: bool = False,
                       max_priority: int = 10):
         self.check_connection()
-        logger.debug("Trying to declare queue(%s)...", queue_name)
+        logger.debug('Trying to declare queue(%s)...', queue_name)
         self.channel.queue_declare(
             queue=queue_name,
             exclusive=exclusive,
             durable=True,
-            arguments={"x-max-priority": max_priority},
+            arguments={'x-max-priority': max_priority},
         )
 
     def declare_exchange(self,
                          exchange_name: str,
-                         exchange_type: str = "direct"):
+                         exchange_type: str = 'direct'):
         self.check_connection()
         self.channel.exchange_declare(exchange=exchange_name,
                                       exchange_type=exchange_type)
@@ -132,8 +132,8 @@ class BasicPikaClient:
 
 class BasicMessageSender(BasicPikaClient):
 
-    def encode_message(self, body: dict, encoding_type: str = "bytes"):
-        if encoding_type == "bytes":
+    def encode_message(self, body: dict, encoding_type: str = 'bytes'):
+        if encoding_type == 'bytes':
             return msgpack.packb(body)
         raise NotImplementedError
 
@@ -156,7 +156,7 @@ class BasicMessageSender(BasicPikaClient):
             ),
         )
         logger.debug(
-            "Sent message. Exchange: %s, Routing Key: %s, Body: %s",
+            'Sent message. Exchange: %s, Routing Key: %s, Body: %s',
             exchange_name,
             routing_key,
             body[:128],
@@ -178,16 +178,16 @@ class BasicMessageReceiver(BasicPikaClient):
         method_frame, header_frame, body = self.channel.basic_get(
             queue=queue_name, auto_ack=auto_ack)
         if method_frame:
-            logger.debug("%s, %s, %s", method_frame, header_frame, body)
+            logger.debug('%s, %s, %s', method_frame, header_frame, body)
             return method_frame, header_frame, body
-        logger.debug("No message returned")
+        logger.debug('No message returned')
         return None
 
     def consume_messages(self, queue, callback):
         self.check_connection()
         self.channel_tag = self.channel.basic_consume(
             queue=queue, on_message_callback=callback, auto_ack=True)
-        logger.debug(" [*] Waiting for messages. To exit press CTRL+C")
+        logger.debug(' [*] Waiting for messages. To exit press CTRL+C')
         self.channel.start_consuming()
 
     def cancel_consumer(self):
@@ -195,7 +195,7 @@ class BasicMessageReceiver(BasicPikaClient):
             self.channel.basic_cancel(self.channel_tag)
             self.channel_tag = None
         else:
-            logger.error("Do not cancel a non-existing job")
+            logger.error('Do not cancel a non-existing job')
 
 
 class MyConsumer(BasicMessageReceiver):
@@ -203,7 +203,7 @@ class MyConsumer(BasicMessageReceiver):
     @sync
     async def consume(self, channel, method, properties, body):
         body = self.decode_message(body=body)
-        _file_content = await self._download_image(img_url=body["url"])
+        _file_content = await self._download_image(img_url=body['url'])
         # consume message logic ...
 
     async def _download_image(self, img_url):
@@ -213,13 +213,13 @@ class MyConsumer(BasicMessageReceiver):
 
 def create_consumer():
     worker = MyConsumer()
-    worker.declare_queue(queue_name="myqueue")
-    worker.declare_exchange(exchange_name="myexchange")
-    worker.bind_queue(exchange_name="myexchange",
-                      queue_name="myqueue",
-                      routing_key="randomkey")
-    worker.consume_messages(queue="myqueue", callback=worker.consume)
+    worker.declare_queue(queue_name='myqueue')
+    worker.declare_exchange(exchange_name='myexchange')
+    worker.bind_queue(exchange_name='myexchange',
+                      queue_name='myqueue',
+                      routing_key='randomkey')
+    worker.consume_messages(queue='myqueue', callback=worker.consume)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     create_consumer()

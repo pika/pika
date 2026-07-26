@@ -10,11 +10,11 @@ class Publisher(threading.Thread):
         super().__init__(*args, **kwargs)
         self.daemon = True
         self.is_running = True
-        self.name = "Publisher"
-        self.queue = "downstream_queue"
+        self.name = 'Publisher'
+        self.queue = 'downstream_queue'
 
-        credentials = PlainCredentials("guest", "guest")
-        parameters = ConnectionParameters("localhost", credentials=credentials)
+        credentials = PlainCredentials('guest', 'guest')
+        parameters = ConnectionParameters('localhost', credentials=credentials)
         self.connection = BlockingConnection(parameters)
         self.channel = self.connection.channel()
         self.channel.queue_declare(queue=self.queue, exclusive=True)
@@ -24,28 +24,28 @@ class Publisher(threading.Thread):
             self.connection.process_data_events(time_limit=1)
 
     def _publish(self, message):
-        self.channel.basic_publish("", self.queue, body=message.encode())
+        self.channel.basic_publish('', self.queue, body=message.encode())
 
     def publish(self, message):
         self.connection.add_callback_threadsafe(lambda: self._publish(message))
 
     def stop(self):
-        print("Stopping...")
+        print('Stopping...')
         self.is_running = False
         # Wait until all the data events have been processed
         self.connection.process_data_events(time_limit=1)
         if self.connection.is_open:
             self.connection.close()
-        print("Stopped")
+        print('Stopped')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     publisher = Publisher()
     publisher.start()
     try:
         for i in range(9999):
-            msg = f"Message {i}"
-            print(f"Publishing: {msg!r}")
+            msg = f'Message {i}'
+            print(f'Publishing: {msg!r}')
             publisher.publish(msg)
             sleep(1)
     except KeyboardInterrupt:

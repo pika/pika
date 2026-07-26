@@ -100,8 +100,8 @@ class ClosableDeferredQueue(defer.DeferredQueue):
         self.pending = []
 
 
-ReceivedMessage = namedtuple("ReceivedMessage",
-                             ["channel", "method", "properties", "body"])
+ReceivedMessage = namedtuple('ReceivedMessage',
+                             ['channel', 'method', 'properties', 'body'])
 
 
 class TwistedChannel:
@@ -215,8 +215,8 @@ class TwistedChannel:
         :param _method_frame: Method frame from Basic.Get response (unused)
         """
         if self._basic_get_deferred is None:
-            LOGGER.warning("Got Basic.GetEmpty but no Basic.Get calls "
-                           "were pending.")
+            LOGGER.warning('Got Basic.GetEmpty but no Basic.Get calls '
+                           'were pending.')
             return
         self._basic_get_deferred.callback(None)
 
@@ -512,7 +512,7 @@ class TwistedChannel:
             self._basic_get_deferred = None
             return result
 
-        d = self._wrap_channel_method("basic_get")(queue=queue,
+        d = self._wrap_channel_method('basic_get')(queue=queue,
                                                    auto_ack=auto_ack)
         d.addCallback(create_namedtuple)
         d.addBoth(cleanup_attribute)
@@ -613,7 +613,7 @@ class TwistedChannel:
         :param global_qos: Should the QoS apply to all channels on the connection.
         :returns: Deferred that fires on the Basic.QosOk response
         """
-        return self._wrap_channel_method("basic_qos")(
+        return self._wrap_channel_method('basic_qos')(
             prefetch_size=prefetch_size,
             prefetch_count=prefetch_count,
             global_qos=global_qos,
@@ -645,11 +645,11 @@ class TwistedChannel:
             an alternative subscriber.
         :returns: Deferred that fires on the Basic.RecoverOk response
         """
-        return self._wrap_channel_method("basic_recover")(requeue=requeue)
+        return self._wrap_channel_method('basic_recover')(requeue=requeue)
 
     def close(self,
               reply_code: int = 0,
-              reply_text: str = "Normal shutdown") -> None:
+              reply_text: str = 'Normal shutdown') -> None:
         """
         Invoke a graceful shutdown of the channel with the AMQP Broker.
 
@@ -683,7 +683,7 @@ class TwistedChannel:
         def set_delivery_confirmation(result):
             self._delivery_confirmation = True
             self._delivery_message_id = 0
-            LOGGER.debug("Delivery confirmation enabled.")
+            LOGGER.debug('Delivery confirmation enabled.')
             return result
 
         d.addCallback(set_delivery_confirmation)
@@ -708,7 +708,7 @@ class TwistedChannel:
         """
         delivery_tag = method_frame.method.delivery_tag
         if delivery_tag not in self._deliveries:
-            LOGGER.error("Delivery tag %s not found in the pending deliveries",
+            LOGGER.error('Delivery tag %s not found in the pending deliveries',
                          delivery_tag)
             return
         if method_frame.method.multiple:
@@ -763,9 +763,9 @@ class TwistedChannel:
         assert isinstance(properties, spec.BasicProperties), properties
 
         LOGGER.warning(
-            "Published message was returned: _delivery_confirmation=%s; "
-            "channel=%s; method=%r; properties=%r; body_size=%d; "
-            "body_prefix=%.255r", self._delivery_confirmation,
+            'Published message was returned: _delivery_confirmation=%s; '
+            'channel=%s; method=%r; properties=%r; body_size=%d; '
+            'body_prefix=%.255r', self._delivery_confirmation,
             channel.channel_number, method, properties,
             len(body) if body is not None else None, body)
 
@@ -790,7 +790,7 @@ class TwistedChannel:
         :raises ValueError:
         :returns: Deferred that fires on the Exchange.BindOk response
         """
-        return self._wrap_channel_method("exchange_bind")(
+        return self._wrap_channel_method('exchange_bind')(
             destination=destination,
             source=source,
             routing_key=routing_key,
@@ -828,7 +828,7 @@ class TwistedChannel:
         :returns: Deferred that fires on the Exchange.DeclareOk response
         :raises ValueError:
         """
-        return self._wrap_channel_method("exchange_declare")(
+        return self._wrap_channel_method('exchange_declare')(
             exchange=exchange,
             exchange_type=exchange_type,
             passive=passive,
@@ -849,7 +849,7 @@ class TwistedChannel:
         :returns: Deferred that fires on the Exchange.DeleteOk response
         :raises ValueError:
         """
-        return self._wrap_channel_method("exchange_delete")(
+        return self._wrap_channel_method('exchange_delete')(
             exchange=exchange,
             if_unused=if_unused,
         )
@@ -870,7 +870,7 @@ class TwistedChannel:
         :returns: Deferred that fires on the Exchange.UnbindOk response
         :raises ValueError:
         """
-        return self._wrap_channel_method("exchange_unbind")(
+        return self._wrap_channel_method('exchange_unbind')(
             destination=destination,
             source=source,
             routing_key=routing_key,
@@ -890,7 +890,7 @@ class TwistedChannel:
         :returns: Deferred that fires with the channel flow state
         :raises ValueError:
         """
-        return self._wrap_channel_method("flow")(active=active)
+        return self._wrap_channel_method('flow')(active=active)
 
     def open(self) -> None:
         """Open the channel."""
@@ -912,7 +912,7 @@ class TwistedChannel:
         :returns: Deferred that fires on the Queue.BindOk response
         :raises ValueError:
         """
-        return self._wrap_channel_method("queue_bind")(
+        return self._wrap_channel_method('queue_bind')(
             queue=queue,
             exchange=exchange,
             routing_key=routing_key,
@@ -947,7 +947,7 @@ class TwistedChannel:
         :returns: Deferred that fires on the Queue.DeclareOk response
         :raises ValueError:
         """
-        return self._wrap_channel_method("queue_declare")(
+        return self._wrap_channel_method('queue_declare')(
             queue=queue,
             passive=passive,
             durable=durable,
@@ -980,7 +980,7 @@ class TwistedChannel:
                     self._queue_name_to_consumer_tags.get(queue_name, set())):
                 self._consumers[consumer_tag].close(
                     exceptions.ConsumerCancelled(
-                        f"Queue {queue_name} was deleted."))
+                        f'Queue {queue_name} was deleted.'))
                 del self._consumers[consumer_tag]
                 self._queue_name_to_consumer_tags[queue_name].remove(
                     consumer_tag)
@@ -996,7 +996,7 @@ class TwistedChannel:
         :returns: Deferred that fires on the Queue.PurgeOk response
         :raises ValueError:
         """
-        return self._wrap_channel_method("queue_purge")(queue=queue)
+        return self._wrap_channel_method('queue_purge')(queue=queue)
 
     def queue_unbind(
             self,
@@ -1014,7 +1014,7 @@ class TwistedChannel:
         :returns: Deferred that fires on the Queue.UnbindOk response
         :raises ValueError:
         """
-        return self._wrap_channel_method("queue_unbind")(
+        return self._wrap_channel_method('queue_unbind')(
             queue=queue,
             exchange=exchange,
             routing_key=routing_key,
@@ -1028,7 +1028,7 @@ class TwistedChannel:
         :returns: Deferred that fires on the Tx.CommitOk response
         :raises ValueError:
         """
-        return self._wrap_channel_method("tx_commit")()
+        return self._wrap_channel_method('tx_commit')()
 
     def tx_rollback(self) -> defer.Deferred[Any]:
         """
@@ -1037,7 +1037,7 @@ class TwistedChannel:
         :returns: Deferred that fires on the Tx.RollbackOk response
         :raises ValueError:
         """
-        return self._wrap_channel_method("tx_rollback")()
+        return self._wrap_channel_method('tx_rollback')()
 
     def tx_select(self) -> defer.Deferred[Any]:
         """
@@ -1049,7 +1049,7 @@ class TwistedChannel:
         :returns: Deferred that fires on the Tx.SelectOk response
         :raises ValueError:
         """
-        return self._wrap_channel_method("tx_select")()
+        return self._wrap_channel_method('tx_select')()
 
 
 class _TwistedConnectionAdapter(pika.connection.Connection):
@@ -1194,10 +1194,10 @@ class TwistedProtocolConnection(protocol.Protocol):
                  parameters: pika.connection.ConnectionParameters | None = None,
                  custom_reactor: Any = None) -> None:
         warnings.warn(
-            "TwistedProtocolConnection is deprecated and will be removed in "
-            "Pika 2.0. Use ThreadSafeConnection instead, which works with any "
-            "framework including Twisted. See "
-            "https://pika.github.io/pika/modules/adapters/thread_safe/",
+            'TwistedProtocolConnection is deprecated and will be removed in '
+            'Pika 2.0. Use ThreadSafeConnection instead, which works with any '
+            'framework including Twisted. See '
+            'https://pika.github.io/pika/modules/adapters/thread_safe/',
             DeprecationWarning,
             stacklevel=2,
         )

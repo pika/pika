@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     from pika import amqp_object
     from pika.channel import Channel
 
-PRODUCT = "Pika Python Client Library"
+PRODUCT = 'Pika Python Client Library'
 
 LOGGER = logging.getLogger(__name__)
 
@@ -1429,7 +1429,7 @@ class Connection(abc.ABC):
 
         # Transition to closing
         self._set_connection_state(self.CONNECTION_CLOSING)
-        LOGGER.info("Closing connection (%s): %r", reply_code, reply_text)
+        LOGGER.info('Closing connection (%s): %r', reply_code, reply_text)
 
         if not self._opened:
             # It was opening, but not fully open yet, so we won't attempt

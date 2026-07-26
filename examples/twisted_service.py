@@ -214,13 +214,13 @@ class PikaFactory(protocol.ReconnectingClientFactory):
             self.client.read(exchange, routing_key, callback)
 
 
-application = service.Application("pikaapplication")
+application = service.Application('pikaapplication')
 
 ps = PikaService(
-    pika.ConnectionParameters(host="localhost",
-                              virtual_host="/",
+    pika.ConnectionParameters(host='localhost',
+                              virtual_host='/',
                               credentials=pika.PlainCredentials(
-                                  "guest", "guest")))
+                                  'guest', 'guest')))
 ps.setServiceParent(application)
 
 
@@ -238,18 +238,18 @@ class TestService(service.Service):
         AMQP. If the task was not completed a `basic.nack` will be sent. In this example it will
         always return successfully after a 2 second pause.
         """
-        return task.deferLater(reactor, 2, lambda: log.msg("task completed"))
+        return task.deferLater(reactor, 2, lambda: log.msg('task completed'))
 
     def respond(self, msg):
         self.amqp.send_message('foobar', 'response', msg[3])
 
     def startService(self):
-        amqp_service = self.parent.getServiceNamed("amqp")
+        amqp_service = self.parent.getServiceNamed('amqp')
         self.amqp = amqp_service.getFactory()
-        self.amqp.read_messages("foobar", "request1", self.respond)
-        self.amqp.read_messages("foobar", "request2", self.respond)
-        self.amqp.read_messages("foobar", "request3", self.respond)
-        self.amqp.read_messages("foobar", "task", self.task)
+        self.amqp.read_messages('foobar', 'request1', self.respond)
+        self.amqp.read_messages('foobar', 'request2', self.respond)
+        self.amqp.read_messages('foobar', 'request3', self.respond)
+        self.amqp.read_messages('foobar', 'task', self.task)
 
 
 ts = TestService()

@@ -72,7 +72,7 @@ def enable_tls():
 
 
 class AsyncTestCase(unittest.TestCase):
-    DESCRIPTION = ""
+    DESCRIPTION = ''
     ADAPTER = None
     TIMEOUT = TEST_TIMEOUT
 
@@ -107,12 +107,12 @@ class AsyncTestCase(unittest.TestCase):
     def shortDescription(self):
         method_desc = super().shortDescription()
         if self.DESCRIPTION:
-            return f"{self.DESCRIPTION} ({method_desc})"
+            return f'{self.DESCRIPTION} ({method_desc})'
         return method_desc
 
     def begin(self, channel) -> None:
         """Extend to start the actual tests on the channel."""
-        self.fail("AsyncTestCase.begin_test not extended")
+        self.fail('AsyncTestCase.begin_test not extended')
 
     def start(self, adapter_class, ioloop_factory):
         self.logger.info('start at %s', datetime.now(timezone.utc))
@@ -182,7 +182,7 @@ class AsyncTestCase(unittest.TestCase):
 
     def _safe_remove_test_timeout(self):
         if hasattr(self, 'timeout') and self.timeout is not None:
-            self.logger.info("Removing timeout")
+            self.logger.info('Removing timeout')
             assert self.connection is not None
             self.connection._adapter_remove_timeout(self.timeout)
             self.timeout = None
@@ -190,7 +190,7 @@ class AsyncTestCase(unittest.TestCase):
     def _stop(self):
         if hasattr(self, 'connection') and self.connection is not None:
             self._safe_remove_test_timeout()
-            self.logger.info("Stopping ioloop")
+            self.logger.info('Stopping ioloop')
             self.connection._nbio.stop()
 
     def on_closed(self, connection, error):
@@ -297,28 +297,28 @@ class AsyncAdapters:
 
     @unittest.skipIf(
         not hasattr(select, 'poll') or not hasattr(select.poll(), 'modify'),
-        "poll not supported")
+        'poll not supported')
     @run_test_in_thread_with_timeout
     def test_with_select_poll(self):
         """SelectConnection:poll."""
         with mock.patch.multiple(select_connection, SELECT_TYPE='poll'):
             self.start(adapters.SelectConnection, select_connection.IOLoop)
 
-    @unittest.skipIf(not hasattr(select, 'epoll'), "epoll not supported")
+    @unittest.skipIf(not hasattr(select, 'epoll'), 'epoll not supported')
     @run_test_in_thread_with_timeout
     def test_with_select_epoll(self):
         """SelectConnection:epoll."""
         with mock.patch.multiple(select_connection, SELECT_TYPE='epoll'):
             self.start(adapters.SelectConnection, select_connection.IOLoop)
 
-    @unittest.skipIf(not hasattr(select, 'kqueue'), "kqueue not supported")
+    @unittest.skipIf(not hasattr(select, 'kqueue'), 'kqueue not supported')
     @run_test_in_thread_with_timeout
     def test_with_select_kqueue(self):
         """SelectConnection:kqueue."""
         with mock.patch.multiple(select_connection, SELECT_TYPE='kqueue'):
             self.start(adapters.SelectConnection, select_connection.IOLoop)
 
-    @unittest.skipIf(pika._utils.ON_WINDOWS, "Windows not supported")
+    @unittest.skipIf(pika._utils.ON_WINDOWS, 'Windows not supported')
     @run_test_in_thread_with_timeout
     def test_with_gevent(self):
         """GeventConnection."""

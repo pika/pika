@@ -94,7 +94,7 @@ class PlainCredentials:
     def erase_credentials(self) -> None:
         """Called by Connection when it no longer needs the credentials."""
         if self.erase_on_connect:
-            LOGGER.info("Erasing stored credential values")
+            LOGGER.info('Erasing stored credential values')
             self.username = None
             self.password = None
 

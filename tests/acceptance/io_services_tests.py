@@ -103,7 +103,7 @@ class TestRunWithStopFromThreadsafeCallback(AsyncServicesTestBase,
         self.assertEqual(bucket, ['I was called'])
 
 
-@unittest.skipIf(pika._utils.ON_WINDOWS, "Windows timing is too precise")
+@unittest.skipIf(pika._utils.ON_WINDOWS, 'Windows timing is too precise')
 class TestCallLaterDoesNotCallAheadOfTime(AsyncServicesTestBase,
                                           IOServicesTestStubs):
 
@@ -178,7 +178,7 @@ class TestCallLaterCancelledDoesNotCallBack(AsyncServicesTestBase,
 
 class SocketWatcherTestBase(AsyncServicesTestBase):
 
-    WatcherActivity = collections.namedtuple("io_services_test_WatcherActivity",
+    WatcherActivity = collections.namedtuple('io_services_test_WatcherActivity',
                                              ['readable', 'writable'])
 
     def _check_socket_watchers_fired(self, sock, expected):

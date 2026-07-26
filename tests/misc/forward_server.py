@@ -24,7 +24,7 @@ def buffer(object_, offset, size):
 
 def _trace(fmt, *args):
     """Format and output the text to stderr."""
-    print((fmt % args) + "\n", end="", file=sys.stderr)
+    print((fmt % args) + '\n', end='', file=sys.stderr)
 
 
 class ForwardServer:
@@ -77,7 +77,7 @@ class ForwardServer:
                  remote_addr,
                  remote_addr_family=socket.AF_INET,
                  remote_socket_type=socket.SOCK_STREAM,
-                 server_addr=("127.0.0.1", 0),
+                 server_addr=('127.0.0.1', 0),
                  server_addr_family=socket.AF_INET,
                  server_socket_type=socket.SOCK_STREAM,
                  local_linger_args=None):
@@ -135,7 +135,7 @@ class ForwardServer:
 
         NOTE: undefined before server starts and after it shuts down
         """
-        assert self._server_addr_family is not None, "Not in context"
+        assert self._server_addr_family is not None, 'Not in context'
 
         return self._server_addr_family
 
@@ -147,7 +147,7 @@ class ForwardServer:
 
         NOTE: undefined before server starts and after it shuts down
         """
-        assert self._server_addr is not None, "Not in context"
+        assert self._server_addr is not None, 'Not in context'
 
         return self._server_addr
 
@@ -174,20 +174,20 @@ class ForwardServer:
 
         :returns: self
         """
-        mp_ctx = multiprocessing.get_context("spawn")
+        mp_ctx = multiprocessing.get_context('spawn')
         queue = mp_ctx.Queue()
 
         self._subproc = mp_ctx.Process(
             target=_run_server,
             kwargs={
-                "local_addr": self._server_addr,
-                "local_addr_family": self._server_addr_family,
-                "local_socket_type": self._server_socket_type,
-                "local_linger_args": self._local_linger_args,
-                "remote_addr": self._remote_addr,
-                "remote_addr_family": self._remote_addr_family,
-                "remote_socket_type": self._remote_socket_type,
-                "queue": queue
+                'local_addr': self._server_addr,
+                'local_addr_family': self._server_addr_family,
+                'local_socket_type': self._server_socket_type,
+                'local_linger_args': self._local_linger_args,
+                'remote_addr': self._remote_addr,
+                'remote_addr_family': self._remote_addr_family,
+                'remote_socket_type': self._remote_socket_type,
+                'queue': queue
             })
         self._subproc.daemon = True
         self._subproc.start()
@@ -200,7 +200,7 @@ class ForwardServer:
         except Exception:
             try:
                 self._logger.exception(
-                    "Failed while waiting for local socket info")
+                    'Failed while waiting for local socket info')
                 # Preserve primary exception and traceback
                 raise
             finally:
@@ -210,7 +210,7 @@ class ForwardServer:
                 except Exception:
                     # Suppress secondary exception in favor of the primary
                     self._logger.exception(
-                        "Emergency subprocess shutdown failed")
+                        'Emergency subprocess shutdown failed')
 
         return self
 
@@ -222,14 +222,14 @@ class ForwardServer:
         ForwardServer. start()/stop() are alternatives to the context manager
         use case and are mutually exclusive with it.
         """
-        self._logger.info("ForwardServer STOPPING")
+        self._logger.info('ForwardServer STOPPING')
 
         try:
             self._subproc.terminate()
             self._subproc.join(timeout=self._SUBPROC_TIMEOUT)
             if self._subproc.is_alive():
                 self._logger.error(
-                    "ForwardServer failed to terminate, killing it")
+                    'ForwardServer failed to terminate, killing it')
                 os.kill(self._subproc.pid)
                 self._subproc.join(timeout=self._SUBPROC_TIMEOUT)
                 assert not self._subproc.is_alive(), self._subproc
@@ -237,7 +237,7 @@ class ForwardServer:
             # Log subprocess's exit code; NOTE: negative signal.SIGTERM (usually
             # -15) is normal on POSIX systems - it corresponds to SIGTERM
             exit_code = self._subproc.exitcode
-            self._logger.info("ForwardServer terminated with exitcode=%s",
+            self._logger.info('ForwardServer terminated with exitcode=%s',
                               exit_code)
         finally:
             self._subproc = None
@@ -361,7 +361,7 @@ class _TCPHandler(socketserver.StreamRequestHandler):
                 type=self._remote_socket_type,
                 proto=socket.IPPROTO_IP)
             remote_dest_sock.connect(self._remote_addr)
-            _trace("%s _TCPHandler connected to remote %s",
+            _trace('%s _TCPHandler connected to remote %s',
                    datetime.now(timezone.utc), remote_dest_sock.getpeername())
         else:
             # Echo set-up
@@ -403,7 +403,7 @@ class _TCPHandler(socketserver.StreamRequestHandler):
         """Forward from src_sock to dest_sock."""
         src_peername = src_sock.getpeername()
 
-        _trace("%s forwarding from %s to %s", datetime.now(timezone.utc),
+        _trace('%s forwarding from %s to %s', datetime.now(timezone.utc),
                src_peername, dest_sock.getpeername())
         try:
             # NOTE: python 2.6 doesn't support bytearray with recv_into, so
@@ -411,7 +411,7 @@ class _TCPHandler(socketserver.StreamRequestHandler):
             # array instance isn't shared across threads. See
             # https://bugs.python.org/issue7827 and
             # groups.google.com/forum/#!topic/comp.lang.python/M6Pqr-KUjQw
-            rx_buf = array.array("B", [0] * self._SOCK_RX_BUF_SIZE)
+            rx_buf = array.array('B', [0] * self._SOCK_RX_BUF_SIZE)
 
             while True:
                 try:
@@ -421,17 +421,17 @@ class _TCPHandler(socketserver.StreamRequestHandler):
                         continue
                     if exc.errno == errno.ECONNRESET:
                         # Source peer forcibly closed connection
-                        _trace("%s errno.ECONNRESET from %s",
+                        _trace('%s errno.ECONNRESET from %s',
                                datetime.now(timezone.utc), src_peername)
                         break
-                    _trace("%s Unexpected errno=%s from %s\n%s",
+                    _trace('%s Unexpected errno=%s from %s\n%s',
                            datetime.now(timezone.utc), exc.errno, src_peername,
-                           "".join(traceback.format_stack()))
+                           ''.join(traceback.format_stack()))
                     raise
 
                 if not nbytes:
                     # Source input EOF
-                    _trace("%s EOF on %s", datetime.now(timezone.utc),
+                    _trace('%s EOF on %s', datetime.now(timezone.utc),
                            src_peername)
                     break
 
@@ -441,27 +441,27 @@ class _TCPHandler(socketserver.StreamRequestHandler):
                     if exc.errno == errno.EPIPE:
                         # Destination peer closed its end of the connection
                         _trace(
-                            "%s Destination peer %s closed its end of "
-                            "the connection: errno.EPIPE",
+                            '%s Destination peer %s closed its end of '
+                            'the connection: errno.EPIPE',
                             datetime.now(timezone.utc), dest_sock.getpeername())
                         break
                     if exc.errno == errno.ECONNRESET:
                         # Destination peer forcibly closed connection
                         _trace(
-                            "%s Destination peer %s forcibly closed "
-                            "connection: errno.ECONNRESET",
+                            '%s Destination peer %s forcibly closed '
+                            'connection: errno.ECONNRESET',
                             datetime.now(timezone.utc), dest_sock.getpeername())
                         break
-                    _trace("%s Unexpected errno=%s in sendall to %s\n%s",
+                    _trace('%s Unexpected errno=%s in sendall to %s\n%s',
                            datetime.now(timezone.utc), exc.errno,
                            dest_sock.getpeername(),
-                           "".join(traceback.format_stack()))
+                           ''.join(traceback.format_stack()))
                     raise
         except Exception:
-            _trace("forward failed\n%s", "".join(traceback.format_exc()))
+            _trace('forward failed\n%s', ''.join(traceback.format_exc()))
             raise
         finally:
-            _trace("%s done forwarding from %s", datetime.now(timezone.utc),
+            _trace('%s done forwarding from %s', datetime.now(timezone.utc),
                    src_peername)
             try:
                 # Let source peer know we're done receiving
@@ -482,13 +482,13 @@ def echo(port=0):
         connection
     """
     lsock = socket.socket()
-    lsock.bind(("", port))
+    lsock.bind(('', port))
     lsock.listen(1)
-    _trace("Listening on sockname=%s", lsock.getsockname())
+    _trace('Listening on sockname=%s', lsock.getsockname())
 
     sock, remote_addr = lsock.accept()
     try:
-        _trace("Connection from peer=%s", remote_addr)
+        _trace('Connection from peer=%s', remote_addr)
         while True:
             try:
                 data = sock.recv(4 * 1024)

@@ -261,7 +261,7 @@ class ExceptionTests(unittest.TestCase):
     def test_unsupported_amqp_field_exception_repr(self):
         self.assertEqual(
             repr(exceptions.UnsupportedAMQPFieldException('kind', 42)),
-            'UnsupportedAMQPFieldException: Unsupported field kind <class \'int\'>'
+            "UnsupportedAMQPFieldException: Unsupported field kind <class 'int'>"
         )
 
     def test_channel_error_repr(self):

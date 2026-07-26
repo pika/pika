@@ -15,14 +15,14 @@ from tests.base.async_test_base import AsyncAdapters, AsyncTestCase, BoundQueueT
 
 
 class TestA_Connect(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Connect, open channel and disconnect"
+    DESCRIPTION = 'Connect, open channel and disconnect'
 
     def begin(self, channel):
         self.stop()
 
 
 class TestConstructAndImmediatelyCloseConnection(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Construct and immediately close connection."
+    DESCRIPTION = 'Construct and immediately close connection.'
 
     @async_test_base.stop_on_error_in_async_test_case_method
     def begin(self, channel):
@@ -49,7 +49,7 @@ class TestConstructAndImmediatelyCloseConnection(AsyncTestCase, AsyncAdapters):
 
 
 class TestCloseConnectionDuringAMQPHandshake(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Close connection during AMQP handshake."
+    DESCRIPTION = 'Close connection during AMQP handshake.'
 
     @async_test_base.stop_on_error_in_async_test_case_method
     def begin(self, channel):
@@ -90,7 +90,7 @@ class TestCloseConnectionDuringAMQPHandshake(AsyncTestCase, AsyncAdapters):
 
 class TestSocketConnectTimeoutWithTinySocketTimeout(AsyncTestCase,
                                                     AsyncAdapters):
-    DESCRIPTION = "Force socket.connect() timeout with very tiny socket_timeout."
+    DESCRIPTION = 'Force socket.connect() timeout with very tiny socket_timeout.'
 
     @async_test_base.stop_on_error_in_async_test_case_method
     def begin(self, channel):
@@ -120,7 +120,7 @@ class TestSocketConnectTimeoutWithTinySocketTimeout(AsyncTestCase,
 
 class TestStackConnectionTimeoutWithTinyStackTimeout(AsyncTestCase,
                                                      AsyncAdapters):
-    DESCRIPTION = "Force stack bring-up timeout with very tiny stack_timeout."
+    DESCRIPTION = 'Force stack bring-up timeout with very tiny stack_timeout.'
 
     @async_test_base.stop_on_error_in_async_test_case_method
     def begin(self, channel):
@@ -463,11 +463,11 @@ class TestCreateConnectionAndAsynchronouslyAbortDefaultConnectionWorkflow(
 
 
 class TestUpdateSecret(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Update secret and receive confirmation"
+    DESCRIPTION = 'Update secret and receive confirmation'
 
     def begin(self, channel):
         assert self.connection is not None
-        self.connection.update_secret("new_secret", "reason",
+        self.connection.update_secret('new_secret', 'reason',
                                       self.on_secret_update)
 
     def on_secret_update(self, frame):
@@ -476,7 +476,7 @@ class TestUpdateSecret(AsyncTestCase, AsyncAdapters):
 
 
 class TestConfirmSelect(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Receive confirmation of Confirm.Select"
+    DESCRIPTION = 'Receive confirmation of Confirm.Select'
 
     def begin(self, channel):
         channel.confirm_delivery(ack_nack_callback=self.ack_nack_callback,
@@ -497,11 +497,11 @@ class TestBlockingNonBlockingBlockingRPCWontStall(AsyncTestCase, AsyncAdapters):
 
     def begin(self, channel):
         # Queue declaration params table: queue name, nowait value
-        self._expected_queue_params = (("blocking-non-blocking-stall-check-" +
+        self._expected_queue_params = (('blocking-non-blocking-stall-check-' +
                                         uuid.uuid1().hex, False),
-                                       ("blocking-non-blocking-stall-check-" +
+                                       ('blocking-non-blocking-stall-check-' +
                                         uuid.uuid1().hex, True),
-                                       ("blocking-non-blocking-stall-check-" +
+                                       ('blocking-non-blocking-stall-check-' +
                                         uuid.uuid1().hex, False))
 
         self._declared_queue_names = []
@@ -529,7 +529,7 @@ class TestBlockingNonBlockingBlockingRPCWontStall(AsyncTestCase, AsyncAdapters):
 
 
 class TestConsumeCancel(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Consume and cancel"
+    DESCRIPTION = 'Consume and cancel'
 
     def begin(self, channel):
         self.queue_name = self.__class__.__name__ + ':' + uuid.uuid1().hex
@@ -556,7 +556,7 @@ class TestConsumeCancel(AsyncTestCase, AsyncAdapters):
 
 
 class TestExchangeDeclareAndDelete(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Create and delete and exchange"
+    DESCRIPTION = 'Create and delete and exchange'
 
     X_TYPE = ExchangeType.direct
 
@@ -580,7 +580,7 @@ class TestExchangeDeclareAndDelete(AsyncTestCase, AsyncAdapters):
 
 
 class TestExchangeRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "should close chan: re-declared exchange w/ diff params"
+    DESCRIPTION = 'should close chan: re-declared exchange w/ diff params'
 
     X_TYPE1 = ExchangeType.direct
     X_TYPE2 = ExchangeType.topic
@@ -613,13 +613,13 @@ class TestExchangeRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
 
     def on_bad_result(self, frame):
         self.channel.exchange_delete(self.name)
-        raise AssertionError("Should not have received an Exchange.DeclareOk")
+        raise AssertionError('Should not have received an Exchange.DeclareOk')
 
 
 class TestNoDeadlockWhenClosingChannelWithPendingBlockedRequestsAndConcurrentChannelCloseFromBroker(
         AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = ("No deadlock when closing a channel with pending blocked "
-                   "requests and concurrent Channel.Close from broker.")
+    DESCRIPTION = ('No deadlock when closing a channel with pending blocked '
+                   'requests and concurrent Channel.Close from broker.')
 
     # To observe the behavior that this is testing, comment out this line
     # in pika/channel.py - _on_close:
@@ -647,12 +647,12 @@ class TestNoDeadlockWhenClosingChannelWithPendingBlockedRequestsAndConcurrentCha
         self.stop()
 
     def on_bad_result(self, exch_name, frame):
-        self.fail("Should not have received an Exchange.DeclareOk")
+        self.fail('Should not have received an Exchange.DeclareOk')
 
 
 class TestClosingAChannelPermitsBlockedRequestToComplete(
         AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Closing a channel permits blocked requests to complete."
+    DESCRIPTION = 'Closing a channel permits blocked requests to complete.'
 
     @async_test_base.stop_on_error_in_async_test_case_method
     def begin(self, channel):
@@ -687,7 +687,7 @@ class TestClosingAChannelPermitsBlockedRequestToComplete(
 
 
 class TestQueueUnnamedDeclareAndDelete(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Create and delete an unnamed queue"
+    DESCRIPTION = 'Create and delete an unnamed queue'
 
     @async_test_base.stop_on_error_in_async_test_case_method
     def begin(self, channel):
@@ -712,7 +712,7 @@ class TestQueueUnnamedDeclareAndDelete(AsyncTestCase, AsyncAdapters):
 
 
 class TestQueueNamedDeclareAndDelete(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Create and delete a named queue"
+    DESCRIPTION = 'Create and delete a named queue'
 
     def begin(self, channel):
         self._q_name = self.__class__.__name__ + ':' + uuid.uuid1().hex
@@ -737,7 +737,7 @@ class TestQueueNamedDeclareAndDelete(AsyncTestCase, AsyncAdapters):
 
 
 class TestQueueRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Should close chan: re-declared queue w/ diff params"
+    DESCRIPTION = 'Should close chan: re-declared queue w/ diff params'
 
     def begin(self, channel):
         self._q_name = self.__class__.__name__ + ':' + uuid.uuid1().hex
@@ -764,11 +764,11 @@ class TestQueueRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
 
     def on_bad_result(self, frame):
         self.channel.queue_delete(self._q_name)
-        raise AssertionError("Should not have received a Queue.DeclareOk")
+        raise AssertionError('Should not have received a Queue.DeclareOk')
 
 
 class TestTX1_Select(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Receive confirmation of Tx.Select"
+    DESCRIPTION = 'Receive confirmation of Tx.Select'
 
     def begin(self, channel):
         channel.tx_select(callback=self.on_complete)
@@ -779,7 +779,7 @@ class TestTX1_Select(AsyncTestCase, AsyncAdapters):
 
 
 class TestTX2_Commit(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Start a transaction, and commit it"
+    DESCRIPTION = 'Start a transaction, and commit it'
 
     def begin(self, channel):
         channel.tx_select(callback=self.on_selectok)
@@ -794,7 +794,7 @@ class TestTX2_Commit(AsyncTestCase, AsyncAdapters):
 
 
 class TestTX2_CommitFailure(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Close the channel: commit without a TX"
+    DESCRIPTION = 'Close the channel: commit without a TX'
 
     def begin(self, channel):
         self.channel.add_on_close_callback(self.on_channel_closed)
@@ -808,11 +808,11 @@ class TestTX2_CommitFailure(AsyncTestCase, AsyncAdapters):
 
     @staticmethod
     def on_commitok(frame):
-        raise AssertionError("Should not have received a Tx.CommitOk")
+        raise AssertionError('Should not have received a Tx.CommitOk')
 
 
 class TestTX3_Rollback(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Start a transaction, then rollback"
+    DESCRIPTION = 'Start a transaction, then rollback'
 
     def begin(self, channel):
         channel.tx_select(callback=self.on_selectok)
@@ -827,7 +827,7 @@ class TestTX3_Rollback(AsyncTestCase, AsyncAdapters):
 
 
 class TestTX3_RollbackFailure(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Close the channel: rollback without a TX"
+    DESCRIPTION = 'Close the channel: rollback without a TX'
 
     def begin(self, channel):
         self.channel.add_on_close_callback(self.on_channel_closed)
@@ -838,15 +838,15 @@ class TestTX3_RollbackFailure(AsyncTestCase, AsyncAdapters):
 
     @staticmethod
     def on_commitok(frame):
-        raise AssertionError("Should not have received a Tx.RollbackOk")
+        raise AssertionError('Should not have received a Tx.RollbackOk')
 
 
 class TestZ_PublishAndConsume(BoundQueueTestCase, AsyncAdapters):
-    DESCRIPTION = "Publish a message and consume it"
+    DESCRIPTION = 'Publish a message and consume it'
 
     def on_ready(self, frame):
         self.ctag = self.channel.basic_consume(self.queue, self.on_message)
-        self.msg_body = f"{self.__class__.__name__}: {time_now()}"
+        self.msg_body = f'{self.__class__.__name__}: {time_now()}'
         self.channel.basic_publish(self.exchange, self.routing_key,
                                    self.msg_body)
 
@@ -862,11 +862,11 @@ class TestZ_PublishAndConsume(BoundQueueTestCase, AsyncAdapters):
 
 
 class TestZ_PublishAndConsumeBig(BoundQueueTestCase, AsyncAdapters):
-    DESCRIPTION = "Publish a big message and consume it"
+    DESCRIPTION = 'Publish a big message and consume it'
 
     @staticmethod
     def _get_msg_body():
-        return '\n'.join([f"{i}" for i in range(2097152)])
+        return '\n'.join([f'{i}' for i in range(2097152)])
 
     def on_ready(self, frame):
         self.ctag = self.channel.basic_consume(self.queue, self.on_message)
@@ -886,10 +886,10 @@ class TestZ_PublishAndConsumeBig(BoundQueueTestCase, AsyncAdapters):
 
 
 class TestZ_PublishAndGet(BoundQueueTestCase, AsyncAdapters):
-    DESCRIPTION = "Publish a message and get it"
+    DESCRIPTION = 'Publish a message and get it'
 
     def on_ready(self, frame):
-        self.msg_body = f"{self.__class__.__name__}: {time_now()}"
+        self.msg_body = f'{self.__class__.__name__}: {time_now()}'
         self.channel.basic_publish(self.exchange, self.routing_key,
                                    self.msg_body)
         self.channel.basic_get(self.queue, self.on_get)
@@ -902,7 +902,7 @@ class TestZ_PublishAndGet(BoundQueueTestCase, AsyncAdapters):
 
 
 class TestZ_AccessDenied(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Unknown vhost results in ProbableAccessDeniedError."
+    DESCRIPTION = 'Unknown vhost results in ProbableAccessDeniedError.'
 
     def start(self, *args, **kwargs):
         self.parameters.virtual_host = str(uuid.uuid4())
@@ -921,7 +921,7 @@ class TestZ_AccessDenied(AsyncTestCase, AsyncAdapters):
 
 
 class TestBlockedConnectionTimesOut(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Verify that blocked connection terminates on timeout"
+    DESCRIPTION = 'Verify that blocked connection terminates on timeout'
 
     def start(self, *args, **kwargs):
         self.parameters.blocked_connection_timeout = 0.001
@@ -947,7 +947,7 @@ class TestBlockedConnectionTimesOut(AsyncTestCase, AsyncAdapters):
 
 
 class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Verify that blocked-unblocked connection closes normally"
+    DESCRIPTION = 'Verify that blocked-unblocked connection closes normally'
 
     def start(self, *args, **kwargs):
         self.parameters.blocked_connection_timeout = 0.001
@@ -988,7 +988,7 @@ class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):
 class TestAddCallbackThreadsafeRequestBeforeIOLoopStarts(
         AsyncTestCase, AsyncAdapters):
     DESCRIPTION = (
-        "Test _adapter_add_callback_threadsafe request before ioloop starts.")
+        'Test _adapter_add_callback_threadsafe request before ioloop starts.')
 
     def _run_ioloop(self, *args, **kwargs):
         """We intercept this method from AsyncTestCase in order to call
@@ -1023,7 +1023,7 @@ class TestAddCallbackThreadsafeRequestBeforeIOLoopStarts(
 
 class TestAddCallbackThreadsafeFromIOLoopThread(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = (
-        "Test _adapter_add_callback_threadsafe request from same thread.")
+        'Test _adapter_add_callback_threadsafe request from same thread.')
 
     def start(self, *args, **kwargs):
         self.loop_thread_ident = threading.current_thread().ident
@@ -1049,7 +1049,7 @@ class TestAddCallbackThreadsafeFromIOLoopThread(AsyncTestCase, AsyncAdapters):
 
 class TestAddCallbackThreadsafeFromAnotherThread(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = (
-        "Test _adapter_add_callback_threadsafe request from another thread.")
+        'Test _adapter_add_callback_threadsafe request from another thread.')
 
     def start(self, *args, **kwargs):
         self.loop_thread_ident = threading.current_thread().ident
@@ -1077,7 +1077,7 @@ class TestAddCallbackThreadsafeFromAnotherThread(AsyncTestCase, AsyncAdapters):
 
 
 class TestIOLoopStopBeforeIOLoopStarts(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Test ioloop.stop() before ioloop starts causes ioloop to exit quickly."
+    DESCRIPTION = 'Test ioloop.stop() before ioloop starts causes ioloop to exit quickly.'
 
     def _run_ioloop(self, *args, **kwargs):
         """We intercept this method from AsyncTestCase in order to call ioloop.stop() before
@@ -1102,7 +1102,7 @@ class TestIOLoopStopBeforeIOLoopStarts(AsyncTestCase, AsyncAdapters):
 
 class TestViabilityOfMultipleTimeoutsWithSameDeadlineAndCallback(
         AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Test viability of multiple timeouts with same deadline and callback"
+    DESCRIPTION = 'Test viability of multiple timeouts with same deadline and callback'
 
     def begin(self, channel):
         timer1 = channel.connection._adapter_call_later(0, self.on_my_timer)

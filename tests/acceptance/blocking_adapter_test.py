@@ -154,7 +154,7 @@ class TestCreateConnectionFromTwoConfigsFirstUnreachable(BlockingTestCaseBase):
 
         sock.close()
 
-        bad_params = pika.URLParameters(PARAMS_URL_TEMPLATE % {"port": port})
+        bad_params = pika.URLParameters(PARAMS_URL_TEMPLATE % {'port': port})
         good_params = pika.URLParameters(DEFAULT_URL)
 
         with self._connect_params([bad_params, good_params]) as connection:
@@ -178,7 +178,7 @@ class TestCreateConnectionFromTwoUnreachableConfigs(BlockingTestCaseBase):
 
         sock.close()
 
-        bad_params = pika.URLParameters(PARAMS_URL_TEMPLATE % {"port": port})
+        bad_params = pika.URLParameters(PARAMS_URL_TEMPLATE % {'port': port})
 
         with self.assertRaises(pika.exceptions.AMQPConnectionError):
             self._connect_params([bad_params, bad_params])
@@ -292,7 +292,7 @@ class TestUpdateSecret(BlockingTestCaseBase):
         channel = connection.channel()
 
         # Update secret
-        connection.update_secret("new_secret", "reason")
+        connection.update_secret('new_secret', 'reason')
 
         # Now check is_open/is_closed on channel and connection
         self.assertTrue(channel.is_open)
@@ -311,7 +311,7 @@ class TestUpdateSecretOnClosedRaisesWrongState(BlockingTestCaseBase):
 
         # Attempt to update secret
         with self.assertRaises(pika.exceptions.ConnectionWrongStateError):
-            connection.update_secret("new_secret", "reason")
+            connection.update_secret('new_secret', 'reason')
 
         # Now check is_open/is_closed on channel and connection
         self.assertFalse(connection.is_open)
@@ -325,11 +325,11 @@ class TestUpdateSecretExpectsStrings(BlockingTestCaseBase):
 
         # Attempt to update secret with integer as new_secret
         with self.assertRaises(AssertionError):
-            connection.update_secret(1, "reason")
+            connection.update_secret(1, 'reason')
 
         # Attempt to update secret with integer as reason
         with self.assertRaises(AssertionError):
-            connection.update_secret("new_secret", 1)
+            connection.update_secret('new_secret', 1)
 
 
 class TestInvalidExchangeTypeRaisesConnectionClosed(BlockingTestCaseBase):
@@ -342,7 +342,7 @@ class TestInvalidExchangeTypeRaisesConnectionClosed(BlockingTestCaseBase):
         connection = self._connect()
         ch = connection.channel()
 
-        exg_name = ("TestInvalidExchangeTypeRaisesConnectionClosed_" +
+        exg_name = ('TestInvalidExchangeTypeRaisesConnectionClosed_' +
                     uuid.uuid1().hex)
 
         with self.assertRaises(pika.exceptions.ChannelClosedByBroker) as ex_cm:
@@ -408,7 +408,7 @@ class TestSuddenBrokerDisconnectBeforeChannel(BlockingTestCaseBase):
                            local_linger_args=(1, 0)) as fwd:
 
             self.connection = self._connect(PARAMS_URL_TEMPLATE %
-                                            {"port": fwd.server_address[1]})
+                                            {'port': fwd.server_address[1]})
 
         # Once outside the context, the connection is broken
 
@@ -430,7 +430,7 @@ class TestNoAccessToConnectionAfterConnectionLost(BlockingTestCaseBase):
                            local_linger_args=(1, 0)) as fwd:
 
             self.connection = self._connect(PARAMS_URL_TEMPLATE %
-                                            {"port": fwd.server_address[1]})
+                                            {'port': fwd.server_address[1]})
 
         # Once outside the context, the connection is broken
 
@@ -463,7 +463,7 @@ class TestConnectWithDownedBroker(BlockingTestCaseBase):
 
         with self.assertRaises(pika.exceptions.AMQPConnectionError):
             self.connection = self._connect(PARAMS_URL_TEMPLATE %
-                                            {"port": port})
+                                            {'port': port})
 
 
 class TestDisconnectDuringConnectionStart(BlockingTestCaseBase):
@@ -485,7 +485,7 @@ class TestDisconnectDuringConnectionStart(BlockingTestCaseBase):
                 return super()._on_connection_start(*args, **kwargs)
 
         with self.assertRaises(pika.exceptions.ProbableAuthenticationError):
-            self._connect(PARAMS_URL_TEMPLATE % {"port": fwd.server_address[1]},
+            self._connect(PARAMS_URL_TEMPLATE % {'port': fwd.server_address[1]},
                           impl_class=MySelectConnection)
 
 
@@ -507,7 +507,7 @@ class TestDisconnectDuringConnectionTune(BlockingTestCaseBase):
                 return super()._on_connection_tune(*args, **kwargs)
 
         with self.assertRaises(pika.exceptions.ProbableAccessDeniedError):
-            self._connect(PARAMS_URL_TEMPLATE % {"port": fwd.server_address[1]},
+            self._connect(PARAMS_URL_TEMPLATE % {'port': fwd.server_address[1]},
                           impl_class=MySelectConnection)
 
 
@@ -530,7 +530,7 @@ class TestDisconnectDuringConnectionProtocol(BlockingTestCaseBase):
                 return super()._on_stream_connected(*args, **kwargs)
 
         with self.assertRaises(pika.exceptions.IncompatibleProtocolError):
-            self._connect(PARAMS_URL_TEMPLATE % {"port": fwd.server_address[1]},
+            self._connect(PARAMS_URL_TEMPLATE % {'port': fwd.server_address[1]},
                           impl_class=MySelectConnection)
 
 
@@ -824,7 +824,7 @@ class TestExchangeDeclareAndDelete(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        name = "TestExchangeDeclareAndDelete_" + uuid.uuid1().hex
+        name = 'TestExchangeDeclareAndDelete_' + uuid.uuid1().hex
 
         # Declare a new exchange
         frame = ch.exchange_declare(name, exchange_type=ExchangeType.direct)
@@ -956,7 +956,7 @@ class TestPassiveQueueDeclareOfUnknownQueueRaisesChannelClosed(
         ch = connection.channel()
 
         q_name = (
-            "TestPassiveQueueDeclareOfUnknownQueueRaisesChannelClosed_q_" +
+            'TestPassiveQueueDeclareOfUnknownQueueRaisesChannelClosed_q_' +
             uuid.uuid1().hex)
 
         with self.assertRaises(pika.exceptions.ChannelClosedByBroker) as ex_cm:
@@ -1479,7 +1479,7 @@ class TestBasicConsumeFromUnknownQueueRaisesChannelClosed(BlockingTestCaseBase):
         connection = self._connect()
         ch = connection.channel()
 
-        q_name = ("TestBasicConsumeFromUnknownQueueRaisesChannelClosed_q_" +
+        q_name = ('TestBasicConsumeFromUnknownQueueRaisesChannelClosed_q_' +
                   uuid.uuid1().hex)
 
         with self.assertRaises(pika.exceptions.ChannelClosedByBroker) as ex_cm:
@@ -3193,7 +3193,7 @@ class TestChannelContextManagerDoesNotSuppressChannelClosedByBroker(
         exception.
         """
         exg_name = (
-            "TestChannelContextManagerDoesNotSuppressChannelClosedByBroker" +
+            'TestChannelContextManagerDoesNotSuppressChannelClosedByBroker' +
             uuid.uuid1().hex)
 
         channel = self._connect().channel()

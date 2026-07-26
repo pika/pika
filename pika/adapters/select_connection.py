@@ -291,7 +291,7 @@ class _Timer:
         :raises ValueError, TypeError
         """
         if self._timeout_heap is None:
-            raise ValueError("Timeout closed before call")
+            raise ValueError('Timeout closed before call')
 
         if delay < 0:
             raise ValueError(
@@ -449,8 +449,8 @@ class IOLoop(AbstractSelectorIOLoop):
         poller: _PollerBase | None = None
 
         kwargs: POLLER_PARAMS = {
-            "get_wait_seconds": get_wait_seconds,
-            "process_timeouts": process_timeouts
+            'get_wait_seconds': get_wait_seconds,
+            'process_timeouts': process_timeouts
         }
 
         if hasattr(select, 'epoll'):
@@ -723,7 +723,7 @@ class _PollerBase(abc.ABC):
             except Exception as err:
                 # There's nothing sensible to do here, we'll exit the interrupt
                 # loop after POLL_TIMEOUT secs in worst case anyway.
-                LOGGER.warning("Failed to send interrupt to poller: %s", err)
+                LOGGER.warning('Failed to send interrupt to poller: %s', err)
                 raise
 
     def _get_max_wait(self) -> float:
@@ -1304,7 +1304,7 @@ class PollPoller(_PollerBase):
     def _uninit_poller(self) -> None:
         """Notify the implementation to release the poller resource."""
         if self._poll is not None:
-            if hasattr(self._poll, "close"):
+            if hasattr(self._poll, 'close'):
                 self._poll.close(
                 )  # pyright: ignore[reportAttributeAccessIssue]
 

@@ -77,10 +77,10 @@ class GeventConnection(BaseConnection):
             connection workflow via the `create_connection()` factory
         """
         warnings.warn(
-            "GeventConnection is deprecated and will be removed in Pika 2.0. "
-            "Use ThreadSafeConnection instead, which works with any framework "
-            "including Gevent. See "
-            "https://pika.github.io/pika/modules/adapters/thread_safe/",
+            'GeventConnection is deprecated and will be removed in Pika 2.0. '
+            'Use ThreadSafeConnection instead, which works with any framework '
+            'including Gevent. See '
+            'https://pika.github.io/pika/modules/adapters/thread_safe/',
             DeprecationWarning,
             stacklevel=2,
         )
@@ -195,7 +195,7 @@ class _TSafeCallbackQueue:
             callback = self._queue.get_nowait()
         except queue.Empty:
             # Should never happen.
-            LOGGER.warning("Callback queue was empty.")
+            LOGGER.warning('Callback queue was empty.')
         else:
             # Read the byte from the pipe so the event doesn't re-fire.
             os.read(self._read_fd, 1)
@@ -287,14 +287,14 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
         """
         if gevent.get_hub() == self._hub:
             # We're in the main thread; just add the callback.
-            LOGGER.debug("Adding callback from main thread")
+            LOGGER.debug('Adding callback from main thread')
             self._hub.loop.run_callback(
                 callback)  # pyright: ignore[reportOptionalMemberAccess]
         else:
             # This isn't the main thread and Gevent's hub/loop don't provide
             # any thread-safety so enqueue the callback for it to be registered
             # in the main thread.
-            LOGGER.debug("Adding callback from another thread")
+            LOGGER.debug('Adding callback from another thread')
             callback = functools.partial(
                 self._hub.loop.run_callback, callback
             )  # pyright: ignore[reportAssignmentType, reportOptionalMemberAccess]
@@ -481,7 +481,7 @@ class _GeventAddressResolver:
         if self._greenlet is None:
             self._greenlet = gevent.spawn_raw(self._resolve)
         else:
-            LOGGER.warning("_GeventAddressResolver already started")
+            LOGGER.warning('_GeventAddressResolver already started')
 
     def cancel(self) -> bool:
         """Cancel the pending resolver."""

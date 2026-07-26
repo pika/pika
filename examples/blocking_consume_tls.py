@@ -7,11 +7,11 @@ context.check_hostname = False
 context.verify_mode = False
 
 parameters = pika.ConnectionParameters(
-    host="serverhostname.com",
+    host='serverhostname.com',
     port=5671,
     heartbeat=150,
     ssl_options=pika.SSLOptions(context),
-    virtual_host="rwgvqgbl",
+    virtual_host='rwgvqgbl',
     channel_max=10,
     credentials=pika.PlainCredentials('rwgvqgbl', 'password'),
     client_properties={

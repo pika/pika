@@ -253,7 +253,7 @@ class UnroutableError(AMQPChannelError):
         """
         :param messages: Sequence of returned unroutable messages
         """
-        super().__init__(f"{len(messages)} unroutable message(s) returned")
+        super().__init__(f'{len(messages)} unroutable message(s) returned')
 
         self.messages = messages
 
@@ -274,7 +274,7 @@ class NackError(AMQPChannelError):
         """
         :param messages: Sequence of returned unroutable messages
         """
-        super().__init__(f"{len(messages)} message(s) NACKed")
+        super().__init__(f'{len(messages)} message(s) NACKed')
 
         self.messages = messages
 
