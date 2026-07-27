@@ -291,8 +291,8 @@ class TestSocketWatchersWhenFailsToConnect(SocketWatcherTestBase,
         # readable/writable a socket that failed to connect - it reflects the
         # failure only via exceptfds, which native ioloop's usually attribute to
         # the writable indication.
-        expected = self.WatcherActivity(
-            readable=False if pika._utils.ON_WINDOWS else True, writable=True)
+        expected = self.WatcherActivity(readable=not pika._utils.ON_WINDOWS,
+                                        writable=True)
         self._check_socket_watchers_fired(sock, expected)
 
 
@@ -373,8 +373,8 @@ class TestSocketWatchersAfterLocalPeerShutsRead(SocketWatcherTestBase,
 
         # NOTE: Unlike POSIX, Windows select doesn't indicate as readable socket
         #  that was shut down locally with SHUT_RD.
-        expected = self.WatcherActivity(
-            readable=False if pika._utils.ON_WINDOWS else True, writable=True)
+        expected = self.WatcherActivity(readable=not pika._utils.ON_WINDOWS,
+                                        writable=True)
         self._check_socket_watchers_fired(s1, expected)
 
 
@@ -398,8 +398,8 @@ class TestSocketWatchersAfterLocalPeerShutsReadWrite(SocketWatcherTestBase,
 
         # NOTE: Unlike POSIX, Windows select doesn't indicate as readable socket
         #  that was shut down locally with SHUT_RDWR.
-        expected = self.WatcherActivity(
-            readable=False if pika._utils.ON_WINDOWS else True, writable=True)
+        expected = self.WatcherActivity(readable=not pika._utils.ON_WINDOWS,
+                                        writable=True)
         self._check_socket_watchers_fired(s1, expected)
 
 
