@@ -119,7 +119,6 @@ force-one-line-summary = false
 [tool.hatch.envs.default]
 dependencies = [
     "coverage",
-    "codecov",
     "docformatter",
     "gevent",
     "pytest>=7.0.0",
