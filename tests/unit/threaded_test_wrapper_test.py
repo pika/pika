@@ -34,9 +34,9 @@ class ThreadedTestWrapperSelfChecks(unittest.TestCase):
         stringio_stderr = StringIO()
         try:
             with mock.patch.object(_ThreadedTestWrapper, '_stderr',
-                                   stringio_stderr):
-                with self.assertRaises(AssertionError) as exc_ctx:
-                    my_errant_function()
+                                   stringio_stderr), self.assertRaises(
+                                       AssertionError) as exc_ctx:
+                my_errant_function()
 
             self.assertIn('raise SelfCheckExceptionHandling()',
                           exc_ctx.exception.args[0])

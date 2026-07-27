@@ -2249,9 +2249,9 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
                 return inst
 
             with patch('pika.adapters.thread_safe_connection._BoundedWorkPool',
-                       side_effect=capturing_pool):
-                with self.assertRaises(RuntimeError) as ctx:
-                    ThreadSafeConnection(parameters='params')
+                       side_effect=capturing_pool), self.assertRaises(
+                           RuntimeError) as ctx:
+                ThreadSafeConnection(parameters='params')
             self.assertIs(ctx.exception, boom)
             self.assertEqual(len(captured), 1)
             # The captured pool must be shut down.  shutdown(wait=True)

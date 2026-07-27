@@ -97,7 +97,7 @@ class _CallbackResult:
         """
         return self
 
-    def __exit__(self, *args: Any, **kwargs: Any) -> None:
+    def __exit__(self, *args: object, **kwargs: Any) -> None:
         """Reset value."""
         self.reset()
 
@@ -213,7 +213,7 @@ class _IoloopTimerContext:
             self._duration, self._callback_result.signal_once)
         return self
 
-    def __exit__(self, *_args: Any, **_kwargs: Any) -> None:
+    def __exit__(self, *_args: object, **_kwargs: Any) -> None:
         """Unregister timer if it hasn't fired yet."""
         if not self._callback_result:
             self._connection._adapter_remove_timeout(self._timer_handle)

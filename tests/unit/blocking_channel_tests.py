@@ -94,10 +94,9 @@ class BlockingChannelTests(unittest.TestCase):
         class TestException(Exception):
             pass
 
-        with self.assertRaises(TestException):
-            with self.obj:
-                self.assertFalse(self.channel_impl_mock.close.called)
-                raise TestException()
+        with self.assertRaises(TestException), self.obj:
+            self.assertFalse(self.channel_impl_mock.close.called)
+            raise TestException()
         self.channel_impl_mock.close.assert_called_once_with(
             reply_code=0, reply_text='Normal shutdown')
 

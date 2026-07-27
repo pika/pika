@@ -239,11 +239,10 @@ class TestConnectionContextManagerClosesConnectionAndPassesOriginalException(
             pass
 
         connection = self._connect()
-        with self.assertRaises(MyException):
-            with connection:
-                self.assertTrue(connection.is_open)
+        with self.assertRaises(MyException), connection:
+            self.assertTrue(connection.is_open)
 
-                raise MyException()
+            raise MyException()
 
         self.assertTrue(connection.is_closed)
 
@@ -256,10 +255,9 @@ class TestConnectionContextManagerClosesConnectionAndPassesSystemException(
         exception.
         """
         connection = self._connect()
-        with self.assertRaises(SystemExit):
-            with connection:
-                self.assertTrue(connection.is_open)
-                raise SystemExit()
+        with self.assertRaises(SystemExit), connection:
+            self.assertTrue(connection.is_open)
+            raise SystemExit()
 
         self.assertTrue(connection.is_closed)
 
@@ -3195,11 +3193,10 @@ class TestChannelContextManagerDoesNotSuppressChannelClosedByBroker(
             uuid.uuid1().hex)
 
         channel = self._connect().channel()
-        with self.assertRaises(pika.exceptions.ChannelClosedByBroker):
-            with channel:
-                # Passively declaring non-existent exchange should force broker
-                # to close channel
-                channel.exchange_declare(exg_name, passive=True)
+        with self.assertRaises(pika.exceptions.ChannelClosedByBroker), channel:
+            # Passively declaring non-existent exchange should force broker
+            # to close channel
+            channel.exchange_declare(exg_name, passive=True)
 
         self.assertTrue(channel.is_closed)
 
