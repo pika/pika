@@ -2409,8 +2409,7 @@ class Connection(abc.ABC):
             for chunk in range(chunks):
                 start = chunk * self._body_max_length
                 end = start + self._body_max_length
-                if end > length:
-                    end = length
+                end = min(end, length)
                 frame_body = frame.Body(channel_number, content[1][start:end])
                 marshaled_body_frames.append(frame_body.marshal())
 

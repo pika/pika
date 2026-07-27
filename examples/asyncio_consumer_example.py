@@ -415,8 +415,7 @@ class ReconnectingExampleConsumer:
             self._reconnect_delay = 0
         else:
             self._reconnect_delay += 1
-        if self._reconnect_delay > 30:
-            self._reconnect_delay = 30
+        self._reconnect_delay = min(self._reconnect_delay, 30)
         return self._reconnect_delay
 
 

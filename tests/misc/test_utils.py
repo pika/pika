@@ -48,8 +48,7 @@ def retry_assertion(timeout_sec, retry_interval_sec=0.1):
 
                     now = pika._utils.time_now()
                     # Compensate for time adjustment
-                    if now < start_time:
-                        start_time = now
+                    start_time = min(start_time, now)
 
                     if (now - start_time) > timeout_sec:
                         logging.exception(
