@@ -4,6 +4,7 @@ import pika
 from pika import DeliveryMode, spec
 
 ITERATIONS = 100
+LOGGER = logging.getLogger(__name__)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -31,12 +32,12 @@ def on_delivery_confirmation(frame):
     global confirmed, errors
     if isinstance(frame.method, spec.Basic.Ack):
         confirmed += 1
-        logging.info('Received confirmation: %r', frame.method)
+        LOGGER.info('Received confirmation: %r', frame.method)
     else:
-        logging.error('Received negative confirmation: %r', frame.method)
+        LOGGER.error('Received negative confirmation: %r', frame.method)
         errors += 1
     if (confirmed + errors) == ITERATIONS:
-        logging.info(
+        LOGGER.info(
             'All confirmations received, published %i, confirmed %i with %i errors',
             published, confirmed, errors)
         connection.close()
