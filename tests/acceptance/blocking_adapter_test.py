@@ -1376,10 +1376,8 @@ class TestBasicRecoverWithRequeue(BlockingTestCaseBase):
                          mandatory=True)
 
         rx_messages = []
-        num_messages = 0
-        for msg in ch.consume(q_name, auto_ack=False):
-            num_messages += 1
-
+        for num_messages, msg in enumerate(ch.consume(q_name, auto_ack=False),
+                                           start=1):
             if num_messages == 2:
                 ch.basic_recover(requeue=True)
 
@@ -2742,12 +2740,12 @@ class TestNonPubAckPublishAndConsumeManyMessages(BlockingTestCaseBase):
                              body=body.encode())
 
         # Consume the messages
-        num_consumed = 0
-        for rx_method, rx_props, rx_body in ch.consume(q_name,
-                                                       auto_ack=False,
-                                                       exclusive=False,
-                                                       arguments=None):
-            num_consumed += 1
+        rx_messages = enumerate(ch.consume(q_name,
+                                           auto_ack=False,
+                                           exclusive=False,
+                                           arguments=None),
+                                start=1)
+        for num_consumed, (rx_method, rx_props, rx_body) in rx_messages:
             assert rx_method is not None
             self.assertIsInstance(rx_method, pika.spec.Basic.Deliver)
             self.assertEqual(rx_method.delivery_tag, num_consumed)
@@ -2962,12 +2960,12 @@ class TestNoAckMessageNotRestoredToQueueOnChannelClose(BlockingTestCaseBase):
         ch.basic_publish(exchange='', routing_key=q_name, body=body2.encode())
 
         # Consume, but don't ack
-        num_messages = 0
-        for rx_method, _, _ in ch.consume(q_name,
-                                          auto_ack=True,
-                                          exclusive=False):
-            num_messages += 1
-
+        num_messages = 0  # in case the generator yields nothing
+        rx_messages = enumerate(ch.consume(q_name,
+                                           auto_ack=True,
+                                           exclusive=False),
+                                start=1)
+        for num_messages, (rx_method, _, _) in rx_messages:
             assert rx_method is not None
             self.assertEqual(rx_method.delivery_tag, num_messages)
 
