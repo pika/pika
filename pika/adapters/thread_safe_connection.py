@@ -144,11 +144,11 @@ class _BoundedWorkPool:
     :param thread_name: Name of the worker thread.
     """
 
-    # Seconds the idle worker waits on an empty queue before re-checking the
-    # shutdown flag.  Bounds how long shutdown(wait=True) lingers after the
-    # queue drains; small enough to feel instant, large enough that an idle
-    # pool wakes only a few times a second.
-    _SHUTDOWN_POLL_INTERVAL = 0.1
+    # Best-effort wakeup ping enqueued by shutdown() to rouse a worker idling
+    # in a blocking get().  The shutdown flag remains the source of truth; the
+    # sentinel only nudges the worker to re-check it, so a dropped ping (full
+    # queue) is harmless - a busy worker re-checks the flag between items.
+    _SENTINEL = object()
 
     def __init__(self, maxsize: int, put_timeout: float,
                  thread_name: str) -> None:
@@ -185,13 +185,15 @@ class _BoundedWorkPool:
 
     def _run_worker(self) -> None:
         while True:
-            try:
-                item = self._queue.get(timeout=self._SHUTDOWN_POLL_INTERVAL)
-            except queue.Empty:
-                # No work pending; exit only once shutdown has been requested,
-                # otherwise keep waiting for the next item.
-                if self._shutdown:
-                    return
+            # Exit only once shutdown has been requested and every queued item
+            # has drained.  Checking before the blocking get() means a worker
+            # that finishes the last real item after shutdown() ran sees the
+            # flag and the empty queue and exits without waiting for a ping.
+            if self._shutdown and self._queue.empty():
+                return
+            item = self._queue.get()
+            if item is self._SENTINEL:
+                # Wakeup ping from shutdown(); re-check the flag at the loop top.
                 continue
             fn, args = item
             fn(*args)
@@ -206,11 +208,13 @@ class _BoundedWorkPool:
         worker), which is why the flag is set unconditionally rather than
         short-circuiting.
 
-        Setting the shutdown flag (rather than enqueuing an in-band sentinel)
-        keeps this non-blocking even when the queue is full: a wedged worker
-        that has not freed a slot can never stall the caller here.  The worker
-        drains all pending work, then exits the next time it finds the queue
-        empty with the flag set.
+        The shutdown flag is the source of truth.  A best-effort
+        :data:`_SENTINEL` ping is then enqueued via ``put_nowait`` purely to
+        rouse a worker idling in a blocking ``get()``; if the queue is full the
+        ping is dropped, which is harmless because a busy worker re-checks the
+        flag between items.  Either way this call never blocks on a full queue,
+        and the worker drains all pending work before exiting the next time it
+        finds the queue empty with the flag set.
 
         When *wait* is true this joins the worker thread.  A finite *timeout*
         bounds that join: if the worker is still running callbacks when the
@@ -229,6 +233,17 @@ class _BoundedWorkPool:
             self._shutdown = True
             thread = self._thread
         if thread is None:
+            return True
+        # Wake a worker blocked in get(); dropped if the queue is full (a busy
+        # worker re-checks the flag between items, so no wakeup is needed).
+        try:
+            self._queue.put_nowait(self._SENTINEL)
+        except queue.Full:
+            pass
+        if thread is threading.current_thread():
+            # A delivery callback is shutting down its own pool (e.g. it called
+            # channel.close()).  The worker cannot join itself; the flag is
+            # already set, so it exits once this callback returns.
             return True
         if not wait:
             return not thread.is_alive()

@@ -134,7 +134,8 @@ class BoundedWorkPoolTests(unittest.TestCase):
         Shutdown() must not block when the queue is full and the worker is wedged.
 
         The worker holds its first item while a second fills the single queue slot, so no slot is
-        free.  An in-band shutdown sentinel would block here; the flag-based shutdown must return
+        free.  The shutdown flag is set unconditionally and the wakeup sentinel is enqueued with
+        put_nowait, so a full queue drops the ping instead of blocking; shutdown must return
         promptly.
         """
         pool, release = self._make_blocked_pool(maxsize=1)
@@ -157,7 +158,7 @@ class BoundedWorkPoolTests(unittest.TestCase):
         pool.shutdown(wait=True)
 
     def test_worker_idles_then_processes_later_work(self):
-        """An idle worker must keep polling and still process work submitted after it goes idle."""
+        """An idle worker blocked in get() must still process work submitted after it goes idle."""
         pool = _BoundedWorkPool(maxsize=10,
                                 put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
                                 thread_name='test-pool')
@@ -165,9 +166,9 @@ class BoundedWorkPoolTests(unittest.TestCase):
         pool.submit(first.set)
         self.assertTrue(first.wait(timeout=5))
 
-        # Let the worker sit idle across several poll intervals so it takes the
-        # empty-queue-but-not-shutdown branch, then hand it more work.
-        time.sleep(pool._SHUTDOWN_POLL_INTERVAL * 3)
+        # Let the worker drain and block in get() on the empty queue, then hand
+        # it more work to prove the blocking get() wakes and processes it.
+        time.sleep(0.3)
 
         second = threading.Event()
         pool.submit(second.set)
@@ -220,6 +221,24 @@ class BoundedWorkPoolTests(unittest.TestCase):
         pool.submit(lambda: None)
         pool.shutdown(wait=True)
         pool.shutdown(wait=True)
+
+    def test_shutdown_from_worker_thread_does_not_join_itself(self):
+        """A work item that shuts its own pool down must not join the worker thread it runs on."""
+        pool = _BoundedWorkPool(maxsize=1,
+                                put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
+                                thread_name='test-pool')
+        result: list[bool] = []
+
+        def self_shutdown():
+            # RuntimeError('cannot join current thread') if shutdown() tried to
+            # join the worker from the worker itself.
+            result.append(pool.shutdown(wait=True))
+
+        pool.submit(self_shutdown)
+        pool._thread.join(timeout=5)
+        self.assertFalse(pool._thread.is_alive())
+        # shutdown() returned True (worker exits on its own) rather than raising.
+        self.assertEqual(result, [True])
 
     def test_connection_params_propagate_to_channel_pool(self):
         """Work-queue parameters passed to ThreadSafeChannel must reach its pool."""
