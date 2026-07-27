@@ -31,11 +31,8 @@ from urllib.parse import urlparse
 import pika.callback
 import pika.channel
 import pika.credentials
-import pika.exceptions as exceptions
-import pika.frame as frame
 import pika.heartbeat
-import pika.spec as spec
-import pika.validators as validators
+from pika import exceptions, frame, spec, validators
 from pika._utils import override
 
 if TYPE_CHECKING:

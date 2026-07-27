@@ -10,10 +10,7 @@ from collections import deque
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Union
 
-import pika.exceptions as exceptions
-import pika.frame as frame
-import pika.spec as spec
-import pika.validators as validators
+from pika import exceptions, frame, spec, validators
 from pika._utils import as_bytes, override
 from pika.exchange_type import ExchangeType
 

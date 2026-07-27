@@ -38,10 +38,9 @@ from typing import (
 import pika._utils
 import pika.channel
 import pika.connection
-import pika.exceptions as exceptions
 import pika.frame
 import pika.spec
-import pika.validators as validators
+from pika import exceptions, validators
 from pika._utils import override
 
 # NOTE: import SelectConnection after others to avoid circular dependency
