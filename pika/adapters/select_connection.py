@@ -453,21 +453,21 @@ class IOLoop(AbstractSelectorIOLoop):
             'process_timeouts': process_timeouts
         }
 
-        if hasattr(select, 'epoll'):
-            if not SELECT_TYPE or SELECT_TYPE == 'epoll':
-                LOGGER.debug('Using EPollPoller')
-                poller = EPollPoller(**kwargs)
+        if (hasattr(select, 'epoll') and
+            (not SELECT_TYPE or SELECT_TYPE == 'epoll')):
+            LOGGER.debug('Using EPollPoller')
+            poller = EPollPoller(**kwargs)
 
-        if not poller and hasattr(select, 'kqueue'):
-            if not SELECT_TYPE or SELECT_TYPE == 'kqueue':
-                LOGGER.debug('Using KQueuePoller')
-                poller = KQueuePoller(**kwargs)
+        if (not poller and hasattr(select, 'kqueue') and
+            (not SELECT_TYPE or SELECT_TYPE == 'kqueue')):
+            LOGGER.debug('Using KQueuePoller')
+            poller = KQueuePoller(**kwargs)
 
         if (not poller and hasattr(select, 'poll') and
-                hasattr(select.poll(), 'modify')):
-            if not SELECT_TYPE or SELECT_TYPE == 'poll':
-                LOGGER.debug('Using PollPoller')
-                poller = PollPoller(**kwargs)
+                hasattr(select.poll(), 'modify') and
+            (not SELECT_TYPE or SELECT_TYPE == 'poll')):
+            LOGGER.debug('Using PollPoller')
+            poller = PollPoller(**kwargs)
 
         if not poller:
             LOGGER.debug('Using SelectPoller')

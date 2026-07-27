@@ -1926,15 +1926,15 @@ class BlockingChannel:
         unprocessed_messages: list[Any] = []
         while self._pending_events:
             evt = self._pending_events.popleft()
-            if type(evt) is _ConsumerDeliveryEvt:
-                if evt.method.consumer_tag == consumer_tag:
-                    unprocessed_messages.append(evt)
-                    continue
-            if type(evt) is _ConsumerCancellationEvt:
-                if evt.method_frame.method.consumer_tag == consumer_tag:
-                    # A broker-initiated Basic.Cancel must have arrived
-                    # before our cancel request completed
-                    continue
+            if (type(evt) is _ConsumerDeliveryEvt and
+                    evt.method.consumer_tag == consumer_tag):
+                unprocessed_messages.append(evt)
+                continue
+            if (type(evt) is _ConsumerCancellationEvt and
+                    evt.method_frame.method.consumer_tag == consumer_tag):
+                # A broker-initiated Basic.Cancel must have arrived
+                # before our cancel request completed
+                continue
 
             remaining_events.append(evt)
 
