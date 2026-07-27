@@ -5,9 +5,9 @@ Guidelines for AI agents working on the pika codebase.
 ## Project overview
 
 pika is a pure-Python implementation of the AMQP 0-9-1 protocol. It targets
-Python 3 with `requires-python >= 3.7`. The CI matrix tests Python 3.10
-through 3.14. Older Python 3 versions (3.7 through 3.9) are not tested but
-should still work.
+Python 3 with `requires-python >= 3.7`. CI tests Python 3.10 through 3.14
+on the modern matrix and 3.7 through 3.9 on the legacy matrix, both defined
+in `.github/workflows/main.yaml`.
 
 ## Repository layout
 
@@ -15,7 +15,7 @@ should still work.
 pika/                   # library source
 pika/adapters/          # connection adapters (asyncio, blocking, gevent,
                         #   select, tornado, twisted)
-pika/adapters/utils/    # adapter internals (io_services, nbio_interface,
+pika/adapters/utils/    # adapter internals (io_services_utils, nbio_interface,
                         #   connection_workflow, selector_ioloop_adapter)
 pika/spec.py            # auto-generated AMQP spec (see below)
 tests/unit/             # unit tests
@@ -81,11 +81,20 @@ without corresponding `utils/codegen.py` changes will be rejected.
 - **Type check** (`.github/workflows/mypy.yaml`): runs `mypy` on every push
   and pull request. Requires `tornado` and `twisted` to be installed so mypy
   can resolve optional-dependency types.
-- **Tests** (`.github/workflows/main.yaml`): runs the full test suite with
-  `pytest` on Python 3.10-3.14. Acceptance tests require a RabbitMQ server
-  (started via Docker in CI).
-- **Legacy tests** (`.github/workflows/legacy-python.yaml`): same as above,
-  but for Python 3.7-3.9.
+- **Tests** (`.github/workflows/main.yaml`): the entry point on every push
+  and pull request. Calls the reusable test workflow twice, once for Python
+  3.10-3.14 and once for 3.7-3.9, builds the docs, and gates all of it
+  behind a `tests-passed` job. Acceptance tests require a RabbitMQ server
+  (started via Docker in CI). Coverage is uploaded to Codecov.
+- **Reusable tests** (`.github/workflows/_test.yaml`): the matrix itself,
+  Linux, macOS, and Windows crossed with each Python version and with TLS
+  on and off. Invoked via `workflow_call`; never triggered directly.
+- **Docs** (`.github/workflows/docs.yaml`): runs `hatch run docs:build`.
+  Invoked via `workflow_call` from the test workflow.
+- **CodeQL** (`.github/workflows/codeql-analysis.yml`): security analysis on
+  push, pull request, and a weekly schedule.
+- **Release** (`.github/workflows/release.yaml`): manual only, triggered by
+  `workflow_dispatch`.
 
 ## Running tests locally
 
@@ -111,7 +120,7 @@ hatch run rabbitmq
 Tests run in parallel by default via `pytest-xdist` (`-n auto
 --dist=loadscope`). `loadscope` is required so classes that generate test
 methods dynamically (e.g. `tests/unit/io_services_test_stubs_test.py`) stay on
-a single worker — their `tearDownClass` asserts every generated method ran.
+a single worker; their `tearDownClass` asserts every generated method ran.
 Pass `-n 0` to disable parallelism.
 
 ## PR conventions
@@ -121,19 +130,22 @@ Pass `-n 0` to disable parallelism.
   slug for other work.
 - Assign the PR to relevant maintainers.
 - Set the milestone when one applies.
-- Add labels from the existing set when appropriate (`Enhancement`,
-  `Documentation`, etc.).
+- Add labels from the existing set when appropriate. They are namespaced by
+  prefix: `C-` category (`C-bug`, `C-enhancement`, `C-refactor`), `A-` area
+  (`A-testing`, `A-documentation`, `A-typing`, per-adapter labels), `E-`
+  effort, `P-` priority, `S-` status. Run `gh label list` for the full set.
 - PR descriptions should include a summary of changes, what was tested,
   and reference any related issues with `Fixes #NNN` or `See #NNN`.
 
 ## Key technical details
 
 - `pika/_utils.py` contains internal platform and socket utilities
- used across adapters and connection internals.
-- The interrupt socket pair in `select_connection.py` uses
+  used across adapters and connection internals.
+- The interrupt socket pair in `pika/adapters/select_connection.py` uses
   `_TRY_IO_AGAIN_SOCK_ERROR_CODES = (errno.EAGAIN, errno.EWOULDBLOCK)`
   to handle platform differences between POSIX and Windows. Both errno
-  values must always be checked.
+  values must always be checked. The same constant is defined separately
+  in `pika/adapters/utils/io_services_utils.py`; keep the two in sync.
 - `pika/adapters/twisted_connection.py` and
   `pika/adapters/tornado_connection.py` depend on optional third-party
   libraries. Type annotations in these files use `type: ignore` comments
