@@ -207,11 +207,10 @@ class SocketWatcherTestBase(AsyncServicesTestBase):
             readable = reader_bucket[-1]
             writable = writer_bucket[-1]
 
-            if readable != expected.readable and readable:
-                stop_loop()
-            elif writable != expected.writable and writable:
-                stop_loop()
-            elif readable == expected.readable and writable == expected.writable:
+            if (readable != expected.readable and readable) or (
+                    writable != expected.writable and
+                    writable) or (readable == expected.readable and
+                                  writable == expected.writable):
                 stop_loop()
 
         def on_readable():
