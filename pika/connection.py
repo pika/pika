@@ -1517,7 +1517,7 @@ class Connection(abc.ABC):
         return self.server_capabilities.get('publisher_confirms', False)
 
     @abc.abstractmethod
-    def _adapter_call_later(self, delay: int | float,
+    def _adapter_call_later(self, delay: float,
                             callback: Callable[[], Any]) -> object:
         """
         Adapters should override to call the callback after the specified number of seconds have
