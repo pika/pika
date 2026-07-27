@@ -20,9 +20,6 @@ on:
         required: false
         type: boolean
         default: false
-    secrets:
-      CODECOV_TOKEN:
-        required: false
 
 jobs:
   build-windows:
@@ -72,14 +69,13 @@ jobs:
           python -m pip install hatch ${{ inputs.legacy && '"virtualenv<21.0.0"' || '' }}
       - name: Test with pytest
         run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml ${{ matrix.test-tls && '--use-tls' || '' }}
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.xml
-          disable_search: true
-          flags: windows-py${{ matrix.python-version }}-tls-${{ matrix.test-tls }}
-          fail_ci_if_error: false
+          name: coverage-windows-py${{ matrix.python-version }}-tls-${{ matrix.test-tls }}
+          path: coverage.xml
+          retention-days: 7
+          if-no-files-found: error
 
   build-linux:
     name: build/test on ${{ inputs.ubuntu-runner }} py${{ matrix.python-version }} tls=${{ matrix.test-tls }}
@@ -102,14 +98,13 @@ jobs:
           python -m pip install hatch ${{ inputs.legacy && '"virtualenv<21.0.0"' || '' }}
       - name: Test with pytest
         run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml ${{ matrix.test-tls && '--use-tls' || '' }}
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.xml
-          disable_search: true
-          flags: linux-py${{ matrix.python-version }}-tls-${{ matrix.test-tls }}
-          fail_ci_if_error: false
+          name: coverage-linux-py${{ matrix.python-version }}-tls-${{ matrix.test-tls }}
+          path: coverage.xml
+          retention-days: 7
+          if-no-files-found: error
 
   build-macos:
     name: build/test on ${{ inputs.macos-runner }} py${{ matrix.python-version }} tls=${{ matrix.test-tls }}
@@ -134,11 +129,10 @@ jobs:
           python -m pip install hatch ${{ inputs.legacy && '"virtualenv<21.0.0"' || '' }}
       - name: Test with pytest
         run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml ${{ matrix.test-tls && '--use-tls' || '' }}
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.xml
-          disable_search: true
-          flags: macos-py${{ matrix.python-version }}-tls-${{ matrix.test-tls }}
-          fail_ci_if_error: false
+          name: coverage-macos-py${{ matrix.python-version }}-tls-${{ matrix.test-tls }}
+          path: coverage.xml
+          retention-days: 7
+          if-no-files-found: error

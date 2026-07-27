@@ -1,2 +1,3 @@
 [run]
 omit = pika/spec.py
+relative_files = true
