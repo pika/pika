@@ -249,7 +249,7 @@ class BlockingConnectionTests(unittest.TestCase):
         impl_mock.close.assert_called_once_with(200, 'text')
 
     @unittest.skipIf(sys.version_info < (3, 8),
-                     "mock args differ on 3.7 and earlier")
+                     'mock args differ on 3.7 and earlier')
     @patch.object(blocking_connection.select_connection,
                   'SelectConnection',
                   spec_set=SelectConnectionTemplate)
@@ -267,7 +267,7 @@ class BlockingConnectionTests(unittest.TestCase):
         with mock.patch.object(blocking_connection._CallbackResult,
                                'is_ready',
                                return_value=True):
-            connection.update_secret("new_secret", "reason")
+            connection.update_secret('new_secret', 'reason')
 
         if sys.version_info < (3, 8):
             args_0 = select_connection_class_mock.return_value.update_secret.call_args[
@@ -284,8 +284,8 @@ class BlockingConnectionTests(unittest.TestCase):
             args_len = len(select_connection_class_mock.return_value.
                            update_secret.call_args.args)
 
-        self.assertEqual(args_0, "new_secret")
-        self.assertEqual(args_1, "reason")
+        self.assertEqual(args_0, 'new_secret')
+        self.assertEqual(args_1, 'reason')
         self.assertEqual(args_len, 3)
 
     @patch.object(blocking_connection.select_connection,
@@ -343,7 +343,7 @@ class BlockingConnectionTests(unittest.TestCase):
         self.assertIs(unblocked_buffer[0], frame)
 
     @patch.object(blocking_connection.select_connection,
-                  "SelectConnection",
+                  'SelectConnection',
                   spec_set=SelectConnectionTemplate)
     def test_process_data_events_raises_on_channel_closed_by_broker(
             self, select_connection_class_mock):
@@ -351,29 +351,29 @@ class BlockingConnectionTests(unittest.TestCase):
         impl_mock.is_closed = False
 
         with mock.patch.object(blocking_connection.BlockingConnection,
-                               "_create_connection",
+                               '_create_connection',
                                return_value=impl_mock):
             connection = blocking_connection.BlockingConnection(None)
 
-        exc = pika.exceptions.ChannelClosedByBroker(406, "consumer_timeout")
+        exc = pika.exceptions.ChannelClosedByBroker(406, 'consumer_timeout')
 
         impl_channel_mock = mock.Mock()
         impl_channel_mock.channel_number = 1
         channel = blocking_connection.BlockingChannel(impl_channel_mock,
                                                       connection)
 
-        with mock.patch.object(channel, "_cleanup"):
+        with mock.patch.object(channel, '_cleanup'):
             channel._on_channel_closed(impl_channel_mock, exc)
 
-        with mock.patch.object(connection, "_flush_output"):
+        with mock.patch.object(connection, '_flush_output'):
             with self.assertRaises(pika.exceptions.ChannelClosedByBroker) as cm:
                 connection.process_data_events(time_limit=0)
 
             self.assertEqual(cm.exception.reply_code, 406)
-            self.assertEqual(cm.exception.reply_text, "consumer_timeout")
+            self.assertEqual(cm.exception.reply_text, 'consumer_timeout')
 
     @patch.object(blocking_connection.select_connection,
-                  "SelectConnection",
+                  'SelectConnection',
                   spec_set=SelectConnectionTemplate)
     def test_process_data_events_raises_after_full_channel_cleanup(
             self, select_connection_class_mock):
@@ -382,29 +382,29 @@ class BlockingConnectionTests(unittest.TestCase):
         impl_mock._channels = {}
 
         with mock.patch.object(blocking_connection.BlockingConnection,
-                               "_create_connection",
+                               '_create_connection',
                                return_value=impl_mock):
             connection = blocking_connection.BlockingConnection(None)
 
-        exc = pika.exceptions.ChannelClosedByBroker(406, "consumer_timeout")
+        exc = pika.exceptions.ChannelClosedByBroker(406, 'consumer_timeout')
 
         impl_channel_mock = mock.Mock()
         impl_channel_mock.channel_number = 1
         channel = blocking_connection.BlockingChannel(impl_channel_mock,
                                                       connection)
 
-        with mock.patch.object(channel, "_cleanup"):
+        with mock.patch.object(channel, '_cleanup'):
             channel._on_channel_closed(impl_channel_mock, exc)
 
         impl_mock._channels.pop(1, None)
         impl_channel_mock._cookie = None
 
-        with mock.patch.object(connection, "_flush_output"):
+        with mock.patch.object(connection, '_flush_output'):
             with self.assertRaises(pika.exceptions.ChannelClosedByBroker) as cm:
                 connection.process_data_events(time_limit=0)
 
             self.assertEqual(cm.exception.reply_code, 406)
-            self.assertEqual(cm.exception.reply_text, "consumer_timeout")
+            self.assertEqual(cm.exception.reply_text, 'consumer_timeout')
 
     @staticmethod
     def _make_open_connection(select_connection_class_mock):

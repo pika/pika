@@ -36,24 +36,24 @@ POLLPRI = getattr(select, 'POLLPRI', 0) or 2
 
 def _trace_stderr(fmt, *args):
     """Format and output the text to stderr."""
-    print((fmt % args) + "\n", end="", file=sys.stderr)
+    print((fmt % args) + '\n', end='', file=sys.stderr)
 
 
 def _fd_events_to_str(events):
     str_events = f'{events}: '
 
     if events & POLLIN:
-        str_events += "In."
+        str_events += 'In.'
     if events & POLLOUT:
-        str_events += "Out."
+        str_events += 'Out.'
     if events & POLLERR:
-        str_events += "Err."
+        str_events += 'Err.'
     if events & POLLHUP:
-        str_events += "Hup."
+        str_events += 'Hup.'
     if events & POLLNVAL:
-        str_events += "Inval."
+        str_events += 'Inval.'
     if events & POLLPRI:
-        str_events += "Pri."
+        str_events += 'Pri.'
 
     remainig_events = events & ~(POLLIN | POLLOUT | POLLERR | POLLHUP |
                                  POLLNVAL | POLLPRI)
@@ -445,7 +445,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
 
         Implementation is subclass's responsibility.
         """
-        self.fail("IOLoopSocketBase.connected not extended")
+        self.fail('IOLoopSocketBase.connected not extended')
 
     def do_read(self, fd_, events):
         """Read from fd and check the received content."""
@@ -459,7 +459,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
 
         This is a stub. Real implementation is subclass's responsibility
         """
-        self.fail("IOLoopSocketBase.verify_message not extended")
+        self.fail('IOLoopSocketBase.verify_message not extended')
 
     def on_timeout(self):
         """Called when stuck waiting for connection to close."""
@@ -577,7 +577,7 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
         mechanism and another.
         """
         if threading.current_thread() is not threading.main_thread():
-            self.skipTest("signal.signal() requires the main thread")
+            self.skipTest('signal.signal() requires the main thread')
 
         is_resumable_mock.side_effect = is_resumable_raw
 

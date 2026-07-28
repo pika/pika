@@ -286,7 +286,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
         if callbacks.reader is None:
             assert callbacks.writer is not None
-            LOGGER.debug('remove_reader(%s) reader wasn\'t set Wr', fd)
+            LOGGER.debug("remove_reader(%s) reader wasn't set Wr", fd)
             return False
 
         callbacks.reader = None
@@ -351,7 +351,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
         if callbacks.writer is None:
             assert callbacks.reader is not None
-            LOGGER.debug('remove_writer(%s) writer wasn\'t set Rd', fd)
+            LOGGER.debug("remove_writer(%s) writer wasn't set Rd", fd)
             return False
 
         callbacks.writer = None

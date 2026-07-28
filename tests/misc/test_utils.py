@@ -54,7 +54,7 @@ def retry_assertion(timeout_sec, retry_interval_sec=0.1):
                     if (now - start_time) > timeout_sec:
                         logging.exception(
                             'Exceeded retry timeout of %s sec in %s attempts '
-                            'with func %r. Caller\'s stack:\n%s', timeout_sec,
+                            "with func %r. Caller's stack:\n%s", timeout_sec,
                             num_attempts, func,
                             ''.join(traceback.format_stack()))
                         raise

@@ -20,8 +20,8 @@ class AMQPObject:
             if getattr(self.__class__, key, None) != value:
                 items.append(f'{key}={value}')
         if not items:
-            return f"<{self.NAME}>"
-        return f"<{self.NAME}({sorted(items)})>"
+            return f'<{self.NAME}>'
+        return f'<{self.NAME}({sorted(items)})>'
 
     @override
     def __eq__(self, other: object) -> bool:
@@ -63,7 +63,7 @@ class Method(AMQPObject):
 
     def encode(self) -> list[bytes]:
         """Encode the method into a binary format."""
-        raise NotImplementedError("Subclasses must implement this method")
+        raise NotImplementedError('Subclasses must implement this method')
 
     def decode(self, encoded: bytes, offset: int = 0) -> Method:
         """
@@ -72,7 +72,7 @@ class Method(AMQPObject):
         :param encoded: The encoded method data
         :param offset: The offset to start decoding from
         """
-        raise NotImplementedError("Subclasses must implement this method")
+        raise NotImplementedError('Subclasses must implement this method')
 
 
 class Properties(AMQPObject):

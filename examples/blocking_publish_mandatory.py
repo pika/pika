@@ -8,7 +8,7 @@ connection = pika.BlockingConnection()
 channel = connection.channel()
 
 # Declare the queue
-channel.queue_declare(queue="test",
+channel.queue_declare(queue='test',
                       durable=True,
                       exclusive=False,
                       auto_delete=False)

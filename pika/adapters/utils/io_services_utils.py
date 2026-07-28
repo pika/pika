@@ -1116,8 +1116,8 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
             else:
                 _LOGGER.exception(
                     '_AsyncBaseTransport._consume() failed, aborting '
-                    'connection: error=%r; sock=%s; Caller\'s stack:\n%s',
-                    error, self._sock,
+                    "connection: error=%r; sock=%s; Caller's stack:\n%s", error,
+                    self._sock,
                     ''.join(traceback.format_exception(*sys.exc_info())))
                 self._initiate_abort(error)
         else:
@@ -1155,8 +1155,8 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
             else:
                 _LOGGER.exception(
                     '_AsyncBaseTransport._produce() failed, aborting '
-                    'connection: error=%r; sock=%s; Caller\'s stack:\n%s',
-                    error, self._sock,
+                    "connection: error=%r; sock=%s; Caller's stack:\n%s", error,
+                    self._sock,
                     ''.join(traceback.format_exception(*sys.exc_info())))
                 self._initiate_abort(error)
         else:
@@ -1293,8 +1293,8 @@ class _AsyncSSLTransport(_AsyncTransportBase):
             else:
                 _LOGGER.exception(
                     '_AsyncBaseTransport._consume() failed, aborting '
-                    'connection: error=%r; sock=%s; Caller\'s stack:\n%s',
-                    error, self._sock,
+                    "connection: error=%r; sock=%s; Caller's stack:\n%s", error,
+                    self._sock,
                     ''.join(traceback.format_exception(*sys.exc_info())))
                 raise  # let outer catch block abort the transport
         else:
@@ -1369,8 +1369,8 @@ class _AsyncSSLTransport(_AsyncTransportBase):
             else:
                 _LOGGER.exception(
                     '_AsyncBaseTransport._produce() failed, aborting '
-                    'connection: error=%r; sock=%s; Caller\'s stack:\n%s',
-                    error, self._sock,
+                    "connection: error=%r; sock=%s; Caller's stack:\n%s", error,
+                    self._sock,
                     ''.join(traceback.format_exception(*sys.exc_info())))
                 raise  # let outer catch block abort the transport
         else:

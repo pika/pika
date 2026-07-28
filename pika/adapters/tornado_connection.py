@@ -58,10 +58,10 @@ class TornadoConnection(base_connection.BaseConnection):
             connection workflow via the `create_connection()` factory
         """
         warnings.warn(
-            "TornadoConnection is deprecated and will be removed in Pika 2.0. "
-            "Use ThreadSafeConnection instead, which works with any framework "
-            "including Tornado. See "
-            "https://pika.github.io/pika/modules/adapters/thread_safe/",
+            'TornadoConnection is deprecated and will be removed in Pika 2.0. '
+            'Use ThreadSafeConnection instead, which works with any framework '
+            'including Tornado. See '
+            'https://pika.github.io/pika/modules/adapters/thread_safe/',
             DeprecationWarning,
             stacklevel=2,
         )

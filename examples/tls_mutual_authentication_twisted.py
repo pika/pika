@@ -15,7 +15,7 @@ def publish(connection):
         routing_key='hello.world',
         body='Hello World!',
     )
-    print("published")
+    print('published')
 
 
 def connection_ready(conn):
@@ -36,7 +36,7 @@ with _certs.joinpath('client_certificate.pem').open() as fd:
 client_keypair = ssl.PrivateCertificate.loadPEM(client_key + client_cert)
 
 context_factory = ssl.optionsForClientTLS(
-    "localhost",
+    'localhost',
     trustRoot=ca_cert,
     clientCertificate=client_keypair,
 )
@@ -44,7 +44,7 @@ params = ConnectionParameters(credentials=ExternalCredentials())
 cc = protocol.ClientCreator(reactor,
                             twisted_connection.TwistedProtocolConnection,
                             params)
-deferred = cc.connectSSL("localhost", 5671, context_factory)
+deferred = cc.connectSSL('localhost', 5671, context_factory)
 deferred.addCallback(connection_ready)
 deferred.addCallback(publish)
 reactor.run()

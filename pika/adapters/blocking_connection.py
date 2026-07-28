@@ -134,7 +134,7 @@ class _CallbackResult:
             self._values = (self._value_class(*args, **kwargs),)
         except Exception:
             LOGGER.error(
-                "set_value_once failed: value_class=%r; args=%r; kwargs=%r",
+                'set_value_once failed: value_class=%r; args=%r; kwargs=%r',
                 self._value_class, args, kwargs)
             raise
 
@@ -149,7 +149,7 @@ class _CallbackResult:
             value = self._value_class(*args, **kwargs)
         except Exception:
             LOGGER.error(
-                "append_element failed: value_class=%r; args=%r; kwargs=%r",
+                'append_element failed: value_class=%r; args=%r; kwargs=%r',
                 self._value_class, args, kwargs)
             raise
 
@@ -365,11 +365,11 @@ class BlockingConnection:
         :raises RuntimeError:
         """
         warnings.warn(
-            "BlockingConnection is deprecated and will be removed in Pika 2.0. "
-            "Use ThreadSafeConnection instead, which runs its own IOLoop on a "
-            "background thread and provides a thread-safe blocking API that "
-            "does not stall heartbeats on slow message processing. See "
-            "https://pika.github.io/pika/modules/adapters/thread_safe/",
+            'BlockingConnection is deprecated and will be removed in Pika 2.0. '
+            'Use ThreadSafeConnection instead, which runs its own IOLoop on a '
+            'background thread and provides a thread-safe blocking API that '
+            'does not stall heartbeats on slow message processing. See '
+            'https://pika.github.io/pika/modules/adapters/thread_safe/',
             DeprecationWarning,
             stacklevel=2,
         )
@@ -1330,7 +1330,7 @@ class BlockingChannel:
                                 replies=[pika.spec.Basic.GetEmpty],
                                 one_shot=False)
 
-        LOGGER.info("Created channel=%s", self.channel_number)
+        LOGGER.info('Created channel=%s', self.channel_number)
 
     def __int__(self) -> int:
         """
@@ -1431,9 +1431,9 @@ class BlockingChannel:
         assert isinstance(properties, pika.spec.BasicProperties), (properties)
 
         LOGGER.warning(
-            "Published message was returned: _delivery_confirmation=%s; "
-            "channel=%s; method=%r; properties=%r; body_size=%d; "
-            "body_prefix=%.255r", self._delivery_confirmation,
+            'Published message was returned: _delivery_confirmation=%s; '
+            'channel=%s; method=%r; properties=%r; body_size=%d; '
+            'body_prefix=%.255r', self._delivery_confirmation,
             channel.channel_number, method, properties,
             len(body) if body is not None else None, body)
 
@@ -1587,7 +1587,7 @@ class BlockingChannel:
 
     def close(self,
               reply_code: int = 0,
-              reply_text: str = "Normal shutdown") -> None:
+              reply_text: str = 'Normal shutdown') -> None:
         """
         Will invoke a clean shutdown of the channel with the AMQP Broker.
 
@@ -1847,8 +1847,8 @@ class BlockingChannel:
             consumer_info = self._consumer_infos[consumer_tag]
         except KeyError:
             LOGGER.warning(
-                "User is attempting to cancel an unknown consumer=%s; "
-                "already cancelled by user or broker?", consumer_tag)
+                'User is attempting to cancel an unknown consumer=%s; '
+                'already cancelled by user or broker?', consumer_tag)
             return []
 
         try:
@@ -2274,7 +2274,7 @@ class BlockingChannel:
                     evt = get_ok_result.value
                     return evt.method, evt.properties, evt.body
                 assert self._basic_getempty_result, (
-                    "wait completed without GetOk and GetEmpty")
+                    'wait completed without GetOk and GetEmpty')
                 return None, None, None
 
     def basic_publish(self,
