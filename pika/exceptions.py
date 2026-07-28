@@ -360,11 +360,13 @@ class ReentrancyError(Exception):
     """
 
 
-class WorkQueueFullError(Exception):
+class WorkQueueFullError(AMQPConnectionError):
     """
     The work queue stayed full for longer than the configured ``work_queue_put_timeout``.
 
-    Used by ThreadSafeConnection/ThreadSafeChannel.
+    Used by ThreadSafeConnection/ThreadSafeChannel.  Subclasses :class:`AMQPConnectionError` because
+    an overflow tears the connection down, so applications catching connection loss by base class
+    see it too.
     """
 
 

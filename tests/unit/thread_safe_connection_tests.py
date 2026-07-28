@@ -1,7 +1,6 @@
 """Tests for pika.adapters.thread_safe_connection."""
 
 import threading
-import time
 import unittest
 from unittest.mock import ANY, MagicMock, patch
 
@@ -162,17 +161,32 @@ class BoundedWorkPoolTests(unittest.TestCase):
         pool = _BoundedWorkPool(maxsize=10,
                                 put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
                                 thread_name='test-pool')
+
+        # Signal when the worker re-enters get() with an empty queue after the
+        # first item has run: that is the worker going idle, detected without
+        # a fixed sleep and without reaching into queue/condition internals.
+        idle = threading.Event()
         first = threading.Event()
-        pool.submit(first.set)
-        self.assertTrue(first.wait(timeout=5))
+        real_get = pool._queue.get
 
-        # Let the worker drain and block in get() on the empty queue, then hand
-        # it more work to prove the blocking get() wakes and processes it.
-        time.sleep(0.3)
+        def signaling_get(*args, **kwargs):
+            if first.is_set() and pool._queue.empty():
+                idle.set()
+            return real_get(*args, **kwargs)
 
-        second = threading.Event()
-        pool.submit(second.set)
-        self.assertTrue(second.wait(timeout=5))
+        with patch.object(pool._queue, 'get', side_effect=signaling_get):
+            pool.submit(first.set)
+            self.assertTrue(first.wait(timeout=5))
+            # The worker drains the first item, then blocks in get() on the
+            # empty queue; wait for that idle state deterministically.
+            self.assertTrue(idle.wait(timeout=5),
+                            'worker never went idle in get()')
+
+            # Handing it more work now proves the blocking get() wakes and
+            # processes work submitted after the worker went idle.
+            second = threading.Event()
+            pool.submit(second.set)
+            self.assertTrue(second.wait(timeout=5))
         pool.shutdown(wait=True)
 
     def test_shutdown_timeout_returns_false_when_worker_wedged(self):
@@ -202,6 +216,29 @@ class BoundedWorkPoolTests(unittest.TestCase):
         pool.shutdown(wait=True)
         with self.assertRaises(RuntimeError):
             pool.submit(lambda: None)
+
+    def test_submit_raises_when_shutdown_races_the_put(self):
+        """
+        A shutdown landing between the flag check and the put must reject the submit.
+
+        Otherwise the item lands in a queue whose worker has already drained empty and exited,
+        stranding the work with no exception to the caller. The put is made to flip the shutdown
+        flag as a side effect, standing in for a concurrent shutdown() that ran in that exact
+        window.
+        """
+        pool = _BoundedWorkPool(maxsize=10,
+                                put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
+                                thread_name='test-pool')
+        real_put = pool._queue.put
+
+        def put_then_shutdown(*args, **kwargs):
+            result = real_put(*args, **kwargs)
+            pool._shutdown = True
+            return result
+
+        with patch.object(pool._queue, 'put', side_effect=put_then_shutdown):
+            with self.assertRaises(RuntimeError):
+                pool.submit(lambda: None)
 
     def test_worker_thread_starts_lazily(self):
         """The worker thread must not start until the first submit."""
@@ -1967,6 +2004,89 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         # returns. Simulate that by calling it directly.
         conn._shutdown_all_consumer_pools()
         self.assertTrue(ch._pool_shutdown)
+
+    def test_bounded_sweep_signals_all_pools_before_joining_any(self):
+        """
+        The bounded sweep must signal every pool before it blocks joining the first.
+
+        Otherwise a wedged early channel's blocking join runs while later
+        channels have not been told to drain, so their workers only start
+        draining after the budget is already spent.  The invariant checked here
+        is order-based and deterministic: when the first (wedged) channel's
+        blocking join begins, every other channel's pool flag is already set.
+        """
+        conn, _mock_conn, _mock_ioloop = self._make_connection()
+
+        wedged = ThreadSafeChannel(MagicMock(), conn)
+        healthy = ThreadSafeChannel(MagicMock(), conn)
+        with conn._channel_waiters_lock:
+            conn._channels.extend([wedged, healthy])
+
+        release = threading.Event()
+        started = threading.Event()
+        self.addCleanup(release.set)
+
+        def block():
+            started.set()
+            release.wait(timeout=5)
+
+        # Wedge the first channel's worker so its blocking join stalls.
+        wedged._consumer_work_pool.submit(block)
+        self.assertTrue(started.wait(timeout=5))
+
+        # Record the healthy pool's flag state at the moment the wedged pool's
+        # blocking join (wait=True) begins.  With the up-front signal sweep it
+        # is already set; without it the healthy pool is still unsignalled.
+        real_shutdown = wedged._consumer_work_pool.shutdown
+        healthy_flag_at_wedged_join = []
+
+        def recording_shutdown(*args, **kwargs):
+            if kwargs.get('wait'):
+                healthy_flag_at_wedged_join.append(
+                    healthy._consumer_work_pool._shutdown)
+            return real_shutdown(*args, **kwargs)
+
+        with patch.object(wedged._consumer_work_pool,
+                          'shutdown',
+                          side_effect=recording_shutdown):
+            conn._shutdown_all_consumer_pools(timeout=0.2)
+
+        self.assertEqual(healthy_flag_at_wedged_join, [True])
+        self.assertTrue(healthy._pool_shutdown)
+        self.assertTrue(wedged._pool_shutdown)
+
+    def test_concurrent_channel_close_runs_shutdown_once(self):
+        """Two concurrent close() calls must not both run the pool join."""
+        conn, _mock_conn, _mock_ioloop = self._make_connection()
+        ch = ThreadSafeChannel(MagicMock(), conn)
+
+        calls = []
+        real_shutdown = ch._consumer_work_pool.shutdown
+
+        def counting_shutdown(*args, **kwargs):
+            calls.append(1)
+            return real_shutdown(*args, **kwargs)
+
+        with patch.object(ch._consumer_work_pool,
+                          'shutdown',
+                          side_effect=counting_shutdown):
+            barrier = threading.Barrier(2)
+
+            def do_shutdown():
+                barrier.wait(timeout=5)
+                ch._shutdown_pool()
+
+            threads = [
+                threading.Thread(target=do_shutdown, daemon=True)
+                for _ in range(2)
+            ]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join(timeout=5)
+
+        self.assertTrue(ch._pool_shutdown)
+        self.assertEqual(len(calls), 1)
 
     def test_ioloop_crash_shuts_down_channel_pools(self):
         """If the IOLoop crashes, all channel pools must be shut down."""

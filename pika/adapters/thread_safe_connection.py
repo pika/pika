@@ -182,6 +182,16 @@ class _BoundedWorkPool:
             raise WorkQueueFullError(
                 f'work queue full for {self._put_timeout} seconds '
                 f'(maxsize={self._queue.maxsize})') from None
+        # shutdown() may have run between the flag check above and this put:
+        # it sets the flag and the worker exits once it finds the queue empty,
+        # so an item enqueued in that window could be stranded in a queue no
+        # worker will ever service.  The flag is always set before the worker
+        # can exit, so re-reading it after the put (lock-free, like the worker)
+        # detects that case.  Report it as a rejected submit rather than
+        # silently losing the work; a caller whose item actually still runs
+        # only sees a spurious "dropped" debug log, never a lost delivery.
+        if self._shutdown:
+            raise RuntimeError('cannot submit work after pool shutdown')
 
     def _run_worker(self) -> None:
         while True:
@@ -353,6 +363,16 @@ class ThreadSafeChannel:
         except Exception:
             LOGGER.exception('Unhandled exception in %s', label)
 
+    def _signal_pool_shutdown(self) -> None:
+        """
+        Tell the consumer pool to begin draining without joining its worker.
+
+        Sets the pool's shutdown flag and wakes an idle worker, but returns immediately.  Used to
+        signal every channel's pool up front so their workers drain concurrently before
+        :meth:`_shutdown_pool` joins them one at a time under a shared budget.
+        """
+        self._consumer_work_pool.shutdown(wait=False)
+
     def _shutdown_pool(self, timeout: float | None = None) -> None:
         """
         Shut down the consumer work pool, allowing in-flight work to finish.
@@ -361,14 +381,19 @@ class ThreadSafeChannel:
             indefinitely. A wedged worker that outlives a finite *timeout* is left running (it is a
             daemon thread) rather than stalling the caller; a warning is logged.
         """
-        if not self._pool_shutdown:
+        # Atomically claim the shutdown so concurrent close() calls do not both
+        # run the join.  The join itself stays outside the lock: it can block
+        # for the whole timeout, and holding the connection-wide lock that long
+        # would stall every other channel operation.
+        with self._wrapper._channel_waiters_lock:
+            if self._pool_shutdown:
+                return
             self._pool_shutdown = True
-            if not self._consumer_work_pool.shutdown(wait=True,
-                                                     timeout=timeout):
-                LOGGER.warning(
-                    'Channel %s consumer work pool did not drain within '
-                    '%s seconds; abandoning its worker thread',
-                    self._channel.channel_number, timeout)
+        if not self._consumer_work_pool.shutdown(wait=True, timeout=timeout):
+            LOGGER.warning(
+                'Channel %s consumer work pool did not drain within '
+                '%s seconds; abandoning its worker thread',
+                self._channel.channel_number, timeout)
 
     def _register_waiter(self) -> tuple[Event, list[BaseException | None]]:
         """
@@ -1487,9 +1512,16 @@ class ThreadSafeConnection:
             for ch in channels:
                 ch._shutdown_pool()
             return
-        # Share the budget across channels using a common deadline so a slow
-        # early channel cannot consume the entire allowance and starve later
-        # ones of their chance to drain.
+        # Signal every pool to start draining before joining any of them, so
+        # all workers drain concurrently.  Joining one at a time without this
+        # would let an early wedged channel burn the whole budget while later
+        # channels' workers had not even been told to stop, so those healthy
+        # workers would be abandoned at timeout=0 with a spurious warning.
+        for ch in channels:
+            ch._signal_pool_shutdown()
+        # Share the remaining budget across channels using a common deadline so
+        # a slow early channel cannot consume the entire allowance and starve
+        # later ones of their chance to drain.
         deadline = time.monotonic() + timeout
         for ch in channels:
             ch._shutdown_pool(timeout=max(0.0, deadline - time.monotonic()))
@@ -1502,14 +1534,18 @@ class ThreadSafeConnection:
             indefinitely (the clean-shutdown default). A wedged worker outliving a finite *timeout*
             is left running (daemon thread) rather than stalling the caller; a warning is logged.
         """
-        if not self._connection_pool_shutdown:
+        # Atomically claim the shutdown so the IOLoop tail and a concurrent
+        # close() do not both run the join.  The join stays outside the lock so
+        # it cannot stall other channel operations for the whole timeout.
+        with self._channel_waiters_lock:
+            if self._connection_pool_shutdown:
+                return
             self._connection_pool_shutdown = True
-            if not self._connection_work_pool.shutdown(wait=True,
-                                                       timeout=timeout):
-                LOGGER.warning(
-                    'Connection %s event work pool did not drain within '
-                    '%s seconds; abandoning its worker thread',
-                    self._instance_id, timeout)
+        if not self._connection_work_pool.shutdown(wait=True, timeout=timeout):
+            LOGGER.warning(
+                'Connection %s event work pool did not drain within '
+                '%s seconds; abandoning its worker thread', self._instance_id,
+                timeout)
 
     # ------------------------------------------------------------------
     # Public API
