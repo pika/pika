@@ -228,6 +228,10 @@ class _BoundedWorkPool:
             indefinitely.  Ignored when *wait* is false.
         :returns: ``True`` if the worker has exited (or never started),
             ``False`` if *timeout* expired with the worker still alive.
+            When called from the worker thread itself (a callback shutting down
+            its own pool), returns ``True`` without joining even though the
+            worker has not exited yet; it exits once the calling callback
+            returns.
         """
         with self._lock:
             self._shutdown = True
