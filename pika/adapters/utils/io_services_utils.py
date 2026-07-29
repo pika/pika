@@ -324,8 +324,7 @@ class _AsyncSocketConnector:
         try:
             self._nbio.set_writer(self._sock.fileno(), self._on_writable)
         except Exception as error:
-            _LOGGER.exception('async.set_writer(%s) failed: %r', self._sock,
-                              error)
+            _LOGGER.exception('async.set_writer(%s) failed', self._sock)
             self._report_completion(error)
             return
         else:
@@ -462,9 +461,8 @@ class _AsyncStreamConnector:
                 try:
                     assert self._sock is not None
                     self._sock.close()
-                except Exception as error:
-                    _LOGGER.exception('_sock.close() failed: error=%r; %s',
-                                      error, self._sock)
+                except Exception:
+                    _LOGGER.exception('_sock.close() failed: %s', self._sock)
                     raise
         finally:
             self._sock = None
@@ -577,8 +575,7 @@ class _AsyncStreamConnector:
                     suppress_ragged_eofs=False,  # False = error on incoming EOF
                     server_hostname=self._server_hostname)
             except Exception as error:
-                _LOGGER.exception('SSL wrap_socket(%s) failed: %r', self._sock,
-                                  error)
+                _LOGGER.exception('SSL wrap_socket(%s) failed', self._sock)
                 self._report_completion(error)
                 return
 
@@ -601,9 +598,8 @@ class _AsyncStreamConnector:
             # Create the protocol
             try:
                 protocol = self._protocol_factory()
-            except Exception as error:
-                _LOGGER.exception('protocol_factory() failed: error=%r; %s',
-                                  error, self._sock)
+            except Exception:
+                _LOGGER.exception('protocol_factory() failed: %s', self._sock)
                 raise
 
             if self._ssl_context is None:
@@ -611,18 +607,16 @@ class _AsyncStreamConnector:
                 try:
                     transport = _AsyncPlaintextTransport(
                         self._sock, protocol, self._nbio)
-                except Exception as error:
-                    _LOGGER.exception('PlainTransport() failed: error=%r; %s',
-                                      error, self._sock)
+                except Exception:
+                    _LOGGER.exception('PlainTransport() failed: %s', self._sock)
                     raise
             else:
                 # Create SSL streaming transport
                 try:
                     transport = _AsyncSSLTransport(
                         cast(ssl.SSLSocket, self._sock), protocol, self._nbio)
-                except Exception as error:
-                    _LOGGER.exception('SSLTransport() failed: error=%r; %s',
-                                      error, self._sock)
+                except Exception:
+                    _LOGGER.exception('SSLTransport() failed: %s', self._sock)
                     raise
 
             # Both branches above assign transport or raise.
@@ -632,10 +626,9 @@ class _AsyncStreamConnector:
             # Acquaint protocol with its transport
             try:
                 protocol.connection_made(transport)
-            except Exception as error:
-                _LOGGER.exception(
-                    'protocol.connection_made(%r) failed: error=%r; %s',
-                    transport, error, self._sock)
+            except Exception:
+                _LOGGER.exception('protocol.connection_made(%r) failed: %s',
+                                  transport, self._sock)
                 raise
 
             _LOGGER.debug('_linkup(): introduced transport to protocol %r; %r',
@@ -691,8 +684,7 @@ class _AsyncStreamConnector:
                 _LOGGER.info('SSL handshake completed successfully: %s',
                              self._sock)
         except Exception as error:
-            _LOGGER.exception('SSL do_handshake failed: error=%r; %s', error,
-                              self._sock)
+            _LOGGER.exception('SSL do_handshake failed: %s', self._sock)
             self._report_completion(error)
             return
 
@@ -835,10 +827,9 @@ class _AsyncTransportBase(AbstractStreamTransport):
             # Pass the data to the protocol
             try:
                 self._protocol.data_received(data)
-            except Exception as error:
-                _LOGGER.exception(
-                    'protocol.data_received() failed: error=%r; %s', error,
-                    self._sock)
+            except Exception:
+                _LOGGER.exception('protocol.data_received() failed: %s',
+                                  self._sock)
                 raise
 
     def _produce(self) -> None:
@@ -1009,9 +1000,9 @@ class _AsyncTransportBase(AbstractStreamTransport):
         assert self._protocol is not None
         try:
             self._protocol.connection_lost(error)
-        except Exception as exc:
-            _LOGGER.exception('protocol.connection_lost(%r) failed: exc=%r; %s',
-                              error, exc, self._sock)
+        except Exception:
+            _LOGGER.exception('protocol.connection_lost(%r) failed: %s', error,
+                              self._sock)
             # Re-raise, since we've exhausted our normal failure notification
             # mechanism (i.e., connection_lost())
             raise
@@ -1095,9 +1086,8 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
             try:
                 keep_open = self._protocol.eof_received()
             except Exception as error:
-                _LOGGER.exception(
-                    'protocol.eof_received() failed: error=%r; %s', error,
-                    self._sock)
+                _LOGGER.exception('protocol.eof_received() failed: %s',
+                                  self._sock)
                 self._initiate_abort(error)
             else:
                 if keep_open:
@@ -1116,8 +1106,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
             else:
                 _LOGGER.exception(
                     '_AsyncBaseTransport._consume() failed, aborting '
-                    "connection: error=%r; sock=%s; Caller's stack:\n%s", error,
-                    self._sock,
+                    "connection: sock=%s; Caller's stack:\n%s", self._sock,
                     ''.join(traceback.format_exception(*sys.exc_info())))
                 self._initiate_abort(error)
         else:
@@ -1155,8 +1144,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
             else:
                 _LOGGER.exception(
                     '_AsyncBaseTransport._produce() failed, aborting '
-                    "connection: error=%r; sock=%s; Caller's stack:\n%s", error,
-                    self._sock,
+                    "connection: sock=%s; Caller's stack:\n%s", self._sock,
                     ''.join(traceback.format_exception(*sys.exc_info())))
                 self._initiate_abort(error)
         else:
@@ -1293,8 +1281,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
             else:
                 _LOGGER.exception(
                     '_AsyncBaseTransport._consume() failed, aborting '
-                    "connection: error=%r; sock=%s; Caller's stack:\n%s", error,
-                    self._sock,
+                    "connection: sock=%s; Caller's stack:\n%s", self._sock,
                     ''.join(traceback.format_exception(*sys.exc_info())))
                 raise  # let outer catch block abort the transport
         else:
@@ -1369,8 +1356,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
             else:
                 _LOGGER.exception(
                     '_AsyncBaseTransport._produce() failed, aborting '
-                    "connection: error=%r; sock=%s; Caller's stack:\n%s", error,
-                    self._sock,
+                    "connection: sock=%s; Caller's stack:\n%s", self._sock,
                     ''.join(traceback.format_exception(*sys.exc_info())))
                 raise  # let outer catch block abort the transport
         else:

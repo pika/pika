@@ -49,8 +49,7 @@ def make_stop_on_error_with_self(the_self=None):
             try:
                 return fun(*args, **kwargs)
             except Exception as error:
-                this.logger.exception('Stopping test due to failure in %r: %r',
-                                      fun, error)
+                this.logger.exception('Stopping test due to failure in %r', fun)
                 this.stop(error)
 
         return stop_on_error_wrapper

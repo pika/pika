@@ -1423,7 +1423,7 @@ class ThreadSafeConnection:
             except Exception as exc:
                 # An unhandled exception in a callback killed the IOLoop.
                 # Wake every blocked caller so they do not hang forever.
-                LOGGER.exception('IOLoop thread crashed: %r', exc)
+                LOGGER.exception('IOLoop thread crashed')
                 with self._channel_waiters_lock:
                     if self._closed_reason is None:
                         self._closed_reason = exc
