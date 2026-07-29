@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """Post-release smoke test for the published pika wheel.
 
 Run against a live broker after installing pika from PyPI to prove the
