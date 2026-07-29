@@ -69,7 +69,7 @@ quote-style = "single"
 inline-quotes = "single"
 
 [tool.ruff.lint]
-select = [
+extend-select = [
     "E",    # pycodestyle errors
     "F",    # Pyflakes checks, including unused imports and unused variables
     "W",    # pycodestyle warnings
@@ -99,6 +99,9 @@ ignore = [
     "PLC0415", # import should be at the top level of a file
     "PERF203", # `try`-`except` within a loop incurs performance overhead
     "TC006",   # add quotes to `cast()` type expr: churny and hurts editor "go to definition"
+    "BLE001",  # blind except
+    "DTZ005",  # use `datetime.now(tz=timezone.utc)` instead of `datetime.utcnow()`
+    "PYI013",  # Non empty class body must not contain `...`
 ]
 
 [tool.yapf]
