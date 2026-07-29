@@ -628,8 +628,8 @@ class SocketConnectorTestBase(AsyncServicesTestBase):
 
         self.assertEqual(len(on_done_result_bucket), 1)
         self.assertIsInstance(on_done_result_bucket[0], Exception)
-        with self.assertRaises(Exception):
-            csock.getpeername()  # raises when not connected
+        with self.assertRaises(OSError):
+            csock.getpeername()  # raises ENOTCONN when not connected
         self.assertEqual(connect_ref.cancel(), False)
 
     def check_cancel_connect(self, family):
@@ -656,8 +656,8 @@ class SocketConnectorTestBase(AsyncServicesTestBase):
         nbio.run()
 
         self.assertFalse(on_done_result_bucket)
-        with self.assertRaises(Exception):
-            csock.getpeername()
+        with self.assertRaises(OSError):
+            csock.getpeername()  # raises ENOTCONN when not connected
         self.assertEqual(connect_ref.cancel(), False)
 
 
@@ -706,8 +706,8 @@ class TestConnectSocketToDisconnectedPeer(SocketConnectorTestBase,
 
         self.assertEqual(len(on_done_result_bucket), 1)
         self.assertIsInstance(on_done_result_bucket[0], Exception)
-        with self.assertRaises(Exception):
-            csock.getpeername()  # raises when not connected
+        with self.assertRaises(OSError):
+            csock.getpeername()  # raises ENOTCONN when not connected
         self.assertEqual(connect_ref.cancel(), False)
 
 

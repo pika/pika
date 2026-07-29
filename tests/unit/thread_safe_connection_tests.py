@@ -11,7 +11,7 @@ from pika.adapters.thread_safe_connection import (
     _BoundedWorkPool,
     _submit_or_terminate,
 )
-from pika.exceptions import WorkQueueFullError
+from pika.exceptions import AMQPConnectionError, WorkQueueFullError
 
 
 class SubmitOrTerminateTests(unittest.TestCase):
@@ -2887,7 +2887,7 @@ class ConnectionInitErrorPathTests(unittest.TestCase):
         """When the broker rejects the open, the user-supplied on_open_error_callback must be called
         with the error.
         """
-        error = Exception('refused')
+        error = AMQPConnectionError('refused')
         captured = {}
         user_cb = MagicMock()
 
@@ -2910,7 +2910,7 @@ class ConnectionInitErrorPathTests(unittest.TestCase):
 
             mock_ioloop.start.side_effect = ioloop_start
 
-            with self.assertRaises(Exception):
+            with self.assertRaises(AMQPConnectionError):
                 ThreadSafeConnection(parameters='params',
                                      on_open_error_callback=user_cb)
 
