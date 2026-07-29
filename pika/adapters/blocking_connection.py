@@ -49,7 +49,6 @@ from pika.adapters.utils import connection_workflow
 from pika.exchange_type import ExchangeType
 
 if TYPE_CHECKING:
-    from traceback import TracebackException
     from types import TracebackType
 
     from typing_extensions import Self
@@ -413,8 +412,9 @@ class BlockingConnection:
         # Prepare `with` context
         return self
 
-    def __exit__(self, exc_type: Exception, value: TracebackException,
-                 traceback: TracebackType) -> None:
+    def __exit__(self, exc_type: type[BaseException] | None,
+                 value: BaseException | None,
+                 traceback: TracebackType | None) -> None:
         # Close connection after `with` context
         if self.is_open:
             self.close()
@@ -1349,8 +1349,9 @@ class BlockingChannel:
     def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, exc_type: Exception, value: TracebackException,
-                 traceback: TracebackType) -> None:
+    def __exit__(self, exc_type: type[BaseException] | None,
+                 value: BaseException | None,
+                 traceback: TracebackType | None) -> None:
         if self.is_open:
             self.close()
 
