@@ -59,9 +59,11 @@ class TestCloseConnectionDuringAMQPHandshake(AsyncTestCase, AsyncAdapters):
 
         params = self.new_connection_params()
 
+        # Guards the override below: fail loudly if the private method is gone.
+        assert hasattr(base_class, '_on_stream_connected'), (
+            f'{base_class.__name__} has no _on_stream_connected to override')
+
         class MyConnectionClass(base_class):
-            # Cause an exception if _on_stream_connected doesn't exist
-            base_class._on_stream_connected
 
             @async_test_base.make_stop_on_error_with_self(self)
             def _on_stream_connected(self, *args, **kwargs):
@@ -387,9 +389,11 @@ class TestCreateConnectionAMQPHandshakeTimesOutDefaultWorkflow(
         workflow: (connection_workflow.AbstractAMQPConnectionWorkflow |
                    None) = None
 
+        # Guards the override below: fail loudly if the private method is gone.
+        assert hasattr(base_class, '_on_stream_connected'), (
+            f'{base_class.__name__} has no _on_stream_connected to override')
+
         class MyConnectionClass(base_class):
-            # Cause an exception if _on_stream_connected doesn't exist
-            base_class._on_stream_connected
 
             @async_test_base.make_stop_on_error_with_self(self)
             def _on_stream_connected(self, *args, **kwargs):
