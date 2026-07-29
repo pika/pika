@@ -52,6 +52,8 @@ if TYPE_CHECKING:
     from traceback import TracebackException
     from types import TracebackType
 
+    from typing_extensions import Self
+
     from pika.spec import Basic
 
 T = TypeVar(
@@ -91,7 +93,7 @@ class _CallbackResult:
         """
         return self.is_ready()
 
-    def __enter__(self) -> _CallbackResult:
+    def __enter__(self) -> Self:
         """Entry into context manager that automatically resets the object on exit; this usage
         pattern helps garbage-collection by eliminating potential circular references.
         """
@@ -207,7 +209,7 @@ class _IoloopTimerContext:
         self._callback_result = _CallbackResult()
         self._timer_handle: object = None
 
-    def __enter__(self) -> _IoloopTimerContext:
+    def __enter__(self) -> Self:
         """Register a timer."""
         self._timer_handle = self._connection._adapter_call_later(
             self._duration, self._callback_result.signal_once)
@@ -407,7 +409,7 @@ class BlockingConnection:
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} impl={self._impl!r}>'
 
-    def __enter__(self) -> BlockingConnection:
+    def __enter__(self) -> Self:
         # Prepare `with` context
         return self
 
@@ -1344,7 +1346,7 @@ class BlockingChannel:
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} impl={self._impl!r}>'
 
-    def __enter__(self) -> BlockingChannel:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, exc_type: Exception, value: TracebackException,
