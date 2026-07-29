@@ -268,6 +268,10 @@ class TestCreateConnectionMultipleConfigsDefaultConnectionWorkflow(
             workflow, connection_workflow.AbstractAMQPConnectionWorkflow)
 
 
+class _ConnectionRejectedError(Exception):
+    """Raised by a test connection class to fail a connection attempt on purpose."""
+
+
 class TestCreateConnectionRetriesWithDefaultConnectionWorkflow(
         AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Connect via adapter's create_connection() method with multiple retries."
@@ -306,11 +310,12 @@ class TestCreateConnectionRetriesWithDefaultConnectionWorkflow(
                         second_config.connection_attempts):
                     MyConnectionClass.got_second_config = True
                     logger.info('Got second config.')
-                    raise Exception('Reject second config.')
+                    raise _ConnectionRejectedError('Reject second config.')
 
                 if not MyConnectionClass.got_second_config:
                     logger.info('Still on first attempt with first config.')
-                    raise Exception('Still on first attempt with first config.')
+                    raise _ConnectionRejectedError(
+                        'Still on first attempt with first config.')
 
                 logger.info('Start of retry cycle detected.')
 
