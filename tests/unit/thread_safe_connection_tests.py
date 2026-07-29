@@ -1,5 +1,6 @@
 """Tests for pika.adapters.thread_safe_connection."""
 
+import contextlib
 import threading
 import unittest
 from unittest.mock import ANY, MagicMock, patch
@@ -236,9 +237,11 @@ class BoundedWorkPoolTests(unittest.TestCase):
             pool._shutdown = True
             return result
 
-        with patch.object(pool._queue, 'put', side_effect=put_then_shutdown):
-            with self.assertRaises(RuntimeError):
-                pool.submit(lambda: None)
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(
+                patch.object(pool._queue, 'put', side_effect=put_then_shutdown))
+            stack.enter_context(self.assertRaises(RuntimeError))
+            pool.submit(lambda: None)
 
     def test_worker_thread_starts_lazily(self):
         """The worker thread must not start until the first submit."""

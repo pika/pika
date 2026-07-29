@@ -1,5 +1,6 @@
 """Tests for threaded_test_wrapper.py."""
 
+import contextlib
 import logging
 import sys
 import threading
@@ -70,16 +71,20 @@ class ThreadedTestWrapperSelfChecks(unittest.TestCase):
         def my_sleeper(*_args, **_kwargs):
             time.sleep(1.1)
 
-        # Redirect _ThreadedTestWrapper error output to our StringIO instance
-        with mock.patch.object(_ThreadedTestWrapper, '_stderr',
-                               stringio_stderr):
+        with contextlib.ExitStack() as stack:
+            # Redirect _ThreadedTestWrapper error output to our StringIO
+            # instance
+            stack.enter_context(
+                mock.patch.object(_ThreadedTestWrapper, '_stderr',
+                                  stringio_stderr))
             # Patch DEFAULT_TEST_TIMEOUT to much smaller value than sleep in
             # my_start()
-            with mock.patch.object(threaded_test_wrapper,
-                                   'DEFAULT_TEST_TIMEOUT', 0.01):
-                # Redirect start() call from thread to our own my_start()
-                with self.assertRaises(AssertionError) as exc_ctx:
-                    my_sleeper()
+            stack.enter_context(
+                mock.patch.object(threaded_test_wrapper, 'DEFAULT_TEST_TIMEOUT',
+                                  0.01))
+            # Redirect start() call from thread to our own my_start()
+            exc_ctx = stack.enter_context(self.assertRaises(AssertionError))
+            my_sleeper()
 
         self.assertEqual(len(stringio_stderr.getvalue()), 0)
         self.assertIn('The test timed out.', exc_ctx.exception.args[0])

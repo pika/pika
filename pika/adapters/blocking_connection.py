@@ -2265,19 +2265,21 @@ class BlockingChannel:
 
         validators.require_string(queue, 'queue')
 
-        with _CallbackResult(self._RxMessageArgs) as get_ok_result:
-            with self._basic_getempty_result:
-                self._impl.basic_get(queue=queue,
-                                     auto_ack=auto_ack,
-                                     callback=get_ok_result.set_value_once)
-                self._flush_output(get_ok_result.is_ready,
-                                   self._basic_getempty_result.is_ready)
-                if get_ok_result:
-                    evt = get_ok_result.value
-                    return evt.method, evt.properties, evt.body
-                assert self._basic_getempty_result, (
-                    'wait completed without GetOk and GetEmpty')
-                return None, None, None
+        with contextlib.ExitStack() as stack:
+            get_ok_result = stack.enter_context(
+                _CallbackResult(self._RxMessageArgs))
+            stack.enter_context(self._basic_getempty_result)
+            self._impl.basic_get(queue=queue,
+                                 auto_ack=auto_ack,
+                                 callback=get_ok_result.set_value_once)
+            self._flush_output(get_ok_result.is_ready,
+                               self._basic_getempty_result.is_ready)
+            if get_ok_result:
+                evt = get_ok_result.value
+                return evt.method, evt.properties, evt.body
+            assert self._basic_getempty_result, (
+                'wait completed without GetOk and GetEmpty')
+            return None, None, None
 
     def basic_publish(self,
                       exchange: str,
