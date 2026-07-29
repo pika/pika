@@ -44,13 +44,12 @@ def make_stop_on_error_with_self(the_self=None):
             if this is None and args and isinstance(args[0], AsyncTestCase):
                 this = args[0]
             if not isinstance(this, AsyncTestCase):
-                raise AssertionError('Decorated method is not an AsyncTestCase '
-                                     f'instance method: {fun!r}')
+                raise TypeError('Decorated method is not an AsyncTestCase '
+                                f'instance method: {fun!r}')
             try:
                 return fun(*args, **kwargs)
             except Exception as error:
-                this.logger.exception('Stopping test due to failure in %r: %r',
-                                      fun, error)
+                this.logger.exception('Stopping test due to failure in %r', fun)
                 this.stop(error)
 
         return stop_on_error_wrapper

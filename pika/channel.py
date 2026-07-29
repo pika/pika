@@ -10,10 +10,7 @@ from collections import deque
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Union
 
-import pika.exceptions as exceptions
-import pika.frame as frame
-import pika.spec as spec
-import pika.validators as validators
+from pika import exceptions, frame, spec, validators
 from pika._utils import as_bytes, override
 from pika.exchange_type import ExchangeType
 
@@ -664,7 +661,7 @@ class Channel:
             either method `spec.Basic.Ack` or `spec.Basic.Nack`.
         :param callback: callback(pika.frame.Method) for method
             Confirm.SelectOk
-        :raises ValueError:
+        :raises TypeError: if `ack_nack_callback` is not callable
 
         .. note::
             Calling this method more than once on the same channel replaces
@@ -675,8 +672,8 @@ class Channel:
         if not callable(ack_nack_callback):
             # confirm_deliver requires a callback; it's meaningless
             # without a user callback to receive Basic.Ack/Basic.Nack notifications
-            raise ValueError('confirm_delivery requires a callback '
-                             'to receive Basic.Ack/Basic.Nack notifications')
+            raise TypeError('confirm_delivery requires a callback '
+                            'to receive Basic.Ack/Basic.Nack notifications')
 
         self._raise_if_not_open()
         nowait = validators.rpc_completion_callback(callback)

@@ -31,11 +31,8 @@ from urllib.parse import urlparse
 import pika.callback
 import pika.channel
 import pika.credentials
-import pika.exceptions as exceptions
-import pika.frame as frame
 import pika.heartbeat
-import pika.spec as spec
-import pika.validators as validators
+from pika import exceptions, frame, spec, validators
 from pika._utils import override
 
 if TYPE_CHECKING:
@@ -545,7 +542,7 @@ class ConnectionParameters(Parameters):
     class _DEFAULT:
         """Designates default parameter value; internal use."""
 
-        ...  # noqa: PIE790
+        ...  # noqa: PIE790, PYI013
 
     T = TypeVar('T')
     DefaultT = Union[T, Type[_DEFAULT]]
@@ -1520,7 +1517,7 @@ class Connection(abc.ABC):
         return self.server_capabilities.get('publisher_confirms', False)
 
     @abc.abstractmethod
-    def _adapter_call_later(self, delay: int | float,
+    def _adapter_call_later(self, delay: float,
                             callback: Callable[[], Any]) -> object:
         """
         Adapters should override to call the callback after the specified number of seconds have
@@ -2412,8 +2409,7 @@ class Connection(abc.ABC):
             for chunk in range(chunks):
                 start = chunk * self._body_max_length
                 end = start + self._body_max_length
-                if end > length:
-                    end = length
+                end = min(end, length)
                 frame_body = frame.Body(channel_number, content[1][start:end])
                 marshaled_body_frames.append(frame_body.marshal())
 

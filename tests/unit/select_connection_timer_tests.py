@@ -1,5 +1,6 @@
 """Tests for SelectConnection _Timer and _Timeout classes."""
 
+import contextlib
 import math
 import unittest
 from unittest import mock
@@ -381,35 +382,38 @@ class TimerClassTests(unittest.TestCase):
         bucket = []
         timer = select_connection._Timer()
 
-        with mock.patch.multiple(select_connection._Timer,
-                                 _GC_CANCELLATION_THRESHOLD=1):
-            with mock.patch('pika._utils.time_now', return_value=now):
-                t3 = timer.call_later(10, lambda: bucket.append(3))
-                t2 = timer.call_later(6, lambda: bucket.append(2))
-                t1 = timer.call_later(5, lambda: bucket.append(1))
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(
+                mock.patch.multiple(select_connection._Timer,
+                                    _GC_CANCELLATION_THRESHOLD=1))
+            stack.enter_context(
+                mock.patch('pika._utils.time_now', return_value=now))
+            t3 = timer.call_later(10, lambda: bucket.append(3))
+            t2 = timer.call_later(6, lambda: bucket.append(2))
+            t1 = timer.call_later(5, lambda: bucket.append(1))
 
-                # Cancel t1 and check that it doesn't trigger GC because it's
-                # not greater than half the timeouts
-                timer.remove_timeout(t1)
-                self.assertEqual(timer._num_cancellations, 1)
-                timer.process_timeouts()
-                self.assertEqual(timer._num_cancellations, 1)
-                self.assertEqual(bucket, [])
-                assert timer._timeout_heap is not None
-                self.assertEqual(len(timer._timeout_heap), 3)
-                self.assertEqual(timer.get_remaining_interval(), 5)
+            # Cancel t1 and check that it doesn't trigger GC because it's
+            # not greater than half the timeouts
+            timer.remove_timeout(t1)
+            self.assertEqual(timer._num_cancellations, 1)
+            timer.process_timeouts()
+            self.assertEqual(timer._num_cancellations, 1)
+            self.assertEqual(bucket, [])
+            assert timer._timeout_heap is not None
+            self.assertEqual(len(timer._timeout_heap), 3)
+            self.assertEqual(timer.get_remaining_interval(), 5)
 
-                # Cancel t3 and verify GC since it's now greater than half of
-                # total timeouts
-                timer.remove_timeout(t3)
-                self.assertEqual(timer._num_cancellations, 2)
-                timer.process_timeouts()
-                self.assertEqual(bucket, [])
-                assert timer._timeout_heap is not None
-                self.assertEqual(len(timer._timeout_heap), 1)
-                self.assertIs(t2, timer._timeout_heap[0])
-                self.assertEqual(timer.get_remaining_interval(), 6)
-                self.assertEqual(timer._num_cancellations, 0)
+            # Cancel t3 and verify GC since it's now greater than half of
+            # total timeouts
+            timer.remove_timeout(t3)
+            self.assertEqual(timer._num_cancellations, 2)
+            timer.process_timeouts()
+            self.assertEqual(bucket, [])
+            assert timer._timeout_heap is not None
+            self.assertEqual(len(timer._timeout_heap), 1)
+            self.assertIs(t2, timer._timeout_heap[0])
+            self.assertEqual(timer.get_remaining_interval(), 6)
+            self.assertEqual(timer._num_cancellations, 0)
 
     def test_add_timeout_from_another_timeout(self):
         now = _now()

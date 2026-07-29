@@ -1,5 +1,6 @@
 """Tests for pika.adapters.thread_safe_connection."""
 
+import contextlib
 import threading
 import unittest
 from unittest.mock import ANY, MagicMock, patch
@@ -11,7 +12,7 @@ from pika.adapters.thread_safe_connection import (
     _BoundedWorkPool,
     _submit_or_terminate,
 )
-from pika.exceptions import WorkQueueFullError
+from pika.exceptions import AMQPConnectionError, WorkQueueFullError
 
 
 class SubmitOrTerminateTests(unittest.TestCase):
@@ -236,9 +237,11 @@ class BoundedWorkPoolTests(unittest.TestCase):
             pool._shutdown = True
             return result
 
-        with patch.object(pool._queue, 'put', side_effect=put_then_shutdown):
-            with self.assertRaises(RuntimeError):
-                pool.submit(lambda: None)
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(
+                patch.object(pool._queue, 'put', side_effect=put_then_shutdown))
+            stack.enter_context(self.assertRaises(RuntimeError))
+            pool.submit(lambda: None)
 
     def test_worker_thread_starts_lazily(self):
         """The worker thread must not start until the first submit."""
@@ -2249,9 +2252,9 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
                 return inst
 
             with patch('pika.adapters.thread_safe_connection._BoundedWorkPool',
-                       side_effect=capturing_pool):
-                with self.assertRaises(RuntimeError) as ctx:
-                    ThreadSafeConnection(parameters='params')
+                       side_effect=capturing_pool), self.assertRaises(
+                           RuntimeError) as ctx:
+                ThreadSafeConnection(parameters='params')
             self.assertIs(ctx.exception, boom)
             self.assertEqual(len(captured), 1)
             # The captured pool must be shut down.  shutdown(wait=True)
@@ -2887,7 +2890,7 @@ class ConnectionInitErrorPathTests(unittest.TestCase):
         """When the broker rejects the open, the user-supplied on_open_error_callback must be called
         with the error.
         """
-        error = Exception('refused')
+        error = AMQPConnectionError('refused')
         captured = {}
         user_cb = MagicMock()
 
@@ -2910,7 +2913,7 @@ class ConnectionInitErrorPathTests(unittest.TestCase):
 
             mock_ioloop.start.side_effect = ioloop_start
 
-            with self.assertRaises(Exception):
+            with self.assertRaises(AMQPConnectionError):
                 ThreadSafeConnection(parameters='params',
                                      on_open_error_callback=user_cb)
 

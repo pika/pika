@@ -207,11 +207,10 @@ class SocketWatcherTestBase(AsyncServicesTestBase):
             readable = reader_bucket[-1]
             writable = writer_bucket[-1]
 
-            if readable != expected.readable and readable:
-                stop_loop()
-            elif writable != expected.writable and writable:
-                stop_loop()
-            elif readable == expected.readable and writable == expected.writable:
+            if (readable != expected.readable and readable) or (
+                    writable != expected.writable and
+                    writable) or (readable == expected.readable and
+                                  writable == expected.writable):
                 stop_loop()
 
         def on_readable():
@@ -292,8 +291,8 @@ class TestSocketWatchersWhenFailsToConnect(SocketWatcherTestBase,
         # readable/writable a socket that failed to connect - it reflects the
         # failure only via exceptfds, which native ioloop's usually attribute to
         # the writable indication.
-        expected = self.WatcherActivity(
-            readable=False if pika._utils.ON_WINDOWS else True, writable=True)
+        expected = self.WatcherActivity(readable=not pika._utils.ON_WINDOWS,
+                                        writable=True)
         self._check_socket_watchers_fired(sock, expected)
 
 
@@ -374,8 +373,8 @@ class TestSocketWatchersAfterLocalPeerShutsRead(SocketWatcherTestBase,
 
         # NOTE: Unlike POSIX, Windows select doesn't indicate as readable socket
         #  that was shut down locally with SHUT_RD.
-        expected = self.WatcherActivity(
-            readable=False if pika._utils.ON_WINDOWS else True, writable=True)
+        expected = self.WatcherActivity(readable=not pika._utils.ON_WINDOWS,
+                                        writable=True)
         self._check_socket_watchers_fired(s1, expected)
 
 
@@ -399,8 +398,8 @@ class TestSocketWatchersAfterLocalPeerShutsReadWrite(SocketWatcherTestBase,
 
         # NOTE: Unlike POSIX, Windows select doesn't indicate as readable socket
         #  that was shut down locally with SHUT_RDWR.
-        expected = self.WatcherActivity(
-            readable=False if pika._utils.ON_WINDOWS else True, writable=True)
+        expected = self.WatcherActivity(readable=not pika._utils.ON_WINDOWS,
+                                        writable=True)
         self._check_socket_watchers_fired(s1, expected)
 
 
@@ -629,8 +628,8 @@ class SocketConnectorTestBase(AsyncServicesTestBase):
 
         self.assertEqual(len(on_done_result_bucket), 1)
         self.assertIsInstance(on_done_result_bucket[0], Exception)
-        with self.assertRaises(Exception):
-            csock.getpeername()  # raises when not connected
+        with self.assertRaises(OSError):
+            csock.getpeername()  # raises ENOTCONN when not connected
         self.assertEqual(connect_ref.cancel(), False)
 
     def check_cancel_connect(self, family):
@@ -657,8 +656,8 @@ class SocketConnectorTestBase(AsyncServicesTestBase):
         nbio.run()
 
         self.assertFalse(on_done_result_bucket)
-        with self.assertRaises(Exception):
-            csock.getpeername()
+        with self.assertRaises(OSError):
+            csock.getpeername()  # raises ENOTCONN when not connected
         self.assertEqual(connect_ref.cancel(), False)
 
 
@@ -707,8 +706,8 @@ class TestConnectSocketToDisconnectedPeer(SocketConnectorTestBase,
 
         self.assertEqual(len(on_done_result_bucket), 1)
         self.assertIsInstance(on_done_result_bucket[0], Exception)
-        with self.assertRaises(Exception):
-            csock.getpeername()  # raises when not connected
+        with self.assertRaises(OSError):
+            csock.getpeername()  # raises ENOTCONN when not connected
         self.assertEqual(connect_ref.cancel(), False)
 
 

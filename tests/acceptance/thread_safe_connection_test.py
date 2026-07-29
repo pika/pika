@@ -9,6 +9,7 @@ Each test covers a scenario that unit tests with mocks cannot: real socket I/O,
 real AMQP frame exchange, and real concurrent threads.
 """
 
+import logging
 import threading
 import unittest
 import uuid
@@ -17,6 +18,8 @@ import pika
 from pika.adapters.thread_safe_connection import ThreadSafeChannel, ThreadSafeConnection
 from tests.misc.forward_server import ForwardServer
 from tests.misc.test_utils import retry_assertion
+
+LOGGER = logging.getLogger(__name__)
 
 DEFAULT_PARAMS = pika.ConnectionParameters(
     host='127.0.0.1',
@@ -40,7 +43,8 @@ class ThreadSafeTestCaseBase(unittest.TestCase):
         try:
             conn.close()
         except Exception:
-            pass
+            # Best-effort teardown; must not mask the test's own result.
+            LOGGER.exception('Best-effort cleanup close() failed for %r', conn)
 
     @staticmethod
     def _unique_queue():

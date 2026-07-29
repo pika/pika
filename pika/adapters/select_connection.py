@@ -453,21 +453,22 @@ class IOLoop(AbstractSelectorIOLoop):
             'process_timeouts': process_timeouts
         }
 
-        if hasattr(select, 'epoll'):
-            if not SELECT_TYPE or SELECT_TYPE == 'epoll':
-                LOGGER.debug('Using EPollPoller')
-                poller = EPollPoller(**kwargs)
+        def requested(name: str) -> bool:
+            """Whether `SELECT_TYPE` permits the named poller."""
+            return not SELECT_TYPE or SELECT_TYPE == name
 
-        if not poller and hasattr(select, 'kqueue'):
-            if not SELECT_TYPE or SELECT_TYPE == 'kqueue':
-                LOGGER.debug('Using KQueuePoller')
-                poller = KQueuePoller(**kwargs)
+        if hasattr(select, 'epoll') and requested('epoll'):
+            LOGGER.debug('Using EPollPoller')
+            poller = EPollPoller(**kwargs)
+
+        if not poller and hasattr(select, 'kqueue') and requested('kqueue'):
+            LOGGER.debug('Using KQueuePoller')
+            poller = KQueuePoller(**kwargs)
 
         if (not poller and hasattr(select, 'poll') and
-                hasattr(select.poll(), 'modify')):
-            if not SELECT_TYPE or SELECT_TYPE == 'poll':
-                LOGGER.debug('Using PollPoller')
-                poller = PollPoller(**kwargs)
+                hasattr(select.poll(), 'modify') and requested('poll')):
+            LOGGER.debug('Using PollPoller')
+            poller = PollPoller(**kwargs)
 
         if not poller:
             LOGGER.debug('Using SelectPoller')
@@ -1106,10 +1107,13 @@ class KQueuePoller(_PollerBase):
         :param kevent: a kevent object as returned by kqueue.control()
         """
         mask = 0
-        kq_filter_read = getattr(select, 'KQ_FILTER_READ')
-        kq_filter_write = getattr(select, 'KQ_FILTER_WRITE')
-        kq_ev_eof = getattr(select, 'KQ_EV_EOF')
-        kq_ev_error = getattr(select, 'KQ_EV_ERROR')
+        # Looked up by name because these constants exist only on kqueue
+        # platforms; a direct `select.KQ_*` reference fails type checking
+        # everywhere else, and `warn_unused_ignores` rules out `type: ignore`.
+        kq_filter_read = getattr(select, 'KQ_FILTER_READ')  # noqa: B009
+        kq_filter_write = getattr(select, 'KQ_FILTER_WRITE')  # noqa: B009
+        kq_ev_eof = getattr(select, 'KQ_EV_EOF')  # noqa: B009
+        kq_ev_error = getattr(select, 'KQ_EV_ERROR')  # noqa: B009
 
         if kevent.filter == kq_filter_read:
             mask = PollEvents.READ
@@ -1263,7 +1267,8 @@ class PollPoller(_PollerBase):
 
     @staticmethod
     def _create_poller() -> Any:
-        return getattr(select, 'poll')()
+        # By name: `select.poll` is absent on Windows.
+        return getattr(select, 'poll')()  # noqa: B009
 
     @override
     def poll(self) -> None:
@@ -1364,4 +1369,5 @@ class EPollPoller(PollPoller):
     @staticmethod
     @override
     def _create_poller() -> Any:
-        return getattr(select, 'epoll')()
+        # By name: `select.epoll` is Linux-only.
+        return getattr(select, 'epoll')()  # noqa: B009

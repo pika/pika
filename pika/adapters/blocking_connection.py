@@ -38,10 +38,9 @@ from typing import (
 import pika._utils
 import pika.channel
 import pika.connection
-import pika.exceptions as exceptions
 import pika.frame
 import pika.spec
-import pika.validators as validators
+from pika import exceptions, validators
 from pika._utils import override
 
 # NOTE: import SelectConnection after others to avoid circular dependency
@@ -50,8 +49,9 @@ from pika.adapters.utils import connection_workflow
 from pika.exchange_type import ExchangeType
 
 if TYPE_CHECKING:
-    from traceback import TracebackException
     from types import TracebackType
+
+    from typing_extensions import Self
 
     from pika.spec import Basic
 
@@ -92,13 +92,13 @@ class _CallbackResult:
         """
         return self.is_ready()
 
-    def __enter__(self) -> _CallbackResult:
+    def __enter__(self) -> Self:
         """Entry into context manager that automatically resets the object on exit; this usage
         pattern helps garbage-collection by eliminating potential circular references.
         """
         return self
 
-    def __exit__(self, *args: Any, **kwargs: Any) -> None:
+    def __exit__(self, *args: object, **kwargs: Any) -> None:
         """Reset value."""
         self.reset()
 
@@ -208,13 +208,13 @@ class _IoloopTimerContext:
         self._callback_result = _CallbackResult()
         self._timer_handle: object = None
 
-    def __enter__(self) -> _IoloopTimerContext:
+    def __enter__(self) -> Self:
         """Register a timer."""
         self._timer_handle = self._connection._adapter_call_later(
             self._duration, self._callback_result.signal_once)
         return self
 
-    def __exit__(self, *_args: Any, **_kwargs: Any) -> None:
+    def __exit__(self, *_args: object, **_kwargs: Any) -> None:
         """Unregister timer if it hasn't fired yet."""
         if not self._callback_result:
             self._connection._adapter_remove_timeout(self._timer_handle)
@@ -408,12 +408,13 @@ class BlockingConnection:
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} impl={self._impl!r}>'
 
-    def __enter__(self) -> BlockingConnection:
+    def __enter__(self) -> Self:
         # Prepare `with` context
         return self
 
-    def __exit__(self, exc_type: Exception, value: TracebackException,
-                 traceback: TracebackType) -> None:
+    def __exit__(self, exc_type: type[BaseException] | None,
+                 value: BaseException | None,
+                 traceback: TracebackType | None) -> None:
         # Close connection after `with` context
         if self.is_open:
             self.close()
@@ -1345,11 +1346,12 @@ class BlockingChannel:
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} impl={self._impl!r}>'
 
-    def __enter__(self) -> BlockingChannel:
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, exc_type: Exception, value: TracebackException,
-                 traceback: TracebackType) -> None:
+    def __exit__(self, exc_type: type[BaseException] | None,
+                 value: BaseException | None,
+                 traceback: TracebackType | None) -> None:
         if self.is_open:
             self.close()
 
@@ -1927,15 +1929,15 @@ class BlockingChannel:
         unprocessed_messages: list[Any] = []
         while self._pending_events:
             evt = self._pending_events.popleft()
-            if type(evt) is _ConsumerDeliveryEvt:
-                if evt.method.consumer_tag == consumer_tag:
-                    unprocessed_messages.append(evt)
-                    continue
-            if type(evt) is _ConsumerCancellationEvt:
-                if evt.method_frame.method.consumer_tag == consumer_tag:
-                    # A broker-initiated Basic.Cancel must have arrived
-                    # before our cancel request completed
-                    continue
+            if (type(evt) is _ConsumerDeliveryEvt and
+                    evt.method.consumer_tag == consumer_tag):
+                unprocessed_messages.append(evt)
+                continue
+            if (type(evt) is _ConsumerCancellationEvt and
+                    evt.method_frame.method.consumer_tag == consumer_tag):
+                # A broker-initiated Basic.Cancel must have arrived
+                # before our cancel request completed
+                continue
 
             remaining_events.append(evt)
 
@@ -2263,19 +2265,21 @@ class BlockingChannel:
 
         validators.require_string(queue, 'queue')
 
-        with _CallbackResult(self._RxMessageArgs) as get_ok_result:
-            with self._basic_getempty_result:
-                self._impl.basic_get(queue=queue,
-                                     auto_ack=auto_ack,
-                                     callback=get_ok_result.set_value_once)
-                self._flush_output(get_ok_result.is_ready,
-                                   self._basic_getempty_result.is_ready)
-                if get_ok_result:
-                    evt = get_ok_result.value
-                    return evt.method, evt.properties, evt.body
-                assert self._basic_getempty_result, (
-                    'wait completed without GetOk and GetEmpty')
-                return None, None, None
+        with contextlib.ExitStack() as stack:
+            get_ok_result = stack.enter_context(
+                _CallbackResult(self._RxMessageArgs))
+            stack.enter_context(self._basic_getempty_result)
+            self._impl.basic_get(queue=queue,
+                                 auto_ack=auto_ack,
+                                 callback=get_ok_result.set_value_once)
+            self._flush_output(get_ok_result.is_ready,
+                               self._basic_getempty_result.is_ready)
+            if get_ok_result:
+                evt = get_ok_result.value
+                return evt.method, evt.properties, evt.body
+            assert self._basic_getempty_result, (
+                'wait completed without GetOk and GetEmpty')
+            return None, None, None
 
     def basic_publish(self,
                       exchange: str,

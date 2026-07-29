@@ -7,6 +7,8 @@ import traceback
 
 import pika._utils
 
+LOGGER = logging.getLogger(__name__)
+
 
 def retry_assertion(timeout_sec, retry_interval_sec=0.1):
     """
@@ -48,24 +50,23 @@ def retry_assertion(timeout_sec, retry_interval_sec=0.1):
 
                     now = pika._utils.time_now()
                     # Compensate for time adjustment
-                    if now < start_time:
-                        start_time = now
+                    start_time = min(start_time, now)
 
                     if (now - start_time) > timeout_sec:
-                        logging.exception(
+                        LOGGER.exception(
                             'Exceeded retry timeout of %s sec in %s attempts '
                             "with func %r. Caller's stack:\n%s", timeout_sec,
                             num_attempts, func,
                             ''.join(traceback.format_stack()))
                         raise
 
-                    logging.debug('Attempt %s failed; retrying %r in %s sec.',
-                                  num_attempts, func, retry_interval_sec)
+                    LOGGER.debug('Attempt %s failed; retrying %r in %s sec.',
+                                 num_attempts, func, retry_interval_sec)
 
                     time.sleep(retry_interval_sec)
                 else:
-                    logging.debug('%r succeeded at attempt %s', func,
-                                  num_attempts)
+                    LOGGER.debug('%r succeeded at attempt %s', func,
+                                 num_attempts)
                     return result
 
         return retry_assertion_wrap

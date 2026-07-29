@@ -197,7 +197,7 @@ class BaseConnection(connection.Connection):
         return self._nbio.get_native_ioloop()
 
     @override
-    def _adapter_call_later(self, delay: int | float,
+    def _adapter_call_later(self, delay: float,
                             callback: Callable[[], None]) -> object:
         """
         Schedule a callback to be called after a delay.
