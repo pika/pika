@@ -99,9 +99,11 @@ ignore = [
     "PLC0415", # import should be at the top level of a file
     "PERF203", # `try`-`except` within a loop incurs performance overhead
     "TC006",   # add quotes to `cast()` type expr: churny and hurts editor "go to definition"
-    "BLE001",  # blind except
-    "DTZ005",  # use `datetime.now(tz=timezone.utc)` instead of `datetime.utcnow()`
-    "PYI013",  # Non empty class body must not contain `...`
+    "BLE001",  # blind `except Exception`: adapters must catch everything a user
+               #   callback or transport teardown can raise, then report it via
+               #   the connection's own error path rather than let it escape
+    "DTZ005",  # `datetime.now()` without `tz`: only used to timestamp log
+               #   messages in tests, where local time is what a reader wants
 ]
 
 [tool.yapf]

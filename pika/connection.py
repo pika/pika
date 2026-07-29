@@ -542,7 +542,7 @@ class ConnectionParameters(Parameters):
     class _DEFAULT:
         """Designates default parameter value; internal use."""
 
-        ...  # noqa: PIE790
+        ...  # noqa: PIE790, PYI013
 
     T = TypeVar('T')
     DefaultT = Union[T, Type[_DEFAULT]]

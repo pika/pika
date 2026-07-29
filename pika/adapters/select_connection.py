@@ -453,19 +453,20 @@ class IOLoop(AbstractSelectorIOLoop):
             'process_timeouts': process_timeouts
         }
 
-        if (hasattr(select, 'epoll') and
-            (not SELECT_TYPE or SELECT_TYPE == 'epoll')):
+        def requested(name: str) -> bool:
+            """Whether `SELECT_TYPE` permits the named poller."""
+            return not SELECT_TYPE or SELECT_TYPE == name
+
+        if hasattr(select, 'epoll') and requested('epoll'):
             LOGGER.debug('Using EPollPoller')
             poller = EPollPoller(**kwargs)
 
-        if (not poller and hasattr(select, 'kqueue') and
-            (not SELECT_TYPE or SELECT_TYPE == 'kqueue')):
+        if not poller and hasattr(select, 'kqueue') and requested('kqueue'):
             LOGGER.debug('Using KQueuePoller')
             poller = KQueuePoller(**kwargs)
 
         if (not poller and hasattr(select, 'poll') and
-                hasattr(select.poll(), 'modify') and
-            (not SELECT_TYPE or SELECT_TYPE == 'poll')):
+                hasattr(select.poll(), 'modify') and requested('poll')):
             LOGGER.debug('Using PollPoller')
             poller = PollPoller(**kwargs)
 
