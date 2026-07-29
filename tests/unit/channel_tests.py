@@ -742,8 +742,8 @@ class ChannelTests(unittest.TestCase):
             basic_cancel.assert_any_call(consumer_tag='abc')
             basic_cancel.assert_any_call(consumer_tag='def')
 
-    def test_confirm_delivery_with_bad_callback_raises_value_error(self):
-        self.assertRaises(ValueError, self.obj.confirm_delivery, 'bad-callback')
+    def test_confirm_delivery_with_bad_callback_raises_type_error(self):
+        self.assertRaises(TypeError, self.obj.confirm_delivery, 'bad-callback')
 
     def test_confirm_delivery_raises_channel_wrong_state(self):
         cb = mock.Mock()

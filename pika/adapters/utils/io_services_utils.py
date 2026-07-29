@@ -403,8 +403,8 @@ class _AsyncStreamConnector:
         check_callback_arg(on_done, 'on_done')
 
         if not isinstance(ssl_context, (type(None), ssl.SSLContext)):
-            raise ValueError('Expected ssl_context=None | ssl.SSLContext, but '
-                             f'got {ssl_context!r}')
+            raise TypeError('Expected ssl_context=None | ssl.SSLContext, but '
+                            f'got {ssl_context!r}')
 
         if server_hostname is not None and ssl_context is None:
             raise ValueError('Non-None server_hostname must not be passed '
