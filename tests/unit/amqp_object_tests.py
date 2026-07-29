@@ -14,8 +14,8 @@ class AMQPObjectTests(unittest.TestCase):
 
     def test_repr_items(self):
         obj = amqp_object.AMQPObject()
-        setattr(obj, 'foo', 'bar')
-        setattr(obj, 'baz', 'qux')
+        obj.foo = 'bar'
+        obj.baz = 'qux'
         self.assertEqual(repr(obj), "<AMQPObject(['baz=qux', 'foo=bar'])>")
 
     def test_equality(self):
@@ -23,10 +23,10 @@ class AMQPObjectTests(unittest.TestCase):
         b = amqp_object.AMQPObject()
         self.assertEqual(a, b)
 
-        setattr(a, 'a_property', 'test')
+        a.a_property = 'test'
         self.assertNotEqual(a, b)
 
-        setattr(b, 'a_property', 'test')
+        b.a_property = 'test'
         self.assertEqual(a, b)
 
 

@@ -11,7 +11,7 @@ _SUPPORTED_TCP_OPTIONS: dict[str, int] = {}
 
 if hasattr(socket, 'TCP_USER_TIMEOUT'):
     try:
-        _SUPPORTED_TCP_OPTIONS['TCP_USER_TIMEOUT'] = getattr(
+        _SUPPORTED_TCP_OPTIONS['TCP_USER_TIMEOUT'] = getattr(  # noqa: B009
             socket, 'TCP_USER_TIMEOUT')
     except AttributeError:
         if pika._utils.LINUX_VERSION and pika._utils.LINUX_VERSION >= (2, 6,
@@ -22,10 +22,13 @@ if hasattr(socket, 'TCP_USER_TIMEOUT'):
             # #define TCP_USER_TIMEOUT	18	/* How long for loss retry before timeout */
             _SUPPORTED_TCP_OPTIONS['TCP_USER_TIMEOUT'] = 18
 
+# Looked up by name because these are platform-conditional (macOS spells
+# TCP_KEEPIDLE as TCP_KEEPALIVE); a direct `socket.TCP_*` reference fails type
+# checking on platforms lacking them.
 try:
-    tcp_keepidle = getattr(socket, 'TCP_KEEPIDLE')
-    tcp_keepcnt = getattr(socket, 'TCP_KEEPCNT')
-    tcp_keepintvl = getattr(socket, 'TCP_KEEPINTVL')
+    tcp_keepidle = getattr(socket, 'TCP_KEEPIDLE')  # noqa: B009
+    tcp_keepcnt = getattr(socket, 'TCP_KEEPCNT')  # noqa: B009
+    tcp_keepintvl = getattr(socket, 'TCP_KEEPINTVL')  # noqa: B009
 except AttributeError:
     pass
 else:
