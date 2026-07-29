@@ -1,5 +1,6 @@
 """Tests for threaded_test_wrapper.py."""
 
+import logging
 import sys
 import threading
 import time
@@ -9,6 +10,8 @@ from unittest import mock
 
 from tests.wrappers import threaded_test_wrapper
 from tests.wrappers.threaded_test_wrapper import _ThreadedTestWrapper, run_in_thread_with_timeout
+
+LOGGER = logging.getLogger(__name__)
 
 
 class ThreadedTestWrapperSelfChecks(unittest.TestCase):
@@ -54,7 +57,8 @@ class ThreadedTestWrapperSelfChecks(unittest.TestCase):
                       stringio_stderr.getvalue(),
                       file=sys.stderr)
             except Exception:
-                pass
+                # Must not replace the original exception re-raised below.
+                LOGGER.exception('Failed to dump captured stderr')
 
             raise
 
