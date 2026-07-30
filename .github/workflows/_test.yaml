@@ -26,6 +26,7 @@ jobs:
     name: build/test on windows-latest py${{ matrix.python-version }} tls=${{ matrix.test-tls }}
     runs-on: windows-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ${{ fromJSON(inputs.python-versions) }}
         test-tls: [true, false]
@@ -81,6 +82,7 @@ jobs:
     name: build/test on ${{ inputs.ubuntu-runner }} py${{ matrix.python-version }} tls=${{ matrix.test-tls }}
     runs-on: ${{ inputs.ubuntu-runner }}
     strategy:
+      fail-fast: false
       matrix:
         python-version: ${{ fromJSON(inputs.python-versions) }}
         test-tls: [true, false]
@@ -110,6 +112,7 @@ jobs:
     name: build/test on ${{ inputs.macos-runner }} py${{ matrix.python-version }} tls=${{ matrix.test-tls }}
     runs-on: ${{ inputs.macos-runner }}
     strategy:
+      fail-fast: false
       matrix:
         python-version: ${{ fromJSON(inputs.python-versions) }}
         test-tls: [true, false]

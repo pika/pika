@@ -1,16 +1,24 @@
 """Tests of nbio_interface.AbstractIOServices adaptations."""
 
 import collections
+import contextlib
 import errno
 import logging
 import os
 import socket
+import threading
 import unittest
+from unittest import mock
 
 import pika._utils
 from pika.adapters.utils import nbio_interface
 from tests.misc.forward_server import ForwardServer
 from tests.stubs.io_services_test_stubs import IOServicesTestStubs
+from tests.wrappers.threaded_test_wrapper import DEFAULT_TEST_TIMEOUT
+
+# Upper bound on how long `_blocked_resolver()` blocks a lookup. Longer than the per-test timeout,
+# so only a test that has already been abandoned can reach it.
+_BLOCKED_RESOLVER_MAX_WAIT = DEFAULT_TEST_TIMEOUT * 2
 
 
 class AsyncServicesTestBase(unittest.TestCase):
@@ -403,8 +411,56 @@ class TestSocketWatchersAfterLocalPeerShutsReadWrite(SocketWatcherTestBase,
         self._check_socket_watchers_fired(s1, expected)
 
 
-class TestGetaddrinfoWWWGoogleDotComPort80(AsyncServicesTestBase,
-                                           IOServicesTestStubs):
+@contextlib.contextmanager
+def _failing_resolver():
+    """
+    Patch `socket.getaddrinfo()` to fail as if the host did not exist.
+
+    A name that does not resolve cannot be obtained without the network, not even under the
+    `.invalid` TLD reserved by RFC 6761, because the stub resolver still sends the query and waits
+    for `NXDOMAIN`. Patching `socket.getaddrinfo()` covers every adaptation under test, since both
+    `selector_ioloop_adapter._AddressResolver` and asyncio's `loop.getaddrinfo()` bottom out in it.
+    """
+
+    def getaddrinfo_failure(*args, **kwargs):
+        raise socket.gaierror(socket.EAI_NONAME, 'Name or service not known')
+
+    with mock.patch.object(socket, 'getaddrinfo', getaddrinfo_failure):
+        yield
+
+
+@contextlib.contextmanager
+def _blocked_resolver():
+    """
+    Patch `socket.getaddrinfo()` to block until the context manager exits.
+
+    The cancellation tests need a lookup that is still pending when they cancel it. Blocking the
+    resolver removes the race with a lookup that completes first, and keeps an abandoned lookup from
+    outliving the test in a resolver thread.
+
+    The wait is bounded so that the stub cannot outlive its test even if the context manager is
+    never exited. `run_in_thread_with_timeout` abandons the thread running `start()` on timeout,
+    which would otherwise leave `socket.getaddrinfo()` patched for every later test in the process
+    and hang interpreter exit, because `concurrent.futures` joins the asyncio executor thread that
+    the stub is parked in. Cleanup unwinds the abandoned loop first, so this bound is only a
+    backstop; it exceeds the test timeout so a passing test never reaches it.
+    """
+    released = threading.Event()
+
+    def getaddrinfo_blocked(*args, **kwargs):
+        released.wait(timeout=_BLOCKED_RESOLVER_MAX_WAIT)
+        # Every caller cancels the lookup, so nothing observes this result
+        return []
+
+    try:
+        with mock.patch.object(socket, 'getaddrinfo', getaddrinfo_blocked):
+            yield
+    finally:
+        released.set()
+
+
+class TestGetaddrinfoLocalhostPort80(AsyncServicesTestBase,
+                                     IOServicesTestStubs):
 
     def start(self):
         # provided by IOServicesTestStubs mixin
@@ -416,7 +472,11 @@ class TestGetaddrinfoWWWGoogleDotComPort80(AsyncServicesTestBase,
             result_bucket.append(result)
             nbio.stop()
 
-        ref = nbio.getaddrinfo('www.google.com',
+        # NOTE: this is the one lookup we let reach the system resolver, so that
+        # argument forwarding and the result's shape stay covered end to end.
+        # `localhost` resolves from the hosts file, so no network is needed; an
+        # IP address literal would skip name resolution altogether.
+        ref = nbio.getaddrinfo('localhost',
                                80,
                                socktype=socket.SOCK_STREAM,
                                on_done=on_done)
@@ -426,8 +486,7 @@ class TestGetaddrinfoWWWGoogleDotComPort80(AsyncServicesTestBase,
         self.assertEqual(len(result_bucket), 1)
 
         result = result_bucket[0]
-        self.logger.debug('TestGetaddrinfoWWWGoogleDotComPort80: result=%r',
-                          result)
+        self.logger.debug('TestGetaddrinfoLocalhostPort80: result=%r', result)
         self.assertIsInstance(result, list)
         self.assertEqual(len(result[0]), 5)
 
@@ -461,16 +520,19 @@ class TestGetaddrinfoNonExistentHost(AsyncServicesTestBase,
             result_bucket.append(result)
             nbio.stop()
 
-        ref = nbio.getaddrinfo('www.google.comSSS',
-                               80,
-                               socktype=socket.SOCK_STREAM,
-                               proto=socket.IPPROTO_TCP,
-                               on_done=on_done)
+        with _failing_resolver():
+            ref = nbio.getaddrinfo('no-such-host.invalid',
+                                   80,
+                                   socktype=socket.SOCK_STREAM,
+                                   proto=socket.IPPROTO_TCP,
+                                   on_done=on_done)
 
-        nbio.run()
+            nbio.run()
 
         self.assertEqual(len(result_bucket), 1)
 
+        # The failure must be reported as the value passed to `on_done`, not
+        # raised out of the resolver's thread or loop callback
         result = result_bucket[0]
         self.assertIsInstance(result, socket.gaierror)
 
@@ -481,12 +543,6 @@ class TestGetaddrinfoCancelBeforeLoopRun(AsyncServicesTestBase,
                                          IOServicesTestStubs):
 
     def start(self):
-        # NOTE: this test elicits an occasional asyncio
-        # `RuntimeError: Event loop is closed` message on the terminal,
-        # presumably when the `getaddrinfo()` executing in the thread pool
-        # finally completes and attempts to set the value on the future, but
-        # our cleanup logic will have closed the loop before then.
-
         # Provided by IOServicesTestStubs mixin
         nbio = self.create_nbio()
 
@@ -495,15 +551,16 @@ class TestGetaddrinfoCancelBeforeLoopRun(AsyncServicesTestBase,
         def on_done(result):
             on_done_bucket.append(result)
 
-        ref = nbio.getaddrinfo('www.google.com',
-                               80,
-                               socktype=socket.SOCK_STREAM,
-                               on_done=on_done)
+        with _blocked_resolver():
+            ref = nbio.getaddrinfo('localhost',
+                                   80,
+                                   socktype=socket.SOCK_STREAM,
+                                   on_done=on_done)
 
-        self.assertEqual(ref.cancel(), True)
+            self.assertEqual(ref.cancel(), True)
 
-        nbio.add_callback_threadsafe(nbio.stop)
-        nbio.run()
+            nbio.add_callback_threadsafe(nbio.stop)
+            nbio.run()
 
         self.assertFalse(on_done_bucket)
 
@@ -512,12 +569,6 @@ class TestGetaddrinfoCancelAfterLoopRun(AsyncServicesTestBase,
                                         IOServicesTestStubs):
 
     def start(self):
-        # NOTE: this test elicits an occasional asyncio
-        # `RuntimeError: Event loop is closed` message on the terminal,
-        # presumably when the `getaddrinfo()` executing in the thread pool
-        # finally completes and attempts to set the value on the future, but
-        # our cleanup logic will have closed the loop before then.
-
         # Provided by IOServicesTestStubs mixin
         nbio = self.create_nbio()
 
@@ -528,11 +579,6 @@ class TestGetaddrinfoCancelAfterLoopRun(AsyncServicesTestBase,
                 'Unexpected completion of cancelled getaddrinfo()')
             on_done_bucket.append(result)
 
-        # NOTE: there is some probability that getaddrinfo() will have completed
-        # and added its completion reporting callback quickly, so we add our
-        # cancellation callback before requesting getaddrinfo() in order to
-        # avoid the race condition wehreby it invokes our completion callback
-        # before we had a chance to cancel it.
         cancel_result_bucket = []
 
         def cancel_and_stop_from_loop():
@@ -540,14 +586,18 @@ class TestGetaddrinfoCancelAfterLoopRun(AsyncServicesTestBase,
             cancel_result_bucket.append(getaddr_ref.cancel())
             nbio.stop()
 
-        nbio.add_callback_threadsafe(cancel_and_stop_from_loop)
+        with _blocked_resolver():
+            # NOTE: the blocked resolver keeps the lookup pending, but we still
+            # add the cancellation callback before requesting getaddrinfo() so
+            # that the reference is cancelled from the loop's own thread.
+            nbio.add_callback_threadsafe(cancel_and_stop_from_loop)
 
-        getaddr_ref = nbio.getaddrinfo('www.google.com',
-                                       80,
-                                       socktype=socket.SOCK_STREAM,
-                                       on_done=on_done)
+            getaddr_ref = nbio.getaddrinfo('localhost',
+                                           80,
+                                           socktype=socket.SOCK_STREAM,
+                                           on_done=on_done)
 
-        nbio.run()
+            nbio.run()
 
         self.assertEqual(cancel_result_bucket, [True])
 
