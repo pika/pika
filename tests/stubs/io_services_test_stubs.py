@@ -22,8 +22,13 @@ class TestGetNativeIOLoop(unittest.TestCase,
 
 """
 
+import contextlib
+import logging
+
 from pika.adapters.utils import nbio_interface
 from tests.wrappers.threaded_test_wrapper import run_in_thread_with_timeout
+
+LOGGER = logging.getLogger(__name__)
 
 
 class IOServicesTestStubs:
@@ -50,8 +55,39 @@ class IOServicesTestStubs:
         :param unittest.TestCase self:
         """
         nbio = self._nbio_factory()
-        self.addCleanup(nbio.close)
+        self.addCleanup(self._close_nbio, nbio)
         return nbio
+
+    @staticmethod
+    def _close_nbio(nbio: nbio_interface.AbstractIOServices) -> None:
+        """
+        Close the given I/O services instance, tolerating a still-running loop.
+
+        Cleanups run on the main thread, while `start()` runs in a thread that
+        `run_in_thread_with_timeout` abandons when the test times out. The loop is then still
+        running, and closing it fails: asyncio and tornado raise `RuntimeError: Cannot close a
+        running event loop`, and `select_connection` asserts `Cannot call close() before start()
+        unwinds.`. Reported from cleanup, either one buries the `AssertionError: The test timed
+        out.` that says why the test actually failed.
+
+        So request a stop first, which an abandoned loop honors from its own thread, and warn rather
+        than raise if the close still does not take. There is only one attempt to make: tornado
+        unregisters its I/O loop before closing the asyncio loop underneath it, so a close that
+        fails part way leaves every later attempt raising `KeyError`. An unclosed loop is what a
+        timed-out test already left behind before this method existed.
+
+        :param nbio: the instance to close.
+        """
+        with contextlib.suppress(Exception):
+            # Honored only by a loop that is still running, i.e. an abandoned one
+            nbio.add_callback_threadsafe(nbio.stop)
+
+        try:
+            nbio.close()
+        except Exception as error:
+            LOGGER.warning(
+                'Could not close %r: %r. Its test most likely timed out, '
+                'leaving the I/O loop running.', nbio, error)
 
     def _run_start(self, nbio_factory, native_loop, use_ssl=False):
         """
