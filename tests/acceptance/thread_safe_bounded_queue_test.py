@@ -12,7 +12,6 @@ timeout even with a wedged consumer (Finding 2), and a merely-slow consumer that
 keeps pace does NOT trip overflow (the back-pressure negative control).
 """
 
-import logging
 import threading
 import time
 import unittest
@@ -21,9 +20,7 @@ import uuid
 import pika
 from pika.adapters.thread_safe_connection import ThreadSafeConnection
 from pika.exceptions import WorkQueueFullError
-from tests.misc.test_utils import retry_assertion
-
-LOGGER = logging.getLogger(__name__)
+from tests.misc.test_utils import retry_assertion, safe_close
 
 DEFAULT_PARAMS = pika.ConnectionParameters(
     host='127.0.0.1',
@@ -39,16 +36,8 @@ class ThreadSafeBoundedQueueTestCaseBase(unittest.TestCase):
 
     def _connect(self, **kwargs):
         conn = ThreadSafeConnection(DEFAULT_PARAMS, **kwargs)
-        self.addCleanup(self._safe_close, conn)
+        self.addCleanup(safe_close, conn, timeout=BLOCKING_CALL_TIMEOUT)
         return conn
-
-    @staticmethod
-    def _safe_close(conn):
-        try:
-            conn.close(timeout=BLOCKING_CALL_TIMEOUT)
-        except Exception:
-            # Best-effort teardown; must not mask the test's own result.
-            LOGGER.exception('Best-effort cleanup close() failed for %r', conn)
 
     @staticmethod
     def _unique_queue():

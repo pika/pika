@@ -9,7 +9,6 @@ Each test covers a scenario that unit tests with mocks cannot: real socket I/O,
 real AMQP frame exchange, and real concurrent threads.
 """
 
-import logging
 import threading
 import unittest
 import uuid
@@ -17,9 +16,7 @@ import uuid
 import pika
 from pika.adapters.thread_safe_connection import ThreadSafeChannel, ThreadSafeConnection
 from tests.misc.forward_server import ForwardServer
-from tests.misc.test_utils import retry_assertion
-
-LOGGER = logging.getLogger(__name__)
+from tests.misc.test_utils import retry_assertion, safe_close
 
 DEFAULT_PARAMS = pika.ConnectionParameters(
     host='127.0.0.1',
@@ -35,16 +32,8 @@ class ThreadSafeTestCaseBase(unittest.TestCase):
 
     def _connect(self, parameters=None):
         conn = ThreadSafeConnection(parameters or DEFAULT_PARAMS)
-        self.addCleanup(self._safe_close, conn)
+        self.addCleanup(safe_close, conn)
         return conn
-
-    @staticmethod
-    def _safe_close(conn):
-        try:
-            conn.close()
-        except Exception:
-            # Best-effort teardown; must not mask the test's own result.
-            LOGGER.exception('Best-effort cleanup close() failed for %r', conn)
 
     @staticmethod
     def _unique_queue():
@@ -234,7 +223,7 @@ class TestBrokerDropBlockedInChannel(ThreadSafeTestCaseBase):
             credentials=pika.PlainCredentials('guest', 'guest'),
         )
         conn = ThreadSafeConnection(params)
-        self.addCleanup(self._safe_close, conn)
+        self.addCleanup(safe_close, conn)
 
         # Intercept add_callback_threadsafe so channel() registers its waiter
         # but the channel never actually opens before we drop the connection.
@@ -293,7 +282,7 @@ class TestBrokerDropBlockedInQueueDeclare(ThreadSafeTestCaseBase):
             credentials=pika.PlainCredentials('guest', 'guest'),
         )
         conn = ThreadSafeConnection(params)
-        self.addCleanup(self._safe_close, conn)
+        self.addCleanup(safe_close, conn)
 
         # Open the channel before intercepting so we get a real channel object.
         ch = conn.channel()

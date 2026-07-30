@@ -10,6 +10,27 @@ import pika._utils
 LOGGER = logging.getLogger(__name__)
 
 
+def safe_close(closeable, *args, **kwargs):
+    """
+    Close `closeable` from cleanup, logging rather than raising on failure.
+
+    Teardown registered via `addCleanup()` reports its exceptions as test errors, so a failing
+    close() masks the result of the test that registered it. Best-effort closing keeps the test's
+    own outcome, passing or failing, as the thing that gets reported.
+
+    Callers that can distinguish an expected teardown failure from a real one should catch that
+    narrow type themselves instead of reaching for this.
+
+    :param closeable: object whose `close()` is to be called.
+    :param args: positional args to pass to `close()`.
+    :param kwargs: keyword args to pass to `close()`.
+    """
+    try:
+        closeable.close(*args, **kwargs)
+    except Exception:
+        LOGGER.exception('Best-effort cleanup close() failed for %r', closeable)
+
+
 def retry_assertion(timeout_sec, retry_interval_sec=0.1):
     """
     Creates a decorator that retries the decorated function or method only upon `AssertionError`

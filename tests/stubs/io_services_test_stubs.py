@@ -30,6 +30,11 @@ from tests.wrappers.threaded_test_wrapper import run_in_thread_with_timeout
 
 LOGGER = logging.getLogger(__name__)
 
+# Raised by `close()` when the loop is still running, which is the state a test abandoned by
+# `run_in_thread_with_timeout` leaves behind: `RuntimeError` from asyncio and tornado,
+# `AssertionError` from `select_connection.IOLoop`.
+_LOOP_STILL_RUNNING_ERRORS = (RuntimeError, AssertionError)
+
 
 class IOServicesTestStubs:
     """Provides a stub test method for each combination of parameters we wish to test."""
@@ -76,6 +81,10 @@ class IOServicesTestStubs:
         fails part way leaves every later attempt raising `KeyError`. An unclosed loop is what a
         timed-out test already left behind before this method existed.
 
+        Only the two errors an abandoned loop produces are tolerated. Anything else is a genuine
+        `close()` failure, and swallowing those would retire a signal the suite has always had, so
+        they propagate and fail the test as before.
+
         :param nbio: the instance to close.
         """
         with contextlib.suppress(Exception):
@@ -84,7 +93,7 @@ class IOServicesTestStubs:
 
         try:
             nbio.close()
-        except Exception as error:
+        except _LOOP_STILL_RUNNING_ERRORS as error:
             LOGGER.warning(
                 'Could not close %r: %r. Its test most likely timed out, '
                 'leaving the I/O loop running.', nbio, error)

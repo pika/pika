@@ -14,6 +14,11 @@ import pika._utils
 from pika.adapters.utils import nbio_interface
 from tests.misc.forward_server import ForwardServer
 from tests.stubs.io_services_test_stubs import IOServicesTestStubs
+from tests.wrappers.threaded_test_wrapper import DEFAULT_TEST_TIMEOUT
+
+# Upper bound on how long `_blocked_resolver()` blocks a lookup. Longer than the per-test timeout,
+# so only a test that has already been abandoned can reach it.
+_BLOCKED_RESOLVER_MAX_WAIT = DEFAULT_TEST_TIMEOUT * 2
 
 
 class AsyncServicesTestBase(unittest.TestCase):
@@ -432,11 +437,18 @@ def _blocked_resolver():
     The cancellation tests need a lookup that is still pending when they cancel it. Blocking the
     resolver removes the race with a lookup that completes first, and keeps an abandoned lookup from
     outliving the test in a resolver thread.
+
+    The wait is bounded so that the stub cannot outlive its test even if the context manager is
+    never exited. `run_in_thread_with_timeout` abandons the thread running `start()` on timeout,
+    which would otherwise leave `socket.getaddrinfo()` patched for every later test in the process
+    and hang interpreter exit, because `concurrent.futures` joins the asyncio executor thread that
+    the stub is parked in. Cleanup unwinds the abandoned loop first, so this bound is only a
+    backstop; it exceeds the test timeout so a passing test never reaches it.
     """
     released = threading.Event()
 
     def getaddrinfo_blocked(*args, **kwargs):
-        released.wait()
+        released.wait(timeout=_BLOCKED_RESOLVER_MAX_WAIT)
         # Every caller cancels the lookup, so nothing observes this result
         return []
 
