@@ -1889,9 +1889,12 @@ class BlockingChannel:
                         # NOTE: we can't use basic_nack with the multiple option
                         # to avoid nacking messages already held by our client.
                         for message in pending_messages:
-                            self._impl.basic_reject(
-                                message.method.delivery_tag, requeue=True
-                            )  # pyright: ignore[reportArgumentType]
+                            delivery_tag = message.method.delivery_tag
+                            # The generated spec types delivery_tag as
+                            # optional, but the broker always sets it on a
+                            # delivery.
+                            assert delivery_tag is not None
+                            self._impl.basic_reject(delivery_tag, requeue=True)
 
                 # Cancel the consumer; impl takes care of rejecting any
                 # additional deliveries that arrive for a auto_ack=False
