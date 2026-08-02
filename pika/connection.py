@@ -1883,13 +1883,16 @@ class Connection(abc.ABC):
         """
         LOGGER.debug('_on_connection_close_from_broker: frame=%s', method_frame)
 
+        # The generated spec types reply_code as optional, but a frame
+        # decoded off the wire always carries it.
+        reply_code = method_frame.method.reply_code
+        assert reply_code is not None
+
         self._terminate_stream(
-            exceptions.ConnectionClosedByBroker(
-                method_frame.method.
-                reply_code,  # pyright: ignore[reportArgumentType]
-                method_frame.method.reply_text,
-                host=self.params.host,
-                port=self.params.port))
+            exceptions.ConnectionClosedByBroker(reply_code,
+                                                method_frame.method.reply_text,
+                                                host=self.params.host,
+                                                port=self.params.port))
 
     def _on_connection_close_ok(
             self, method_frame: frame.Method[spec.Connection.CloseOk]) -> None:
@@ -2344,11 +2347,15 @@ class Connection(abc.ABC):
 
     def _send_connection_tune_ok(self) -> None:
         """Send a Connection.TuneOk frame."""
+        # Tuning resolves any heartbeat callable and negotiates an integral
+        # timeout before this is sent.
+        heartbeat = self.params.heartbeat
+        assert heartbeat is not None and not callable(heartbeat)
+
         self._send_method(
             0,
             spec.Connection.TuneOk(self.params.channel_max,
-                                   self.params.frame_max,
-                                   self.params.heartbeat))
+                                   self.params.frame_max, heartbeat))
 
     def _send_frame(
         self, frame_value: (frame.Frame | frame.ProtocolHeader)) -> None:
