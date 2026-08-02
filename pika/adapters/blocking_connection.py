@@ -398,9 +398,12 @@ class BlockingConnection:
         # Store exceptions for server-initiated channel closures
         self._server_channel_closures: deque[Exception] = deque()
 
-        # Perform connection workflow; pre-assign so that the attribute exists
-        # even if _create_connection raises (cleanup code accesses _impl).
-        self._impl: select_connection.SelectConnection = None  # type: ignore[assignment]
+        # Declared without a value so that the type stays non-optional for the
+        # rest of the class, every method of which runs only after a successful
+        # workflow. `_cleanup()` tests for the attribute instead, since
+        # `_create_connection()` may raise before it is ever assigned.
+        self._impl: select_connection.SelectConnection
+
         self._impl = self._create_connection(parameters, _impl_class)
         self._impl.add_on_close_callback(self._closed_result.set_value_once)
 
@@ -422,7 +425,9 @@ class BlockingConnection:
     def _cleanup(self) -> None:
         """Clean up members that might inhibit garbage collection."""
         with self._cleanup_mutex:
-            if self._impl is not None:
+            # `getattr` rather than a plain attribute test: `__init__` may have
+            # raised before `_impl` was assigned.
+            if getattr(self, '_impl', None) is not None:
                 self._impl.ioloop.close()
             self._ready_events.clear()
             self._closed_result.reset()
