@@ -18,6 +18,7 @@ from typing import Any
 
 from pika import amqp_object
 from pika import data
+from pika._utils import override
 
 PROTOCOL_VERSION = (0, 9, 1)
 PORT = 5672
@@ -73,6 +74,7 @@ class Basic(amqp_object.Class):
             self.prefetch_count = prefetch_count
             self.global_qos = global_qos
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Basic.Qos:
             self.prefetch_size = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
@@ -83,6 +85,7 @@ class Basic(amqp_object.Class):
             self.global_qos = (bit_buffer & (1 << 0)) != 0
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>I', self.prefetch_size))
@@ -102,9 +105,11 @@ class Basic(amqp_object.Class):
         def __init__(self):
             pass
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Basic.QosOk:
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             return pieces
@@ -133,6 +138,7 @@ class Basic(amqp_object.Class):
             self.nowait = nowait
             self.arguments = arguments
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Basic.Consume:
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
@@ -148,6 +154,7 @@ class Basic(amqp_object.Class):
             (self.arguments, offset) = data.decode_table(encoded, offset)
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>H', self.ticket))
@@ -179,11 +186,13 @@ class Basic(amqp_object.Class):
         def __init__(self, consumer_tag: str | bytes | None = None):
             self.consumer_tag = consumer_tag
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Basic.ConsumeOk:
             self.consumer_tag, offset = data.decode_short_string(
                 encoded, offset)
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             assert isinstance(self.consumer_tag, (str, bytes)),\
@@ -203,6 +212,7 @@ class Basic(amqp_object.Class):
             self.consumer_tag = consumer_tag
             self.nowait = nowait
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Basic.Cancel:
             self.consumer_tag, offset = data.decode_short_string(
                 encoded, offset)
@@ -211,6 +221,7 @@ class Basic(amqp_object.Class):
             self.nowait = (bit_buffer & (1 << 0)) != 0
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             assert isinstance(self.consumer_tag, (str, bytes)),\
@@ -231,11 +242,13 @@ class Basic(amqp_object.Class):
         def __init__(self, consumer_tag: str | bytes | None = None):
             self.consumer_tag = consumer_tag
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Basic.CancelOk:
             self.consumer_tag, offset = data.decode_short_string(
                 encoded, offset)
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             assert isinstance(self.consumer_tag, (str, bytes)),\
@@ -261,6 +274,7 @@ class Basic(amqp_object.Class):
             self.mandatory = mandatory
             self.immediate = immediate
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Basic.Publish:
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
@@ -272,6 +286,7 @@ class Basic(amqp_object.Class):
             self.immediate = (bit_buffer & (1 << 1)) != 0
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>H', self.ticket))
@@ -305,6 +320,7 @@ class Basic(amqp_object.Class):
             self.exchange = exchange
             self.routing_key = routing_key
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Basic.Return:
             self.reply_code = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
@@ -313,6 +329,7 @@ class Basic(amqp_object.Class):
             self.routing_key, offset = data.decode_short_string(encoded, offset)
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>H', self.reply_code))
@@ -345,6 +362,7 @@ class Basic(amqp_object.Class):
             self.exchange = exchange
             self.routing_key = routing_key
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Basic.Deliver:
             self.consumer_tag, offset = data.decode_short_string(
                 encoded, offset)
@@ -357,6 +375,7 @@ class Basic(amqp_object.Class):
             self.routing_key, offset = data.decode_short_string(encoded, offset)
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             assert isinstance(self.consumer_tag, (str, bytes)),\
@@ -389,6 +408,7 @@ class Basic(amqp_object.Class):
             self.queue = queue
             self.no_ack = no_ack
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Basic.Get:
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
@@ -398,6 +418,7 @@ class Basic(amqp_object.Class):
             self.no_ack = (bit_buffer & (1 << 0)) != 0
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>H', self.ticket))
@@ -428,6 +449,7 @@ class Basic(amqp_object.Class):
             self.routing_key = routing_key
             self.message_count = message_count
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Basic.GetOk:
             self.delivery_tag = struct.unpack_from('>Q', encoded, offset)[0]
             offset += 8
@@ -440,6 +462,7 @@ class Basic(amqp_object.Class):
             offset += 4
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>Q', self.delivery_tag))
@@ -465,10 +488,12 @@ class Basic(amqp_object.Class):
         def __init__(self, cluster_id: str | bytes = ''):
             self.cluster_id = cluster_id
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Basic.GetEmpty:
             self.cluster_id, offset = data.decode_short_string(encoded, offset)
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             assert isinstance(self.cluster_id, (str, bytes)),\
@@ -486,6 +511,7 @@ class Basic(amqp_object.Class):
             self.delivery_tag = delivery_tag
             self.multiple = multiple
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Basic.Ack:
             self.delivery_tag = struct.unpack_from('>Q', encoded, offset)[0]
             offset += 8
@@ -494,6 +520,7 @@ class Basic(amqp_object.Class):
             self.multiple = (bit_buffer & (1 << 0)) != 0
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>Q', self.delivery_tag))
@@ -515,6 +542,7 @@ class Basic(amqp_object.Class):
             self.delivery_tag = delivery_tag
             self.requeue = requeue
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Basic.Reject:
             self.delivery_tag = struct.unpack_from('>Q', encoded, offset)[0]
             offset += 8
@@ -523,6 +551,7 @@ class Basic(amqp_object.Class):
             self.requeue = (bit_buffer & (1 << 0)) != 0
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>Q', self.delivery_tag))
@@ -541,12 +570,14 @@ class Basic(amqp_object.Class):
         def __init__(self, requeue: bool = False):
             self.requeue = requeue
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Basic.RecoverAsync:
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.requeue = (bit_buffer & (1 << 0)) != 0
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             bit_buffer = 0
@@ -564,12 +595,14 @@ class Basic(amqp_object.Class):
         def __init__(self, requeue: bool = False):
             self.requeue = requeue
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Basic.Recover:
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.requeue = (bit_buffer & (1 << 0)) != 0
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             bit_buffer = 0
@@ -587,9 +620,11 @@ class Basic(amqp_object.Class):
         def __init__(self):
             pass
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Basic.RecoverOk:
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             return pieces
@@ -608,6 +643,7 @@ class Basic(amqp_object.Class):
             self.multiple = multiple
             self.requeue = requeue
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Basic.Nack:
             self.delivery_tag = struct.unpack_from('>Q', encoded, offset)[0]
             offset += 8
@@ -617,6 +653,7 @@ class Basic(amqp_object.Class):
             self.requeue = (bit_buffer & (1 << 1)) != 0
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>Q', self.delivery_tag))
@@ -652,6 +689,7 @@ class Connection(amqp_object.Class):
             self.mechanisms = mechanisms
             self.locales = locales
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Connection.Start:
             self.version_major = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
@@ -669,6 +707,7 @@ class Connection(amqp_object.Class):
             offset += length
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('B', self.version_major))
@@ -704,6 +743,7 @@ class Connection(amqp_object.Class):
             self.response = response
             self.locale = locale
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Connection.StartOk:
             (self.client_properties,
              offset) = data.decode_table(encoded, offset)
@@ -715,6 +755,7 @@ class Connection(amqp_object.Class):
             self.locale, offset = data.decode_short_string(encoded, offset)
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             data.encode_table(pieces, self.client_properties)
@@ -741,6 +782,7 @@ class Connection(amqp_object.Class):
         def __init__(self, challenge: str | bytes | None = None):
             self.challenge = challenge
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Connection.Secure:
             length = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
@@ -748,6 +790,7 @@ class Connection(amqp_object.Class):
             offset += length
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             assert isinstance(self.challenge, (str, bytes)),\
@@ -767,6 +810,7 @@ class Connection(amqp_object.Class):
         def __init__(self, response: str | bytes | None = None):
             self.response = response
 
+        @override
         def decode(self,
                    encoded: bytes,
                    offset: int = 0) -> Connection.SecureOk:
@@ -776,6 +820,7 @@ class Connection(amqp_object.Class):
             offset += length
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             assert isinstance(self.response, (str, bytes)),\
@@ -800,6 +845,7 @@ class Connection(amqp_object.Class):
             self.frame_max = frame_max
             self.heartbeat = heartbeat
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Connection.Tune:
             self.channel_max = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
@@ -809,6 +855,7 @@ class Connection(amqp_object.Class):
             offset += 2
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>H', self.channel_max))
@@ -830,6 +877,7 @@ class Connection(amqp_object.Class):
             self.frame_max = frame_max
             self.heartbeat = heartbeat
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Connection.TuneOk:
             self.channel_max = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
@@ -839,6 +887,7 @@ class Connection(amqp_object.Class):
             offset += 2
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>H', self.channel_max))
@@ -860,6 +909,7 @@ class Connection(amqp_object.Class):
             self.capabilities = capabilities
             self.insist = insist
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Connection.Open:
             self.virtual_host, offset = data.decode_short_string(
                 encoded, offset)
@@ -870,6 +920,7 @@ class Connection(amqp_object.Class):
             self.insist = (bit_buffer & (1 << 0)) != 0
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             assert isinstance(self.virtual_host, (str, bytes)),\
@@ -893,10 +944,12 @@ class Connection(amqp_object.Class):
         def __init__(self, known_hosts: str | bytes = ''):
             self.known_hosts = known_hosts
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Connection.OpenOk:
             self.known_hosts, offset = data.decode_short_string(encoded, offset)
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             assert isinstance(self.known_hosts, (str, bytes)),\
@@ -920,6 +973,7 @@ class Connection(amqp_object.Class):
             self.class_id = class_id
             self.method_id = method_id
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Connection.Close:
             self.reply_code = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
@@ -930,6 +984,7 @@ class Connection(amqp_object.Class):
             offset += 2
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>H', self.reply_code))
@@ -949,9 +1004,11 @@ class Connection(amqp_object.Class):
         def __init__(self):
             pass
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Connection.CloseOk:
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             return pieces
@@ -965,10 +1022,12 @@ class Connection(amqp_object.Class):
         def __init__(self, reason: str | bytes = ''):
             self.reason = reason
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Connection.Blocked:
             self.reason, offset = data.decode_short_string(encoded, offset)
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             assert isinstance(self.reason, (str, bytes)),\
@@ -985,11 +1044,13 @@ class Connection(amqp_object.Class):
         def __init__(self):
             pass
 
+        @override
         def decode(self,
                    encoded: bytes,
                    offset: int = 0) -> Connection.Unblocked:
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             return pieces
@@ -1006,6 +1067,7 @@ class Connection(amqp_object.Class):
             self.new_secret = new_secret
             self.reason = reason
 
+        @override
         def decode(self,
                    encoded: bytes,
                    offset: int = 0) -> Connection.UpdateSecret:
@@ -1016,6 +1078,7 @@ class Connection(amqp_object.Class):
             self.reason, offset = data.decode_short_string(encoded, offset)
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             assert isinstance(self.new_secret, (str, bytes)),\
@@ -1038,11 +1101,13 @@ class Connection(amqp_object.Class):
         def __init__(self):
             pass
 
+        @override
         def decode(self,
                    encoded: bytes,
                    offset: int = 0) -> Connection.UpdateSecretOk:
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             return pieces
@@ -1062,10 +1127,12 @@ class Channel(amqp_object.Class):
         def __init__(self, out_of_band: str | bytes = ''):
             self.out_of_band = out_of_band
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Channel.Open:
             self.out_of_band, offset = data.decode_short_string(encoded, offset)
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             assert isinstance(self.out_of_band, (str, bytes)),\
@@ -1082,6 +1149,7 @@ class Channel(amqp_object.Class):
         def __init__(self, channel_id: str | bytes = ''):
             self.channel_id = channel_id
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Channel.OpenOk:
             length = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
@@ -1089,6 +1157,7 @@ class Channel(amqp_object.Class):
             offset += length
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             assert isinstance(self.channel_id, (str, bytes)),\
@@ -1108,12 +1177,14 @@ class Channel(amqp_object.Class):
         def __init__(self, active: bool | None = None):
             self.active = active
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Channel.Flow:
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.active = (bit_buffer & (1 << 0)) != 0
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             bit_buffer = 0
@@ -1131,12 +1202,14 @@ class Channel(amqp_object.Class):
         def __init__(self, active: bool | None = None):
             self.active = active
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Channel.FlowOk:
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.active = (bit_buffer & (1 << 0)) != 0
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             bit_buffer = 0
@@ -1161,6 +1234,7 @@ class Channel(amqp_object.Class):
             self.class_id = class_id
             self.method_id = method_id
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Channel.Close:
             self.reply_code = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
@@ -1171,6 +1245,7 @@ class Channel(amqp_object.Class):
             offset += 2
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>H', self.reply_code))
@@ -1190,9 +1265,11 @@ class Channel(amqp_object.Class):
         def __init__(self):
             pass
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Channel.CloseOk:
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             return pieces
@@ -1223,6 +1300,7 @@ class Access(amqp_object.Class):
             self.write = write
             self.read = read
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Access.Request:
             self.realm, offset = data.decode_short_string(encoded, offset)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
@@ -1234,6 +1312,7 @@ class Access(amqp_object.Class):
             self.read = (bit_buffer & (1 << 4)) != 0
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             assert isinstance(self.realm, (str, bytes)),\
@@ -1262,11 +1341,13 @@ class Access(amqp_object.Class):
         def __init__(self, ticket: int = 1):
             self.ticket = ticket
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Access.RequestOk:
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>H', self.ticket))
@@ -1304,6 +1385,7 @@ class Exchange(amqp_object.Class):
             self.nowait = nowait
             self.arguments = arguments
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Exchange.Declare:
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
@@ -1319,6 +1401,7 @@ class Exchange(amqp_object.Class):
             (self.arguments, offset) = data.decode_table(encoded, offset)
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>H', self.ticket))
@@ -1352,9 +1435,11 @@ class Exchange(amqp_object.Class):
         def __init__(self):
             pass
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Exchange.DeclareOk:
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             return pieces
@@ -1375,6 +1460,7 @@ class Exchange(amqp_object.Class):
             self.if_unused = if_unused
             self.nowait = nowait
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Exchange.Delete:
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
@@ -1385,6 +1471,7 @@ class Exchange(amqp_object.Class):
             self.nowait = (bit_buffer & (1 << 1)) != 0
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>H', self.ticket))
@@ -1408,9 +1495,11 @@ class Exchange(amqp_object.Class):
         def __init__(self):
             pass
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Exchange.DeleteOk:
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             return pieces
@@ -1435,6 +1524,7 @@ class Exchange(amqp_object.Class):
             self.nowait = nowait
             self.arguments = arguments
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Exchange.Bind:
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
@@ -1447,6 +1537,7 @@ class Exchange(amqp_object.Class):
             (self.arguments, offset) = data.decode_table(encoded, offset)
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>H', self.ticket))
@@ -1475,9 +1566,11 @@ class Exchange(amqp_object.Class):
         def __init__(self):
             pass
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Exchange.BindOk:
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             return pieces
@@ -1502,6 +1595,7 @@ class Exchange(amqp_object.Class):
             self.nowait = nowait
             self.arguments = arguments
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Exchange.Unbind:
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
@@ -1514,6 +1608,7 @@ class Exchange(amqp_object.Class):
             (self.arguments, offset) = data.decode_table(encoded, offset)
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>H', self.ticket))
@@ -1542,9 +1637,11 @@ class Exchange(amqp_object.Class):
         def __init__(self):
             pass
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Exchange.UnbindOk:
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             return pieces
@@ -1579,6 +1676,7 @@ class Queue(amqp_object.Class):
             self.nowait = nowait
             self.arguments = arguments
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Queue.Declare:
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
@@ -1593,6 +1691,7 @@ class Queue(amqp_object.Class):
             (self.arguments, offset) = data.decode_table(encoded, offset)
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>H', self.ticket))
@@ -1628,6 +1727,7 @@ class Queue(amqp_object.Class):
             self.message_count = message_count
             self.consumer_count = consumer_count
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Queue.DeclareOk:
             self.queue, offset = data.decode_short_string(encoded, offset)
             self.message_count = struct.unpack_from('>I', encoded, offset)[0]
@@ -1636,6 +1736,7 @@ class Queue(amqp_object.Class):
             offset += 4
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             assert isinstance(self.queue, (str, bytes)),\
@@ -1665,6 +1766,7 @@ class Queue(amqp_object.Class):
             self.nowait = nowait
             self.arguments = arguments
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Queue.Bind:
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
@@ -1677,6 +1779,7 @@ class Queue(amqp_object.Class):
             (self.arguments, offset) = data.decode_table(encoded, offset)
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>H', self.ticket))
@@ -1705,9 +1808,11 @@ class Queue(amqp_object.Class):
         def __init__(self):
             pass
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Queue.BindOk:
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             return pieces
@@ -1726,6 +1831,7 @@ class Queue(amqp_object.Class):
             self.queue = queue
             self.nowait = nowait
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Queue.Purge:
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
@@ -1735,6 +1841,7 @@ class Queue(amqp_object.Class):
             self.nowait = (bit_buffer & (1 << 0)) != 0
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>H', self.ticket))
@@ -1756,11 +1863,13 @@ class Queue(amqp_object.Class):
         def __init__(self, message_count: int | None = None):
             self.message_count = message_count
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Queue.PurgeOk:
             self.message_count = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>I', self.message_count))
@@ -1784,6 +1893,7 @@ class Queue(amqp_object.Class):
             self.if_empty = if_empty
             self.nowait = nowait
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Queue.Delete:
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
@@ -1795,6 +1905,7 @@ class Queue(amqp_object.Class):
             self.nowait = (bit_buffer & (1 << 2)) != 0
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>H', self.ticket))
@@ -1820,11 +1931,13 @@ class Queue(amqp_object.Class):
         def __init__(self, message_count: int | None = None):
             self.message_count = message_count
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Queue.DeleteOk:
             self.message_count = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>I', self.message_count))
@@ -1848,6 +1961,7 @@ class Queue(amqp_object.Class):
             self.routing_key = routing_key
             self.arguments = arguments
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Queue.Unbind:
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
@@ -1857,6 +1971,7 @@ class Queue(amqp_object.Class):
             (self.arguments, offset) = data.decode_table(encoded, offset)
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             pieces.append(struct.pack('>H', self.ticket))
@@ -1881,9 +1996,11 @@ class Queue(amqp_object.Class):
         def __init__(self):
             pass
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Queue.UnbindOk:
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             return pieces
@@ -1903,9 +2020,11 @@ class Tx(amqp_object.Class):
         def __init__(self):
             pass
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Tx.Select:
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             return pieces
@@ -1919,9 +2038,11 @@ class Tx(amqp_object.Class):
         def __init__(self):
             pass
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Tx.SelectOk:
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             return pieces
@@ -1935,9 +2056,11 @@ class Tx(amqp_object.Class):
         def __init__(self):
             pass
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Tx.Commit:
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             return pieces
@@ -1951,9 +2074,11 @@ class Tx(amqp_object.Class):
         def __init__(self):
             pass
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Tx.CommitOk:
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             return pieces
@@ -1967,9 +2092,11 @@ class Tx(amqp_object.Class):
         def __init__(self):
             pass
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Tx.Rollback:
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             return pieces
@@ -1983,9 +2110,11 @@ class Tx(amqp_object.Class):
         def __init__(self):
             pass
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Tx.RollbackOk:
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             return pieces
@@ -2005,12 +2134,14 @@ class Confirm(amqp_object.Class):
         def __init__(self, nowait: bool = False):
             self.nowait = nowait
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Confirm.Select:
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.nowait = (bit_buffer & (1 << 0)) != 0
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             bit_buffer = 0
@@ -2028,9 +2159,11 @@ class Confirm(amqp_object.Class):
         def __init__(self):
             pass
 
+        @override
         def decode(self, encoded: bytes, offset: int = 0) -> Confirm.SelectOk:
             return self
 
+        @override
         def encode(self) -> list[bytes]:
             pieces: list[bytes] = []
             return pieces

@@ -66,6 +66,7 @@ from typing import Any
 
 from pika import amqp_object
 from pika import data
+from pika._utils import override
 
 '''
 
@@ -209,6 +210,9 @@ def generate(specPath):
             raise Exception("Illegal domain in genSingleEncode", type)
 
     def genDecodeMethodFields(m):
+        # Only the method classes get @override; `amqp_object.Properties`
+        # declares no decode/encode to override.
+        print("        @override")
         print("        def decode(self, encoded: bytes, offset: int = 0) -> "
               f"{m.structName()}:")
         bitindex = None
@@ -263,6 +267,7 @@ def generate(specPath):
         print('')
 
     def genEncodeMethodFields(m):
+        print("        @override")
         print("        def encode(self) -> list[bytes]:")
         print("            pieces: list[bytes] = []")
         bitindex = None
