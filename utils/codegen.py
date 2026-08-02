@@ -6,6 +6,12 @@ The required spec json file can be found at https://github.com/rabbitmq/rabbitmq
 After cloning it run the following to generate a spec.py
 file:
 python ./utils/codegen.py ../rabbitmq-server
+
+The generator emits unformatted output, so reformat it afterwards. The
+repo's `fmt` script excludes pika/spec.py, so run yapf against it
+directly; without this step the result differs from the committed file
+by line wrapping alone:
+yapf --in-place --style google pika/spec.py
 """
 
 import os
