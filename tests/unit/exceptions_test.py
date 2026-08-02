@@ -171,6 +171,17 @@ class ExceptionTests(unittest.TestCase):
         self.assertEqual(exc.reply_code, 200)
         self.assertEqual(exc.reply_text, 'Normal shutdown')
 
+    def test_connection_closed_decodes_bytes_reply_text(self):
+        exc = exceptions.ConnectionClosed(320, b'CONNECTION_FORCED')
+        self.assertEqual(exc.reply_text, 'CONNECTION_FORCED')
+
+    def test_connection_closed_replaces_undecodable_reply_text(self):
+        # A broker may send reply-text that is not valid UTF-8. It must not
+        # reach the user as a bytes repr.
+        exc = exceptions.ConnectionClosed(320, b'forced \xff')
+        self.assertEqual(exc.reply_text, 'forced �')
+        self.assertNotIn('\\xff', repr(exc))
+
     def test_connection_closed_by_broker_host_port(self):
         exc = exceptions.ConnectionClosedByBroker(320,
                                                   'forced',
