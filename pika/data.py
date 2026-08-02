@@ -35,13 +35,14 @@ _FIELD_TABLE = ord('F')
 _FIELD_VOID = ord('V')
 
 
-def encode_short_string(pieces: list[bytes], value: str) -> int:
+def encode_short_string(pieces: list[bytes], value: str | bytes) -> int:
     """
     Encode a string value as short string and append it to pieces list returning the size of the
     encoded value.
 
     :param pieces: Already encoded values
-    :param value: String value to encode
+    :param value: String value to encode; bytes are encoded as-is, which is what
+        `decode_short_string` yields for a payload that is not valid UTF-8
     """
     encoded_value = as_bytes(value)
     length = len(encoded_value)
@@ -84,12 +85,13 @@ def decode_short_string(encoded: bytes, offset: int) -> tuple[str | bytes, int]:
     return value, offset
 
 
-def encode_table(pieces: list[bytes], table: dict[str, Any] | None) -> int:
+def encode_table(pieces: list[bytes], table: dict[Any, Any] | None) -> int:
     """
     Encode a dict as an AMQP table appending the encoded table to the pieces list passed in.
 
     :param pieces: Already encoded frame pieces
-    :param table: The dict to encode
+    :param table: The dict to encode. Keys are encoded as short strings, so a table round-tripped
+        through `decode_table` may key on bytes
     """
     table = table or {}
     length_index = len(pieces)
