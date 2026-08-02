@@ -47,6 +47,26 @@ class BlockingConnectionTests(unittest.TestCase):
     @patch.object(blocking_connection.select_connection,
                   'SelectConnection',
                   spec_set=SelectConnectionTemplate)
+    def test_repr_when_create_connection_raises(self,
+                                                _select_connection_class_mock):
+        # `__init__` leaves `_impl` unassigned when `_create_connection` raises.
+        # `__repr__` runs on that half-built instance from any traceback or
+        # debugger, and must report the object instead of masking the original
+        # error with an `AttributeError`.
+        with mock.patch.object(
+                blocking_connection.BlockingConnection,
+                '_create_connection',
+                side_effect=RuntimeError('workflow failed')), self.assertRaises(
+                    RuntimeError):
+            blocking_connection.BlockingConnection(pika.ConnectionParameters())
+
+        connection = blocking_connection.BlockingConnection.__new__(
+            blocking_connection.BlockingConnection)
+        self.assertEqual(repr(connection), '<BlockingConnection impl=None>')
+
+    @patch.object(blocking_connection.select_connection,
+                  'SelectConnection',
+                  spec_set=SelectConnectionTemplate)
     def test_process_io_for_connection_setup(self,
                                              select_connection_class_mock):
         with mock.patch.object(blocking_connection.BlockingConnection,

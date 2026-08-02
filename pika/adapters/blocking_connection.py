@@ -399,9 +399,10 @@ class BlockingConnection:
         self._server_channel_closures: deque[Exception] = deque()
 
         # Declared without a value so that the type stays non-optional for the
-        # rest of the class, every method of which runs only after a successful
-        # workflow. `_cleanup()` tests for the attribute instead, since
-        # `_create_connection()` may raise before it is ever assigned.
+        # public API, all of which runs only after a successful workflow.
+        # `_create_connection()` may raise before this is ever assigned, so the
+        # two members that can run on a half-built instance, `_cleanup()` and
+        # `__repr__()`, read it with `getattr()`.
         self._impl: select_connection.SelectConnection
 
         self._impl = self._create_connection(parameters, _impl_class)
@@ -409,7 +410,11 @@ class BlockingConnection:
 
     @override
     def __repr__(self) -> str:
-        return f'<{self.__class__.__name__} impl={self._impl!r}>'
+        # `getattr` because `__repr__` runs on a half-built instance whenever
+        # `__init__` raises: a traceback or debugger rendering the frame's locals
+        # must not turn the real error into an `AttributeError`.
+        impl = getattr(self, '_impl', None)
+        return f'<{self.__class__.__name__} impl={impl!r}>'
 
     def __enter__(self) -> Self:
         # Prepare `with` context

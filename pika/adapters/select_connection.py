@@ -1105,9 +1105,9 @@ class KQueuePoller(_PollerBase):
     def __init__(self, get_wait_seconds: Callable[[], float | None],
                  process_timeouts: Callable[[], None]) -> None:
         """Create an instance of the KQueuePoller."""
-        # `Any` because the annotation cannot name `select.kqueue` on platforms
-        # where the type checker has no such attribute to refer to.
-        self._kqueue: Any | None = None
+        # `Any` because the value is either `None` or a `select.kqueue` object,
+        # a type the checker cannot name on platforms without that attribute.
+        self._kqueue: Any = None
         super().__init__(get_wait_seconds, process_timeouts)
 
     @staticmethod
