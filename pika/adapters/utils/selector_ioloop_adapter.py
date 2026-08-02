@@ -4,11 +4,10 @@ as tornado's and our home-grown select_connection's I/O loops.
 
 from __future__ import annotations
 
-import abc
 import logging
 import socket
 import threading
-from typing import Any, Callable
+from typing import Any, Callable, Protocol, runtime_checkable
 
 from pika._utils import override
 from pika.adapters.utils import io_services_utils, nbio_interface
@@ -17,7 +16,8 @@ from pika.adapters.utils.io_services_utils import check_callback_arg, check_fd_a
 LOGGER = logging.getLogger(__name__)
 
 
-class AbstractSelectorIOLoop:
+@runtime_checkable
+class AbstractSelectorIOLoop(Protocol):
     """
     Selector-based I/O loop interface expected by
     `selector_ioloop_adapter.SelectorIOServicesAdapter`
@@ -25,34 +25,19 @@ class AbstractSelectorIOLoop:
     NOTE: this interface follows the corresponding methods and attributes
      of `tornado.ioloop.IOLoop` in order to avoid additional adapter layering
      when wrapping tornado's IOLoop.
+
+    A `Protocol` rather than a base class so that loops implementing this
+    interface without deriving from it, such as `tornado.ioloop.IOLoop`, satisfy
+    it structurally.
     """
 
-    @property
-    @abc.abstractmethod
-    def READ(self) -> int:
-        """
-        The value of the I/O loop's READ flag; READ/WRITE/ERROR may be used with bitwise operators
-        as expected.
+    # The values of the I/O loop's READ/WRITE/ERROR flags, which may be used
+    # with bitwise operators as expected. Declared as attributes rather than
+    # properties so that implementations may use either.
+    READ: int
+    WRITE: int
+    ERROR: int
 
-        Implementation note: the implementations can simply replace these
-        READ/WRITE/ERROR properties with class-level attributes
-        """
-
-    @property
-    @abc.abstractmethod
-    def WRITE(self) -> int:
-        """The value of the I/O loop's WRITE flag; READ/WRITE/ERROR may be used with bitwise
-        operators as expected.
-        """
-
-    @property
-    @abc.abstractmethod
-    def ERROR(self) -> int:
-        """The value of the I/O loop's ERROR flag; READ/WRITE/ERROR may be used with bitwise
-        operators as expected.
-        """
-
-    @abc.abstractmethod
     def close(self) -> None:
         """
         Release IOLoop's resources.
@@ -62,7 +47,6 @@ class AbstractSelectorIOLoop:
         `IOLoop` should be performed.
         """
 
-    @abc.abstractmethod
     def start(self) -> None:
         """
         Run the I/O loop.
@@ -70,7 +54,6 @@ class AbstractSelectorIOLoop:
         It will loop until requested to exit. See `stop()`.
         """
 
-    @abc.abstractmethod
     def stop(self) -> None:
         """
         Request exit from the ioloop.
@@ -83,7 +66,6 @@ class AbstractSelectorIOLoop:
         `ioloop.add_callback(ioloop.stop)`
         """
 
-    @abc.abstractmethod
     def call_later(self, delay: float, callback: Callable[..., Any]) -> object:
         """
         Add the callback to the IOLoop timer to be called after delay seconds from the time of call
@@ -94,7 +76,6 @@ class AbstractSelectorIOLoop:
         :returns: handle to the created timeout that may be passed to `remove_timeout()`
         """
 
-    @abc.abstractmethod
     def remove_timeout(self, timeout_handle: Any) -> None:
         """
         Remove a timeout.
@@ -102,7 +83,6 @@ class AbstractSelectorIOLoop:
         :param timeout_handle: Handle of timeout to remove
         """
 
-    @abc.abstractmethod
     def add_callback(self, callback: Callable[..., Any]) -> None:
         """
         Requests a call to the given function as soon as possible in the context of this IOLoop's
@@ -118,7 +98,6 @@ class AbstractSelectorIOLoop:
         :param callback: The callback method
         """
 
-    @abc.abstractmethod
     def add_handler(self, fd: int, handler: Callable[[int, int], None],
                     events: int) -> None:
         """
@@ -129,7 +108,6 @@ class AbstractSelectorIOLoop:
         :param events: The event mask using READ, WRITE, ERROR.
         """
 
-    @abc.abstractmethod
     def update_handler(self, fd: int, events: int) -> None:
         """
         Changes the events we watch for.
@@ -138,7 +116,6 @@ class AbstractSelectorIOLoop:
         :param events: The event mask using READ, WRITE, ERROR
         """
 
-    @abc.abstractmethod
     def remove_handler(self, fd: int) -> None:
         """
         Stop watching the given file descriptor for events.

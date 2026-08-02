@@ -212,9 +212,9 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
     # Gevent's READ and WRITE masks are defined as 1 and 2 respectively. No
     # ERROR mask is defined.
     # See https://www.gevent.org/api/gevent.hub.html#gevent._interfaces.ILoop.io
-    READ = 1  # pyright: ignore[reportAssignmentType, reportIncompatibleMethodOverride]
-    WRITE = 2  # pyright: ignore[reportAssignmentType, reportIncompatibleMethodOverride]
-    ERROR = 0  # pyright: ignore[reportAssignmentType, reportIncompatibleMethodOverride]
+    READ = 1
+    WRITE = 2
+    ERROR = 0
 
     def __init__(self, gevent_hub: gevent.hub.Hub | None = None) -> None:
         """

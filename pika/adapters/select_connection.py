@@ -403,9 +403,9 @@ class IOLoop(AbstractSelectorIOLoop):
     """
 
     # READ/WRITE/ERROR per `AbstractSelectorIOLoop` requirements
-    READ = PollEvents.READ  # pyright: ignore[reportIncompatibleMethodOverride, reportAssignmentType]
-    WRITE = PollEvents.WRITE  # pyright: ignore[reportIncompatibleMethodOverride, reportAssignmentType]
-    ERROR = PollEvents.ERROR  # pyright: ignore[reportIncompatibleMethodOverride, reportAssignmentType]
+    READ = PollEvents.READ
+    WRITE = PollEvents.WRITE
+    ERROR = PollEvents.ERROR
 
     def __init__(self) -> None:
         self._timer = _Timer()
