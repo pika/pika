@@ -53,16 +53,26 @@ class BlockingConnectionTests(unittest.TestCase):
         # `__repr__` runs on that half-built instance from any traceback or
         # debugger, and must report the object instead of masking the original
         # error with an `AttributeError`.
+        half_built = []
+
+        def capture_and_raise(connection, _parameters, _impl_class):
+            half_built.append(connection)
+            raise RuntimeError('workflow failed')
+
         with mock.patch.object(
                 blocking_connection.BlockingConnection,
                 '_create_connection',
-                side_effect=RuntimeError('workflow failed')), self.assertRaises(
-                    RuntimeError):
+                autospec=True,
+                side_effect=capture_and_raise), self.assertRaises(RuntimeError):
             blocking_connection.BlockingConnection(pika.ConnectionParameters())
 
-        connection = blocking_connection.BlockingConnection.__new__(
-            blocking_connection.BlockingConnection)
-        self.assertEqual(repr(connection), '<BlockingConnection impl=None>')
+        self.assertEqual(len(half_built), 1)
+        self.assertEqual(repr(half_built[0]), '<BlockingConnection impl=None>')
+
+        # `_create_connection()` calls `_cleanup()` on the same half-built
+        # instance before re-raising, so that reader must tolerate the missing
+        # attribute too.
+        half_built[0]._cleanup()
 
     @patch.object(blocking_connection.select_connection,
                   'SelectConnection',

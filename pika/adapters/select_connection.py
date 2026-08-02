@@ -1117,10 +1117,10 @@ class KQueuePoller(_PollerBase):
 
         :param kevent: a kevent object as returned by kqueue.control()
         """
-        mask = 0
         if sys.platform == 'linux' or sys.platform == 'win32':
             raise NotImplementedError('kqueue is available on BSD only.')
 
+        mask = 0
         kq_filter_read = select.KQ_FILTER_READ
         kq_filter_write = select.KQ_FILTER_WRITE
         kq_ev_eof = select.KQ_EV_EOF
