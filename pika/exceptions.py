@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, Any, Sequence
 
 from pika._utils import override
 
@@ -11,16 +11,23 @@ if TYPE_CHECKING:
 
     from pika import spec
 
-    class _ReturnedMessageLike(Protocol):
+    class ReturnedMessageLike(Protocol):
         """
         Structural type for a message returned by the broker via Basic.Return.
 
+        Describes what a reader of `UnroutableError.messages` or `NackError.messages` can rely on.
         Two unrelated classes carry these messages: `blocking_connection.ReturnedMessage` and
-        `twisted_connection.ReceivedMessage`, which adds a `channel` field. Both are passed to
-        `UnroutableError` and `NackError`, and neither can be named here without an import cycle,
-        so the exceptions accept anything with the three members they read.
+        `twisted_connection.ReceivedMessage`, which adds a `channel` field. Neither can be named
+        here without an import cycle, so the exceptions accept either shape.
+
+        The exceptions themselves read only `len(messages)`; the members below are what their
+        callers go on to use.
 
         The members are read-only because `ReceivedMessage` is a `namedtuple`.
+
+        Declared under `TYPE_CHECKING`, so it is available to annotations but not importable at
+        runtime. Import it inside a `TYPE_CHECKING` block, which `from __future__ import
+        annotations` or a quoted annotation makes usable.
         """
 
         @property
@@ -275,13 +282,16 @@ class UnroutableError(AMQPChannelError):
     event of Basic.Nack from broker, `NackError` is raised instead
     """
 
-    def __init__(self, messages: Sequence[_ReturnedMessageLike]) -> None:
+    def __init__(self, messages: Sequence[ReturnedMessageLike]) -> None:
         """
         :param messages: Sequence of returned unroutable messages
         """
         super().__init__(f'{len(messages)} unroutable message(s) returned')
 
-        self.messages = messages
+        # `Sequence[Any]` rather than the protocol so that existing code
+        # annotating these against the concrete `ReturnedMessage` keeps checking.
+        # A protocol is not assignable to the nominal class it describes.
+        self.messages: Sequence[Any] = messages
 
     @override
     def __repr__(self) -> str:
@@ -296,13 +306,14 @@ class NackError(AMQPChannelError):
     Used by BlockingChannel.
     """
 
-    def __init__(self, messages: Sequence[_ReturnedMessageLike]) -> None:
+    def __init__(self, messages: Sequence[ReturnedMessageLike]) -> None:
         """
         :param messages: Sequence of returned unroutable messages
         """
         super().__init__(f'{len(messages)} message(s) NACKed')
 
-        self.messages = messages
+        # See the note in `UnroutableError.__init__`.
+        self.messages: Sequence[Any] = messages
 
     @override
     def __repr__(self) -> str:
