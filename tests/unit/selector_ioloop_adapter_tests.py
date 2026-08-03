@@ -93,10 +93,19 @@ class _ConformanceChecks:
             self.assertIsInstance(value, int, f'{name} is not a plain int')
 
     def test_implements_every_protocol_method(self):
+        # `getattr` resolves through the MRO, so for the two in-tree loops, which
+        # derive from the protocol, a missing method would find the protocol's own
+        # do-nothing body rather than being absent. Asking which class defined the
+        # member closes that: an inherited stub fails the same as an absent method.
         self.assertTrue(PROTOCOL_METHOD_NAMES)
         for name in PROTOCOL_METHOD_NAMES:
-            self.assertTrue(callable(getattr(self.loop_class, name, None)),
-                            f'{name} is missing or not callable')
+            owner = next((klass for klass in self.loop_class.__mro__
+                          if name in vars(klass)), None)
+            self.assertIsNotNone(owner, f'{name} is missing')
+            self.assertIsNot(owner, AbstractSelectorIOLoop,
+                             f'{name} is only the inherited protocol stub')
+            self.assertTrue(callable(getattr(self.loop_class, name)),
+                            f'{name} is not callable')
 
 
 class SelectConnectionIOLoopConformanceTests(_ConformanceChecks,
