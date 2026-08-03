@@ -499,23 +499,55 @@ class _StreamingProtocolShim(nbio_interface.AbstractStreamProtocol):
     thus avoiding contamination of API with methods that look public, but aren't.
     """
 
-    # Override abstract methods at class level to enable instantiation;
-    # actual implementations are assigned on the instance in __init__.
-    connection_made = None  # type: ignore[assignment]
-    connection_lost = None  # type: ignore[assignment]
-    eof_received = None  # type: ignore[assignment]
-    data_received = None  # type: ignore[assignment]
-
     def __init__(self, conn: BaseConnection) -> None:
         """
         :param conn:
         """
         self.conn = conn
 
-        self.connection_made = conn._proto_connection_made
-        self.connection_lost = conn._proto_connection_lost
-        self.eof_received = conn._proto_eof_received
-        self.data_received = conn._proto_data_received
+    @override
+    def connection_made(
+            self, transport: nbio_interface.AbstractStreamTransport) -> None:
+        """
+        Introduces transport to protocol after transport is connected.
+
+        :param transport:
+        :raises Exception: Exception-based exception on error
+        """
+        self.conn._proto_connection_made(transport)
+
+    @override
+    def connection_lost(self, error: BaseException | None) -> None:
+        """
+        Called upon loss or closing of connection.
+
+        :param error: An exception (check for `BaseException`) indicates connection failure. None
+            indicates that connection was closed on this side.
+        :raises Exception: Exception-based exception on error
+        """
+        self.conn._proto_connection_lost(error)
+
+    @override
+    def eof_received(self) -> bool | None:
+        """
+        Called after the remote peer shuts its write end of the connection.
+
+        :returns: A falsy value (including None) will cause the transport to close itself, resulting
+            in an eventual `connection_lost()` call from the transport. If a truthy value is
+            returned, it will be the protocol's responsibility to close/abort the transport.
+        :raises Exception: Exception-based exception on error
+        """
+        return self.conn._proto_eof_received()
+
+    @override
+    def data_received(self, data: bytes) -> None:
+        """
+        Called to deliver incoming data to the protocol.
+
+        :param data: Non-empty data bytes.
+        :raises Exception: Exception-based exception on error
+        """
+        self.conn._proto_data_received(data)
 
     def __getattr__(self, attr: str) -> Any:
         """

@@ -10,6 +10,7 @@ import errno
 import heapq
 import logging
 import select
+import sys
 import threading
 import time
 from typing import TYPE_CHECKING, Any, Callable, Sequence, Union
@@ -1091,12 +1092,22 @@ class SelectPoller(_PollerBase):
 
 
 class KQueuePoller(_PollerBase):
-    """KQueuePoller works on BSD based systems and is faster than select."""
+    """
+    KQueuePoller works on BSD based systems and is faster than select.
+
+    `select.kqueue`, `select.kevent`, and the `KQ_*` constants exist only on BSD
+    platforms, and typeshed declares them behind a `sys.platform` guard to match.
+    Every method that touches them therefore opens with the same guard, which
+    narrows the platform for the type checker and never fires at runtime:
+    `_get_poller()` only constructs this class when `select.kqueue` exists.
+    """
 
     def __init__(self, get_wait_seconds: Callable[[], float | None],
                  process_timeouts: Callable[[], None]) -> None:
         """Create an instance of the KQueuePoller."""
-        self._kqueue = None
+        # `Any` because the value is either `None` or a `select.kqueue` object,
+        # a type the checker cannot name on platforms without that attribute.
+        self._kqueue: Any = None
         super().__init__(get_wait_seconds, process_timeouts)
 
     @staticmethod
@@ -1106,14 +1117,14 @@ class KQueuePoller(_PollerBase):
 
         :param kevent: a kevent object as returned by kqueue.control()
         """
+        if sys.platform == 'linux' or sys.platform == 'win32':
+            raise NotImplementedError('kqueue is available on BSD only.')
+
         mask = 0
-        # Looked up by name because these constants exist only on kqueue
-        # platforms; a direct `select.KQ_*` reference fails type checking
-        # everywhere else, and `warn_unused_ignores` rules out `type: ignore`.
-        kq_filter_read = getattr(select, 'KQ_FILTER_READ')  # noqa: B009
-        kq_filter_write = getattr(select, 'KQ_FILTER_WRITE')  # noqa: B009
-        kq_ev_eof = getattr(select, 'KQ_EV_EOF')  # noqa: B009
-        kq_ev_error = getattr(select, 'KQ_EV_ERROR')  # noqa: B009
+        kq_filter_read = select.KQ_FILTER_READ
+        kq_filter_write = select.KQ_FILTER_WRITE
+        kq_ev_eof = select.KQ_EV_EOF
+        kq_ev_error = select.KQ_EV_ERROR
 
         if kevent.filter == kq_filter_read:
             mask = PollEvents.READ
@@ -1158,7 +1169,10 @@ class KQueuePoller(_PollerBase):
         """Notify the implementation to allocate the poller resource."""
         assert self._kqueue is None
 
-        self._kqueue = select.kqueue()  # type: ignore[attr-defined, assignment, unused-ignore]  # yapf: disable
+        if sys.platform == 'linux' or sys.platform == 'win32':
+            raise NotImplementedError('kqueue is available on BSD only.')
+
+        self._kqueue = select.kqueue()
 
     @override
     def _uninit_poller(self) -> None:
@@ -1197,40 +1211,31 @@ class KQueuePoller(_PollerBase):
         if self._kqueue is None:
             return
 
+        if sys.platform == 'linux' or sys.platform == 'win32':
+            raise NotImplementedError('kqueue is available on BSD only.')
+
         kevents = []
 
         if events_to_clear & PollEvents.READ:
             kevents.append(
-                select.kevent(  # pyright: ignore[reportAttributeAccessIssue]
-                    fileno,
-                    filter=select.
-                    KQ_FILTER_READ,  # pyright: ignore[reportAttributeAccessIssue]
-                    flags=select.KQ_EV_DELETE)
-            )  # pyright: ignore[reportAttributeAccessIssue]
-        if events_to_set & PollEvents.READ:  # pyright: ignore[reportAttributeAccessIssue]
+                select.kevent(fileno,
+                              filter=select.KQ_FILTER_READ,
+                              flags=select.KQ_EV_DELETE))
+        if events_to_set & PollEvents.READ:
             kevents.append(
-                select.kevent(  # pyright: ignore[reportAttributeAccessIssue]
-                    fileno,
-                    filter=select.
-                    KQ_FILTER_READ,  # pyright: ignore[reportAttributeAccessIssue]
-                    flags=select.KQ_EV_ADD)
-            )  # pyright: ignore[reportAttributeAccessIssue]
+                select.kevent(fileno,
+                              filter=select.KQ_FILTER_READ,
+                              flags=select.KQ_EV_ADD))
         if events_to_clear & PollEvents.WRITE:
             kevents.append(
-                select.kevent(  # pyright: ignore[reportAttributeAccessIssue]
-                    fileno,
-                    filter=select.
-                    KQ_FILTER_WRITE,  # pyright: ignore[reportAttributeAccessIssue]
-                    flags=select.KQ_EV_DELETE)
-            )  # pyright: ignore[reportAttributeAccessIssue]
+                select.kevent(fileno,
+                              filter=select.KQ_FILTER_WRITE,
+                              flags=select.KQ_EV_DELETE))
         if events_to_set & PollEvents.WRITE:
             kevents.append(
-                select.kevent(  # pyright: ignore[reportAttributeAccessIssue]
-                    fileno,
-                    filter=select.
-                    KQ_FILTER_WRITE,  # pyright: ignore[reportAttributeAccessIssue]
-                    flags=select.KQ_EV_ADD)
-            )  # pyright: ignore[reportAttributeAccessIssue]
+                select.kevent(fileno,
+                              filter=select.KQ_FILTER_WRITE,
+                              flags=select.KQ_EV_ADD))
 
         self._kqueue.control(kevents, 0)
 
