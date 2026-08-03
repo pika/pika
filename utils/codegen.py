@@ -6,6 +6,12 @@ The required spec json file can be found at https://github.com/rabbitmq/rabbitmq
 After cloning it run the following to generate a spec.py
 file:
 python ./utils/codegen.py ../rabbitmq-server
+
+The generator emits unformatted output, so reformat it afterwards. The
+repo's `fmt` script excludes pika/spec.py, so run yapf against it
+directly; without this step the result differs from the committed file
+by line wrapping alone:
+yapf --in-place --style google pika/spec.py
 """
 
 import os
@@ -39,6 +45,47 @@ DRIVER_METHODS = {
     "Tx.Select": ["Tx.SelectOk"],
     "Tx.Commit": ["Tx.CommitOk"],
     "Tx.Rollback": ["Tx.RollbackOk"]
+}
+
+# Annotation emitted for each resolved AMQP domain. `shortstr` and `longstr`
+# admit bytes because `data.decode_short_string` returns the raw bytes when the
+# payload is not valid UTF-8, and the encoders accept either. Table keys are
+# likewise str or bytes, so `Any` keeps a caller's `dict[str, Any]` assignable
+# despite dict key invariance.
+SPEC_HEADER = '''"""
+AMQP Specification
+==================
+This module implements the constants and classes that comprise AMQP protocol
+level constructs. It should rarely be directly referenced outside of Pika's
+own internal use.
+
+.. note:: Auto-generated code by codegen.py, do not edit directly. Pull
+requests to this file without accompanying ``utils/codegen.py`` changes will be
+rejected.
+
+"""
+
+from __future__ import annotations
+
+import struct
+from typing import Any
+
+from pika import amqp_object
+from pika import data
+from pika._utils import override
+
+'''
+
+DOMAIN_TYPES = {
+    'shortstr': 'str | bytes',
+    'longstr': 'str | bytes',
+    'octet': 'int',
+    'short': 'int',
+    'long': 'int',
+    'longlong': 'int',
+    'timestamp': 'int',
+    'bit': 'bool',
+    'table': 'dict[Any, Any]',
 }
 
 
@@ -169,7 +216,11 @@ def generate(specPath):
             raise Exception("Illegal domain in genSingleEncode", type)
 
     def genDecodeMethodFields(m):
-        print("        def decode(self, encoded, offset=0):")
+        # Only the method classes get @override; `amqp_object.Properties`
+        # declares no decode/encode to override.
+        print("        @override")
+        print("        def decode(self, encoded: bytes, offset: int = 0) -> "
+              f"{m.structName()}:")
         bitindex = None
         for f in m.arguments:
             if spec.resolveDomain(f.domain) == 'bit':
@@ -193,7 +244,8 @@ def generate(specPath):
         print('')
 
     def genDecodeProperties(c):
-        print("    def decode(self, encoded, offset=0):")
+        print("    def decode(self, encoded: bytes, offset: int = 0) -> "
+              f"{c.structName()}:")
         print("        flags = 0")
         print("        flagword_index = 0")
         print("        while True:")
@@ -221,8 +273,9 @@ def generate(specPath):
         print('')
 
     def genEncodeMethodFields(m):
-        print("        def encode(self):")
-        print("            pieces = list()")
+        print("        @override")
+        print("        def encode(self) -> list[bytes]:")
+        print("            pieces: list[bytes] = []")
         bitindex = None
 
         def finishBits():
@@ -251,8 +304,8 @@ def generate(specPath):
         print('')
 
     def genEncodeProperties(c):
-        print("    def encode(self):")
-        print("        pieces = list()")
+        print("    def encode(self) -> list[bytes]:")
+        print("        pieces: list[bytes] = []")
         print("        flags = 0")
         for f in c.fields:
             if spec.resolveDomain(f.domain) == 'bit':
@@ -263,7 +316,7 @@ def generate(specPath):
                 print(f"            flags = flags | {flagName(c, f)}")
                 genSingleEncode("            ", f"self.{pyize(f.name)}",
                                 f.domain)
-        print("        flag_pieces = list()")
+        print("        flag_pieces: list[bytes] = []")
         print("        while True:")
         print("            remainder = flags >> 16")
         print("            partial_flags = flags & 0xFFFE")
@@ -277,9 +330,23 @@ def generate(specPath):
         print("        return flag_pieces + pieces")
         print('')
 
+    def fieldtype(f):
+        """
+        Return the annotation for a method argument or properties field.
+
+        A field whose default is None is decoded as None when absent, so it is annotated as
+        optional.
+        """
+        annotation = DOMAIN_TYPES[spec.resolveDomain(f.domain)]
+        if fieldvalue(f.defaultvalue) == 'None':
+            return f'{annotation} | None'
+        return annotation
+
     def fieldDeclList(fields):
-        return ''.join(
-            [f", {pyize(f.name)}={fieldvalue(f.defaultvalue)}" for f in fields])
+        return ''.join([
+            f", {pyize(f.name)}: {fieldtype(f)} = {fieldvalue(f.defaultvalue)}"
+            for f in fields
+        ])
 
     def fieldInitList(prefix, fields):
         if fields:
@@ -289,26 +356,8 @@ def generate(specPath):
             ])
         else:
             return f'{prefix}pass\n'
-    print(\
-          """\"\"\"
-AMQP Specification
-==================
-This module implements the constants and classes that comprise AMQP protocol
-level constructs. It should rarely be directly referenced outside of Pika's
-own internal use.
 
-.. note:: Auto-generated code by codegen.py, do not edit directly. Pull
-requests to this file without accompanying ``utils/codegen.py`` changes will be
-rejected.
-
-\"\"\"
-
-import struct
-from pika import amqp_object
-from pika import data
-
-"""
-    )
+    print(SPEC_HEADER)
 
     print("PROTOCOL_VERSION = (%d, %d, %d)" %
           (spec.major, spec.minor, spec.revision))
@@ -345,14 +394,13 @@ from pika import data
             print("        INDEX = 0x%.08X  # %d, %d; %d" %
                   (methodid, m.klass.index, m.index, methodid))
             print("        NAME = %s" % (fieldvalue(m.structName(),)))
+            # A plain class attribute rather than a property, so that it
+            # overrides `amqp_object.Method.synchronous` in kind.
+            print("        synchronous: bool = %s" % m.isSynchronous)
             print('')
             print("        def __init__(self%s):" %
                   (fieldDeclList(m.arguments),))
             print(fieldInitList('            ', m.arguments))
-            print("        @property")
-            print("        def synchronous(self):")
-            print("            return %s" % m.isSynchronous)
-            print('')
             genDecodeMethodFields(m)
             genEncodeMethodFields(m)
 
@@ -383,7 +431,7 @@ from pika import data
             genDecodeProperties(c)
             genEncodeProperties(c)
 
-    print("methods = {")
+    print("methods: dict[int, type[amqp_object.Method]] = {")
     print(',\n'.join([
         f"    0x{m.klass.index << 16 | m.index:08X}: {m.structName()}"
         for m in spec.allMethods()
@@ -391,7 +439,10 @@ from pika import data
     print("}")
     print('')
 
-    print("props = {")
+    # Name the concrete properties classes rather than the base, so that
+    # `frame.Header` keeps the specific type it is annotated to accept.
+    prop_classes = [c.structName() for c in spec.allClasses() if c.fields]
+    print("props: dict[int, type[%s]] = {" % ' | '.join(prop_classes))
     print(',\n'.join([
         f"    0x{c.index:04X}: {c.structName()}" for c in spec.allClasses()
         if c.fields
@@ -400,7 +451,7 @@ from pika import data
     print('')
     print('')
 
-    print("def has_content(methodNumber):")
+    print("def has_content(methodNumber: int) -> bool:")
     print('    return methodNumber in (')
     for m in spec.allMethods():
         if m.hasContent:

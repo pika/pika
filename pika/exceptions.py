@@ -147,7 +147,7 @@ class ConnectionClosed(AMQPConnectionError):
 
     def __init__(self,
                  reply_code: int,
-                 reply_text: str,
+                 reply_text: str | bytes,
                  host: str | None = None,
                  port: int | None = None) -> None:
         """
@@ -156,10 +156,17 @@ class ConnectionClosed(AMQPConnectionError):
             `Connection.Close` method. NEW in v1.0.0
         :param reply_text: reply-text that was used in user's or broker's
             `Connection.Close` method. Human-readable string corresponding to
-            `reply_code`. NEW in v1.0.0
+            `reply_code`. A broker may send text that is not valid UTF-8, in
+            which case it arrives as bytes and undecodable characters are
+            replaced. NEW in v1.0.0
         :param host: hostname or IP of the broker
         :param port: port of the broker
         """
+        if isinstance(reply_text, bytes):
+            # `str(bytes)` would yield the repr, b-prefix and escapes
+            # included, mangling the very text needed to diagnose the close.
+            reply_text = reply_text.decode('utf-8', errors='replace')
+
         super().__init__(int(reply_code), str(reply_text), host=host, port=port)
 
     @override
