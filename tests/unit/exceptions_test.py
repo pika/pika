@@ -3,8 +3,82 @@
 import unittest
 from unittest.mock import MagicMock
 
+import pika.spec
 from pika import exceptions
+from pika.adapters.blocking_connection import ReturnedMessage
 from pika.adapters.utils import connection_workflow
+
+try:
+    from pika.adapters.twisted_connection import ReceivedMessage
+    HAS_TWISTED = True
+except ImportError:
+    HAS_TWISTED = False
+
+
+def _returned_message(body=b'body'):
+    """Build a `ReturnedMessage` as `BlockingChannel` does."""
+    return ReturnedMessage(
+        pika.spec.Basic.Return(exchange='x', routing_key='k'),
+        pika.spec.BasicProperties(), body)
+
+
+class ReturnedMessageLikeTests(unittest.TestCase):
+    """
+    The message types accepted by `UnroutableError` and `NackError`.
+
+    Both exceptions are annotated `Sequence[ReturnedMessageLike]` so the blocking and Twisted
+    adapters can each pass their own unrelated message class. These tests pin the members that
+    structural type promises, since a reader of `.messages` relies on them being present on
+    whichever class the adapter passed.
+    """
+
+    MEMBERS = ('method', 'properties', 'body')
+
+    def test_returned_message_carries_the_protocol_members(self):
+        msg = _returned_message()
+        for name in self.MEMBERS:
+            self.assertTrue(hasattr(msg, name), f'{name} is missing')
+        self.assertIsInstance(msg.method, pika.spec.Basic.Return)
+        self.assertIsInstance(msg.properties, pika.spec.BasicProperties)
+        self.assertEqual(msg.body, b'body')
+
+    @unittest.skipUnless(HAS_TWISTED, 'twisted not installed')
+    def test_received_message_carries_the_protocol_members(self):
+        msg = ReceivedMessage(channel=MagicMock(),
+                              method=pika.spec.Basic.Return(exchange='x',
+                                                            routing_key='k'),
+                              properties=pika.spec.BasicProperties(),
+                              body=b'body')
+        for name in self.MEMBERS:
+            self.assertTrue(hasattr(msg, name), f'{name} is missing')
+        self.assertIsInstance(msg.method, pika.spec.Basic.Return)
+        self.assertIsInstance(msg.properties, pika.spec.BasicProperties)
+        self.assertEqual(msg.body, b'body')
+
+    def test_both_exceptions_accept_a_returned_message(self):
+        msgs = [_returned_message()]
+        for factory in (exceptions.UnroutableError, exceptions.NackError):
+            exc = factory(msgs)
+            self.assertEqual(exc.messages[0].body, b'body')
+
+    @unittest.skipUnless(HAS_TWISTED, 'twisted not installed')
+    def test_both_exceptions_accept_a_received_message(self):
+        msgs = [
+            ReceivedMessage(channel=MagicMock(),
+                            method=pika.spec.Basic.Return(exchange='x',
+                                                          routing_key='k'),
+                            properties=pika.spec.BasicProperties(),
+                            body=b'body')
+        ]
+        for factory in (exceptions.UnroutableError, exceptions.NackError):
+            exc = factory(msgs)
+            self.assertEqual(exc.messages[0].body, b'body')
+
+    def test_protocol_is_not_importable_at_runtime(self):
+        # Declared under `TYPE_CHECKING`, so annotations can name it but an
+        # unguarded runtime import raises. Asserted so the docstring saying so
+        # stays true.
+        self.assertFalse(hasattr(exceptions, 'ReturnedMessageLike'))
 
 
 class ExceptionTests(unittest.TestCase):

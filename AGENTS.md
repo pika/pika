@@ -20,6 +20,7 @@ pika/adapters/utils/    # adapter internals (io_services_utils, nbio_interface,
 pika/spec.py            # auto-generated AMQP spec (see below)
 tests/unit/             # unit tests
 tests/acceptance/       # acceptance tests (require a running RabbitMQ)
+tests/typing/           # type-checker fixtures (checked by hatch run typecheck)
 utils/codegen.py        # code generator for pika/spec.py
 examples/               # usage examples
 ```
@@ -45,7 +46,10 @@ examples/               # usage examples
   suppress. Fix the flagged code; never add a version pin to make the
   failure go away.
 - **Type checking:** [mypy](https://mypy-lang.org/). Configuration is in
-  `mypy.ini`. Run `hatch run typecheck`.
+  `mypy.ini`. Run `hatch run typecheck`, which covers `pika/` and the
+  downstream-consumer fixtures in `tests/typing/`. The fixtures exist because
+  `mypy.ini` sets `packages = pika`, so a run without them never observes code
+  that consumes pika from the outside.
 - Use single quotes for strings unless the string contains a single quote.
 - No trailing whitespace. Check before committing.
 
