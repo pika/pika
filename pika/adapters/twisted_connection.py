@@ -62,12 +62,15 @@ class ClosableDeferredQueue(defer.DeferredQueue):
         closed.
 
         :param obj: Object to put into the queue
+        :returns: Nothing on success, or a failed Deferred if the queue is closed
         """
         if self.closed:
             LOGGER.error('Impossible to put to the queue, it is closed.')
             return defer.fail(self.closed)
-        return defer.DeferredQueue.put(self,
-                                       obj)  # type: ignore[func-returns-value]
+        # `DeferredQueue.put()` returns nothing, so the success path yields
+        # `None`. The return type stays optional for the closed path above.
+        defer.DeferredQueue.put(self, obj)
+        return None
 
     @override
     def get(self) -> defer.Deferred[Any]:
@@ -574,14 +577,15 @@ class TwistedChannel:
         """
         if self._closed:
             return defer.fail(self._closed)
-        result = self._channel.basic_publish(  # type: ignore[func-returns-value]
-            exchange=exchange,
-            routing_key=routing_key,
-            body=body,
-            properties=properties,
-            mandatory=mandatory)
+        self._channel.basic_publish(exchange=exchange,
+                                    routing_key=routing_key,
+                                    body=body,
+                                    properties=properties,
+                                    mandatory=mandatory)
         if not self._delivery_confirmation:
-            return defer.succeed(result)
+            # `Channel.basic_publish()` returns nothing, so without delivery
+            # confirmation there is no result to report beyond completion.
+            return defer.succeed(None)
         # See https://www.rabbitmq.com/confirms.html#publisher-confirms
         assert self._delivery_message_id is not None
         self._delivery_message_id += 1
@@ -732,16 +736,14 @@ class TwistedChannel:
                     self._puback_return = None
                 else:
                     returned_messages = []
-                d.errback(exceptions.NackError(
-                    returned_messages))  # type: ignore[arg-type]
+                d.errback(exceptions.NackError(returned_messages))
             else:
                 assert isinstance(method_frame.method, pika.spec.Basic.Ack)
                 if self._puback_return is not None:
                     # Unroutable message was returned
                     returned_messages = [self._puback_return]
                     self._puback_return = None
-                    d.errback(exceptions.UnroutableError(
-                        returned_messages))  # type: ignore[arg-type]
+                    d.errback(exceptions.UnroutableError(returned_messages))
                 else:
                     d.callback(method_frame.method)
 
@@ -1299,19 +1301,25 @@ class TwistedProtocolConnection(protocol.Protocol):
             d.errback(exc)
 
     def _on_connection_closed(self, _connection: pika.connection.Connection,
-                              exception: Exception) -> None:
-        # errback all pending calls
-        for d in self._calls:
-            d.errback(exception)
+                              exception: Exception | Failure) -> None:
+        # `Failure` is not an `Exception` subclass, so it has to be named in the
+        # annotation. `Connection` itself only ever passes an `Exception`, but
+        # this stays callable with a `Failure` for the branch below.
+        #
+        # `d` is a separate name from the loop variable because `self.closed` is
+        # optional while the pending calls are not.
+        for call in self._calls:
+            call.errback(exception)
         self._calls = set()
 
-        d, self.closed = self.closed, None  # type: ignore[assignment]
+        d, self.closed = self.closed, None
         if d:
             if isinstance(exception, Failure):
-                # Calling `callback` with a Failure instance will trigger the
-                # errback path.
-                exception = exception.value  # type: ignore[assignment]
-            d.callback(exception)
+                # Calling `callback` with a Failure instance would trigger the
+                # errback path, so unwrap it first.
+                d.callback(exception.value)
+            else:
+                d.callback(exception)
 
     def _clear_call(self, ret, d):
         self._calls.discard(d)

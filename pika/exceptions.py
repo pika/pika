@@ -7,7 +7,33 @@ from typing import TYPE_CHECKING, Sequence
 from pika._utils import override
 
 if TYPE_CHECKING:
-    from pika.adapters.blocking_connection import ReturnedMessage
+    from typing import Protocol
+
+    from pika import spec
+
+    class _ReturnedMessageLike(Protocol):
+        """
+        Structural type for a message returned by the broker via Basic.Return.
+
+        Two unrelated classes carry these messages: `blocking_connection.ReturnedMessage` and
+        `twisted_connection.ReceivedMessage`, which adds a `channel` field. Both are passed to
+        `UnroutableError` and `NackError`, and neither can be named here without an import cycle,
+        so the exceptions accept anything with the three members they read.
+
+        The members are read-only because `ReceivedMessage` is a `namedtuple`.
+        """
+
+        @property
+        def method(self) -> spec.Basic.Return:
+            ...
+
+        @property
+        def properties(self) -> spec.BasicProperties:
+            ...
+
+        @property
+        def body(self) -> bytes:
+            ...
 
 
 class AMQPError(Exception):
@@ -249,7 +275,7 @@ class UnroutableError(AMQPChannelError):
     event of Basic.Nack from broker, `NackError` is raised instead
     """
 
-    def __init__(self, messages: Sequence[ReturnedMessage]) -> None:
+    def __init__(self, messages: Sequence[_ReturnedMessageLike]) -> None:
         """
         :param messages: Sequence of returned unroutable messages
         """
@@ -270,7 +296,7 @@ class NackError(AMQPChannelError):
     Used by BlockingChannel.
     """
 
-    def __init__(self, messages: Sequence[ReturnedMessage]) -> None:
+    def __init__(self, messages: Sequence[_ReturnedMessageLike]) -> None:
         """
         :param messages: Sequence of returned unroutable messages
         """
