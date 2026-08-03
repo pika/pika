@@ -36,6 +36,9 @@ jobs:
     name: upload coverage to Codecov
     runs-on: ubuntu-latest
     needs: [test-modern, test-legacy]
+    # Upload whatever the matrix produced. A single flaky leg must not throw
+    # away the coverage the other forty-odd legs already measured.
+    if: ${{ !cancelled() }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Download coverage artifacts
@@ -44,16 +47,36 @@ jobs:
           pattern: coverage-*
           path: coverage
       - name: Verify coverage reports were collected
+        id: reports
+        env:
+          TESTS_PASSED: ${{ needs.test-modern.result == 'success' && needs.test-legacy.result == 'success' }}
         run: |
-          count=$(find coverage -name coverage.xml | wc -l)
+          count=$(find coverage -name coverage.xml 2>/dev/null | wc -l)
           echo "collected $count coverage reports"
-          test "$count" -gt 0
+          if [ "$count" -gt 0 ]; then
+            echo 'upload=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo 'upload=false' >> "$GITHUB_OUTPUT"
+          # No reports at all. Expected when every test job died before it
+          # could publish an artifact, so stay quiet and let those jobs report
+          # the failure. If the tests passed, the download pattern is what is
+          # broken and that must not pass silently.
+          if [ "$TESTS_PASSED" = 'true' ]; then
+            echo '::error::tests passed but no coverage.xml was downloaded'
+            exit 1
+          fi
       - name: Upload coverage to Codecov
+        if: ${{ steps.reports.outputs.upload == 'true' }}
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: ./coverage
-          fail_ci_if_error: false
+          # Fork pull requests have no access to the upload token and rely on
+          # Codecov's tokenless path, so a rejected upload there is not
+          # actionable. Everywhere else a rejection means coverage silently
+          # stopped being recorded, which is worth a red build.
+          fail_ci_if_error: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
 
   tests-passed:
     runs-on: ubuntu-latest
