@@ -23,3 +23,4 @@ jobs:
       - run: |
           python -m pip install --upgrade pip hatch
           hatch run typecheck
+          hatch run typecheck-fixtures
