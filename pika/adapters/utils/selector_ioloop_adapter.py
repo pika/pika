@@ -30,11 +30,22 @@ class AbstractSelectorIOLoop(Protocol):
     interface without deriving from it, such as `tornado.ioloop.IOLoop`, satisfy
     it structurally. `Protocol` reached the stdlib in 3.8, so on 3.7 this falls
     back to a plain base class; see `pika._utils`.
+
+    The methods carry no `@abc.abstractmethod` decorators. `typing._ProtocolMeta`
+    derives from `abc.ABCMeta`, so adding them back would populate
+    `__abstractmethods__` and make an incomplete subclass fail at construction on
+    3.8 and later, but do nothing at all on 3.7, where the base is `object`.
+    mypy reports a missing method either way, so the decorators would buy
+    version-dependent runtime behavior and nothing else.
     """
 
     # The values of the I/O loop's READ/WRITE/ERROR flags, which may be used
-    # with bitwise operators as expected. Declared as attributes rather than
-    # properties so that implementations may use either.
+    # with bitwise operators as expected. Protocol variable members are not
+    # satisfied by read-only properties, so implementations must expose plain
+    # `int` attributes. Declaring these as properties here instead would accept
+    # both shapes under mypy, but pyright then rejects the `int` class
+    # attributes both in-tree loops use, which is what the six
+    # `pyright: ignore` comments this change retires were suppressing.
     READ: int
     WRITE: int
     ERROR: int
