@@ -1739,7 +1739,7 @@ class Connection(abc.ABC):
 
         :param value: The frame to evaluate
         """
-        return isinstance(value, frame.Method)
+        return value.frame_type == spec.FRAME_METHOD
 
     def _is_protocol_header_frame(self, value: frame.Frame) -> bool:
         """
@@ -2244,12 +2244,13 @@ class Connection(abc.ABC):
         :param frame_value: The frame to process
         """
         # Will receive a frame type of -1 if protocol version mismatch
-        if frame_value.frame_type < 0:
+        frame_type = frame_value.frame_type
+        if frame_type < 0:
             return
 
         # ProtocolHeader (frame_type == -1) is handled above; narrow
         # the type for mypy.
-        assert not isinstance(frame_value, frame.ProtocolHeader)
+        frame_value = cast(frame.Frame, frame_value)
 
         # Keep track of how many frames have been read
         self.frames_received += 1
@@ -2259,7 +2260,7 @@ class Connection(abc.ABC):
             return
 
         # If a heartbeat is received, update the checker
-        if isinstance(frame_value, frame.Heartbeat):
+        if frame_type == spec.FRAME_HEARTBEAT:
             if self._heartbeat_checker:
                 self._heartbeat_checker.received()
             else:

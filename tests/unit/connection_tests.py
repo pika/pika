@@ -686,9 +686,15 @@ class ConnectionTests(unittest.TestCase):
         """Test on data available and process frame."""
         data_in = b'd'
         self.connection._frame_buffer = bytearray(b'o')
-        for frame_type in (frame.Method, spec.Basic.Deliver, frame.Heartbeat):
+        # `frame_type` must match the class being mocked, as it does on a real
+        # frame: `_process_frame` dispatches on it.
+        for frame_type, frame_type_id in ((frame.Method, spec.FRAME_METHOD),
+                                          (spec.Basic.Deliver,
+                                           spec.FRAME_METHOD),
+                                          (frame.Heartbeat,
+                                           spec.FRAME_HEARTBEAT)):
             frame_value = mock.Mock(spec=frame_type)
-            frame_value.frame_type = 2
+            frame_value.frame_type = frame_type_id
             frame_value.method = 2
             frame_value.channel_number = 1
             self.connection.bytes_received = 0

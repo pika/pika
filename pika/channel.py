@@ -8,7 +8,7 @@ import logging
 import uuid
 from collections import deque
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Union
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Union, cast
 
 from pika import exceptions, frame, spec, validators
 from pika._utils import as_bytes, override
@@ -1143,11 +1143,12 @@ class Channel:
             return
 
         if response:
-            if isinstance(response[0].method, spec.Basic.Deliver):
+            method_index = response[0].method.INDEX
+            if method_index == spec.Basic.Deliver.INDEX:
                 self._on_deliver(*response)
-            elif isinstance(response[0].method, spec.Basic.GetOk):
+            elif method_index == spec.Basic.GetOk.INDEX:
                 self._on_getok(*response)
-            elif isinstance(response[0].method, spec.Basic.Return):
+            elif method_index == spec.Basic.Return.INDEX:
                 self._on_return(*response)
 
     def _on_cancel(self, method_frame: frame.Method) -> None:
@@ -1591,17 +1592,20 @@ class ContentFrameAssembler:
 
         :param frame_value: The frame to process
         """
-        if (isinstance(frame_value, frame.Method) and
-                spec.has_content(frame_value.method.INDEX)):
-            self._method_frame = frame_value
-            return None
-        if isinstance(frame_value, frame.Header):
-            self._header_frame = frame_value
-            if frame_value.body_size == 0:
+        frame_type = frame_value.frame_type
+        if frame_type == spec.FRAME_METHOD:
+            method_frame = cast(frame.Method, frame_value)
+            if spec.has_content(method_frame.method.INDEX):
+                self._method_frame = method_frame
+                return None
+        elif frame_type == spec.FRAME_HEADER:
+            header_frame = cast(frame.Header, frame_value)
+            self._header_frame = header_frame
+            if header_frame.body_size == 0:
                 return self._finish()
             return None
-        if isinstance(frame_value, frame.Body):
-            return self._handle_body_frame(frame_value)
+        elif frame_type == spec.FRAME_BODY:
+            return self._handle_body_frame(cast(frame.Body, frame_value))
         raise exceptions.UnexpectedFrameError(frame_value)
 
     def _finish(self) -> tuple[frame.Method, frame.Header, bytes]:
