@@ -168,8 +168,11 @@ jobs:
       # GITHUB_TOKEN do not create new workflow runs, so deploy-docs.yaml's
       # on.push.tags trigger never fires for release tags. Dispatch it
       # explicitly (workflow_dispatch events are exempt from that rule).
+      # Guarded on the same modes as the tag push: `test` and `dry-run` never
+      # create a tag, and dispatching on a nonexistent ref is a hard failure
+      # (HTTP 422), not a warning.
       - name: Deploy release docs
-        if: ${{ !inputs.dry_run }}
+        if: ${{ inputs.mode == 'release' || inputs.mode == 'prerelease' }}
         env:
           GH_TOKEN: ${{ github.token }}
           NEW_VERSION: ${{ steps.version.outputs.new }}
