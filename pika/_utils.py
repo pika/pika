@@ -25,7 +25,25 @@ else:
         return func
 
 
-__all__ = ['override']
+# `Protocol` and `runtime_checkable` (PEP 544) landed in the stdlib in 3.8,
+# while pika still supports 3.7. Same dependency-free approach as `override`
+# above: type checkers run at 3.10 or later and see the real objects, while a
+# 3.7 runtime falls back to a plain base class and a no-op decorator. Protocols
+# in pika are only ever subclassed explicitly, never instantiated or passed to
+# `isinstance`, so the nominal fallback behaves identically at runtime.
+# Re-exported across pika (declared in __all__ below).
+if sys.version_info >= (3, 8):
+    from typing import Protocol, runtime_checkable
+elif TYPE_CHECKING:
+    from typing_extensions import Protocol, runtime_checkable
+else:
+    Protocol = object
+
+    def runtime_checkable(cls):
+        return cls
+
+
+__all__ = ['Protocol', 'override', 'runtime_checkable']
 
 RE_NUM = re.compile(r'(\d+).+')
 

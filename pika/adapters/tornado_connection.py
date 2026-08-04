@@ -69,8 +69,7 @@ class TornadoConnection(base_connection.BaseConnection):
             nbio = custom_ioloop
         else:
             nbio = (selector_ioloop_adapter.SelectorIOServicesAdapter(
-                custom_ioloop or
-                ioloop.IOLoop.instance()))  # type: ignore[arg-type]
+                custom_ioloop or ioloop.IOLoop.instance()))
         super().__init__(
             parameters,
             on_open_callback,
@@ -98,7 +97,7 @@ class TornadoConnection(base_connection.BaseConnection):
         :param workflow: Optional connection workflow instance to use
         """
         nbio = selector_ioloop_adapter.SelectorIOServicesAdapter(
-            custom_ioloop or ioloop.IOLoop.instance())  # type: ignore[arg-type]
+            custom_ioloop or ioloop.IOLoop.instance())
 
         def connection_factory(
                 params: connection.Parameters | None) -> TornadoConnection:
