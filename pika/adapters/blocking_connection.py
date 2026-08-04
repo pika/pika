@@ -369,7 +369,7 @@ class BlockingConnection:
             'Use Connection instead, which runs its own IOLoop on a '
             'background thread and provides a thread-safe blocking API that '
             'does not stall heartbeats on slow message processing. See '
-            'https://pika.github.io/pika/modules/adapters/thread_safe/',
+            'https://pika.github.io/pika/latest/modules/adapters/thread_safe/',
             DeprecationWarning,
             stacklevel=2,
         )
