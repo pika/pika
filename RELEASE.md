@@ -85,6 +85,74 @@ The `release` job pushes the version-bump commit and tag directly to `main`
 using `GITHUB_TOKEN`. If `main` is protected, allow `github-actions[bot]` to
 bypass the relevant rules (or the push step will fail).
 
+## Documentation site
+
+`deploy-docs.yaml` publishes the MkDocs site to the `gh-pages` branch with
+[`mike`](https://github.com/jimporter/mike), which keeps every version in its
+own subdirectory. A push to `main` publishes `dev`; a stable release tag
+publishes `MAJOR.MINOR` and moves the `latest` alias to it. `release.yaml`
+dispatches the deploy explicitly after tagging, because a tag pushed with
+`GITHUB_TOKEN` does not fire a `push` trigger.
+
+Because every page lives under a version directory, there is no unversioned
+`/modules/...` path. Links from the library and the README use `latest/`, which
+the alias resolves to the newest stable release.
+
+### Setup: one-time bootstrap
+
+Two things exist only once a stable release has been deployed: the `latest`
+alias, and the `index.html` at the site root that redirects to it. Until then
+`https://pika.github.io/pika/` and every `latest/` URL return 404, including
+the ones in the adapter deprecation warnings.
+
+After the first `main` deploy creates `gh-pages`, point `latest` at `dev` so
+those URLs resolve before the first release:
+
+```bash
+git fetch origin gh-pages
+hatch run docs:mike alias --push --update-aliases dev latest
+hatch run docs:mike set-default --push latest
+```
+
+This is needed once. The first stable release moves `latest` from `dev` to
+`MAJOR.MINOR` on its own, and later pushes to `main` redeploy `dev` without
+disturbing the alias, so `latest` keeps pointing at the release.
+
+Also set repo Settings → Pages → Source to `Deploy from a branch`, branch
+`gh-pages`, folder `/ (root)`, and make sure no branch-protection rule on
+`gh-pages` blocks the Actions push.
+
+### Rebuilding `gh-pages` from scratch
+
+`gh-pages` holds built output only, so it can be deleted and regenerated. The
+history is not worth preserving, but the layout is: `mike` records versions in
+a `versions.json` that only the deploys themselves write, so a rebuild has to
+replay each version rather than restore a snapshot.
+
+Delete the branch, then for every version to republish, check out its tag and
+deploy under the same name the original deploy used:
+
+```bash
+git checkout 1.5.0
+hatch run docs:mike deploy --push 1.5    # MAJOR.MINOR, not the full tag
+```
+
+Then redeploy `dev` from `main` and re-establish the alias and the root
+redirect, which no `deploy` recreates:
+
+```bash
+git checkout main
+hatch run docs:mike deploy --push dev
+hatch run docs:mike alias --push --update-aliases <newest MAJOR.MINOR> latest
+hatch run docs:mike set-default --push latest
+```
+
+Deploy order does not matter: `mike` sorts the version selector itself, newest
+first, with non-version names such as `dev` at the top. A tag predating the
+MkDocs migration has no `mkdocs.yml` and cannot be rebuilt this way, but none
+need to be; 1.4.0 and earlier were Sphinx-era and were never published by
+`mike`.
+
 ## Post-release verification
 
 The `smoke-test` job in `release.yaml` runs automatically after
