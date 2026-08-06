@@ -1,6 +1,176 @@
+# Changelog
+
+## [1.4.3](https://github.com/pika/pika/tree/1.4.2) (2026-08-06)
+
+[Full Changelog](https://github.com/pika/pika/compare/1.4.2...1.4.3)
+
+**Merged pull requests:**
+
+- Revert "Fix callLater typing by passing keyword arguments" [\#1678](https://github.com/pika/pika/pull/1678) ([jeremycline](https://github.com/jeremycline))
+
+## [1.4.2](https://github.com/pika/pika/tree/1.4.2) (2026-07-23)
+
+[Full Changelog](https://github.com/pika/pika/compare/1.4.1...1.4.2)
+
+**Closed issues:**
+
+- Importing pika.adapters can break asyncio subprocesses on Windows [\#1639](https://github.com/pika/pika/issues/1639)
+
+**Merged pull requests:**
+
+- Stop mutating global asyncio event loop policy on import [\#1642](https://github.com/pika/pika/pull/1642) ([lukebakken](https://github.com/lukebakken))
+
+## [1.4.1](https://github.com/pika/pika/tree/1.4.1) (2026-05-22)
+
+**Merged pull requests:**
+
+- Fix Channel.close() for channels with multiple consumers [\#1596](https://github.com/pika/pika/pull/1596) ([gbenson](https://github.com/gbenson))
+
+## [1.4.0](https://github.com/pika/pika/tree/1.4.0) (2026-05-06)
+
+[Full Changelog](https://github.com/pika/pika/compare/1.4.0b0...1.4.0)
+
+**Implemented enhancements:**
+
+- Enforce yapf/google formatting in CI [\#1558](https://github.com/pika/pika/issues/1558)
+- Add Hatch dev environment and scripts [\#1579](https://github.com/pika/pika/pull/1579) ([lukebakken](https://github.com/lukebakken))
+- Drop more Python 2 compatibility code [\#1561](https://github.com/pika/pika/pull/1561) ([lukebakken](https://github.com/lukebakken))
+
+**Closed issues:**
+
+- Add Hatch scripts to standardize developer commands [\#1578](https://github.com/pika/pika/issues/1578)
+- Fix outdated and broken documentation across the project [\#1568](https://github.com/pika/pika/issues/1568)
+- Update Codecov default branch and badge [\#1563](https://github.com/pika/pika/issues/1563)
+- GitHub actions workflows and test code need updates for RabbitMQ 4.3 [\#1547](https://github.com/pika/pika/issues/1547)
+- datetime.datetime.utcfromtimestamp\(\) is deprecated [\#1539](https://github.com/pika/pika/issues/1539)
+- URLParameters这个类有bug [\#1533](https://github.com/pika/pika/issues/1533)
+- Custom transport [\#1532](https://github.com/pika/pika/issues/1532)
+- x-delay value is being returned in the header as a UINT64 and not a SINT16 [\#1531](https://github.com/pika/pika/issues/1531)
+- Pika should advertise the `exchange_exchange_bindings` client capability [\#1530](https://github.com/pika/pika/issues/1530)
+- Missing type annotations [\#1523](https://github.com/pika/pika/issues/1523)
+- There is no info about return type of queue\_declare\(\) method of pika.channel [\#1522](https://github.com/pika/pika/issues/1522)
+- Getting the user who sent the message [\#1510](https://github.com/pika/pika/issues/1510)
+- Where is examples/consume\_recover\_retry.py ? [\#1499](https://github.com/pika/pika/issues/1499)
+- Type Hint Issue with arguments parameter in queue\_declare method of BlockingChannel Class - \(expected "DeclareOk | None"  \[arg-type\]\) [\#1482](https://github.com/pika/pika/issues/1482)
+- queue\_declare does not receive the callback at random times [\#1480](https://github.com/pika/pika/issues/1480)
+- There is no current event loop in thread [\#1479](https://github.com/pika/pika/issues/1479)
+- Cannot find reference 'exceptions' in '\_\_init\_\_.pyi'  [\#1473](https://github.com/pika/pika/issues/1473)
+- Convert to `pytest` [\#1469](https://github.com/pika/pika/issues/1469)
+- Add a CI lint check using `ruff` and fix all findings [\#1371](https://github.com/pika/pika/issues/1371)
+- Add support for proxy configuration \(Socks5\) [\#1359](https://github.com/pika/pika/issues/1359)
+- BlockingIOError: \[WinError 10035\] A non-blocking socket operation could not be completed immediately [\#1314](https://github.com/pika/pika/issues/1314)
+
+**Merged pull requests:**
+
+- Update outdated documentation across the pika project [\#1577](https://github.com/pika/pika/pull/1577) ([suchitd](https://github.com/suchitd))
+- Fix TypeError in select\_connection [\#1575](https://github.com/pika/pika/pull/1575) ([suchitd](https://github.com/suchitd))
+- Support Python 3.7+ in CI and fix `typing_extensions` import [\#1574](https://github.com/pika/pika/pull/1574) ([lukebakken](https://github.com/lukebakken))
+- Add `yapf` formatter enforcement [\#1573](https://github.com/pika/pika/pull/1573) ([alonfaraj](https://github.com/alonfaraj))
+- Replace `PIKA_TEST_TLS` env with pytest flag [\#1572](https://github.com/pika/pika/pull/1572) ([alonfaraj](https://github.com/alonfaraj))
+- Fix field table type decoding to match RabbitMQ wire format [\#1566](https://github.com/pika/pika/pull/1566) ([lukebakken](https://github.com/lukebakken))
+- Legacy file fixes [\#1562](https://github.com/pika/pika/pull/1562) ([alonfaraj](https://github.com/alonfaraj))
+- Add AGENTS.md with AI agent guidelines [\#1560](https://github.com/pika/pika/pull/1560) ([lukebakken](https://github.com/lukebakken))
+- Bump the github-actions group with 2 updates [\#1557](https://github.com/pika/pika/pull/1557) ([dependabot[bot]](https://github.com/apps/dependabot))
+- Align Python versions metadata and docs  [\#1556](https://github.com/pika/pika/pull/1556) ([alonfaraj](https://github.com/alonfaraj))
+- Docs: Add return value documentation for Channel methods \(\#1522\) [\#1555](https://github.com/pika/pika/pull/1555) ([suchitd](https://github.com/suchitd))
+- Fix `BlockingIOError` from `_read_interrupt` on Windows \(GH-1314\) [\#1554](https://github.com/pika/pika/pull/1554) ([lukebakken](https://github.com/lukebakken))
+- Remove dead Code Climate config files [\#1553](https://github.com/pika/pika/pull/1553) ([lukebakken](https://github.com/lukebakken))
+- Bump the github-actions group with 4 updates [\#1552](https://github.com/pika/pika/pull/1552) ([dependabot[bot]](https://github.com/apps/dependabot))
+- Add `ruff` lint check to CI \(GH-1371\) [\#1551](https://github.com/pika/pika/pull/1551) ([lukebakken](https://github.com/lukebakken))
+- Migrate to pytest [\#1550](https://github.com/pika/pika/pull/1550) ([alonfaraj](https://github.com/alonfaraj))
+- Add python 3.14 to CI and drop 3.9 [\#1549](https://github.com/pika/pika/pull/1549) ([alonfaraj](https://github.com/alonfaraj))
+- Implement tests compatibility patch for RabbitMQ 4.3  [\#1548](https://github.com/pika/pika/pull/1548) ([alonfaraj](https://github.com/alonfaraj))
+- Jpaluska/add threadsafe publisher example [\#1546](https://github.com/pika/pika/pull/1546) ([jpaluska](https://github.com/jpaluska))
+- fix: replace 3 bare except clauses with except Exception [\#1545](https://github.com/pika/pika/pull/1545) ([haosenwang1018](https://github.com/haosenwang1018))
+- Fix asyncio.get\_event\_loop\(\) deprecation in \_AsyncioIOServicesAdapter [\#1544](https://github.com/pika/pika/pull/1544) ([geomarceau](https://github.com/geomarceau))
+- Fix Issue \# 1530: advertise exchange\_exchange\_bindings  [\#1540](https://github.com/pika/pika/pull/1540) ([kenliao94](https://github.com/kenliao94))
+- Add type annotations [\#1529](https://github.com/pika/pika/pull/1529) ([dadodimauro](https://github.com/dadodimauro))
+- Fix tests with Python 3.14, except RuntimeError from asyncio.get\_event\_loop [\#1524](https://github.com/pika/pika/pull/1524) ([hroncok](https://github.com/hroncok))
+- Update versions [\#1514](https://github.com/pika/pika/pull/1514) ([lukebakken](https://github.com/lukebakken))
+- Add description for the example blocking\_consume\_recover\_multiple\_hosts [\#1512](https://github.com/pika/pika/pull/1512) ([federicsp](https://github.com/federicsp))
+- Fix `basic_consumer_threaded` example [\#1507](https://github.com/pika/pika/pull/1507) ([leogallot](https://github.com/leogallot))
+- Update ConnectionParameters doc [\#1494](https://github.com/pika/pika/pull/1494) ([ryoung9550](https://github.com/ryoung9550))
+- removal of pika.compat.dictkeys\(\) [\#1492](https://github.com/pika/pika/pull/1492) ([a-detiste](https://github.com/a-detiste))
+- specify your own consumer\_tag when using consume\(\) method of BlockingChannel [\#1485](https://github.com/pika/pika/pull/1485) ([ivan-eguidazu](https://github.com/ivan-eguidazu))
+- Convert utcnow\(\) and utcfromtimestamp\(\) [\#1484](https://github.com/pika/pika/pull/1484) ([mh21](https://github.com/mh21))
+- Add all public APIs to `__all__` [\#1476](https://github.com/pika/pika/pull/1476) ([augustelalande](https://github.com/augustelalande))
+- More logical validation of long RpcParameters [\#46](https://github.com/pika/pika/pull/46) ([kmpm](https://github.com/kmpm))
+- Overrode \_adapter\_disconnect\(\) in BlockingConnection & fixed connection.py typos. [\#45](https://github.com/pika/pika/pull/45) ([williamsjj](https://github.com/williamsjj))
+- Changed timeout for poll to be in milliseconds [\#42](https://github.com/pika/pika/pull/42) ([samuel](https://github.com/samuel))
+- BlockingConnection refactored to allow multiple basic\_consumes. [\#38](https://github.com/pika/pika/pull/38) ([williamsjj](https://github.com/williamsjj))
+- Encode bools as 't' type. [\#29](https://github.com/pika/pika/pull/29) ([majek](https://github.com/majek))
+- Fixed various issues with table encoding/decoding [\#27](https://github.com/pika/pika/pull/27) ([majek](https://github.com/majek))
+
+## [1.4.0b0](https://github.com/pika/pika/tree/1.4.0b0) (2024-07-22)
+
+[Full Changelog](https://github.com/pika/pika/compare/1.3.2...1.4.0b0)
+
+**Closed issues:**
+
+- SkyPVP [\#1475](https://github.com/pika/pika/issues/1475)
+- Add Python `3.12` to GitHub Actions [\#1470](https://github.com/pika/pika/issues/1470)
+- Error with log files rotation [\#1468](https://github.com/pika/pika/issues/1468)
+- Liquid bandage  [\#1455](https://github.com/pika/pika/issues/1455)
+- ERR NOAUTH Authentication required. [\#1446](https://github.com/pika/pika/issues/1446)
+- isssue with steam and updates [\#1420](https://github.com/pika/pika/issues/1420)
+
+**Merged pull requests:**
+
+- List Python 3.12 as supported [\#1474](https://github.com/pika/pika/pull/1474) ([lukebakken](https://github.com/lukebakken))
+- Use sys.platform instead of platform.system\(\) [\#1467](https://github.com/pika/pika/pull/1467) ([cvijdea-bd](https://github.com/cvijdea-bd))
+- Shrink the compatibility module and remove Python \<3.7 support [\#1441](https://github.com/pika/pika/pull/1441) ([alfawal](https://github.com/alfawal))
+- Misc Windows CI updates [\#1438](https://github.com/pika/pika/pull/1438) ([lukebakken](https://github.com/lukebakken))
+- Add examples of using client\_properties to URLParameters and ConnectionParameters [\#1436](https://github.com/pika/pika/pull/1436) ([johanrhodin](https://github.com/johanrhodin))
+- example: Remove unnecessary guard [\#1435](https://github.com/pika/pika/pull/1435) ([jpmckinney](https://github.com/jpmckinney))
+- Feature \#1363 -- Bump examples python version to 3 [\#1416](https://github.com/pika/pika/pull/1416) ([alfawal](https://github.com/alfawal))
+- Update example to use python3 syntax [\#1408](https://github.com/pika/pika/pull/1408) ([AleksaC](https://github.com/AleksaC))
+- Add more connections to the adapters [\#1405](https://github.com/pika/pika/pull/1405) ([dgoeries](https://github.com/dgoeries))
+- fix typo [\#1404](https://github.com/pika/pika/pull/1404) ([khadkarajesh](https://github.com/khadkarajesh))
+- Documentation improvements [\#1403](https://github.com/pika/pika/pull/1403) ([hcmturner](https://github.com/hcmturner))
+- Add Python 3.11 to various places [\#1399](https://github.com/pika/pika/pull/1399) ([lukebakken](https://github.com/lukebakken))
+- Fix typo in example docstring [\#1396](https://github.com/pika/pika/pull/1396) ([kinoute](https://github.com/kinoute))
+- Fixing pika v1.0.0 breaking change (order of parameters) for the `cha… [\#1393](https://github.com/pika/pika/pull/1393) ([mprinc](https://github.com/mprinc))
+- feat: add python3.10 support and make code python3.7+ [\#1351](https://github.com/pika/pika/pull/1351) ([vinitkumar](https://github.com/vinitkumar))
+
+## [1.3.2](https://github.com/pika/pika/tree/1.3.2) (2023-05-05)
+
+[Full Changelog](https://github.com/pika/pika/compare/1.3.1...1.3.2)
+
+**Closed issues:**
+
+- GeventConnection may now work on Windows [\#1407](https://github.com/pika/pika/issues/1407)
+- ExchangeType should be from str type [\#1409](https://github.com/pika/pika/issues/1409)
+
+**Merged pull requests:**
+
+- Attempt to re-enable GeventConnection on Windows [\#1417](https://github.com/pika/pika/pull/1417) ([lukebakken](https://github.com/lukebakken))
+- fix typo [\#1414](https://github.com/pika/pika/pull/1414) ([uwe](https://github.com/uwe))
+- Fix exchange type enum type [\#1410](https://github.com/pika/pika/pull/1410) ([liortct](https://github.com/liortct))
+
+## [1.3.1](https://github.com/pika/pika/tree/1.3.1) (2022-10-18)
+
+[Full Changelog](https://github.com/pika/pika/compare/1.3.0...1.3.1)
+
+**Closed issues:**
+
+- Open to funding? [\#1391](https://github.com/pika/pika/issues/1391)
+- pika迁移数据到redis [\#1378](https://github.com/pika/pika/issues/1378)
+- Improve release process a bit [\#1375](https://github.com/pika/pika/issues/1375)
+- Update fallback SSL/TLS protocol version [\#1385](https://github.com/pika/pika/issues/1385)
+
+**Merged pull requests:**
+
+- Fix a very minor typo in a source code comment [\#1388](https://github.com/pika/pika/pull/1388) ([martinky24](https://github.com/martinky24))
+- Update connection module to fix strange character [\#1387](https://github.com/pika/pika/pull/1387) ([Zerpet](https://github.com/Zerpet))
+- Long running publisher example [\#1384](https://github.com/pika/pika/pull/1384) ([karls](https://github.com/karls))
+- Update CHANGELOG.md process for releases. [\#1392](https://github.com/pika/pika/pull/1392) ([lukebakken](https://github.com/lukebakken))
+- Update connection module to use TLS v1.2 as fallback [\#1386](https://github.com/pika/pika/pull/1386) ([Zerpet](https://github.com/Zerpet))
+- Add async callback examples [\#1383](https://github.com/pika/pika/pull/1383) ([lukebakken](https://github.com/lukebakken))
+- Add requries-python to pyproject.toml [\#1376](https://github.com/pika/pika/pull/1376) ([gopackgo90](https://github.com/gopackgo90))
+
 # Version History
 
-Pika uses [Semantic Versioning](https://semver.org).
+[pika]{.title-ref} uses \[Semantic Versioning\](<https://semver.org>)
 
 ## 1.3.0 2022-06-29
 
