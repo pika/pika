@@ -1137,7 +1137,15 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
                          on_close_callback=on_close_callback,
                          internal_connection_workflow=False)
 
-        self._reactor = custom_reactor or reactor
+        # Annotated as `Any` rather than as a reactor interface on purpose.
+        # Reactor implementations rename the parameters the interfaces
+        # declare: `IReactorTime.callLater(delay, callable, *args, **kw)` but
+        # `AsyncioSelectorReactor.callLater(seconds, f, *args, **kwargs)`.
+        # Only positional arguments work across every reactor, and a typed
+        # attribute makes the type checker reject the positional call because
+        # `IReactorTime.callLater` is unbound, so `delay` is consumed as
+        # `self`. See https://github.com/pika/pika/pull/1678.
+        self._reactor: Any = custom_reactor or reactor
         self._transport: Optional[
             twisted.internet.interfaces.
             ITransport] = None  # to be provided by `connection_made()`
@@ -1148,9 +1156,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
 
         """
         check_callback_arg(callback, 'callback')
-        return _TimerHandle(
-            self._reactor.callLater(delay=delay, callable=callback)
-        )  # pyright: ignore[reportAttributeAccessIssue]
+        return _TimerHandle(self._reactor.callLater(delay, callback))
 
     def _adapter_remove_timeout(self, timeout_id: Any) -> None:
         """Implement
@@ -1166,8 +1172,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
 
         """
         check_callback_arg(callback, 'callback')
-        self._reactor.callFromThread(
-            callback)  # pyright: ignore[reportAttributeAccessIssue]
+        self._reactor.callFromThread(callback)
 
     def _adapter_connect_stream(self) -> None:
         """Implement pure virtual
