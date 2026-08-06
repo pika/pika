@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.3](https://github.com/pika/pika/tree/1.4.2) (2026-08-06)
+
+[Full Changelog](https://github.com/pika/pika/compare/1.4.2...1.4.3)
+
+**Merged pull requests:**
+
+- Revert "Fix callLater typing by passing keyword arguments" [\#1678](https://github.com/pika/pika/pull/1678) ([jeremycline](https://github.com/jeremycline))
+
 ## [1.4.2](https://github.com/pika/pika/tree/1.4.2) (2026-07-23)
 
 [Full Changelog](https://github.com/pika/pika/compare/1.4.1...1.4.2)

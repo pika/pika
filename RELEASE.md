@@ -3,13 +3,13 @@
 * Create `pika-1.4.3` branch
 * Update `CHANGELOG.md`. Be sure to use the `--since-tag X.Y.Z` argument:
     ```
-    github_changelog_generator --user pika --project pika --token $TOKEN --since-tag 1.4.2 --future-release 1.4.3 --release-branch 1.4.x
+    github_changelog_generator --user pika --project pika --token $TOKEN --since-tag 1.4.3 --future-release 1.4.3 --release-branch 1.4.x
     ```
     Review the generated file for invalid entries. More than likely you will have to hand-edit `CHANGELOG.md`
 * Update version in `pyproject.toml` and `pika/__init__.py`
 * Commit changes to `pika-1.4.3` branch and push:
     ```
-    git commit -a -m 'pika 1.4.3' && git push
+    git commit -a -m 'pika 1.4.3' && git push origin pika-1.4.3
     ```
 * Open PR and ensure build is green
 * Merge PR
@@ -25,7 +25,7 @@
     python -m build --sdist --wheel --outdir dist/ .
 
     # This creates the release on GitHub:
-    gh release create '1.4.3' --notes 'https://pypi.org/project/pika/1.4.3/ | [GitHub milestone](https://github.com/pika/pika/milestone/23?closed=1)' ./dist/*
+    gh release create '1.4.3' --notes 'https://pypi.org/project/pika/1.4.3/ | [GitHub milestone](https://github.com/pika/pika/milestone/27?closed=1)' ./dist/*
     ```
 * Ensure the publish build succeeded. Example success output looks like this:
     ```
