@@ -851,15 +851,36 @@ class TwistedProtocolConnectionTestCase(TestCase):
         self.conn_impl_mock.close.assert_not_called()
 
 
+class _AsyncioReactorSignatureStub:
+    """
+    A reactor stub using `AsyncioSelectorReactor`'s parameter names.
+
+    `AsyncioSelectorReactor.callLater(seconds, f, *args, **kwargs)` renames the parameters that
+    `IReactorTime.callLater(delay, callable, *args, **kw)` declares, so only positional arguments
+    work across every reactor.
+    """
+
+    def __init__(self):
+        self.call_later_args = []
+
+    def callLater(self, seconds, f, *args, **kwargs):
+        self.call_later_args.append((seconds, f, args, kwargs))
+        return mock.Mock()
+
+
 class TwistedConnectionAdapterTestCase(TestCase):
 
     def setUp(self):
         self.conn = _TwistedConnectionAdapter(None, None, None, None, None)
 
     def tearDown(self):
-        if self.conn._transport is None:
-            self.conn._transport = mock.Mock()
-        self.conn.close()
+        self._close_adapter(self.conn)
+
+    @staticmethod
+    def _close_adapter(conn):
+        if conn._transport is None:
+            conn._transport = mock.Mock()
+        conn.close()
 
     def test_adapter_disconnect_stream(self):
         # Verify that the underlying transport is aborted.
@@ -883,6 +904,18 @@ class TwistedConnectionAdapterTestCase(TestCase):
         self.conn._adapter_remove_timeout(timer_id)
         self.assertNotIn(timer_id._handle, reactor.getDelayedCalls())
         callback.assert_not_called()
+
+    def test_timeout_passes_positional_args(self):
+        # Verify that `callLater` is called positionally. The default reactor
+        # names its parameters `delay` and `callable`, so a keyword call passes
+        # here while crashing on `AsyncioSelectorReactor`, which names them
+        # `seconds` and `f`.
+        callback = mock.Mock()
+        stub = _AsyncioReactorSignatureStub()
+        conn = _TwistedConnectionAdapter(None, None, None, None, stub)
+        self.addCleanup(self._close_adapter, conn)
+        conn._adapter_call_later(5, callback)
+        self.assertEqual(stub.call_later_args, [(5, callback, (), {})])
 
     @pytest.mark.timeout(5)
     def test_call_threadsafe(self):
