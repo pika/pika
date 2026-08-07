@@ -8,7 +8,7 @@ import logging
 import uuid
 from collections import deque
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Union
 
 from pika import exceptions, frame, spec, validators
 from pika._utils import as_bytes, override
@@ -1594,18 +1594,19 @@ class ContentFrameAssembler:
         """
         frame_type = frame_value.frame_type
         if frame_type == spec.FRAME_METHOD:
-            method_frame = cast(frame.Method, frame_value)
-            if spec.has_content(method_frame.method.INDEX):
-                self._method_frame = method_frame
+            assert isinstance(frame_value, frame.Method)
+            if spec.has_content(frame_value.method.INDEX):
+                self._method_frame = frame_value
                 return None
         elif frame_type == spec.FRAME_HEADER:
-            header_frame = cast(frame.Header, frame_value)
-            self._header_frame = header_frame
-            if header_frame.body_size == 0:
+            assert isinstance(frame_value, frame.Header)
+            self._header_frame = frame_value
+            if frame_value.body_size == 0:
                 return self._finish()
             return None
         elif frame_type == spec.FRAME_BODY:
-            return self._handle_body_frame(cast(frame.Body, frame_value))
+            assert isinstance(frame_value, frame.Body)
+            return self._handle_body_frame(frame_value)
         raise exceptions.UnexpectedFrameError(frame_value)
 
     def _finish(self) -> tuple[frame.Method, frame.Header, bytes]:

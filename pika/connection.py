@@ -2250,7 +2250,7 @@ class Connection(abc.ABC):
 
         # ProtocolHeader (frame_type == -1) is handled above; narrow
         # the type for mypy.
-        frame_value = cast(frame.Frame, frame_value)
+        assert not isinstance(frame_value, frame.ProtocolHeader)
 
         # Keep track of how many frames have been read
         self.frames_received += 1

@@ -80,9 +80,11 @@ _PACK_SHORT = struct.Struct('>H')
 _PACK_LONG = struct.Struct('>I')
 _PACK_LONGLONG = struct.Struct('>Q')
 
-# Single-byte `bytes` objects indexed by value, for the bit-field buffers
-# below, which only ever hold `1 << 0` through `1 << 7`.
-_OCTET_BYTES = tuple(bytes((i,)) for i in range(256))
+# Single-byte `bytes` objects indexed by value 0 through 255, for the
+# bit-field buffers below, which OR several bit flags into one octet.
+# Reuse the table built in `pika.data` rather than constructing an
+# identical one here.
+_OCTET_BYTES = data._OCTET_BYTES
 
 '''
 

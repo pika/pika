@@ -40,7 +40,7 @@ _PACK_UINT = struct.Struct('>I')
 _PACK_INT = struct.Struct('>i')
 _PACK_LONG_LONG = struct.Struct('>q')
 _PACK_UNSIGNED_LONG_LONG = struct.Struct('>Q')
-_PACK_SHORT = struct.Struct('>h')
+_PACK_SHORT_SIGNED = struct.Struct('>h')
 _PACK_USHORT = struct.Struct('>H')
 _PACK_SIGNED_BYTE = struct.Struct('>b')
 _PACK_FLOAT = struct.Struct('>f')
@@ -52,8 +52,9 @@ _PACK_TAG_LONG_LONG = struct.Struct('>cq')
 _PACK_TAG_UNSIGNED_LONG_LONG = struct.Struct('>cQ')
 _PACK_TAG_BYTE_INT = struct.Struct('>cBi')
 
-# Single-byte `bytes` objects indexed by value, for short-string lengths.
-_LENGTH_BYTES = tuple(bytes((i,)) for i in range(256))
+# Single-byte `bytes` objects indexed by value. Shared with `pika.spec`,
+# which imports this table for its bit-field buffers.
+_OCTET_BYTES = tuple(bytes((i,)) for i in range(256))
 
 
 def encode_short_string(pieces: list[bytes], value: str | bytes) -> int:
@@ -82,7 +83,7 @@ def encode_short_string(pieces: list[bytes], value: str | bytes) -> int:
     if length > 255:
         raise exceptions.ShortStringTooLong(encoded_value)
 
-    pieces.append(_LENGTH_BYTES[length])
+    pieces.append(_OCTET_BYTES[length])
     pieces.append(encoded_value)
     return 1 + length
 
@@ -289,7 +290,7 @@ def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:
 
     # Short Int
     elif kind == _FIELD_SHORT_INT:
-        value = _PACK_SHORT.unpack_from(encoded, offset)[0]
+        value = _PACK_SHORT_SIGNED.unpack_from(encoded, offset)[0]
         offset += 2
 
     # Short Unsigned Int
@@ -328,7 +329,7 @@ def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:
     # https://github.com/pika/pika/issues/1205
     # Short Signed Int
     elif kind == _FIELD_SHORT_INT_ALT:
-        value = _PACK_SHORT.unpack_from(encoded, offset)[0]
+        value = _PACK_SHORT_SIGNED.unpack_from(encoded, offset)[0]
         offset += 2
 
     # Null / Void
