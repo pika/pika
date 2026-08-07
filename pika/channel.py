@@ -1143,11 +1143,12 @@ class Channel:
             return
 
         if response:
-            if isinstance(response[0].method, spec.Basic.Deliver):
+            method_index = response[0].method.INDEX
+            if method_index == spec.Basic.Deliver.INDEX:
                 self._on_deliver(*response)
-            elif isinstance(response[0].method, spec.Basic.GetOk):
+            elif method_index == spec.Basic.GetOk.INDEX:
                 self._on_getok(*response)
-            elif isinstance(response[0].method, spec.Basic.Return):
+            elif method_index == spec.Basic.Return.INDEX:
                 self._on_return(*response)
 
     def _on_cancel(self, method_frame: frame.Method) -> None:
@@ -1591,16 +1592,20 @@ class ContentFrameAssembler:
 
         :param frame_value: The frame to process
         """
-        if (isinstance(frame_value, frame.Method) and
-                spec.has_content(frame_value.method.INDEX)):
-            self._method_frame = frame_value
-            return None
-        if isinstance(frame_value, frame.Header):
+        frame_type = frame_value.frame_type
+        if frame_type == spec.FRAME_METHOD:
+            assert isinstance(frame_value, frame.Method)
+            if spec.has_content(frame_value.method.INDEX):
+                self._method_frame = frame_value
+                return None
+        elif frame_type == spec.FRAME_HEADER:
+            assert isinstance(frame_value, frame.Header)
             self._header_frame = frame_value
             if frame_value.body_size == 0:
                 return self._finish()
             return None
-        if isinstance(frame_value, frame.Body):
+        elif frame_type == spec.FRAME_BODY:
+            assert isinstance(frame_value, frame.Body)
             return self._handle_body_frame(frame_value)
         raise exceptions.UnexpectedFrameError(frame_value)
 

@@ -15,6 +15,17 @@ _MethodT = TypeVar('_MethodT', bound=amqp_object.Method)
 
 _FRAME_END_BYTE = bytes((spec.FRAME_END,))
 
+# First byte of the AMQP protocol header. No frame type shares this value, so
+# it distinguishes the protocol header from a real frame.
+_PROTOCOL_HEADER_FIRST_BYTE = ord('A')
+
+# Pre-compiled struct formats for the fixed-size parts of each frame.
+_FRAME_HEADER = struct.Struct('>BHI')  # frame type, channel, payload size
+_PROTOCOL_VERSION = struct.Struct('BBB')  # major, minor, revision
+_METHOD_ID = struct.Struct('>I')  # method frame class/method index
+_CONTENT_HEADER = struct.Struct('>HHQ')  # class id, weight, body size
+_PROPERTIES_HEADER = struct.Struct('>HxxQ')  # class id, pad, body size
+
 # Payload size (bytes) above which decode_frame copies the frame body via a
 # memoryview rather than a plain slice. For a bytearray input a plain slice
 # makes an intermediate bytearray before the bytes() copy; a memoryview skips
@@ -51,8 +62,9 @@ class Frame(amqp_object.AMQPObject):
         :param pieces: Encoded AMQP frame fragments to assemble
         """
         payload = b''.join(pieces)
-        return struct.pack('>BHI', self.frame_type, self.channel_number,
-                           len(payload)) + payload + _FRAME_END_BYTE
+        return b''.join(
+            (_FRAME_HEADER.pack(self.frame_type, self.channel_number,
+                                len(payload)), payload, _FRAME_END_BYTE))
 
     def marshal(self) -> bytes:
         """
@@ -87,7 +99,7 @@ class Method(Frame, Generic[_MethodT]):
     def marshal(self) -> bytes:
         """Return the AMQP binary encoded value of the frame."""
         pieces = self.method.encode()
-        pieces.insert(0, struct.pack('>I', self.method.INDEX))
+        pieces.insert(0, _METHOD_ID.pack(self.method.INDEX))
         return self._marshal(pieces)
 
 
@@ -119,7 +131,7 @@ class Header(Frame):
         """Return the AMQP binary encoded value of the frame."""
         pieces = self.properties.encode()
         pieces.insert(
-            0, struct.pack('>HxxQ', self.properties.INDEX, self.body_size))
+            0, _PROPERTIES_HEADER.pack(self.properties.INDEX, self.body_size))
         return self._marshal(pieces)
 
 
@@ -211,9 +223,10 @@ def decode_frame(data_in: bytes | bytearray,
     """
     # Look to see if it's a protocol header frame
     try:
-        if data_in[offset:offset + 4] == b'AMQP':
-            major, minor, revision = struct.unpack_from('BBB', data_in,
-                                                        offset + 5)
+        if (data_in[offset] == _PROTOCOL_HEADER_FIRST_BYTE and
+                data_in[offset:offset + 4] == b'AMQP'):
+            major, minor, revision = _PROTOCOL_VERSION.unpack_from(
+                data_in, offset + 5)
             return 8, ProtocolHeader(major, minor, revision)
     except (IndexError, struct.error):
         return 0, None
@@ -221,7 +234,7 @@ def decode_frame(data_in: bytes | bytearray,
     # Get the Frame Type, Channel Number and Frame Size
     try:
         (frame_type, channel_number,
-         frame_size) = struct.unpack_from('>BHL', data_in, offset)
+         frame_size) = _FRAME_HEADER.unpack_from(data_in, offset)
     except struct.error:
         return 0, None
 
@@ -249,7 +262,7 @@ def decode_frame(data_in: bytes | bytearray,
     if frame_type == spec.FRAME_METHOD:
 
         # Get the Method ID from the frame data
-        method_id = struct.unpack_from('>I', frame_data)[0]
+        method_id = _METHOD_ID.unpack_from(frame_data)[0]
 
         # Get a Method object for this method_id
         method = spec.methods[method_id]()
@@ -263,7 +276,7 @@ def decode_frame(data_in: bytes | bytearray,
     if frame_type == spec.FRAME_HEADER:
 
         # Return the header class and body size
-        class_id, _weight, body_size = struct.unpack_from('>HHQ', frame_data)
+        class_id, _weight, body_size = _CONTENT_HEADER.unpack_from(frame_data)
 
         # Get the Properties type
         properties = spec.props[class_id]()
