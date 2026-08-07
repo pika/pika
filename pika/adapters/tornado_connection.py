@@ -61,7 +61,7 @@ class TornadoConnection(base_connection.BaseConnection):
             'TornadoConnection is deprecated and will be removed in Pika 2.0. '
             'Use ThreadSafeConnection instead, which works with any framework '
             'including Tornado. See '
-            'https://pika.github.io/pika/modules/adapters/thread_safe/',
+            'https://pika.github.io/pika/latest/modules/adapters/thread_safe/',
             DeprecationWarning,
             stacklevel=2,
         )

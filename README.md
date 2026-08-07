@@ -235,7 +235,7 @@ An example of recovery using `on_close_callback` can be found in [`examples/asyn
 
 ## Contributing
 
-See the [Contributing guide](https://pika.github.io/pika/contributing/) for test setup, documentation builds, code formatting, and pull request expectations.
+See the [Contributing guide](https://pika.github.io/pika/latest/contributing/) for test setup, documentation builds, code formatting, and pull request expectations.
 
 ## Extending to support additional I/O frameworks
 New non-blocking adapters may be implemented in either of the following ways:
