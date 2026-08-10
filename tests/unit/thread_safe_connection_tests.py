@@ -2644,6 +2644,25 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         conn.add_callback_threadsafe(cb)
         mock_ioloop.add_callback_threadsafe.assert_called_once_with(cb)
 
+    def test_schedule_unchecked_bypasses_closed_connection_guard(self):
+        """
+        ``_schedule_unchecked`` must hand the callback straight to the IOLoop even when closed.
+
+        Channel methods register a waiter and then schedule through this method, unregistering in a
+        ``finally``.  If it applied the closed-connection guard, the raise would jump over that
+        cleanup and leak the waiter, so the guard belongs only on the public
+        ``add_callback_threadsafe``.
+        """
+        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn._on_connection_closed(mock_conn,
+                                   ConnectionClosedByClient(200, 'shutdown'))
+        mock_ioloop.add_callback_threadsafe.reset_mock()
+        cb = MagicMock()
+
+        conn._schedule_unchecked(cb)
+
+        mock_ioloop.add_callback_threadsafe.assert_called_once_with(cb)
+
     def test_add_callback_threadsafe_raises_after_connection_closed(self):
         """
         Scheduling on a closed connection raises the close reason.
@@ -2729,6 +2748,30 @@ class ThreadSafeConnectionTests(unittest.TestCase):
 
         self.assertIn('add_callback_threadsafe', str(ctx.exception))
         mock_ioloop.add_callback_threadsafe.assert_not_called()
+
+    def test_add_callback_threadsafe_from_ioloop_thread_is_exempt(self):
+        """
+        A callback scheduled from the IOLoop thread on a closed connection must be accepted.
+
+        ``_on_connection_closed`` records the reason and then runs the user close callback on the
+        IOLoop thread; scheduling follow-up work from there is the natural idiom.  Raising would
+        propagate out through ``CallbackManager.process`` and abort the rest of teardown, so the
+        IOLoop thread is exempt even though the callback most likely will not run.
+        """
+        conn, mock_conn, mock_ioloop = self._make_connection()
+        reason = ConnectionClosedByClient(200, 'Normal shutdown')
+        conn._on_connection_closed(mock_conn, reason)
+        mock_ioloop.add_callback_threadsafe.reset_mock()
+        # Make current_thread() is self._ioloop_thread true.
+        conn._ioloop_thread = threading.current_thread()
+        cb = MagicMock()
+
+        with patch(
+                'pika.adapters.thread_safe_connection.LOGGER') as mock_logger:
+            conn.add_callback_threadsafe(cb)
+
+        mock_ioloop.add_callback_threadsafe.assert_called_once_with(cb)
+        mock_logger.debug.assert_called_once()
 
     def test_channel_schedules_open_via_add_callback_threadsafe(self):
         conn, mock_conn, mock_ioloop = self._make_connection()
