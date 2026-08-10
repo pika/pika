@@ -1738,12 +1738,33 @@ class ThreadSafeConnection:
         connection, though it always reports
         :class:`~pika.exceptions.ConnectionWrongStateError` where this raises the close reason.
 
+        Calls from the IOLoop thread itself are exempt and never raise, mirroring :meth:`close`.
+        A close callback runs on that thread while the connection is already closed, so raising
+        would abort the rest of teardown rather than reach the application.  The callback is
+        accepted and logged at debug level, but a stopping IOLoop will most likely never run it.
+
         :param callback: Zero-argument callable.
-        :raises Exception: the close reason, if the connection is already closed.
+        :raises Exception: the close reason, if the connection is already closed and this is not
+            the IOLoop thread.
         :raises pika.exceptions.ConnectionWrongStateError: if the connection is closed but no close
-            reason was recorded.
+            reason was recorded, and this is not the IOLoop thread.
         """
-        self._check_not_closed()
+        try:
+            self._check_not_closed()
+        except Exception:
+            # Teardown runs on the IOLoop thread: _on_connection_closed records
+            # the close reason and then invokes the user's on_close_callback,
+            # whose natural idiom is to schedule follow-up work.  Raising there
+            # would propagate out through CallbackManager.process and abort the
+            # rest of teardown, so accept the callback from that thread instead.
+            # The IOLoop is already stopping, so the callback most likely will
+            # not run; that beats leaving the connection half torn down.
+            if threading.current_thread() is not self._ioloop_thread:
+                raise
+            LOGGER.debug(
+                'add_callback_threadsafe() called from the IOLoop thread on a '
+                'closed connection; the callback may not run',
+                exc_info=True)
         self._schedule_unchecked(callback)
 
     def _schedule_unchecked(self, callback) -> None:
