@@ -12,7 +12,12 @@ from pika.adapters.thread_safe_connection import (
     _BoundedWorkPool,
     _submit_or_terminate,
 )
-from pika.exceptions import AMQPConnectionError, WorkQueueFullError
+from pika.exceptions import (
+    AMQPConnectionError,
+    ConnectionClosedByClient,
+    ConnectionWrongStateError,
+    WorkQueueFullError,
+)
 
 
 class SubmitOrTerminateTests(unittest.TestCase):
@@ -2437,6 +2442,44 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         cb = MagicMock()
         conn.add_callback_threadsafe(cb)
         mock_ioloop.add_callback_threadsafe.assert_called_once_with(cb)
+
+    def test_add_callback_threadsafe_raises_after_connection_closed(self):
+        """
+        Scheduling on a closed connection raises the close reason.
+
+        The IOLoop thread is gone once the connection closes, so a callback accepted here would
+        never run.  The caller must be told instead of being left to assume it was scheduled.
+        """
+        conn, mock_conn, mock_ioloop = self._make_connection()
+        reason = ConnectionClosedByClient(200, 'Normal shutdown')
+        conn._on_connection_closed(mock_conn, reason)
+        mock_ioloop.add_callback_threadsafe.reset_mock()
+        cb = MagicMock()
+
+        with self.assertRaises(ConnectionClosedByClient) as ctx:
+            conn.add_callback_threadsafe(cb)
+
+        self.assertIs(ctx.exception, reason)
+        mock_ioloop.add_callback_threadsafe.assert_not_called()
+        cb.assert_not_called()
+
+    def test_add_callback_threadsafe_raises_wrong_state_without_close_reason(
+            self):
+        """
+        Closed connection with no recorded reason must still raise.
+
+        Covers the window between the underlying connection reaching the closed state and
+        ``_on_connection_closed`` setting ``_closed_reason``.
+        """
+        conn, mock_conn, mock_ioloop = self._make_connection()
+        mock_conn.is_closed = True
+        self.assertIsNone(conn._closed_reason)
+
+        with self.assertRaises(ConnectionWrongStateError) as ctx:
+            conn.add_callback_threadsafe(MagicMock())
+
+        self.assertIn('add_callback_threadsafe', str(ctx.exception))
+        mock_ioloop.add_callback_threadsafe.assert_not_called()
 
     def test_channel_schedules_open_via_add_callback_threadsafe(self):
         conn, mock_conn, mock_ioloop = self._make_connection()
