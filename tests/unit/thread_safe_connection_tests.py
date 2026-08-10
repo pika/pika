@@ -2,6 +2,7 @@
 
 import contextlib
 import threading
+import traceback
 import unittest
 from unittest.mock import ANY, MagicMock, patch
 
@@ -10,7 +11,9 @@ from pika.adapters.thread_safe_connection import (
     ThreadSafeChannel,
     ThreadSafeConnection,
     _BoundedWorkPool,
+    _reraisable,
     _submit_or_terminate,
+    _with_close_traceback,
 )
 from pika.exceptions import (
     AMQPConnectionError,
@@ -66,6 +69,118 @@ class SubmitOrTerminateTests(unittest.TestCase):
         pool.submit.assert_not_called()
         connection._terminate_stream.assert_not_called()
         logger.debug.assert_called_once_with('dropped msg')
+
+
+def _tb_depth(exc):
+    """
+    Count the frames in *exc*'s traceback.
+
+    :param exc: The exception to measure.
+    :returns: Number of traceback frames.
+    """
+    depth, tb = 0, exc.__traceback__
+    while tb is not None:
+        depth += 1
+        tb = tb.tb_next
+    return depth
+
+
+def _raised(exc):
+    """
+    Give *exc* a traceback by raising and catching it.
+
+    :param exc: The exception to raise.
+    :returns: *exc*, now carrying a traceback.
+    """
+    try:
+        raise exc
+    except BaseException as caught:
+        return caught
+
+
+@contextlib.contextmanager
+def _expect_raised(test, exc_type):
+    """
+    Assert the block raises *exc_type*, leaving the exception's traceback intact.
+
+    :meth:`unittest.TestCase.assertRaises` calls ``with_traceback(None)`` on what it catches, which
+    erases exactly what the traceback-growth tests measure and makes them pass vacuously.
+
+    :param test: The test case, used to fail when nothing is raised.
+    :param exc_type: The exception type expected.
+    :yields: A list that receives the caught exception.
+    """
+    caught = []
+    try:
+        yield caught
+    except exc_type as exc:
+        caught.append(exc)
+    if not caught:
+        test.fail(f'{exc_type.__name__} not raised')
+
+
+class CloseTracebackHelperTests(unittest.TestCase):
+    """Tests for the helpers that keep the shared close reason's traceback bounded."""
+
+    def test_with_close_traceback_bounds_repeated_raises(self):
+        """
+        Re-raising through the helper must land at the same depth every time.
+
+        A raise still appends its own frames, so the depth after one raise exceeds the snapshot;
+        what matters is that the next raise starts from the snapshot again instead of from the grown
+        traceback, which is what makes the depth stable rather than unbounded.
+        """
+        reason = _raised(Exception('closed'))
+        close_tb = reason.__traceback__
+
+        with _expect_raised(self, Exception):
+            raise _with_close_traceback(reason, close_tb)
+        after_first = _tb_depth(reason)
+
+        for _ in range(50):
+            with _expect_raised(self, Exception):
+                raise _with_close_traceback(reason, close_tb)
+
+        self.assertEqual(_tb_depth(reason), after_first)
+
+    def test_with_close_traceback_preserves_the_recorded_frames(self):
+        """The snapshot must keep the frames that show where the connection died."""
+
+        def ioloop_crash_site():
+            raise RuntimeError('ioloop died')
+
+        try:
+            ioloop_crash_site()
+        except RuntimeError as exc:
+            reason = exc
+        close_tb = reason.__traceback__
+
+        with _expect_raised(self, RuntimeError):
+            raise _with_close_traceback(reason, close_tb)
+
+        frames = [f.name for f in traceback.extract_tb(reason.__traceback__)]
+        self.assertIn('ioloop_crash_site', frames)
+
+    def test_reraisable_resets_only_the_shared_close_reason(self):
+        """The close reason gets its snapshot back; a per-call exception is returned untouched."""
+        reason = _raised(Exception('closed'))
+        close_tb = reason.__traceback__
+
+        self.assertIs(_reraisable(reason, reason, close_tb), reason)
+        self.assertIs(reason.__traceback__, close_tb)
+
+        own = _raised(ValueError('this call only'))
+        own_tb = own.__traceback__
+        self.assertIs(_reraisable(own, reason, close_tb), own)
+        self.assertIs(own.__traceback__, own_tb)
+
+    def test_reraisable_leaves_a_traceback_free_error_alone(self):
+        """A per-call exception that never propagated must not gain the close-time frames."""
+        reason = _raised(Exception('closed'))
+        own = ValueError('never raised')
+
+        self.assertIsNone(
+            _reraisable(own, reason, reason.__traceback__).__traceback__)
 
 
 class BoundedWorkPoolTests(unittest.TestCase):
@@ -346,6 +461,9 @@ class ThreadSafeChannelTests(unittest.TestCase):
         raw_ch.is_closed = False
         wrapper = MagicMock()
         wrapper._closed_reason = None
+        # A MagicMock would auto-create this as a Mock, which with_traceback()
+        # rejects; the real attribute is None until a close reason is recorded.
+        wrapper._closed_reason_tb = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
         # A healthy connection has no pending error; _submit_or_terminate
@@ -499,6 +617,70 @@ class ThreadSafeChannelTests(unittest.TestCase):
 
         self.assertIs(ctx.exception, reason)
         wrapper._schedule_unchecked.assert_not_called()
+
+    def test_basic_publish_does_not_grow_close_reason_traceback(self):
+        """
+        Publishing into a closed connection must not accumulate frames on the shared close reason.
+
+        The reason stays reachable from ``_closed_reason`` for the life of the connection, so each
+        appended frame is permanent and pins that call's ``body``.
+        """
+        ch, _raw_ch, wrapper = self._make_channel()
+        reason = _raised(Exception('closed'))
+        wrapper._closed_reason = reason
+        wrapper._closed_reason_tb = reason.__traceback__
+
+        with _expect_raised(self, Exception):
+            ch.basic_publish(exchange='ex', routing_key='rk', body=b'x')
+        after_first = _tb_depth(reason)
+
+        for _ in range(50):
+            with _expect_raised(self, Exception):
+                ch.basic_publish(exchange='ex', routing_key='rk', body=b'x')
+
+        self.assertEqual(_tb_depth(reason), after_first)
+
+    def test_blocking_method_does_not_grow_close_reason_traceback(self):
+        """
+        A waiter woken by the close reason must not append frames to it either.
+
+        ``queue_declare`` gets the shared instance through ``error[0]``, so raising it directly
+        would grow it once per blocked caller.  Only the first call takes that path; once the reason
+        is recorded, later calls are rejected by the pre-registration guard instead, so the depth is
+        sampled after both paths have run once.
+        """
+        ch, _raw_ch, wrapper = self._make_channel()
+        reason = _raised(Exception('connection lost'))
+
+        def close_while_waiting(_cb):
+            with wrapper._channel_waiters_lock:
+                if wrapper._closed_reason is None:
+                    # _record_closed_reason snapshots the traceback once, at
+                    # close time; re-snapshotting here would capture a grown
+                    # one and mask the growth this test looks for.
+                    wrapper._closed_reason = reason
+                    wrapper._closed_reason_tb = reason.__traceback__
+                for evt, err in wrapper._blocking_waiters:
+                    err[0] = reason
+                    evt.set()
+                wrapper._blocking_waiters.clear()
+
+        wrapper._schedule_unchecked.side_effect = close_while_waiting
+
+        # First call: woken by the close reason through error[0].
+        with _expect_raised(self, Exception) as caught:
+            ch.queue_declare(queue='q')
+        self.assertIs(caught[0], reason)
+        # Second call: rejected up front, now that the reason is recorded.
+        with _expect_raised(self, Exception):
+            ch.queue_declare(queue='q')
+        settled = _tb_depth(reason)
+
+        for _ in range(50):
+            with _expect_raised(self, Exception):
+                ch.queue_declare(queue='q')
+
+        self.assertEqual(_tb_depth(reason), settled)
 
     def test_basic_ack_raises_when_connection_already_closed(self):
         ch, _raw_ch, wrapper = self._make_channel()
@@ -926,6 +1108,9 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         raw_ch.is_closed = False
         wrapper = MagicMock()
         wrapper._closed_reason = None
+        # A MagicMock would auto-create this as a Mock, which with_traceback()
+        # rejects; the real attribute is None until a close reason is recorded.
+        wrapper._closed_reason_tb = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
         # A healthy connection has no pending error; _submit_or_terminate
@@ -1433,6 +1618,9 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
         raw_ch.is_closed = False
         wrapper = MagicMock()
         wrapper._closed_reason = None
+        # A MagicMock would auto-create this as a Mock, which with_traceback()
+        # rejects; the real attribute is None until a close reason is recorded.
+        wrapper._closed_reason_tb = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
         # A healthy connection has no pending error; _submit_or_terminate
@@ -1602,6 +1790,9 @@ class BlockingRPCPassthroughTests(unittest.TestCase):
         raw_ch.is_closed = False
         wrapper = MagicMock()
         wrapper._closed_reason = None
+        # A MagicMock would auto-create this as a Mock, which with_traceback()
+        # rejects; the real attribute is None until a close reason is recorded.
+        wrapper._closed_reason_tb = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
         # A healthy connection has no pending error; _submit_or_terminate
@@ -1702,6 +1893,9 @@ class BlockingRPCErrorPathTests(unittest.TestCase):
         raw_ch.is_closed = False
         wrapper = MagicMock()
         wrapper._closed_reason = None
+        # A MagicMock would auto-create this as a Mock, which with_traceback()
+        # rejects; the real attribute is None until a close reason is recorded.
+        wrapper._closed_reason_tb = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
         # A healthy connection has no pending error; _submit_or_terminate
@@ -1755,6 +1949,9 @@ class BasicGetTests(unittest.TestCase):
         raw_ch.is_closed = False
         wrapper = MagicMock()
         wrapper._closed_reason = None
+        # A MagicMock would auto-create this as a Mock, which with_traceback()
+        # rejects; the real attribute is None until a close reason is recorded.
+        wrapper._closed_reason_tb = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
         # A healthy connection has no pending error; _submit_or_terminate
@@ -1838,6 +2035,9 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
         raw_ch.is_closing = False
         wrapper = MagicMock()
         wrapper._closed_reason = None
+        # A MagicMock would auto-create this as a Mock, which with_traceback()
+        # rejects; the real attribute is None until a close reason is recorded.
+        wrapper._closed_reason_tb = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
         # A healthy connection has no pending error; _submit_or_terminate
@@ -1886,6 +2086,9 @@ class CallbackRegistrationFailureTests(unittest.TestCase):
         raw_ch.is_closed = False
         wrapper = MagicMock()
         wrapper._closed_reason = None
+        # A MagicMock would auto-create this as a Mock, which with_traceback()
+        # rejects; the real attribute is None until a close reason is recorded.
+        wrapper._closed_reason_tb = None
         wrapper._channel_waiters_lock = threading.Lock()
         wrapper._blocking_waiters = []
         # A healthy connection has no pending error; _submit_or_terminate
@@ -2446,7 +2649,9 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         Scheduling on a closed connection raises the close reason.
 
         The IOLoop thread is gone once the connection closes, so a callback accepted here would
-        never run.  The caller must be told instead of being left to assume it was scheduled.
+        never run.  The caller must be told instead of being left to assume it was scheduled.  The
+        reported exception is ``_closed_reason`` itself, the same exception every other method on
+        the connection raises once closed.
         """
         conn, mock_conn, mock_ioloop = self._make_connection()
         reason = ConnectionClosedByClient(200, 'Normal shutdown')
@@ -2460,6 +2665,52 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         self.assertIs(ctx.exception, reason)
         mock_ioloop.add_callback_threadsafe.assert_not_called()
         cb.assert_not_called()
+
+    def test_add_callback_threadsafe_does_not_grow_close_reason_traceback(self):
+        """
+        Repeated rejections must not accumulate tracebacks on the close reason.
+
+        ``add_callback_threadsafe`` re-raises the shared ``_closed_reason`` like every other method
+        here, so bounding its depth depends on restoring the close-time traceback rather than on
+        raising something fresh.  Without that, each rejection would append a frame to the shared
+        instance and keep that call's arguments alive.
+        """
+        conn, mock_conn, _mock_ioloop = self._make_connection()
+        reason = ConnectionClosedByClient(200, 'Normal shutdown')
+        conn._on_connection_closed(mock_conn, reason)
+
+        with _expect_raised(self, ConnectionClosedByClient) as caught:
+            conn.add_callback_threadsafe(MagicMock())
+        self.assertIs(caught[0], reason)
+        after_first = _tb_depth(reason)
+
+        for _ in range(50):
+            with _expect_raised(self, ConnectionClosedByClient):
+                conn.add_callback_threadsafe(MagicMock())
+
+        self.assertEqual(_tb_depth(reason), after_first)
+
+    def test_channel_does_not_grow_close_reason_traceback(self):
+        """
+        ``channel()`` on a closed connection re-raises the close reason, so it must not grow it.
+
+        Like every method here, this path raises ``_closed_reason`` itself.  Bounding it depends on
+        restoring the traceback captured at close time rather than on raising something fresh.
+        """
+        conn, mock_conn, _mock_ioloop = self._make_connection()
+        reason = ConnectionClosedByClient(200, 'Normal shutdown')
+        conn._on_connection_closed(mock_conn, reason)
+
+        with _expect_raised(self, ConnectionClosedByClient) as caught:
+            conn.channel()
+        self.assertIs(caught[0], reason)
+        after_first = _tb_depth(reason)
+
+        for _ in range(50):
+            with _expect_raised(self, ConnectionClosedByClient):
+                conn.channel()
+
+        self.assertEqual(_tb_depth(reason), after_first)
 
     def test_add_callback_threadsafe_raises_wrong_state_without_close_reason(
             self):

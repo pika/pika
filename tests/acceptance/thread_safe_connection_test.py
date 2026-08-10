@@ -363,8 +363,9 @@ class TestAddCallbackThreadsafeAfterClose(ThreadSafeTestCaseBase):
     add_callback_threadsafe() after a real close() raises and runs nothing.
 
     close() returns only after the IOLoop thread has exited, so a callback accepted afterwards could
-    never run.  The caller gets the close reason (an AMQPConnectionError) rather than silent
-    acceptance, matching what every other method on the connection does once closed.
+    never run.  The caller gets the recorded close reason (an :class:`AMQPConnectionError`), the
+    same exception every other method on the connection raises once closed, rather than silent
+    acceptance.
     """
 
     def test(self):
