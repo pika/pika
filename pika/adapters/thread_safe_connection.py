@@ -23,11 +23,13 @@ from threading import Event
 from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
+    from types import TracebackType
+
     from typing_extensions import Literal, Self
 
 from pika import spec
 from pika.adapters.select_connection import SelectConnection
-from pika.exceptions import WorkQueueFullError
+from pika.exceptions import ConnectionWrongStateError, WorkQueueFullError
 
 LOGGER = logging.getLogger(__name__)
 
@@ -72,6 +74,52 @@ def _validate_put_timeout(put_timeout: float) -> float:
             f'work_queue_put_timeout must be a positive number of seconds, '
             f'got {put_timeout!r}')
     return put_timeout
+
+
+def _with_close_traceback(error: BaseException,
+                          close_tb: TracebackType | None) -> BaseException:
+    """
+    Return *error* carrying the traceback it had when the close reason was recorded.
+
+    A ``raise`` appends the raising frames to the exception and leaves them there, which is harmless
+    for an exception that dies with the ``except`` clause that caught it.  The close reason does not:
+    it stays reachable from ``_closed_reason`` for the life of the connection, so every caller that
+    is rejected against a closed connection grows the same instance's traceback, and every appended
+    frame pins that call's arguments - a published message body included.
+
+    Restoring the traceback captured at close time bounds the depth.  Clearing it instead would too,
+    but would discard frames worth keeping, such as the crash site of an exception that killed the
+    IOLoop.  The instance is returned unchanged otherwise, because callers compare what they catch
+    against the reason the connection recorded.
+
+    :param error: The recorded close reason, about to be raised again.
+    :param close_tb: The traceback snapshotted when the reason was recorded.
+    :returns: *error*, with *close_tb* as its traceback.
+    """
+    return error.with_traceback(close_tb)
+
+
+def _reraisable(error: BaseException, close_reason: BaseException | None,
+                close_tb: TracebackType | None) -> BaseException:
+    """
+    Return an exception recorded for a blocking waiter, ready to be raised.
+
+    A waiter woken by the connection closing is handed the shared close reason itself, so raising it
+    grows that instance's traceback the way :func:`_with_close_traceback` avoids.  Any other value
+    was raised for this call alone and is returned untouched - grafting the close-time traceback onto
+    it would misreport where it came from.
+
+    Returns the exception rather than raising it so the ``raise`` stays at the caller's own site,
+    which is the frame worth reporting.
+
+    :param error: The exception recorded for this waiter.
+    :param close_reason: The connection's recorded close reason, if any.
+    :param close_tb: The traceback snapshotted when that reason was recorded.
+    :returns: *error*, with its close-time traceback restored if it is the shared close reason.
+    """
+    if error is not close_reason:
+        return error
+    return _with_close_traceback(error, close_tb)
 
 
 def _submit_or_terminate(pool: _BoundedWorkPool, connection: SelectConnection,
@@ -341,8 +389,10 @@ class ThreadSafeChannel:
         already gone.
         """
         with self._wrapper._channel_waiters_lock:
-            if self._wrapper._closed_reason is not None:
-                raise self._wrapper._closed_reason
+            reason = self._wrapper._closed_reason
+            if reason is not None:
+                raise _with_close_traceback(reason,
+                                            self._wrapper._closed_reason_tb)
 
     @staticmethod
     def _safe_dispatch(label, callback, *args) -> None:
@@ -405,8 +455,10 @@ class ThreadSafeChannel:
         ready = threading.Event()
         error: list[BaseException | None] = [None]
         with self._wrapper._channel_waiters_lock:
-            if self._wrapper._closed_reason is not None:
-                raise self._wrapper._closed_reason
+            reason = self._wrapper._closed_reason
+            if reason is not None:
+                raise _with_close_traceback(reason,
+                                            self._wrapper._closed_reason_tb)
             self._wrapper._blocking_waiters.append((ready, error))
         return ready, error
 
@@ -470,7 +522,7 @@ class ThreadSafeChannel:
                 error[0] = exc
                 ready.set()
 
-        self._wrapper.add_callback_threadsafe(_invoke)
+        self._wrapper._schedule_unchecked(_invoke)
 
         try:
             if not ready.wait(timeout=timeout):
@@ -480,7 +532,8 @@ class ThreadSafeChannel:
             self._unregister_waiter(ready, error)
 
         if error[0] is not None:
-            raise error[0]
+            raise _reraisable(error[0], self._wrapper._closed_reason,
+                              self._wrapper._closed_reason_tb)
         return result[0]
 
     def basic_publish(self,
@@ -530,7 +583,7 @@ class ThreadSafeChannel:
                 if on_publish is not None:
                     on_publish(self._next_publish_seq_no)
 
-        self._wrapper.add_callback_threadsafe(_publish)
+        self._wrapper._schedule_unchecked(_publish)
 
     def basic_ack(self, delivery_tag: int = 0, multiple: bool = False) -> None:
         """
@@ -552,7 +605,7 @@ class ThreadSafeChannel:
                 LOGGER.warning('basic_ack failed (channel may have closed)',
                                exc_info=True)
 
-        self._wrapper.add_callback_threadsafe(_ack)
+        self._wrapper._schedule_unchecked(_ack)
 
     def basic_nack(self,
                    delivery_tag: int = 0,
@@ -579,7 +632,7 @@ class ThreadSafeChannel:
                 LOGGER.warning('basic_nack failed (channel may have closed)',
                                exc_info=True)
 
-        self._wrapper.add_callback_threadsafe(_nack)
+        self._wrapper._schedule_unchecked(_nack)
 
     def basic_reject(self, delivery_tag: int = 0, requeue: bool = True) -> None:
         """
@@ -601,7 +654,7 @@ class ThreadSafeChannel:
                 LOGGER.warning('basic_reject failed (channel may have closed)',
                                exc_info=True)
 
-        self._wrapper.add_callback_threadsafe(_reject)
+        self._wrapper._schedule_unchecked(_reject)
 
     def basic_qos(self,
                   prefetch_size: int = 0,
@@ -688,7 +741,7 @@ class ThreadSafeChannel:
                 error[0] = exc
                 ready.set()
 
-        self._wrapper.add_callback_threadsafe(_get)
+        self._wrapper._schedule_unchecked(_get)
 
         try:
             if not ready.wait(timeout=timeout):
@@ -698,7 +751,8 @@ class ThreadSafeChannel:
             self._unregister_waiter(ready, error)
 
         if error[0] is not None:
-            raise error[0]
+            raise _reraisable(error[0], self._wrapper._closed_reason,
+                              self._wrapper._closed_reason_tb)
         return tuple(result)
 
     def add_on_cancel_callback(self, callback) -> None:
@@ -734,7 +788,7 @@ class ThreadSafeChannel:
             except Exception:
                 LOGGER.warning('add_on_cancel_callback failed', exc_info=True)
 
-        self._wrapper.add_callback_threadsafe(_register)
+        self._wrapper._schedule_unchecked(_register)
 
     def add_on_return_callback(self, callback) -> None:
         """
@@ -771,7 +825,7 @@ class ThreadSafeChannel:
             except Exception:
                 LOGGER.warning('add_on_return_callback failed', exc_info=True)
 
-        self._wrapper.add_callback_threadsafe(_register)
+        self._wrapper._schedule_unchecked(_register)
 
     def confirm_delivery(self,
                          ack_nack_callback,
@@ -1220,7 +1274,7 @@ class ThreadSafeChannel:
                 error[0] = exc
                 ready.set()
 
-        self._wrapper.add_callback_threadsafe(_close)
+        self._wrapper._schedule_unchecked(_close)
 
         try:
             if not ready.wait(timeout=timeout):
@@ -1237,7 +1291,8 @@ class ThreadSafeChannel:
             self._unregister_waiter(ready, error)
 
         if error[0] is not None:
-            raise error[0]
+            raise _reraisable(error[0], self._wrapper._closed_reason,
+                              self._wrapper._closed_reason_tb)
 
     def abort(self,
               reply_code: int = 0,
@@ -1387,7 +1442,11 @@ class ThreadSafeConnection:
         self._instance_id = next(self._instance_counter)
 
         self._channel_waiters_lock = threading.Lock()
-        self._closed_reason = None
+        self._closed_reason: BaseException | None = None
+        # The traceback _closed_reason carried when it was recorded.  Raising
+        # the shared instance appends frames to it permanently, so every raise
+        # site restores this snapshot; see _with_close_traceback.
+        self._closed_reason_tb: TracebackType | None = None
         self._blocking_waiters: list[tuple[threading.Event,
                                            list[BaseException | None]]] = []
         self._channels: list[ThreadSafeChannel] = []
@@ -1426,7 +1485,7 @@ class ThreadSafeConnection:
                 LOGGER.exception('IOLoop thread crashed')
                 with self._channel_waiters_lock:
                     if self._closed_reason is None:
-                        self._closed_reason = exc
+                        self._record_closed_reason(exc)
                     for evt, err in self._blocking_waiters:
                         if err[0] is None:
                             err[0] = self._closed_reason
@@ -1487,7 +1546,7 @@ class ThreadSafeConnection:
         # if a pool worker is mid-callback).
         self._connection.ioloop.stop()
         with self._channel_waiters_lock:
-            self._closed_reason = reason
+            self._record_closed_reason(reason)
             for evt, err in self._blocking_waiters:
                 err[0] = reason
                 evt.set()
@@ -1570,8 +1629,9 @@ class ThreadSafeConnection:
         error: list[BaseException | None] = [None]
 
         with self._channel_waiters_lock:
-            if self._closed_reason is not None:
-                raise self._closed_reason
+            reason = self._closed_reason
+            if reason is not None:
+                raise _with_close_traceback(reason, self._closed_reason_tb)
             self._blocking_waiters.append((ready, error))
 
         def _open() -> None:
@@ -1600,15 +1660,17 @@ class ThreadSafeConnection:
                     pass
 
         if error[0] is not None:
-            raise error[0]
+            raise _reraisable(error[0], self._closed_reason,
+                              self._closed_reason_tb)
 
         # Race guard: the connection may have closed on the IOLoop thread
         # after _on_open fired but before we woke up.  Without this check,
         # _shutdown_all_consumer_pools() would have already run and the
         # newly-constructed channel's consumer pool would never be reached.
         with self._channel_waiters_lock:
-            if self._closed_reason is not None:
-                raise self._closed_reason
+            reason = self._closed_reason
+            if reason is not None:
+                raise _with_close_traceback(reason, self._closed_reason_tb)
             ch = ThreadSafeChannel(
                 result[0],
                 self,
@@ -1689,7 +1751,7 @@ class ThreadSafeConnection:
                 'connection force-closed: broker did not respond to close')
             with self._channel_waiters_lock:
                 if self._closed_reason is None:
-                    self._closed_reason = forced
+                    self._record_closed_reason(forced)
                     for evt, err in self._blocking_waiters:
                         if err[0] is None:
                             err[0] = self._closed_reason
@@ -1732,9 +1794,96 @@ class ThreadSafeConnection:
         Safe to call from any thread.  Exposed so callers can schedule arbitrary work without going
         through the wrapper methods.
 
+        Raises rather than accepting work that can never run: once the connection is closed the
+        IOLoop thread has exited, so a queued callback would be silently dropped.  The caller gets
+        the recorded close reason, the same exception every other method on the connection raises
+        once closed, or a :class:`~pika.exceptions.ConnectionWrongStateError` when no reason was
+        recorded yet.
+
+        Calls from the IOLoop thread itself are exempt and never raise, mirroring :meth:`close`.
+        A close callback runs on that thread while the connection is already closed, so raising
+        would abort the rest of teardown rather than reach the application.  The callback is
+        accepted and logged at debug level, but a stopping IOLoop will most likely never run it.
+
+        :param callback: Zero-argument callable.
+        :raises BaseException: the recorded close reason, if the connection is closed and this is
+            not the IOLoop thread.
+        :raises pika.exceptions.ConnectionWrongStateError: if the connection is closed but no reason
+            was recorded yet, and this is not the IOLoop thread.
+        """
+        try:
+            self._check_not_closed()
+        except Exception:
+            # Teardown runs on the IOLoop thread: _on_connection_closed records
+            # the close reason and then invokes the user's on_close_callback,
+            # whose natural idiom is to schedule follow-up work.  Raising there
+            # would propagate out through CallbackManager.process and abort the
+            # rest of teardown, so accept the callback from that thread instead.
+            # The IOLoop is already stopping, so the callback most likely will
+            # not run; that beats leaving the connection half torn down.
+            if threading.current_thread() is not self._ioloop_thread:
+                raise
+            LOGGER.debug(
+                'add_callback_threadsafe() called from the IOLoop thread on a '
+                'closed connection; the callback may not run',
+                exc_info=True)
+        self._schedule_unchecked(callback)
+
+    def _schedule_unchecked(self, callback) -> None:
+        """
+        Hand *callback* to the IOLoop without the closed-connection check.
+
+        For internal callers that must not be rejected mid-teardown.  Several channel methods
+        register a waiter before scheduling and unregister it in a ``finally``; raising here would
+        skip that cleanup and leak the waiter, so they check whatever state they care about
+        themselves and then schedule through this method.
+
         :param callback: Zero-argument callable.
         """
         self._connection.ioloop.add_callback_threadsafe(callback)
+
+    def _record_closed_reason(self, reason: BaseException) -> None:
+        """
+        Record the connection's close reason and the traceback it arrived with.
+
+        Callers must already hold ``_channel_waiters_lock``: the reason and its traceback are read
+        together and must not be seen half-updated.
+
+        :param reason: The exception every blocked caller will be given. A value that is not an
+            exception carries no traceback to snapshot; pika always passes an exception, but
+            ``_on_connection_closed`` is driven by the underlying connection and does not enforce
+            that.
+        """
+        self._closed_reason = reason
+        self._closed_reason_tb = getattr(reason, '__traceback__', None)
+
+    def _check_not_closed(self) -> None:
+        """
+        Raise if the connection is known to be closed.
+
+        Best-effort: the connection may still close between this check and the caller's use of the
+        IOLoop, which no amount of locking can prevent.  It catches the case that matters in
+        practice - work submitted to a connection the caller already closed.
+
+        Raises the recorded ``_closed_reason`` itself, the same exception every other method on the
+        class raises once closed, with its close-time traceback restored so re-raising the shared
+        instance does not grow it (see :func:`_with_close_traceback`).  Only when the connection is
+        closed but no reason was recorded yet does it raise a fresh
+        :class:`~pika.exceptions.ConnectionWrongStateError`.
+
+        :raises BaseException: ``_closed_reason`` if one was recorded.
+        :raises pika.exceptions.ConnectionWrongStateError: if the underlying connection is closed
+            but no reason was recorded yet, which is the brief window between the connection
+            reaching the closed state and ``_on_connection_closed`` running.
+        """
+        with self._channel_waiters_lock:
+            reason = self._closed_reason
+            if reason is not None:
+                raise _with_close_traceback(reason, self._closed_reason_tb)
+        if self._connection.is_closed:
+            raise ConnectionWrongStateError(
+                'ThreadSafeConnection.add_callback_threadsafe() called on '
+                'closed connection.')
 
     def add_on_connection_blocked_callback(self, callback) -> None:
         """
@@ -1798,8 +1947,9 @@ class ThreadSafeConnection:
         :param callback: User callback to dispatch on the connection work pool."
         """
         with self._channel_waiters_lock:
-            if self._closed_reason is not None:
-                raise self._closed_reason
+            reason = self._closed_reason
+            if reason is not None:
+                raise _with_close_traceback(reason, self._closed_reason_tb)
 
         def _wrapped(_raw_conn, method_frame) -> None:
             _submit_or_terminate(

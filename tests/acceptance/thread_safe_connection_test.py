@@ -15,6 +15,7 @@ import uuid
 
 import pika
 from pika.adapters.thread_safe_connection import ThreadSafeChannel, ThreadSafeConnection
+from pika.exceptions import AMQPConnectionError
 from tests.misc.forward_server import ForwardServer
 from tests.misc.test_utils import retry_assertion, safe_close
 
@@ -355,6 +356,29 @@ class TestConcurrentClose(ThreadSafeTestCaseBase):
 
         self.assertEqual([], errors)
         self.assertTrue(conn.is_closed)
+
+
+class TestAddCallbackThreadsafeAfterClose(ThreadSafeTestCaseBase):
+    """
+    add_callback_threadsafe() after a real close() raises and runs nothing.
+
+    close() returns only after the IOLoop thread has exited, so a callback accepted afterwards could
+    never run.  The caller gets the recorded close reason (an :class:`AMQPConnectionError`), the
+    same exception every other method on the connection raises once closed, rather than silent
+    acceptance.
+    """
+
+    def test(self):
+        conn = self._connect()
+        conn.close()
+        self.assertTrue(conn.is_closed)
+
+        called = threading.Event()
+
+        with self.assertRaises(AMQPConnectionError):
+            conn.add_callback_threadsafe(called.set)
+
+        self.assertFalse(called.is_set())
 
 
 class TestContextManager(ThreadSafeTestCaseBase):
