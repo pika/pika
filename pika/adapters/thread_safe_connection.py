@@ -17,6 +17,7 @@ from __future__ import annotations
 import itertools
 import logging
 import queue
+import sys
 import threading
 import time
 from threading import Event
@@ -27,7 +28,7 @@ if TYPE_CHECKING:
 
 from pika import spec
 from pika.adapters.select_connection import SelectConnection
-from pika.exceptions import WorkQueueFullError
+from pika.exceptions import ConnectionWrongStateError, WorkQueueFullError
 
 LOGGER = logging.getLogger(__name__)
 
@@ -1732,9 +1733,46 @@ class ThreadSafeConnection:
         Safe to call from any thread.  Exposed so callers can schedule arbitrary work without going
         through the wrapper methods.
 
+        Raises rather than accepting work that can never run: once the connection is closed the
+        IOLoop thread has exited, so a queued callback would be silently dropped.
+        :meth:`pika.BlockingConnection.add_callback_threadsafe` likewise refuses a closed
+        connection, though it always reports
+        :class:`~pika.exceptions.ConnectionWrongStateError` where this raises the close reason.
+
         :param callback: Zero-argument callable.
+        :raises Exception: the close reason, if the connection is already closed.
+        :raises pika.exceptions.ConnectionWrongStateError: if the connection is closed but no close
+            reason was recorded.
         """
+        self._check_not_closed()
         self._connection.ioloop.add_callback_threadsafe(callback)
+
+    def _check_not_closed(self) -> None:
+        """
+        Raise if the connection is known to be closed.
+
+        Best-effort: the connection may still close between this check and the caller's use of the
+        IOLoop, which no amount of locking can prevent.  It catches the case that matters in
+        practice - work submitted to a connection the caller already closed.
+
+        :raises Exception: ``_closed_reason`` if one was recorded (the same exception every other
+            :class:`ThreadSafeConnection` method raises once closed).
+        :raises pika.exceptions.ConnectionWrongStateError: if the underlying connection is closed
+            but no reason was recorded yet, which is the brief window between the connection
+            reaching the closed state and ``_on_connection_closed`` running.
+        """
+        with self._channel_waiters_lock:
+            if self._closed_reason is not None:
+                raise self._closed_reason
+        if self._connection.is_closed:
+            # Name the calling method by frame introspection rather than having
+            # each caller hand in its own name, which can drift from the method
+            # it labels.  Only the error path pays for it, so callers on the
+            # publish hot path are unaffected.
+            caller = sys._getframe(1).f_code.co_name
+            raise ConnectionWrongStateError(
+                f'ThreadSafeConnection.{caller}() called on closed or '
+                f'closing connection.')
 
     def add_on_connection_blocked_callback(self, callback) -> None:
         """
