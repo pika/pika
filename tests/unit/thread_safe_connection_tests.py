@@ -8,8 +8,8 @@ from unittest.mock import ANY, MagicMock, patch
 
 from pika.adapters.thread_safe_connection import (
     DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
-    ThreadSafeChannel,
-    ThreadSafeConnection,
+    Channel,
+    Connection,
     _BoundedWorkPool,
     _reraisable,
     _submit_or_terminate,
@@ -401,58 +401,51 @@ class BoundedWorkPoolTests(unittest.TestCase):
         self.assertEqual(result, [True])
 
     def test_connection_params_propagate_to_channel_pool(self):
-        """Work-queue parameters passed to ThreadSafeChannel must reach its pool."""
+        """Work-queue parameters passed to Channel must reach its pool."""
         raw_ch = MagicMock()
         wrapper = MagicMock()
-        ch = ThreadSafeChannel(raw_ch,
-                               wrapper,
-                               work_queue_maxsize=7,
-                               work_queue_put_timeout=45.0)
+        ch = Channel(raw_ch,
+                     wrapper,
+                     work_queue_maxsize=7,
+                     work_queue_put_timeout=45.0)
         self.assertEqual(ch._consumer_work_pool._queue.maxsize, 7)
         self.assertEqual(ch._consumer_work_pool._put_timeout, 45.0)
 
     def test_channel_rejects_none_put_timeout(self):
-        """ThreadSafeChannel must reject a None put timeout (would block the IOLoop forever)."""
+        """Channel must reject a None put timeout (would block the IOLoop forever)."""
         with self.assertRaises(ValueError):
-            ThreadSafeChannel(MagicMock(),
-                              MagicMock(),
-                              work_queue_put_timeout=None)
+            Channel(MagicMock(), MagicMock(), work_queue_put_timeout=None)
 
     def test_channel_rejects_non_positive_put_timeout(self):
-        """ThreadSafeChannel must reject a zero, negative, or NaN put timeout."""
+        """Channel must reject a zero, negative, or NaN put timeout."""
         for bad in (0, -1.0, float('nan')):
             with self.assertRaises(ValueError):
-                ThreadSafeChannel(MagicMock(),
-                                  MagicMock(),
-                                  work_queue_put_timeout=bad)
+                Channel(MagicMock(), MagicMock(), work_queue_put_timeout=bad)
 
     def test_channel_accepts_small_positive_put_timeout(self):
         """A positive override below the default must be accepted (no floor)."""
-        ch = ThreadSafeChannel(MagicMock(),
-                               MagicMock(),
-                               work_queue_put_timeout=5.0)
+        ch = Channel(MagicMock(), MagicMock(), work_queue_put_timeout=5.0)
         self.assertEqual(ch._consumer_work_pool._put_timeout, 5.0)
 
     def test_channel_accepts_default_put_timeout(self):
         """The default put timeout must satisfy its own validation."""
-        ch = ThreadSafeChannel(MagicMock(), MagicMock())
+        ch = Channel(MagicMock(), MagicMock())
         self.assertEqual(ch._consumer_work_pool._put_timeout,
                          DEFAULT_WORK_QUEUE_PUT_TIMEOUT)
 
     def test_connection_rejects_invalid_put_timeout(self):
         """
-        ThreadSafeConnection must validate its put timeout before connecting.
+        Connection must validate its put timeout before connecting.
 
         Validation happens ahead of SelectConnection construction, so a bad value raises without any
         connection machinery or patching.
         """
         for bad in (None, 0, -1.0, float('nan')):
             with self.assertRaises(ValueError):
-                ThreadSafeConnection(parameters='params',
-                                     work_queue_put_timeout=bad)
+                Connection(parameters='params', work_queue_put_timeout=bad)
 
 
-class ThreadSafeChannelTests(unittest.TestCase):
+class ChannelTests(unittest.TestCase):
 
     def _make_channel(self):
         raw_ch = MagicMock()
@@ -469,7 +462,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         # A healthy connection has no pending error; _submit_or_terminate
         # short-circuits when _error is set, so it must be None here.
         wrapper._connection._error = None
-        return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
+        return Channel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_basic_publish_routes_through_schedule_unchecked(self):
         ch, _raw_ch, wrapper = self._make_channel()
@@ -871,7 +864,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         self.assertEqual(tag, 'ctag1')
 
     def test_basic_consume_wraps_callback_with_thread_safe_channel(self):
-        """on_message_callback must receive the ThreadSafeChannel, not the raw channel."""
+        """on_message_callback must receive the Channel, not the raw channel."""
         ch, raw_ch, wrapper = self._make_channel()
         mock_frame = MagicMock()
         mock_frame.method.consumer_tag = 'ctag1'
@@ -898,7 +891,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         ch._consumer_work_pool.shutdown(wait=True)
 
         self.assertEqual(len(received), 1)
-        self.assertIsInstance(received[0], ThreadSafeChannel)
+        self.assertIsInstance(received[0], Channel)
         self.assertIs(received[0], ch)
 
     def test_basic_consume_raises_when_connection_already_closed(self):
@@ -1116,7 +1109,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         # A healthy connection has no pending error; _submit_or_terminate
         # short-circuits when _error is set, so it must be None here.
         wrapper._connection._error = None
-        return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
+        return Channel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_callback_runs_on_worker_thread_not_ioloop(self):
         """on_message_callback must execute on the pool thread, not the thread that invoked the
@@ -1365,7 +1358,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         ch._consumer_work_pool.shutdown(wait=True)
 
         self.assertEqual(len(received), 1)
-        # First arg must be the ThreadSafeChannel, not the raw channel
+        # First arg must be the Channel, not the raw channel
         self.assertIs(received[0][0], ch)
         self.assertEqual(received[0][1:], ('method', 'props', b'returned-body'))
         self.assertIsNot(callback_thread[0], threading.current_thread())
@@ -1626,7 +1619,7 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
         # A healthy connection has no pending error; _submit_or_terminate
         # short-circuits when _error is set, so it must be None here.
         wrapper._connection._error = None
-        return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
+        return Channel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_queue_declare_raises_timeout_error(self):
         ch, raw_ch, wrapper = self._make_channel()
@@ -1798,7 +1791,7 @@ class BlockingRPCPassthroughTests(unittest.TestCase):
         # A healthy connection has no pending error; _submit_or_terminate
         # short-circuits when _error is set, so it must be None here.
         wrapper._connection._error = None
-        return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
+        return Channel(raw_ch, wrapper), raw_ch, wrapper
 
     def _run_immediate_rpc(self, raw_method, *call_args, **call_kwargs):
         """Wire up wrapper/raw_method so the callback fires immediately."""
@@ -1878,7 +1871,7 @@ class BlockingRPCPassthroughTests(unittest.TestCase):
 
 class BlockingRPCErrorPathTests(unittest.TestCase):
     """
-    Cover the two error paths inside ThreadSafeChannel._blocking_rpc:
+    Cover the two error paths inside Channel._blocking_rpc:
 
     * channel_method itself raises during _invoke (connection already
       torn down on the IOLoop thread).
@@ -1901,7 +1894,7 @@ class BlockingRPCErrorPathTests(unittest.TestCase):
         # A healthy connection has no pending error; _submit_or_terminate
         # short-circuits when _error is set, so it must be None here.
         wrapper._connection._error = None
-        return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
+        return Channel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_method_raise_propagates_to_caller(self):
         ch, raw_ch, wrapper = self._make_channel()
@@ -1940,7 +1933,7 @@ class BlockingRPCErrorPathTests(unittest.TestCase):
 
 
 class BasicGetTests(unittest.TestCase):
-    """Cover ThreadSafeChannel.basic_get success, empty, error and channel-close paths."""
+    """Cover Channel.basic_get success, empty, error and channel-close paths."""
 
     def _make_channel(self):
         raw_ch = MagicMock()
@@ -1957,7 +1950,7 @@ class BasicGetTests(unittest.TestCase):
         # A healthy connection has no pending error; _submit_or_terminate
         # short-circuits when _error is set, so it must be None here.
         wrapper._connection._error = None
-        return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
+        return Channel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_basic_get_returns_message_tuple(self):
         ch, raw_ch, wrapper = self._make_channel()
@@ -2025,7 +2018,7 @@ class BasicGetTests(unittest.TestCase):
 
 
 class ChannelCloseErrorPathTests(unittest.TestCase):
-    """Cover error branches inside ThreadSafeChannel.close()."""
+    """Cover error branches inside Channel.close()."""
 
     def _make_channel(self):
         raw_ch = MagicMock()
@@ -2043,7 +2036,7 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
         # A healthy connection has no pending error; _submit_or_terminate
         # short-circuits when _error is set, so it must be None here.
         wrapper._connection._error = None
-        return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
+        return Channel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_close_propagates_broker_initiated_close_reason(self):
         ch, raw_ch, wrapper = self._make_channel()
@@ -2094,7 +2087,7 @@ class CallbackRegistrationFailureTests(unittest.TestCase):
         # A healthy connection has no pending error; _submit_or_terminate
         # short-circuits when _error is set, so it must be None here.
         wrapper._connection._error = None
-        return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
+        return Channel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_add_on_cancel_callback_logs_when_raw_register_raises(self):
         ch, raw_ch, wrapper = self._make_channel()
@@ -2170,7 +2163,7 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
             MockSelectConn.side_effect = fake_init
             MockSelectConn.return_value = mock_conn
 
-            conn = ThreadSafeConnection(parameters='params')
+            conn = Connection(parameters='params')
             conn._ioloop_thread.join(timeout=1)
 
         return conn, mock_conn, mock_ioloop
@@ -2226,8 +2219,8 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         """
         conn, _mock_conn, _mock_ioloop = self._make_connection()
 
-        wedged = ThreadSafeChannel(MagicMock(), conn)
-        healthy = ThreadSafeChannel(MagicMock(), conn)
+        wedged = Channel(MagicMock(), conn)
+        healthy = Channel(MagicMock(), conn)
         with conn._channel_waiters_lock:
             conn._channels.extend([wedged, healthy])
 
@@ -2267,7 +2260,7 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
     def test_concurrent_channel_close_runs_shutdown_once(self):
         """Two concurrent close() calls must not both run the pool join."""
         conn, _mock_conn, _mock_ioloop = self._make_connection()
-        ch = ThreadSafeChannel(MagicMock(), conn)
+        ch = Channel(MagicMock(), conn)
 
         calls = []
         real_shutdown = ch._consumer_work_pool.shutdown
@@ -2323,10 +2316,10 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
                 raise crash
 
             mock_ioloop.start.side_effect = ioloop_start
-            conn = ThreadSafeConnection(parameters='params')
+            conn = Connection(parameters='params')
 
         # Manually add a channel to the tracking list
-        ch = ThreadSafeChannel(MagicMock(), conn)
+        ch = Channel(MagicMock(), conn)
         with conn._channel_waiters_lock:
             conn._channels.append(ch)
 
@@ -2342,7 +2335,7 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         conn._ioloop_thread = MagicMock()
         conn._ioloop_thread.is_alive.return_value = True
 
-        ch = ThreadSafeChannel(MagicMock(), conn)
+        ch = Channel(MagicMock(), conn)
         with conn._channel_waiters_lock:
             conn._channels.append(ch)
 
@@ -2358,7 +2351,7 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         conn._ioloop_thread = MagicMock()
         conn._ioloop_thread.is_alive.side_effect = [True, False]
 
-        ch = ThreadSafeChannel(MagicMock(), conn)
+        ch = Channel(MagicMock(), conn)
         with conn._channel_waiters_lock:
             conn._channels.append(ch)
 
@@ -2432,7 +2425,7 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
             mock_ioloop.start = MagicMock()  # IOLoop does nothing
 
             with self.assertRaises(TimeoutError) as ctx:
-                ThreadSafeConnection(parameters='params', timeout=0.05)
+                Connection(parameters='params', timeout=0.05)
 
             self.assertIn('timed out', str(ctx.exception))
             mock_ioloop.add_callback_threadsafe.assert_called()
@@ -2460,7 +2453,7 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
             with patch('pika.adapters.thread_safe_connection._BoundedWorkPool',
                        side_effect=capturing_pool), self.assertRaises(
                            RuntimeError) as ctx:
-                ThreadSafeConnection(parameters='params')
+                Connection(parameters='params')
             self.assertIs(ctx.exception, boom)
             self.assertEqual(len(captured), 1)
             # The captured pool must be shut down.  shutdown(wait=True)
@@ -2500,7 +2493,7 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
             MockSelectConn.return_value = mock_conn
 
             try:
-                ThreadSafeConnection(parameters='params', timeout=0.05)
+                Connection(parameters='params', timeout=0.05)
             except TimeoutError as exc:
                 # By the time the TimeoutError reaches us, the IOLoop
                 # thread must have been joined - i.e., it is no longer
@@ -2554,7 +2547,7 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         Channel() must raise (not return a leaked channel) if the connection closes between
         Channel.OpenOk and the caller waking.
 
-        Without the race guard, a ThreadSafeChannel would be appended to _channels after
+        Without the race guard, a Channel would be appended to _channels after
         _shutdown_all_consumer_pools() had already run, leaking the per-channel consumer pool.
         """
         conn, mock_conn, mock_ioloop = self._make_connection()
@@ -2582,13 +2575,13 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         self.assertEqual(conn._channels, [])
 
 
-class ThreadSafeConnectionTests(unittest.TestCase):
+class ConnectionTests(unittest.TestCase):
 
     def _make_connection(self,
                          on_open_error_callback=None,
                          on_close_callback=None):
         """
-        Construct a ThreadSafeConnection with a mocked SelectConnection.
+        Construct a Connection with a mocked SelectConnection.
 
         The mock immediately fires on_open_callback so __init__ unblocks.
         """
@@ -2614,7 +2607,7 @@ class ThreadSafeConnectionTests(unittest.TestCase):
             MockSelectConn.side_effect = fake_init
             MockSelectConn.return_value = mock_conn
 
-            conn = ThreadSafeConnection(
+            conn = Connection(
                 parameters='params',
                 on_open_error_callback=on_open_error_callback,
                 on_close_callback=on_close_callback,
@@ -2791,7 +2784,7 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         mock_ioloop.add_callback_threadsafe.side_effect = execute_scheduled
 
         ch = conn.channel()
-        self.assertIsInstance(ch, ThreadSafeChannel)
+        self.assertIsInstance(ch, Channel)
 
     def test_channel_wraps_self_not_inner_connection(self):
         conn, mock_conn, mock_ioloop = self._make_connection()
@@ -2867,7 +2860,7 @@ class ThreadSafeConnectionTests(unittest.TestCase):
 
             mock_ioloop.start.side_effect = ioloop_start
 
-            conn = ThreadSafeConnection(parameters='params')
+            conn = Connection(parameters='params')
 
         exc_holder = [None]
 
@@ -2915,7 +2908,7 @@ class ThreadSafeConnectionTests(unittest.TestCase):
             mock_ioloop.start.side_effect = ioloop_start
 
             with self.assertRaises(Exception) as ctx:
-                ThreadSafeConnection(parameters='params')
+                Connection(parameters='params')
 
         self.assertIs(ctx.exception, error)
         mock_ioloop.stop.assert_called_once()
@@ -3201,7 +3194,7 @@ class ThreadSafeConnectionTests(unittest.TestCase):
 
 
 class ConnectionInitErrorPathTests(unittest.TestCase):
-    """Cover the IOLoop-thread error paths in ThreadSafeConnection.__init__."""
+    """Cover the IOLoop-thread error paths in Connection.__init__."""
 
     def test_ioloop_crash_before_open_propagates_to_init(self):
         """If ioloop.start() raises before on_open_callback fires, __init__ must surface the
@@ -3218,7 +3211,7 @@ class ConnectionInitErrorPathTests(unittest.TestCase):
             mock_ioloop.start.side_effect = crash
 
             with self.assertRaises(RuntimeError) as ctx:
-                ThreadSafeConnection(parameters='params')
+                Connection(parameters='params')
         self.assertIs(ctx.exception, crash)
 
     def test_on_connection_open_error_invokes_user_callback(self):
@@ -3249,14 +3242,13 @@ class ConnectionInitErrorPathTests(unittest.TestCase):
             mock_ioloop.start.side_effect = ioloop_start
 
             with self.assertRaises(AMQPConnectionError):
-                ThreadSafeConnection(parameters='params',
-                                     on_open_error_callback=user_cb)
+                Connection(parameters='params', on_open_error_callback=user_cb)
 
         user_cb.assert_called_once_with(mock_conn, error)
 
 
 class ConnectionCloseFromIOLoopTests(unittest.TestCase):
-    """Cover the close-from-IOLoop-thread path in ThreadSafeConnection.close()."""
+    """Cover the close-from-IOLoop-thread path in Connection.close()."""
 
     def _make_connection(self):
         with patch('pika.adapters.thread_safe_connection.SelectConnection'
@@ -3279,7 +3271,7 @@ class ConnectionCloseFromIOLoopTests(unittest.TestCase):
             MockSelectConn.side_effect = fake_init
             MockSelectConn.return_value = mock_conn
 
-            conn = ThreadSafeConnection(parameters='params')
+            conn = Connection(parameters='params')
             conn._ioloop_thread.join(timeout=1)
         return conn, mock_conn, mock_ioloop
 
@@ -3323,7 +3315,7 @@ class ConnectionEventRegistrationFailureTests(unittest.TestCase):
             MockSelectConn.side_effect = fake_init
             MockSelectConn.return_value = mock_conn
 
-            conn = ThreadSafeConnection(parameters='params')
+            conn = Connection(parameters='params')
             conn._ioloop_thread.join(timeout=1)
         return conn, mock_conn, mock_ioloop
 
@@ -3342,8 +3334,8 @@ class ConnectionEventRegistrationFailureTests(unittest.TestCase):
 
 
 class ChannelOpenExceptionPathTests(unittest.TestCase):
-    """Cover the exception path inside ThreadSafeConnection.channel() when the inner
-    connection.channel() call itself raises.
+    """Cover the exception path inside Connection.channel() when the inner connection.channel() call
+    itself raises.
     """
 
     def _make_connection(self):
@@ -3367,7 +3359,7 @@ class ChannelOpenExceptionPathTests(unittest.TestCase):
             MockSelectConn.side_effect = fake_init
             MockSelectConn.return_value = mock_conn
 
-            conn = ThreadSafeConnection(parameters='params')
+            conn = Connection(parameters='params')
             conn._ioloop_thread.join(timeout=1)
         return conn, mock_conn, mock_ioloop
 

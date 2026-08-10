@@ -8,7 +8,7 @@ logging.getLogger(__name__).addHandler(logging.NullHandler())
 # ruff: noqa: E402
 
 from pika import adapters, frame, spec
-from pika.adapters import BaseConnection, BlockingConnection, SelectConnection, ThreadSafeConnection
+from pika.adapters import BaseConnection, BlockingConnection, Connection, SelectConnection
 from pika.adapters.utils.connection_workflow import AMQPConnectionWorkflow
 from pika.connection import ConnectionParameters, SSLOptions, URLParameters
 from pika.credentials import PlainCredentials
@@ -20,12 +20,12 @@ __all__ = [
     'BaseConnection',
     'BasicProperties',
     'BlockingConnection',
+    'Connection',
     'ConnectionParameters',
     'DeliveryMode',
     'PlainCredentials',
     'SSLOptions',
     'SelectConnection',
-    'ThreadSafeConnection',
     'URLParameters',
     'adapters',
     'frame',

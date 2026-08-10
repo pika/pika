@@ -1,5 +1,5 @@
 """
-Integration tests for ThreadSafeConnection and ThreadSafeChannel.
+Integration tests for Connection and Channel.
 
 These tests require a RabbitMQ broker listening on 127.0.0.1:5672 with the
 default guest/guest credentials.  They will fail, not skip, if the broker is
@@ -14,7 +14,7 @@ import unittest
 import uuid
 
 import pika
-from pika.adapters.thread_safe_connection import ThreadSafeChannel, ThreadSafeConnection
+from pika.adapters.thread_safe_connection import Channel, Connection
 from pika.exceptions import AMQPConnectionError
 from tests.misc.forward_server import ForwardServer
 from tests.misc.test_utils import retry_assertion, safe_close
@@ -32,7 +32,7 @@ BLOCKING_CALL_TIMEOUT = 10
 class ThreadSafeTestCaseBase(unittest.TestCase):
 
     def _connect(self, parameters=None):
-        conn = ThreadSafeConnection(parameters or DEFAULT_PARAMS)
+        conn = Connection(parameters or DEFAULT_PARAMS)
         self.addCleanup(safe_close, conn)
         return conn
 
@@ -49,7 +49,7 @@ class TestBasicLifecycle(ThreadSafeTestCaseBase):
         self.assertTrue(conn.is_open)
 
         ch = conn.channel()
-        self.assertIsInstance(ch, ThreadSafeChannel)
+        self.assertIsInstance(ch, Channel)
         self.assertTrue(ch.is_open)
 
         queue = self._unique_queue()
@@ -223,7 +223,7 @@ class TestBrokerDropBlockedInChannel(ThreadSafeTestCaseBase):
             port=fwd.server_address[1],
             credentials=pika.PlainCredentials('guest', 'guest'),
         )
-        conn = ThreadSafeConnection(params)
+        conn = Connection(params)
         self.addCleanup(safe_close, conn)
 
         # Intercept add_callback_threadsafe so channel() registers its waiter
@@ -282,7 +282,7 @@ class TestBrokerDropBlockedInQueueDeclare(ThreadSafeTestCaseBase):
             port=fwd.server_address[1],
             credentials=pika.PlainCredentials('guest', 'guest'),
         )
-        conn = ThreadSafeConnection(params)
+        conn = Connection(params)
         self.addCleanup(safe_close, conn)
 
         # Open the channel before intercepting so we get a real channel object.
@@ -390,7 +390,7 @@ class TestContextManager(ThreadSafeTestCaseBase):
             port=5672,
             credentials=pika.PlainCredentials('guest', 'guest'),
         )
-        with ThreadSafeConnection(params) as conn:
+        with Connection(params) as conn:
             self.assertTrue(conn.is_open)
             ch = conn.channel()
             queue = self._unique_queue()

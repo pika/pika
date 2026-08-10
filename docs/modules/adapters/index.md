@@ -3,7 +3,7 @@ Pika uses connection adapters to provide a flexible method for adapting pika's c
 
 ## Adapters
 
-- [ThreadSafeConnection](thread_safe.md)
+- [Connection](thread_safe.md)
 - [BlockingConnection](blocking.md) *(deprecated, removed in Pika 2.0)*
 - [SelectConnection](select.md)
 - [AsyncioConnection](asyncio.md)
@@ -17,21 +17,21 @@ Pika uses connection adapters to provide a flexible method for adapting pika's c
 > adapters exist to integrate Pika into a framework's event loop — a constraint
 > that no longer applies — and `BlockingConnection` runs the IOLoop on the
 > calling thread, which makes heartbeats fragile and the adapter non-thread-safe.
-> [`ThreadSafeConnection`](thread_safe.md) runs its own IOLoop on a background
+> [`Connection`](thread_safe.md) runs its own IOLoop on a background
 > thread and works with any framework (asyncio, Tornado, Twisted, Gevent,
 > Django, Flask, or plain synchronous code) without adapter-specific
 > integration.
 
 ## Threading
 
-### Using ThreadSafeConnection (recommended)
+### Using Connection (recommended)
 
-[ThreadSafeConnection](thread_safe.md) is the simplest way to use Pika from multiple threads. It runs the IOLoop in a background thread and provides a blocking, thread-safe API. Consumer callbacks run on a dedicated worker thread, so slow processing never stalls heartbeats, and you can call `basic_ack`, `basic_publish`, and other channel methods directly from the callback without any special coordination:
+[Connection](thread_safe.md) is the simplest way to use Pika from multiple threads. It runs the IOLoop in a background thread and provides a blocking, thread-safe API. Consumer callbacks run on a dedicated worker thread, so slow processing never stalls heartbeats, and you can call `basic_ack`, `basic_publish`, and other channel methods directly from the callback without any special coordination:
 
 ```python
-from pika.adapters.thread_safe_connection import ThreadSafeConnection
+from pika.adapters.thread_safe_connection import Connection
 
-conn = ThreadSafeConnection(pika.ConnectionParameters('localhost'))
+conn = Connection(pika.ConnectionParameters('localhost'))
 ch = conn.channel()
 
 def on_message(channel, method, properties, body):

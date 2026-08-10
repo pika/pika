@@ -1,7 +1,7 @@
 """
-Example: a long-running publisher using ThreadSafeConnection.
+Example: a long-running publisher using Connection.
 
-This is the ThreadSafeConnection counterpart to
+This is the Connection counterpart to
 examples/long_running_publisher.py.
 
 The BlockingConnection version has to run its own background thread calling
@@ -11,7 +11,7 @@ via add_callback_threadsafe.  That is the classic "heartbeat vs. work"
 tension of a single-threaded design: nothing happens on the connection
 unless the application keeps handing control back to pika.
 
-ThreadSafeConnection removes the tension entirely.  Its SelectConnection
+Connection removes the tension entirely.  Its SelectConnection
 IOLoop runs on its own dedicated background thread, so heartbeats are sent on
 time no matter how long the main thread sleeps between publishes.  The main
 thread just calls basic_publish whenever it has something to send - the call
@@ -22,7 +22,7 @@ import logging
 import time
 
 import pika
-from pika.adapters.thread_safe_connection import ThreadSafeConnection
+from pika.adapters.thread_safe_connection import Connection
 
 LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
               '-35s %(lineno) -5d: %(message)s')
@@ -42,7 +42,7 @@ def main():
     )
 
     LOGGER.info('Connecting ...')
-    conn = ThreadSafeConnection(parameters)
+    conn = Connection(parameters)
     ch = conn.channel()
     ch.queue_declare(queue=QUEUE_NAME, durable=True)
 

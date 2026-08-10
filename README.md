@@ -30,7 +30,7 @@ Pika is a pure-Python implementation of the AMQP 0-9-1 protocol including Rabbit
 - Since threads aren't appropriate to every situation, it doesn't require
   threads. Pika core takes care not to forbid them, either. The same goes for
   greenlets, callbacks, continuations, and generators. Most connection adapters
-  are single-threaded; use `ThreadSafeConnection` when you need to publish or
+  are single-threaded; use `Connection` when you need to publish or
   consume from multiple threads.
 - People may be using direct sockets, plain old `select()`, or any of the
   wide variety of ways of getting network events to and from a Python
@@ -93,7 +93,7 @@ Pika provides the following adapters:
   for use with [Tornado](https://tornadoweb.org)'s I/O loop.
 - `pika.adapters.twisted_connection.TwistedProtocolConnection` - asynchronous
   adapter for use with [Twisted](https://twistedmatrix.com)'s I/O loop.
-- `pika.adapters.thread_safe_connection.ThreadSafeConnection` - thread-safe
+- `pika.adapters.thread_safe_connection.Connection` - thread-safe
   adapter that runs SelectConnection's IOLoop in a background thread. All
   channel methods are safe to call from any thread simultaneously.
 
@@ -114,14 +114,14 @@ With non-blocking adapters, such as `pika.SelectConnection` and `pika.adapters.a
 
 ## Threading
 
-### Using ThreadSafeConnection (recommended)
+### Using Connection (recommended)
 
-`pika.adapters.thread_safe_connection.ThreadSafeConnection` is the simplest way to use Pika from multiple threads. It runs the IOLoop in a background thread and provides a blocking API that is safe to call from any number of threads simultaneously. Consumer callbacks run on a per-channel worker thread, so slow processing never stalls heartbeats:
+`pika.adapters.thread_safe_connection.Connection` is the simplest way to use Pika from multiple threads. It runs the IOLoop in a background thread and provides a blocking API that is safe to call from any number of threads simultaneously. Consumer callbacks run on a per-channel worker thread, so slow processing never stalls heartbeats:
 
 ```python
-from pika.adapters.thread_safe_connection import ThreadSafeConnection
+from pika.adapters.thread_safe_connection import Connection
 
-conn = ThreadSafeConnection(pika.ConnectionParameters('localhost'))
+conn = Connection(pika.ConnectionParameters('localhost'))
 ch = conn.channel()
 
 def on_message(channel, method, properties, body):

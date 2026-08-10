@@ -313,7 +313,7 @@ class _BoundedWorkPool:
         return not thread.is_alive()
 
 
-class ThreadSafeChannel:
+class Channel:
     """
     Thread-safe wrapper around :class:`pika.channel.Channel`.
 
@@ -335,7 +335,7 @@ class ThreadSafeChannel:
       sent on time.
     - Messages are delivered to the callback **in order** (a single
       worker thread per channel).
-    - All :class:`ThreadSafeChannel` methods (:meth:`basic_ack`,
+    - All :class:`Channel` methods (:meth:`basic_ack`,
       :meth:`basic_nack`, :meth:`basic_reject`, :meth:`basic_publish`,
       :meth:`queue_declare`, etc.) are safe to call from within the
       callback.
@@ -357,7 +357,7 @@ class ThreadSafeChannel:
     .. rubric:: IOLoop-thread callbacks
 
     Callables passed directly to
-    :meth:`~ThreadSafeConnection.add_callback_threadsafe` still run
+    :meth:`~Connection.add_callback_threadsafe` still run
     on the IOLoop thread.  These must return quickly and must not call
     blocking channel methods (which would deadlock).
     """
@@ -553,14 +553,11 @@ class ThreadSafeChannel:
         :param body: The message body to publish.
         :param properties: Properties for the message.
         :param mandatory: If True, return unroutable messages to the publisher
-        :param on_publish: Optional callback invoked on the
-            **IOLoop thread** immediately after the publish frame is
-            written successfully, with the delivery tag (int) as its
-            sole argument.  Only meaningful when publisher confirms are
-            enabled via :meth:`confirm_delivery`; ignored otherwise.
-            Must return quickly (same contract as any
-            :meth:`~ThreadSafeConnection.add_callback_threadsafe`
-            callback).
+        :param on_publish: Optional callback invoked on the **IOLoop thread** immediately after the
+            publish frame is written successfully, with the delivery tag (int) as its sole argument.
+            Only meaningful when publisher confirms are enabled via :meth:`confirm_delivery`;
+            ignored otherwise. Must return quickly (same contract as any
+            :meth:`~Connection.add_callback_threadsafe` callback).
         :raises Exception: if the connection is already closed.
         """
         self._check_not_closed()
@@ -764,9 +761,9 @@ class ThreadSafeChannel:
         consumer can silently stop receiving messages.
 
         Dispatched on the per-channel worker thread (same as delivery callbacks), so the callback
-        may safely call any :class:`ThreadSafeChannel` method.  The RabbitMQ Java and .NET clients
-        run this listener inline on the I/O thread; pika's wrapper deliberately diverges so a slow
-        listener cannot stall heartbeats.
+        may safely call any :class:`Channel` method.  The RabbitMQ Java and .NET clients run this
+        listener inline on the I/O thread; pika's wrapper deliberately diverges so a slow listener
+        cannot stall heartbeats.
 
         Safe to call from any thread.
 
@@ -799,15 +796,15 @@ class ThreadSafeChannel:
         returned message.
 
         Dispatched on the per-channel worker thread (same as delivery callbacks), so the callback
-        may safely call any :class:`ThreadSafeChannel` method.  The RabbitMQ Java and .NET clients
-        run this listener inline on the I/O thread; pika's wrapper deliberately diverges so a slow
-        listener cannot stall heartbeats.
+        may safely call any :class:`Channel` method.  The RabbitMQ Java and .NET clients run this
+        listener inline on the I/O thread; pika's wrapper deliberately diverges so a slow listener
+        cannot stall heartbeats.
 
         Safe to call from any thread.
 
         :param callback:``callback(channel, method, properties, body)`` where *channel* is this
-            :class:`ThreadSafeChannel`, *method* is a :class:`pika.spec.Basic.Return`, *properties*
-            is a :class:`pika.spec.BasicProperties`, and *body* is :class:`bytes`.
+            :class:`Channel`, *method* is a :class:`pika.spec.Basic.Return`, *properties* is a
+            :class:`pika.spec.BasicProperties`, and *body* is :class:`bytes`.
         :raises Exception: if the connection is already closed.
         """
         self._check_not_closed()
@@ -888,7 +885,7 @@ class ThreadSafeChannel:
         Register a consumer and block until Basic.ConsumeOk arrives.
 
         The *on_message_callback* is dispatched on the channel's worker thread, not the IOLoop
-        thread.  All :class:`ThreadSafeChannel` methods are safe to call from within the callback.
+        thread.  All :class:`Channel` methods are safe to call from within the callback.
 
         Because the channel uses a single worker thread, deliveries are processed serially.  A
         callback that blocks (e.g. on a database write or a call to :meth:`queue_declare`) delays
@@ -1348,7 +1345,7 @@ class ThreadSafeChannel:
         return self._channel.is_closed
 
 
-class ThreadSafeConnection:
+class Connection:
     """Pika connection that is safe to use from multiple threads.
 
     .. note:: Each instance starts a background thread named
@@ -1364,7 +1361,7 @@ class ThreadSafeConnection:
 
     Usage::
 
-        conn = ThreadSafeConnection(pika.ConnectionParameters('localhost'))
+        conn = Connection(pika.ConnectionParameters('localhost'))
         ch = conn.channel()
 
         # safe to call from any number of threads simultaneously
@@ -1376,7 +1373,7 @@ class ThreadSafeConnection:
 
     Can also be used as a context manager::
 
-        with ThreadSafeConnection(pika.ConnectionParameters('localhost')) as conn:
+        with Connection(pika.ConnectionParameters('localhost')) as conn:
             ch = conn.channel()
             ch.basic_publish(exchange='', routing_key='q', body='hello')
 
@@ -1449,7 +1446,7 @@ class ThreadSafeConnection:
         self._closed_reason_tb: TracebackType | None = None
         self._blocking_waiters: list[tuple[threading.Event,
                                            list[BaseException | None]]] = []
-        self._channels: list[ThreadSafeChannel] = []
+        self._channels: list[Channel] = []
 
         # Single-worker pool for connection-level event callbacks
         # (Connection.Blocked / Unblocked).  Keeps user code off the
@@ -1610,11 +1607,9 @@ class ThreadSafeConnection:
     # Public API
     # ------------------------------------------------------------------
 
-    def channel(
-            self,
-            timeout: float | None = DEFAULT_RPC_TIMEOUT) -> ThreadSafeChannel:
+    def channel(self, timeout: float | None = DEFAULT_RPC_TIMEOUT) -> Channel:
         """
-        Open a new channel and return a :class:`ThreadSafeChannel`.
+        Open a new channel and return a :class:`Channel`.
 
         Blocks the calling thread until the channel is open.  The returned channel's methods are
         safe to call from any thread.
@@ -1671,11 +1666,10 @@ class ThreadSafeConnection:
             reason = self._closed_reason
             if reason is not None:
                 raise _with_close_traceback(reason, self._closed_reason_tb)
-            ch = ThreadSafeChannel(
-                result[0],
-                self,
-                work_queue_maxsize=self._work_queue_maxsize,
-                work_queue_put_timeout=self._work_queue_put_timeout)
+            ch = Channel(result[0],
+                         self,
+                         work_queue_maxsize=self._work_queue_maxsize,
+                         work_queue_put_timeout=self._work_queue_put_timeout)
             self._channels.append(ch)
         return ch
 
@@ -1882,7 +1876,7 @@ class ThreadSafeConnection:
                 raise _with_close_traceback(reason, self._closed_reason_tb)
         if self._connection.is_closed:
             raise ConnectionWrongStateError(
-                'ThreadSafeConnection.add_callback_threadsafe() called on '
+                'Connection.add_callback_threadsafe() called on '
                 'closed connection.')
 
     def add_on_connection_blocked_callback(self, callback) -> None:
@@ -1896,7 +1890,7 @@ class ThreadSafeConnection:
 
         Dispatched on a connection-level worker thread (one per
         connection), so the callback may safely call any
-        :class:`ThreadSafeChannel` method without stalling heartbeats.
+        :class:`Channel` method without stalling heartbeats.
         The RabbitMQ Java and .NET clients run this listener inline on
         the I/O thread; pika's wrapper deliberately diverges so a slow
         listener cannot stall heartbeats.
@@ -1905,7 +1899,7 @@ class ThreadSafeConnection:
 
         :param callback:
             ``callback(connection, method_frame)`` where *connection* is
-            this :class:`ThreadSafeConnection` and *method_frame* contains
+            this :class:`Connection` and *method_frame* contains
             a :class:`pika.spec.Connection.Blocked`.
         :raises Exception: if the connection is already closed.
         """
@@ -1929,7 +1923,7 @@ class ThreadSafeConnection:
 
         :param callback:
             ``callback(connection, method_frame)`` where *connection* is
-            this :class:`ThreadSafeConnection` and *method_frame* contains
+            this :class:`Connection` and *method_frame* contains
             a :class:`pika.spec.Connection.Unblocked`.
         :raises Exception: if the connection is already closed.
         """
@@ -1955,8 +1949,8 @@ class ThreadSafeConnection:
             _submit_or_terminate(
                 self._connection_work_pool, self._connection,
                 'Connection event dropped: work pool shut down',
-                ThreadSafeChannel._safe_dispatch, raw_method_name, callback,
-                self, method_frame)
+                Channel._safe_dispatch, raw_method_name, callback, self,
+                method_frame)
 
         def _register() -> None:
             try:

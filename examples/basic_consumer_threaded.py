@@ -1,14 +1,14 @@
 """
-Example: consuming with ThreadSafeConnection.
+Example: consuming with Connection.
 
-ThreadSafeChannel dispatches each delivery on a dedicated per-channel worker
+Channel dispatches each delivery on a dedicated per-channel worker
 thread, not the IOLoop thread.  Long-running work in the callback no longer
 stalls heartbeats: the IOLoop keeps running on its own thread while the
 worker is busy.  Deliveries on a single channel are processed serially on
 that worker thread, so prefetch controls how many unacked messages the
 broker will hand out, not the worker thread count.
 
-Calls to ThreadSafeChannel methods (basic_ack, basic_publish, etc.) are
+Calls to Channel methods (basic_ack, basic_publish, etc.) are
 safe from any thread, including the worker thread that delivers the
 message - so there is no need to bounce the ack through
 add_callback_threadsafe as the BlockingConnection-based example required.
@@ -22,7 +22,7 @@ import threading
 import time
 
 import pika
-from pika.adapters.thread_safe_connection import ThreadSafeConnection
+from pika.adapters.thread_safe_connection import Connection
 from pika.exceptions import ConnectionClosed
 from pika.exchange_type import ExchangeType
 
@@ -64,7 +64,7 @@ def main():
     )
 
     LOGGER.info('Connecting ...')
-    conn = ThreadSafeConnection(parameters)
+    conn = Connection(parameters)
     ch = conn.channel()
 
     ch.exchange_declare(exchange=EXCHANGE_NAME,
