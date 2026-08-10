@@ -353,10 +353,10 @@ class ThreadSafeChannelTests(unittest.TestCase):
         wrapper._connection._error = None
         return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
 
-    def test_basic_publish_routes_through_add_callback_threadsafe(self):
+    def test_basic_publish_routes_through_schedule_unchecked(self):
         ch, _raw_ch, wrapper = self._make_channel()
         ch.basic_publish(exchange='ex', routing_key='rk', body=b'hello')
-        wrapper.add_callback_threadsafe.assert_called_once()
+        wrapper._schedule_unchecked.assert_called_once()
 
     def test_basic_publish_does_not_call_raw_channel_directly(self):
         ch, raw_ch, _wrapper = self._make_channel()
@@ -371,7 +371,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
                          properties='props',
                          mandatory=True)
         # Extract and invoke the scheduled callback manually
-        scheduled_cb = wrapper.add_callback_threadsafe.call_args[0][0]
+        scheduled_cb = wrapper._schedule_unchecked.call_args[0][0]
         scheduled_cb()
         raw_ch.basic_publish.assert_called_once_with(
             exchange='ex',
@@ -390,7 +390,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         raw_ch.basic_publish.side_effect = ChannelWrongStateError(
             'channel closed')
         ch.basic_publish(exchange='ex', routing_key='rk', body=b'x')
-        scheduled_cb = wrapper.add_callback_threadsafe.call_args[0][0]
+        scheduled_cb = wrapper._schedule_unchecked.call_args[0][0]
         scheduled_cb()  # must not raise
         raw_ch.basic_publish.assert_called_once()
 
@@ -404,7 +404,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
                          routing_key='rk',
                          body=b'x',
                          on_publish=on_publish)
-        scheduled_cb = wrapper.add_callback_threadsafe.call_args[0][0]
+        scheduled_cb = wrapper._schedule_unchecked.call_args[0][0]
         scheduled_cb()
         raw_ch.basic_publish.assert_called_once()
         on_publish.assert_not_called()
@@ -420,17 +420,17 @@ class ThreadSafeChannelTests(unittest.TestCase):
                          routing_key='rk',
                          body=b'a',
                          on_publish=lambda tag: tags.append(tag))
-        wrapper.add_callback_threadsafe.call_args[0][0]()
+        wrapper._schedule_unchecked.call_args[0][0]()
         ch.basic_publish(exchange='ex',
                          routing_key='rk',
                          body=b'b',
                          on_publish=lambda tag: tags.append(tag))
-        wrapper.add_callback_threadsafe.call_args[0][0]()
+        wrapper._schedule_unchecked.call_args[0][0]()
         ch.basic_publish(exchange='ex',
                          routing_key='rk',
                          body=b'c',
                          on_publish=lambda tag: tags.append(tag))
-        wrapper.add_callback_threadsafe.call_args[0][0]()
+        wrapper._schedule_unchecked.call_args[0][0]()
         self.assertEqual(tags, [1, 2, 3])
 
     def test_on_publish_not_called_when_publish_raises(self):
@@ -446,7 +446,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
                          routing_key='rk',
                          body=b'x',
                          on_publish=on_publish)
-        scheduled_cb = wrapper.add_callback_threadsafe.call_args[0][0]
+        scheduled_cb = wrapper._schedule_unchecked.call_args[0][0]
         scheduled_cb()  # must not raise
         on_publish.assert_not_called()
         self.assertEqual(ch._next_publish_seq_no, 0)
@@ -461,7 +461,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         ch, _raw_ch, wrapper = self._make_channel()
         ch._next_publish_seq_no = 0
         ch.basic_publish(exchange='ex', routing_key='rk', body=b'x')
-        wrapper.add_callback_threadsafe.call_args[0][0]()
+        wrapper._schedule_unchecked.call_args[0][0]()
         self.assertEqual(ch._next_publish_seq_no, 1)
 
     def test_basic_ack_callback_swallows_channel_wrong_state_error(self):
@@ -469,7 +469,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         ch, raw_ch, wrapper = self._make_channel()
         raw_ch.basic_ack.side_effect = ChannelWrongStateError('channel closed')
         ch.basic_ack(delivery_tag=1)
-        wrapper.add_callback_threadsafe.call_args[0][0]()  # must not raise
+        wrapper._schedule_unchecked.call_args[0][0]()  # must not raise
         raw_ch.basic_ack.assert_called_once()
 
     def test_basic_nack_callback_swallows_channel_wrong_state_error(self):
@@ -477,7 +477,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         ch, raw_ch, wrapper = self._make_channel()
         raw_ch.basic_nack.side_effect = ChannelWrongStateError('channel closed')
         ch.basic_nack(delivery_tag=1)
-        wrapper.add_callback_threadsafe.call_args[0][0]()  # must not raise
+        wrapper._schedule_unchecked.call_args[0][0]()  # must not raise
         raw_ch.basic_nack.assert_called_once()
 
     def test_basic_reject_callback_swallows_channel_wrong_state_error(self):
@@ -486,7 +486,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         raw_ch.basic_reject.side_effect = ChannelWrongStateError(
             'channel closed')
         ch.basic_reject(delivery_tag=1)
-        wrapper.add_callback_threadsafe.call_args[0][0]()  # must not raise
+        wrapper._schedule_unchecked.call_args[0][0]()  # must not raise
         raw_ch.basic_reject.assert_called_once()
 
     def test_basic_publish_raises_when_connection_already_closed(self):
@@ -498,7 +498,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
             ch.basic_publish(exchange='ex', routing_key='rk', body=b'x')
 
         self.assertIs(ctx.exception, reason)
-        wrapper.add_callback_threadsafe.assert_not_called()
+        wrapper._schedule_unchecked.assert_not_called()
 
     def test_basic_ack_raises_when_connection_already_closed(self):
         ch, _raw_ch, wrapper = self._make_channel()
@@ -509,7 +509,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
             ch.basic_ack(delivery_tag=1)
 
         self.assertIs(ctx.exception, reason)
-        wrapper.add_callback_threadsafe.assert_not_called()
+        wrapper._schedule_unchecked.assert_not_called()
 
     def test_basic_nack_raises_when_connection_already_closed(self):
         ch, _raw_ch, wrapper = self._make_channel()
@@ -520,7 +520,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
             ch.basic_nack(delivery_tag=1)
 
         self.assertIs(ctx.exception, reason)
-        wrapper.add_callback_threadsafe.assert_not_called()
+        wrapper._schedule_unchecked.assert_not_called()
 
     def test_basic_reject_raises_when_connection_already_closed(self):
         ch, _raw_ch, wrapper = self._make_channel()
@@ -531,46 +531,46 @@ class ThreadSafeChannelTests(unittest.TestCase):
             ch.basic_reject(delivery_tag=1)
 
         self.assertIs(ctx.exception, reason)
-        wrapper.add_callback_threadsafe.assert_not_called()
+        wrapper._schedule_unchecked.assert_not_called()
 
-    def test_basic_ack_routes_through_add_callback_threadsafe(self):
+    def test_basic_ack_routes_through_schedule_unchecked(self):
         ch, raw_ch, wrapper = self._make_channel()
         ch.basic_ack(delivery_tag=42, multiple=True)
-        wrapper.add_callback_threadsafe.assert_called_once()
+        wrapper._schedule_unchecked.assert_called_once()
         raw_ch.basic_ack.assert_not_called()
 
     def test_basic_ack_callback_calls_raw_channel(self):
         ch, raw_ch, wrapper = self._make_channel()
         ch.basic_ack(delivery_tag=42, multiple=True)
-        scheduled_cb = wrapper.add_callback_threadsafe.call_args[0][0]
+        scheduled_cb = wrapper._schedule_unchecked.call_args[0][0]
         scheduled_cb()
         raw_ch.basic_ack.assert_called_once_with(delivery_tag=42, multiple=True)
 
-    def test_basic_nack_routes_through_add_callback_threadsafe(self):
+    def test_basic_nack_routes_through_schedule_unchecked(self):
         ch, raw_ch, wrapper = self._make_channel()
         ch.basic_nack(delivery_tag=7, multiple=False, requeue=False)
-        wrapper.add_callback_threadsafe.assert_called_once()
+        wrapper._schedule_unchecked.assert_called_once()
         raw_ch.basic_nack.assert_not_called()
 
     def test_basic_nack_callback_calls_raw_channel(self):
         ch, raw_ch, wrapper = self._make_channel()
         ch.basic_nack(delivery_tag=7, multiple=False, requeue=False)
-        scheduled_cb = wrapper.add_callback_threadsafe.call_args[0][0]
+        scheduled_cb = wrapper._schedule_unchecked.call_args[0][0]
         scheduled_cb()
         raw_ch.basic_nack.assert_called_once_with(delivery_tag=7,
                                                   multiple=False,
                                                   requeue=False)
 
-    def test_basic_reject_routes_through_add_callback_threadsafe(self):
+    def test_basic_reject_routes_through_schedule_unchecked(self):
         ch, raw_ch, wrapper = self._make_channel()
         ch.basic_reject(delivery_tag=3, requeue=False)
-        wrapper.add_callback_threadsafe.assert_called_once()
+        wrapper._schedule_unchecked.assert_called_once()
         raw_ch.basic_reject.assert_not_called()
 
     def test_basic_reject_callback_calls_raw_channel(self):
         ch, raw_ch, wrapper = self._make_channel()
         ch.basic_reject(delivery_tag=3, requeue=False)
-        scheduled_cb = wrapper.add_callback_threadsafe.call_args[0][0]
+        scheduled_cb = wrapper._schedule_unchecked.call_args[0][0]
         scheduled_cb()
         raw_ch.basic_reject.assert_called_once_with(delivery_tag=3,
                                                     requeue=False)
@@ -588,7 +588,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
             raw_ch.queue_declare.side_effect = fake_queue_declare
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper._schedule_unchecked.side_effect = execute_and_fire
 
         result = ch.queue_declare(queue='my_queue', durable=True)
 
@@ -612,7 +612,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
             ch.queue_declare(queue='my_queue')
 
         self.assertIs(ctx.exception, reason)
-        wrapper.add_callback_threadsafe.assert_not_called()
+        wrapper._schedule_unchecked.assert_not_called()
 
     def test_queue_declare_raises_when_connection_closes_while_waiting(self):
         ch, _raw_ch, wrapper = self._make_channel()
@@ -627,7 +627,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
                     evt.set()
                 wrapper._blocking_waiters.clear()
 
-        wrapper.add_callback_threadsafe.side_effect = close_while_waiting
+        wrapper._schedule_unchecked.side_effect = close_while_waiting
 
         with self.assertRaises(Exception) as ctx:
             ch.queue_declare(queue='my_queue')
@@ -646,7 +646,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
             raw_ch.basic_qos.side_effect = fake_qos
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper._schedule_unchecked.side_effect = execute_and_fire
 
         result = ch.basic_qos(prefetch_count=10)
 
@@ -682,7 +682,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
             raw_ch.basic_consume.side_effect = fake_consume
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper._schedule_unchecked.side_effect = execute_and_fire
 
         tag = ch.basic_consume(queue='q', on_message_callback=MagicMock())
 
@@ -708,7 +708,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
             raw_ch.basic_consume.side_effect = fake_consume
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper._schedule_unchecked.side_effect = execute_and_fire
 
         ch.basic_consume(queue='q', on_message_callback=my_callback)
 
@@ -741,7 +741,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
             raw_ch.basic_cancel.side_effect = fake_cancel
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper._schedule_unchecked.side_effect = execute_and_fire
 
         result = ch.basic_cancel('ctag1')
 
@@ -774,7 +774,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
                 0](raw_ch, ChannelClosedByClient(reply_code, reply_text))
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper._schedule_unchecked.side_effect = execute_and_fire
 
         ch.close()  # must not raise
 
@@ -798,7 +798,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         def execute_immediately(cb):
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = execute_immediately
+        wrapper._schedule_unchecked.side_effect = execute_immediately
 
         ch.close()  # must not raise; channel is already closed
 
@@ -819,7 +819,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         def execute_immediately(cb):
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = execute_immediately
+        wrapper._schedule_unchecked.side_effect = execute_immediately
 
         ch.abort(reply_code=320, reply_text='shutting down', timeout=5)
         # Verify the close path ran (work pool was shut down via close())
@@ -833,7 +833,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         def execute_immediately(cb):
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = execute_immediately
+        wrapper._schedule_unchecked.side_effect = execute_immediately
 
         # Wedge the consumer worker in a never-releasing callback so the pool
         # cannot drain and exit.
@@ -872,7 +872,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         def execute_immediately(cb):
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = execute_immediately
+        wrapper._schedule_unchecked.side_effect = execute_immediately
 
         ch.close(timeout=None)
         self.assertTrue(ch._pool_shutdown)
@@ -899,7 +899,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
             with scheduled_lock:
                 scheduled.append(cb)
 
-        wrapper.add_callback_threadsafe.side_effect = record
+        wrapper._schedule_unchecked.side_effect = record
 
         barrier = threading.Barrier(n)
 
@@ -955,7 +955,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
             raw_ch.basic_consume.side_effect = fake_consume
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper._schedule_unchecked.side_effect = execute_and_fire
 
         ch.basic_consume(queue='q', on_message_callback=my_callback)
         ch._consumer_work_pool.shutdown(wait=True)
@@ -985,7 +985,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
             raw_ch.basic_consume.side_effect = fake_consume
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper._schedule_unchecked.side_effect = execute_and_fire
 
         ch.basic_consume(queue='q', on_message_callback=my_callback)
         ch._consumer_work_pool.shutdown(wait=True)
@@ -1017,7 +1017,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
             raw_ch.basic_consume.side_effect = fake_consume
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper._schedule_unchecked.side_effect = execute_and_fire
 
         ch.basic_consume(queue='q', on_message_callback=my_callback)
         ch._consumer_work_pool.shutdown(wait=True)
@@ -1062,7 +1062,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
                     -1](raw_ch, ChannelClosedByClient(reply_code, reply_text))
                 cb()
 
-        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper._schedule_unchecked.side_effect = execute_and_fire
 
         ch.basic_consume(queue='q', on_message_callback=slow_callback)
         ch.close()
@@ -1098,7 +1098,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
             raw_ch.basic_consume.side_effect = fake_consume
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper._schedule_unchecked.side_effect = execute_and_fire
 
         with patch(
                 'pika.adapters.thread_safe_connection.LOGGER') as mock_logger:
@@ -1125,7 +1125,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
             raw_ch.basic_consume.side_effect = fake_consume
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper._schedule_unchecked.side_effect = execute_and_fire
 
         ch.basic_consume(queue='q', on_message_callback=MagicMock())
 
@@ -1140,11 +1140,10 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         ch._shutdown_pool()
         ch._shutdown_pool()  # second call must be a no-op
 
-    def test_add_on_return_callback_routes_through_add_callback_threadsafe(
-            self):
+    def test_add_on_return_callback_routes_through_schedule_unchecked(self):
         ch, raw_ch, wrapper = self._make_channel()
         ch.add_on_return_callback(MagicMock())
-        wrapper.add_callback_threadsafe.assert_called_once()
+        wrapper._schedule_unchecked.assert_called_once()
         raw_ch.add_on_return_callback.assert_not_called()
 
     def test_add_on_return_callback_registers_on_raw_channel(self):
@@ -1153,7 +1152,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         def execute_immediately(cb):
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = execute_immediately
+        wrapper._schedule_unchecked.side_effect = execute_immediately
 
         ch.add_on_return_callback(MagicMock())
         raw_ch.add_on_return_callback.assert_called_once()
@@ -1175,7 +1174,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
             # Simulate the broker returning a message
             wrapped(raw_ch, 'method', 'props', b'returned-body')
 
-        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper._schedule_unchecked.side_effect = execute_and_fire
 
         ch.add_on_return_callback(user_cb)
         ch._consumer_work_pool.shutdown(wait=True)
@@ -1196,7 +1195,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
             cb()
             wrapped_holder.append(raw_ch.add_on_return_callback.call_args[0][0])
 
-        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper._schedule_unchecked.side_effect = execute_and_fire
 
         ch.add_on_return_callback(MagicMock())
         ch._shutdown_pool()
@@ -1212,13 +1211,12 @@ class ConsumerWorkPoolTests(unittest.TestCase):
             ch.add_on_return_callback(MagicMock())
 
         self.assertIs(ctx.exception, reason)
-        wrapper.add_callback_threadsafe.assert_not_called()
+        wrapper._schedule_unchecked.assert_not_called()
 
-    def test_add_on_cancel_callback_routes_through_add_callback_threadsafe(
-            self):
+    def test_add_on_cancel_callback_routes_through_schedule_unchecked(self):
         ch, raw_ch, wrapper = self._make_channel()
         ch.add_on_cancel_callback(MagicMock())
-        wrapper.add_callback_threadsafe.assert_called_once()
+        wrapper._schedule_unchecked.assert_called_once()
         raw_ch.add_on_cancel_callback.assert_not_called()
 
     def test_add_on_cancel_callback_registers_on_raw_channel(self):
@@ -1227,7 +1225,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         def execute_immediately(cb):
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = execute_immediately
+        wrapper._schedule_unchecked.side_effect = execute_immediately
 
         ch.add_on_cancel_callback(MagicMock())
         raw_ch.add_on_cancel_callback.assert_called_once()
@@ -1247,7 +1245,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
             wrapped = raw_ch.add_on_cancel_callback.call_args[0][0]
             wrapped('cancel-frame')
 
-        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper._schedule_unchecked.side_effect = execute_and_fire
 
         ch.add_on_cancel_callback(user_cb)
         ch._consumer_work_pool.shutdown(wait=True)
@@ -1264,7 +1262,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
             cb()
             wrapped_holder.append(raw_ch.add_on_cancel_callback.call_args[0][0])
 
-        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper._schedule_unchecked.side_effect = execute_and_fire
 
         ch.add_on_cancel_callback(MagicMock())
         ch._shutdown_pool()
@@ -1279,7 +1277,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
             ch.add_on_cancel_callback(MagicMock())
 
         self.assertIs(ctx.exception, reason)
-        wrapper.add_callback_threadsafe.assert_not_called()
+        wrapper._schedule_unchecked.assert_not_called()
 
     def test_return_listener_exception_is_logged_not_lost(self):
         """An exception raised inside a return listener must be logged (not silently dropped on an
@@ -1295,7 +1293,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
             wrapped = raw_ch.add_on_return_callback.call_args[0][0]
             wrapped(raw_ch, 'method', 'props', b'body')
 
-        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper._schedule_unchecked.side_effect = execute_and_fire
 
         with self.assertLogs('pika.adapters.thread_safe_connection',
                              level='ERROR') as cm:
@@ -1317,7 +1315,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
             wrapped = raw_ch.add_on_cancel_callback.call_args[0][0]
             wrapped('cancel-frame')
 
-        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper._schedule_unchecked.side_effect = execute_and_fire
 
         with self.assertLogs('pika.adapters.thread_safe_connection',
                              level='ERROR') as cm:
@@ -1344,7 +1342,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
             raw_ch.confirm_delivery.side_effect = fake_confirm
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper._schedule_unchecked.side_effect = execute_and_fire
 
         with self.assertLogs('pika.adapters.thread_safe_connection',
                              level='ERROR') as cm:
@@ -1372,7 +1370,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
             raw_ch.confirm_delivery.side_effect = fake_confirm
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper._schedule_unchecked.side_effect = execute_and_fire
         ch.confirm_delivery(MagicMock())
         self.assertEqual(ch._next_publish_seq_no, 0)
 
@@ -1391,7 +1389,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
             raw_ch.confirm_delivery.side_effect = fake_confirm
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper._schedule_unchecked.side_effect = execute_and_fire
 
         result1 = ch.confirm_delivery(MagicMock())
         self.assertIs(result1, ok_frame)
@@ -1403,7 +1401,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         self.assertIs(result2, ok_frame)
         self.assertEqual(ch._next_publish_seq_no, 5)
         # Only one RPC should have been sent
-        self.assertEqual(wrapper.add_callback_threadsafe.call_count, 1)
+        self.assertEqual(wrapper._schedule_unchecked.call_count, 1)
 
     def test_next_publish_seq_no_property_none_before_confirms(self):
         """next_publish_seq_no returns None when confirms are not enabled."""
@@ -1421,7 +1419,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         ch, _raw_ch, wrapper = self._make_channel()
         ch._next_publish_seq_no = 0
         ch.basic_publish(exchange='ex', routing_key='rk', body=b'x')
-        wrapper.add_callback_threadsafe.call_args[0][0]()
+        wrapper._schedule_unchecked.call_args[0][0]()
         self.assertEqual(ch.next_publish_seq_no, 2)
 
 
@@ -1451,7 +1449,7 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
             raw_ch.queue_declare = MagicMock()
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = never_respond
+        wrapper._schedule_unchecked.side_effect = never_respond
 
         with self.assertRaises(TimeoutError) as ctx:
             ch.queue_declare(queue='q', timeout=0.05)
@@ -1466,7 +1464,7 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
             raw_ch.basic_qos = MagicMock()
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = never_respond
+        wrapper._schedule_unchecked.side_effect = never_respond
 
         with self.assertRaises(TimeoutError) as ctx:
             ch.basic_qos(prefetch_count=1, timeout=0.05)
@@ -1481,7 +1479,7 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
             raw_ch.basic_consume = MagicMock()
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = never_respond
+        wrapper._schedule_unchecked.side_effect = never_respond
 
         with self.assertRaises(TimeoutError) as ctx:
             ch.basic_consume(queue='q',
@@ -1498,7 +1496,7 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
             raw_ch.basic_cancel = MagicMock()
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = never_respond
+        wrapper._schedule_unchecked.side_effect = never_respond
 
         with self.assertRaises(TimeoutError) as ctx:
             ch.basic_cancel('ctag1', timeout=0.05)
@@ -1516,7 +1514,7 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
             raw_ch.close = MagicMock()
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = never_respond
+        wrapper._schedule_unchecked.side_effect = never_respond
 
         # Must not raise - close() treats timeout as "channel is dead"
         ch.close(timeout=0.05)
@@ -1534,7 +1532,7 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
             raw_ch.basic_qos.side_effect = fake_qos
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper._schedule_unchecked.side_effect = execute_and_fire
 
         result = ch.basic_qos(prefetch_count=1)
         self.assertIs(result, mock_frame)
@@ -1548,7 +1546,7 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
             raw_ch.queue_declare = MagicMock()
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = never_respond
+        wrapper._schedule_unchecked.side_effect = never_respond
 
         with self.assertRaises(TimeoutError):
             ch.queue_declare(queue='q', timeout=0.05)
@@ -1565,7 +1563,7 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
             raw_ch.basic_get = MagicMock()
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = never_respond
+        wrapper._schedule_unchecked.side_effect = never_respond
 
         with self.assertRaises(TimeoutError):
             ch.basic_get(queue='q', timeout=0.05)
@@ -1583,7 +1581,7 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
             raw_ch.close = MagicMock()
             cb()
 
-        wrapper.add_callback_threadsafe.side_effect = never_respond
+        wrapper._schedule_unchecked.side_effect = never_respond
 
         ch.close(timeout=0.05)
         self.assertEqual(wrapper._blocking_waiters, [])
@@ -1623,7 +1621,7 @@ class BlockingRPCPassthroughTests(unittest.TestCase):
             kwargs['callback'](mock_frame)
 
         getattr(raw_ch, raw_method).side_effect = fake_method
-        wrapper.add_callback_threadsafe.side_effect = execute
+        wrapper._schedule_unchecked.side_effect = execute
         return ch, raw_ch, wrapper, mock_frame
 
     def test_exchange_declare_returns_method_frame(self):
@@ -1715,7 +1713,7 @@ class BlockingRPCErrorPathTests(unittest.TestCase):
         ch, raw_ch, wrapper = self._make_channel()
         boom = RuntimeError('connection torn down')
         raw_ch.queue_declare.side_effect = boom
-        wrapper.add_callback_threadsafe.side_effect = lambda cb: cb()
+        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
 
         with self.assertRaises(RuntimeError) as ctx:
             ch.queue_declare(queue='q', timeout=0.5)
@@ -1740,7 +1738,7 @@ class BlockingRPCErrorPathTests(unittest.TestCase):
             captured_close_cb['cb'](raw_ch, reason)
 
         raw_ch.queue_declare.side_effect = fire_close
-        wrapper.add_callback_threadsafe.side_effect = lambda cb: cb()
+        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
 
         with self.assertRaises(Exception) as ctx:
             ch.queue_declare(queue='q', timeout=0.5)
@@ -1771,7 +1769,7 @@ class BasicGetTests(unittest.TestCase):
             kwargs['callback'](raw_ch, 'method', 'props', b'body')
 
         raw_ch.basic_get.side_effect = fire_get_ok
-        wrapper.add_callback_threadsafe.side_effect = lambda cb: cb()
+        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
 
         method, properties, body = ch.basic_get(queue='q', timeout=0.5)
         self.assertEqual(method, 'method')
@@ -1793,7 +1791,7 @@ class BasicGetTests(unittest.TestCase):
             captured_empty_cb['cb']('empty-frame')
 
         raw_ch.basic_get.side_effect = fire_empty
-        wrapper.add_callback_threadsafe.side_effect = lambda cb: cb()
+        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
 
         result = ch.basic_get(queue='q', timeout=0.5)
         self.assertEqual(result, (None, None, None))
@@ -1802,7 +1800,7 @@ class BasicGetTests(unittest.TestCase):
         ch, raw_ch, wrapper = self._make_channel()
         boom = RuntimeError('basic_get raised')
         raw_ch.basic_get.side_effect = boom
-        wrapper.add_callback_threadsafe.side_effect = lambda cb: cb()
+        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
 
         with self.assertRaises(RuntimeError) as ctx:
             ch.basic_get(queue='q', timeout=0.5)
@@ -1822,7 +1820,7 @@ class BasicGetTests(unittest.TestCase):
             captured_close_cb['cb'](raw_ch, reason)
 
         raw_ch.basic_get.side_effect = fire_close
-        wrapper.add_callback_threadsafe.side_effect = lambda cb: cb()
+        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
 
         with self.assertRaises(Exception) as ctx:
             ch.basic_get(queue='q', timeout=0.5)
@@ -1861,7 +1859,7 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
             captured_close_cb['cb'](raw_ch, reason)
 
         raw_ch.close.side_effect = fire_close
-        wrapper.add_callback_threadsafe.side_effect = lambda cb: cb()
+        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
 
         with self.assertRaises(Exception) as ctx:
             ch.close(timeout=0.5)
@@ -1871,7 +1869,7 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
         ch, raw_ch, wrapper = self._make_channel()
         boom = RuntimeError('close raised')
         raw_ch.close.side_effect = boom
-        wrapper.add_callback_threadsafe.side_effect = lambda cb: cb()
+        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
 
         with self.assertRaises(RuntimeError) as ctx:
             ch.close(timeout=0.5)
@@ -1898,7 +1896,7 @@ class CallbackRegistrationFailureTests(unittest.TestCase):
     def test_add_on_cancel_callback_logs_when_raw_register_raises(self):
         ch, raw_ch, wrapper = self._make_channel()
         raw_ch.add_on_cancel_callback.side_effect = RuntimeError('boom')
-        wrapper.add_callback_threadsafe.side_effect = lambda cb: cb()
+        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
         with patch(
                 'pika.adapters.thread_safe_connection.LOGGER') as mock_logger:
             ch.add_on_cancel_callback(MagicMock())
@@ -1909,7 +1907,7 @@ class CallbackRegistrationFailureTests(unittest.TestCase):
     def test_add_on_return_callback_logs_when_raw_register_raises(self):
         ch, raw_ch, wrapper = self._make_channel()
         raw_ch.add_on_return_callback.side_effect = RuntimeError('boom')
-        wrapper.add_callback_threadsafe.side_effect = lambda cb: cb()
+        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
         with patch(
                 'pika.adapters.thread_safe_connection.LOGGER') as mock_logger:
             ch.add_on_return_callback(MagicMock())

@@ -17,7 +17,6 @@ from __future__ import annotations
 import itertools
 import logging
 import queue
-import sys
 import threading
 import time
 from threading import Event
@@ -471,7 +470,7 @@ class ThreadSafeChannel:
                 error[0] = exc
                 ready.set()
 
-        self._wrapper.add_callback_threadsafe(_invoke)
+        self._wrapper._schedule_unchecked(_invoke)
 
         try:
             if not ready.wait(timeout=timeout):
@@ -531,7 +530,7 @@ class ThreadSafeChannel:
                 if on_publish is not None:
                     on_publish(self._next_publish_seq_no)
 
-        self._wrapper.add_callback_threadsafe(_publish)
+        self._wrapper._schedule_unchecked(_publish)
 
     def basic_ack(self, delivery_tag: int = 0, multiple: bool = False) -> None:
         """
@@ -553,7 +552,7 @@ class ThreadSafeChannel:
                 LOGGER.warning('basic_ack failed (channel may have closed)',
                                exc_info=True)
 
-        self._wrapper.add_callback_threadsafe(_ack)
+        self._wrapper._schedule_unchecked(_ack)
 
     def basic_nack(self,
                    delivery_tag: int = 0,
@@ -580,7 +579,7 @@ class ThreadSafeChannel:
                 LOGGER.warning('basic_nack failed (channel may have closed)',
                                exc_info=True)
 
-        self._wrapper.add_callback_threadsafe(_nack)
+        self._wrapper._schedule_unchecked(_nack)
 
     def basic_reject(self, delivery_tag: int = 0, requeue: bool = True) -> None:
         """
@@ -602,7 +601,7 @@ class ThreadSafeChannel:
                 LOGGER.warning('basic_reject failed (channel may have closed)',
                                exc_info=True)
 
-        self._wrapper.add_callback_threadsafe(_reject)
+        self._wrapper._schedule_unchecked(_reject)
 
     def basic_qos(self,
                   prefetch_size: int = 0,
@@ -689,7 +688,7 @@ class ThreadSafeChannel:
                 error[0] = exc
                 ready.set()
 
-        self._wrapper.add_callback_threadsafe(_get)
+        self._wrapper._schedule_unchecked(_get)
 
         try:
             if not ready.wait(timeout=timeout):
@@ -735,7 +734,7 @@ class ThreadSafeChannel:
             except Exception:
                 LOGGER.warning('add_on_cancel_callback failed', exc_info=True)
 
-        self._wrapper.add_callback_threadsafe(_register)
+        self._wrapper._schedule_unchecked(_register)
 
     def add_on_return_callback(self, callback) -> None:
         """
@@ -772,7 +771,7 @@ class ThreadSafeChannel:
             except Exception:
                 LOGGER.warning('add_on_return_callback failed', exc_info=True)
 
-        self._wrapper.add_callback_threadsafe(_register)
+        self._wrapper._schedule_unchecked(_register)
 
     def confirm_delivery(self,
                          ack_nack_callback,
@@ -1221,7 +1220,7 @@ class ThreadSafeChannel:
                 error[0] = exc
                 ready.set()
 
-        self._wrapper.add_callback_threadsafe(_close)
+        self._wrapper._schedule_unchecked(_close)
 
         try:
             if not ready.wait(timeout=timeout):
@@ -1745,6 +1744,19 @@ class ThreadSafeConnection:
             reason was recorded.
         """
         self._check_not_closed()
+        self._schedule_unchecked(callback)
+
+    def _schedule_unchecked(self, callback) -> None:
+        """
+        Hand *callback* to the IOLoop without the closed-connection check.
+
+        For internal callers that must not be rejected mid-teardown.  Several channel methods
+        register a waiter before scheduling and unregister it in a ``finally``; raising here would
+        skip that cleanup and leak the waiter, so they check whatever state they care about
+        themselves and then schedule through this method.
+
+        :param callback: Zero-argument callable.
+        """
         self._connection.ioloop.add_callback_threadsafe(callback)
 
     def _check_not_closed(self) -> None:
@@ -1765,14 +1777,9 @@ class ThreadSafeConnection:
             if self._closed_reason is not None:
                 raise self._closed_reason
         if self._connection.is_closed:
-            # Name the calling method by frame introspection rather than having
-            # each caller hand in its own name, which can drift from the method
-            # it labels.  Only the error path pays for it, so callers on the
-            # publish hot path are unaffected.
-            caller = sys._getframe(1).f_code.co_name
             raise ConnectionWrongStateError(
-                f'ThreadSafeConnection.{caller}() called on closed or '
-                f'closing connection.')
+                'ThreadSafeConnection.add_callback_threadsafe() called on '
+                'closed connection.')
 
     def add_on_connection_blocked_callback(self, callback) -> None:
         """
