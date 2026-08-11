@@ -400,5 +400,46 @@ class TestContextManager(ThreadSafeTestCaseBase):
         self.assertTrue(conn.is_closed)
 
 
+class TestPerRPCCallbacksDoNotAccumulate(ThreadSafeTestCaseBase):
+    """
+    A long-lived channel must not grow a callback per RPC it serves.
+
+    ``add_on_close_callback`` registers with ``one_shot=False`` and every RPC passes a distinct
+    closure, so anything left behind is held until the channel closes and is rescanned by every
+    later registration.  Unit tests assert the removal calls; this asserts the observable
+    consequence against a real broker.
+    """
+
+    @staticmethod
+    def _close_callback_count(ch):
+        raw = ch._channel
+        # CallbackManager normalizes the prefix to a string.
+        stack = raw.callbacks._stack.get(str(raw.channel_number), {})
+        return len(stack.get('_on_channel_close', []))
+
+    def test(self):
+        conn = self._connect()
+        ch = conn.channel()
+        queue = self._unique_queue()
+        ch.queue_declare(queue=queue, exclusive=True)
+
+        baseline = self._close_callback_count(ch)
+        for _ in range(50):
+            ch.queue_declare(queue=queue, exclusive=True)
+
+        # At most one cleanup may still be in flight on the IOLoop thread.
+        retry_assertion(BLOCKING_CALL_TIMEOUT)(lambda: self.assertLessEqual(
+            self._close_callback_count(ch), baseline + 1))()
+
+        # The Basic.GetEmpty one-shot is only consumed if it fires, so a get
+        # that returns a message has to remove its own.
+        ch.basic_publish(exchange='', routing_key=queue, body=b'x')
+        for _ in range(20):
+            ch.basic_get(queue=queue, auto_ack=True)
+
+        retry_assertion(BLOCKING_CALL_TIMEOUT)(lambda: self.assertLessEqual(
+            self._close_callback_count(ch), baseline + 1))()
+
+
 if __name__ == '__main__':
     unittest.main()
