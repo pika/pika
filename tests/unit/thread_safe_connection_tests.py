@@ -2044,7 +2044,7 @@ class PerRPCCallbackReleaseTests(unittest.TestCase):
         # A healthy connection has no pending error; _submit_or_terminate
         # short-circuits when _error is set, so it must be None here.
         wrapper._connection._error = None
-        return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
+        return Channel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_blocking_rpc_removes_the_close_callback_it_registered(self):
         """A completed RPC must remove the exact close callback it added."""
