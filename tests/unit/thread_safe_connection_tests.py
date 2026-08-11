@@ -1578,8 +1578,10 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         result2 = ch.confirm_delivery(MagicMock())
         self.assertIs(result2, ok_frame)
         self.assertEqual(ch._next_publish_seq_no, 5)
-        # Only one RPC should have been sent
-        self.assertEqual(wrapper._schedule_unchecked.call_count, 1)
+        # Only one RPC should have been sent.  Count the frames handed to the
+        # raw channel rather than the callbacks scheduled on the IOLoop: a
+        # single RPC also schedules its own callback cleanup.
+        self.assertEqual(raw_ch.confirm_delivery.call_count, 1)
 
     def test_next_publish_seq_no_property_none_before_confirms(self):
         """next_publish_seq_no returns None when confirms are not enabled."""
