@@ -380,6 +380,12 @@ class Channel:
         self._pool_shutdown = False
         self._next_publish_seq_no: int | None = None
         self._confirm_select_ok = None
+        # Serializes confirm_delivery so two threads cannot both pass the
+        # _confirm_select_ok guard while the first is still waiting for
+        # Confirm.SelectOk.  Per-channel rather than the connection-wide
+        # _channel_waiters_lock: the call blocks for a broker round trip, which
+        # must not stall operations on other channels.
+        self._confirm_lock = threading.Lock()
 
     def _check_not_closed(self) -> None:
         """
@@ -943,10 +949,17 @@ class Channel:
         """
         Enable publisher confirms and block until Confirm.SelectOk arrives.
 
-        Idempotent: calling this method more than once on the same channel
-        returns the original Confirm.SelectOk without sending a frame to
-        the broker or resetting the delivery-tag counter, matching the
+        Idempotent: calling this method more than once on the same
+        channel - concurrently from several threads included - returns
+        the original Confirm.SelectOk without sending a frame to the
+        broker or resetting the delivery-tag counter, matching the
         behavior of the RabbitMQ Java and .NET clients.
+
+        Concurrent callers are serialized on a per-channel lock, so a
+        second thread waits for the first call's round trip to finish
+        before it is handed the cached frame.  Its own *timeout* bounds
+        only the wait for the broker's response, not that queueing, so
+        it can block for the first caller's timeout on top of its own.
 
         The *ack_nack_callback* is dispatched on the channel's worker
         thread (same as delivery callbacks), not the IOLoop thread.
@@ -966,39 +979,40 @@ class Channel:
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
-        if self._confirm_select_ok is not None:
-            return self._confirm_select_ok
+        with self._confirm_lock:
+            if self._confirm_select_ok is not None:
+                return self._confirm_select_ok
 
-        def _wrapped_ack_nack(method_frame) -> None:
-            _submit_or_terminate(
-                self._consumer_work_pool, self._wrapper._connection,
-                'Publisher confirm dropped: work pool shut down',
-                self._safe_dispatch, 'publisher confirm callback',
-                ack_nack_callback, method_frame)
+            def _wrapped_ack_nack(method_frame) -> None:
+                _submit_or_terminate(
+                    self._consumer_work_pool, self._wrapper._connection,
+                    'Publisher confirm dropped: work pool shut down',
+                    self._safe_dispatch, 'publisher confirm callback',
+                    ack_nack_callback, method_frame)
 
-        def _arm_seq_no() -> None:
-            # Runs on the IOLoop thread the moment Confirm.Select is written,
-            # so it is ordered ahead of every publish the IOLoop has queued
-            # behind it.  Arming from the calling thread once the RPC returns
-            # instead would miss each publish issued during the round trip: the
-            # broker numbers those from 1, leaving the counter permanently
-            # behind the broker's delivery tags.
-            #
-            # Arm only once.  A confirm_delivery that timed out may still have
-            # reached the broker, and the retry's second Confirm.Select does not
-            # reset the broker's counter, so neither may this.
-            if self._next_publish_seq_no is None:
-                self._next_publish_seq_no = 0
+            def _arm_seq_no() -> None:
+                # Runs on the IOLoop thread the moment Confirm.Select is
+                # written, so it is ordered ahead of every publish the IOLoop
+                # has queued behind it.  Arming from the calling thread once the
+                # RPC returns instead would miss each publish issued during the
+                # round trip: the broker numbers those from 1, leaving the
+                # counter permanently behind the broker's delivery tags.
+                #
+                # Arm only once.  A confirm_delivery that timed out may still
+                # have reached the broker, and the retry's second Confirm.Select
+                # does not reset the broker's counter, so neither may this.
+                if self._next_publish_seq_no is None:
+                    self._next_publish_seq_no = 0
 
-        result = self._blocking_rpc(
-            'confirm_delivery',
-            self._channel.confirm_delivery,
-            timeout,
-            on_sent=_arm_seq_no,
-            ack_nack_callback=_wrapped_ack_nack,
-        )
-        self._confirm_select_ok = result
-        return result
+            result = self._blocking_rpc(
+                'confirm_delivery',
+                self._channel.confirm_delivery,
+                timeout,
+                on_sent=_arm_seq_no,
+                ack_nack_callback=_wrapped_ack_nack,
+            )
+            self._confirm_select_ok = result
+            return result
 
     def basic_consume(self,
                       queue,
