@@ -1606,6 +1606,77 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         # single RPC also schedules its own callback cleanup.
         self.assertEqual(raw_ch.confirm_delivery.call_count, 1)
 
+    def test_confirm_delivery_arms_the_counter_before_the_response(self):
+        """
+        The counter must be armed when Confirm.Select is written, not when Confirm.SelectOk comes
+        back.
+
+        The broker numbers from the first publish it processes after Confirm.Select, so a publish
+        issued during the round trip is numbered by the broker.  Arming on the calling thread once
+        the RPC returned left every one of those uncounted and the tags permanently behind.
+        """
+        ch, raw_ch, wrapper = self._make_channel()
+        pending_select_ok = []
+        armed_during_round_trip = []
+
+        def fake_confirm(ack_nack_callback, callback):
+            # Confirm.Select is on the wire; SelectOk is still in flight.
+            pending_select_ok.append(callback)
+
+        raw_ch.confirm_delivery.side_effect = fake_confirm
+
+        def execute(cb):
+            cb()
+            if pending_select_ok:
+                # Still mid round trip: a publish running now gets tag 1.
+                armed_during_round_trip.append(ch._next_publish_seq_no)
+                pending_select_ok.pop()('Confirm.SelectOk')
+
+        wrapper._schedule_unchecked.side_effect = execute
+
+        ch.confirm_delivery(MagicMock())
+        self.assertEqual(armed_during_round_trip, [0])
+
+    def test_confirm_delivery_holds_its_lock_across_the_rpc(self):
+        """
+        The guard is only meaningful if a second caller cannot pass it mid round trip.
+
+        Checked from inside the raw call, which runs while the lock is held, rather than by racing
+        two threads and hoping to catch the window.
+        """
+        ch, raw_ch, wrapper = self._make_channel()
+        locked_during_rpc = []
+
+        def fake_confirm(ack_nack_callback, callback):
+            locked_during_rpc.append(ch._confirm_lock.locked())
+            callback('Confirm.SelectOk')
+
+        raw_ch.confirm_delivery.side_effect = fake_confirm
+        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
+
+        ch.confirm_delivery(MagicMock())
+        self.assertEqual(locked_during_rpc, [True])
+
+    def test_confirm_delivery_retry_does_not_rearm_the_counter(self):
+        """A retry after a timeout must not reset a counter the broker never reset."""
+        ch, raw_ch, wrapper = self._make_channel()
+
+        def fake_confirm(ack_nack_callback, callback):
+            callback('Confirm.SelectOk')
+
+        raw_ch.confirm_delivery.side_effect = fake_confirm
+        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
+
+        ch.confirm_delivery(MagicMock())
+        # Publishes have advanced the counter since confirms were enabled.
+        ch._next_publish_seq_no = 7
+        # Simulate the first attempt having failed, so the cached frame is gone
+        # and the guard lets a second Confirm.Select through.
+        ch._confirm_select_ok = None
+
+        ch.confirm_delivery(MagicMock())
+        self.assertEqual(ch._next_publish_seq_no, 7)
+
     def test_next_publish_seq_no_property_none_before_confirms(self):
         """next_publish_seq_no returns None when confirms are not enabled."""
         ch, _raw_ch, _wrapper = self._make_channel()
