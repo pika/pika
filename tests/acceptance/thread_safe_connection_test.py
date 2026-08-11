@@ -400,5 +400,71 @@ class TestContextManager(ThreadSafeTestCaseBase):
         self.assertTrue(conn.is_closed)
 
 
+class TestPerRPCCallbacksDoNotAccumulate(ThreadSafeTestCaseBase):
+    """
+    A long-lived channel must not grow a callback per RPC it serves.
+
+    ``add_on_close_callback`` registers with ``one_shot=False`` and every RPC passes a distinct
+    closure, so anything left behind is held until the channel closes and is rescanned by every
+    later registration.  Unit tests assert the removal calls; this asserts the observable
+    consequence against a real broker.
+    """
+
+    @staticmethod
+    def _callback_count(ch, key):
+        raw = ch._channel
+        # CallbackManager normalizes the prefix to a string.
+        stack = raw.callbacks._stack.get(str(raw.channel_number), {})
+        return len(stack.get(key, []))
+
+    def test(self):
+        n = 20
+        conn = self._connect()
+        ch = conn.channel()
+        queue = self._unique_queue()
+        ch.queue_declare(queue=queue, exclusive=True)
+
+        close_baseline = self._callback_count(ch, '_on_channel_close')
+        empty_baseline = self._callback_count(ch, 'Basic.GetEmpty')
+        for _ in range(50):
+            ch.queue_declare(queue=queue, exclusive=True)
+
+        # At most one cleanup may still be in flight on the IOLoop thread.
+        retry_assertion(BLOCKING_CALL_TIMEOUT)(lambda: self.assertLessEqual(
+            self._callback_count(ch, '_on_channel_close'), close_baseline + 1))(
+            )
+
+        # The Basic.GetEmpty one-shot self-consumes only when it fires, so a
+        # get that returns a message leaves its own behind for
+        # _release_close_callback to drop.  Publish one message per get and
+        # wait for all to arrive so every get returns a message and exercises
+        # that removal.
+        for i in range(n):
+            ch.basic_publish(exchange='',
+                             routing_key=queue,
+                             body=f'msg-{i}'.encode())
+
+        @retry_assertion(timeout_sec=BLOCKING_CALL_TIMEOUT)
+        def assert_all_arrived():
+            frame = ch.queue_declare(queue=queue, passive=True)
+            assert frame is not None
+            self.assertEqual(frame.method.message_count, n)
+
+        assert_all_arrived()
+
+        for _ in range(n):
+            method, _properties, body = ch.basic_get(queue=queue, auto_ack=True)
+            self.assertIsNotNone(method, 'expected a message, got an empty get')
+            self.assertIsNotNone(body)
+
+        # The GetEmpty one-shots from message-returning gets must be dropped,
+        # and the close callbacks each get registered must not accumulate.
+        retry_assertion(BLOCKING_CALL_TIMEOUT)(lambda: self.assertLessEqual(
+            self._callback_count(ch, 'Basic.GetEmpty'), empty_baseline + 1))()
+        retry_assertion(BLOCKING_CALL_TIMEOUT)(lambda: self.assertLessEqual(
+            self._callback_count(ch, '_on_channel_close'), close_baseline + 1))(
+            )
+
+
 if __name__ == '__main__':
     unittest.main()

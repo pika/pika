@@ -478,6 +478,31 @@ class Channel:
             except ValueError:
                 pass
 
+    def _release_close_callback(self, on_chan_close, *extra) -> None:
+        """
+        Unregister the per-RPC channel callbacks now that the call has finished.
+
+        :meth:`~pika.channel.Channel.add_on_close_callback` registers with ``one_shot=False`` and
+        each RPC passes a distinct closure, so nothing ever collapses them: left in place they
+        accumulate for the life of the channel, and ``CallbackManager.add`` rescans that growing
+        list on every later registration.  A completed RPC has no use for its close callback, so
+        drop it.
+
+        Removal is scheduled rather than done inline because the channel's callback stack belongs to
+        the IOLoop thread.  Ordering is safe: the ``_invoke`` that registers is queued before this,
+        and the IOLoop drains its callback queue in FIFO order, so the removal never runs first.
+
+        :param on_chan_close: The close callback registered for this RPC.
+        :param extra: Zero-argument callables removing any other per-RPC callbacks.
+        """
+
+        def _remove() -> None:
+            self._channel.remove_on_close_callback(on_chan_close)
+            for remove_one in extra:
+                remove_one()
+
+        self._wrapper._schedule_unchecked(_remove)
+
     def _blocking_rpc(self, method_name: str, channel_method,
                       timeout: float | None, *args, **kwargs) -> Any:
         """
@@ -503,18 +528,17 @@ class Channel:
         ready, error = self._register_waiter()
         result = [None]
 
-        def _invoke() -> None:
+        def _on_ok(method_frame) -> None:
+            result[0] = method_frame
+            ready.set()
 
-            def _on_ok(method_frame) -> None:
-                result[0] = method_frame
+        def _on_chan_close(ch, reason) -> None:
+            if not ready.is_set():
+                if error[0] is None:
+                    error[0] = reason
                 ready.set()
 
-            def _on_chan_close(ch, reason) -> None:
-                if not ready.is_set():
-                    if error[0] is None:
-                        error[0] = reason
-                    ready.set()
-
+        def _invoke() -> None:
             try:
                 self._channel.add_on_close_callback(_on_chan_close)
                 channel_method(*args, **kwargs, callback=_on_ok)
@@ -530,6 +554,7 @@ class Channel:
                     f'{method_name} timed out after {timeout} seconds')
         finally:
             self._unregister_waiter(ready, error)
+            self._release_close_callback(_on_chan_close)
 
         if error[0] is not None:
             raise _reraisable(error[0], self._wrapper._closed_reason,
@@ -705,23 +730,22 @@ class Channel:
         ready, error = self._register_waiter()
         result = [None, None, None]
 
+        def _on_get_ok(ch, method, properties, body) -> None:
+            result[0] = method
+            result[1] = properties
+            result[2] = body
+            ready.set()
+
+        def _on_get_empty(method_frame) -> None:
+            ready.set()
+
+        def _on_chan_close(ch, reason) -> None:
+            if not ready.is_set():
+                if error[0] is None:
+                    error[0] = reason
+                ready.set()
+
         def _get() -> None:
-
-            def _on_get_ok(ch, method, properties, body) -> None:
-                result[0] = method
-                result[1] = properties
-                result[2] = body
-                ready.set()
-
-            def _on_get_empty(method_frame) -> None:
-                ready.set()
-
-            def _on_chan_close(ch, reason) -> None:
-                if not ready.is_set():
-                    if error[0] is None:
-                        error[0] = reason
-                    ready.set()
-
             try:
                 self._channel.add_on_close_callback(_on_chan_close)
                 self._channel.add_callback(
@@ -746,6 +770,11 @@ class Channel:
                     f'basic_get timed out after {timeout} seconds')
         finally:
             self._unregister_waiter(ready, error)
+            # A one-shot is only consumed if it fires, so the Basic.GetEmpty
+            # callback outlives every get that actually returned a message.
+            self._release_close_callback(
+                _on_chan_close, lambda: self._channel.remove_callback(
+                    _on_get_empty, [spec.Basic.GetEmpty]))
 
         if error[0] is not None:
             raise _reraisable(error[0], self._wrapper._closed_reason,

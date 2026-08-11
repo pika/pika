@@ -6,6 +6,7 @@ import traceback
 import unittest
 from unittest.mock import ANY, MagicMock, patch
 
+from pika import spec
 from pika.adapters.thread_safe_connection import (
     DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
     Channel,
@@ -1578,8 +1579,10 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         result2 = ch.confirm_delivery(MagicMock())
         self.assertIs(result2, ok_frame)
         self.assertEqual(ch._next_publish_seq_no, 5)
-        # Only one RPC should have been sent
-        self.assertEqual(wrapper._schedule_unchecked.call_count, 1)
+        # Only one RPC should have been sent.  Count the frames handed to the
+        # raw channel rather than the callbacks scheduled on the IOLoop: a
+        # single RPC also schedules its own callback cleanup.
+        self.assertEqual(raw_ch.confirm_delivery.call_count, 1)
 
     def test_next_publish_seq_no_property_none_before_confirms(self):
         """next_publish_seq_no returns None when confirms are not enabled."""
@@ -2015,6 +2018,110 @@ class BasicGetTests(unittest.TestCase):
         with self.assertRaises(Exception) as ctx:
             ch.basic_get(queue='q', timeout=0.5)
         self.assertIs(ctx.exception, reason)
+
+
+class PerRPCCallbackReleaseTests(unittest.TestCase):
+    """
+    Cover the release of the per-RPC channel callbacks.
+
+    ``add_on_close_callback`` registers with ``one_shot=False`` and every RPC passes a distinct
+    closure, so any callback left behind accumulates for the life of the channel and slows every
+    later registration down.  A finished RPC has to take its own callbacks back out.
+    """
+
+    def _make_channel(self):
+        raw_ch = MagicMock()
+        raw_ch.channel_number = 1
+        raw_ch.is_open = True
+        raw_ch.is_closed = False
+        wrapper = MagicMock()
+        wrapper._closed_reason = None
+        # A MagicMock would auto-create this as a Mock, which with_traceback()
+        # rejects; the real attribute is None until a close reason is recorded.
+        wrapper._closed_reason_tb = None
+        wrapper._channel_waiters_lock = threading.Lock()
+        wrapper._blocking_waiters = []
+        # A healthy connection has no pending error; _submit_or_terminate
+        # short-circuits when _error is set, so it must be None here.
+        wrapper._connection._error = None
+        return Channel(raw_ch, wrapper), raw_ch, wrapper
+
+    def test_blocking_rpc_removes_the_close_callback_it_registered(self):
+        """A completed RPC must remove the exact close callback it added."""
+        ch, raw_ch, wrapper = self._make_channel()
+
+        def fire_ok(*_args, **kwargs):
+            kwargs['callback']('Queue.DeclareOk')
+
+        raw_ch.queue_declare.side_effect = fire_ok
+        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
+
+        ch.queue_declare(queue='q', timeout=0.5)
+
+        registered = raw_ch.add_on_close_callback.call_args[0][0]
+        raw_ch.remove_on_close_callback.assert_called_once_with(registered)
+
+    def test_blocking_rpc_removes_the_close_callback_after_a_timeout(self):
+        """A timed-out RPC must clean up too, or a flaky broker leaks one per call."""
+        ch, raw_ch, wrapper = self._make_channel()
+        # Never fire the ok callback, so the wait times out.
+        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
+
+        with self.assertRaises(TimeoutError):
+            ch.queue_declare(queue='q', timeout=0.01)
+
+        registered = raw_ch.add_on_close_callback.call_args[0][0]
+        raw_ch.remove_on_close_callback.assert_called_once_with(registered)
+
+    def test_basic_get_removes_both_of_its_callbacks(self):
+        """
+        basic_get must drop its close callback and its Basic.GetEmpty one-shot.
+
+        A one-shot is only consumed if it fires, so a get that returns a message leaves its
+        Basic.GetEmpty callback registered unless it is removed explicitly.
+        """
+        ch, raw_ch, wrapper = self._make_channel()
+
+        def fire_get_ok(*_args, **kwargs):
+            kwargs['callback'](raw_ch, 'method', 'props', b'body')
+
+        raw_ch.basic_get.side_effect = fire_get_ok
+        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
+
+        ch.basic_get(queue='q', timeout=0.5)
+
+        registered_close = raw_ch.add_on_close_callback.call_args[0][0]
+        raw_ch.remove_on_close_callback.assert_called_once_with(
+            registered_close)
+        registered_empty = raw_ch.add_callback.call_args[0][0]
+        raw_ch.remove_callback.assert_called_once_with(registered_empty,
+                                                       [spec.Basic.GetEmpty])
+
+    def test_release_is_scheduled_rather_than_run_inline(self):
+        """Removal must go through the IOLoop, which owns the channel's callback stack."""
+        ch, raw_ch, wrapper = self._make_channel()
+        scheduled = []
+
+        def fire_ok(*_args, **kwargs):
+            kwargs['callback']('Queue.DeclareOk')
+
+        raw_ch.queue_declare.side_effect = fire_ok
+
+        def capture(cb):
+            scheduled.append(cb)
+            # Only run the RPC itself; leave the cleanup queued.
+            if len(scheduled) == 1:
+                cb()
+
+        wrapper._schedule_unchecked.side_effect = capture
+
+        ch.queue_declare(queue='q', timeout=0.5)
+
+        # The cleanup was handed to the IOLoop, not executed on this thread.
+        self.assertEqual(len(scheduled), 2)
+        raw_ch.remove_on_close_callback.assert_not_called()
+        scheduled[1]()
+        raw_ch.remove_on_close_callback.assert_called_once()
 
 
 class ChannelCloseErrorPathTests(unittest.TestCase):
