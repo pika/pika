@@ -1,17 +1,17 @@
 """
-Example: publisher confirms with ThreadSafeConnection.
+Example: publisher confirms with Connection.
 
-This is the ThreadSafeConnection counterpart to
+This is the Connection counterpart to
 examples/blocking_delivery_confirmations.py.  Where the BlockingConnection
 version calls confirm_delivery() with no arguments and relies on
-basic_publish raising UnroutableError synchronously, ThreadSafeChannel is
+basic_publish raising UnroutableError synchronously, Channel is
 fully asynchronous: confirm_delivery() takes an ack_nack_callback that the
 broker's Basic.Ack / Basic.Nack frames are delivered to.
 
 That callback is dispatched on the channel's per-channel worker thread - the
 same thread that delivery callbacks use - not the IOLoop thread.  A slow
 confirm handler therefore never stalls heartbeats, and the callback may
-safely call any ThreadSafeChannel method.
+safely call any Channel method.
 
 Each publish is tagged with a monotonically increasing delivery tag, exposed
 via the on_publish callback and the next_publish_seq_no property, matching
@@ -27,7 +27,7 @@ import threading
 
 import pika
 from pika import spec
-from pika.adapters.thread_safe_connection import ThreadSafeConnection
+from pika.adapters.thread_safe_connection import Connection
 from pika.exchange_type import ExchangeType
 
 LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
@@ -46,7 +46,7 @@ def main():
         credentials=pika.PlainCredentials('guest', 'guest'))
 
     LOGGER.info('Connecting ...')
-    conn = ThreadSafeConnection(parameters)
+    conn = Connection(parameters)
     ch = conn.channel()
 
     ch.exchange_declare(exchange=EXCHANGE_NAME,

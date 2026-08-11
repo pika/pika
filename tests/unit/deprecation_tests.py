@@ -50,7 +50,7 @@ class DeprecationTestCase(unittest.TestCase):
         message = str(deprecations[0].message)
         self.assertIn(adapter_name, message)
         self.assertIn('Pika 2.0', message)
-        self.assertIn('ThreadSafeConnection', message)
+        self.assertIn('Connection', message)
 
 
 class BlockingConnectionDeprecationTests(DeprecationTestCase):

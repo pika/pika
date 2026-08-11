@@ -1,6 +1,6 @@
 # Thread-Safe Publisher
 
-This example demonstrates publishing from multiple threads using `ThreadSafeConnection`. Every call to `basic_publish` is routed through the IOLoop thread internally, so there is no need for external synchronization.
+This example demonstrates publishing from multiple threads using `Connection`. Every call to `basic_publish` is routed through the IOLoop thread internally, so there is no need for external synchronization.
 
 Pairs with [Thread-Safe Consumer](threaded_consumer.md). Run the consumer first.
 

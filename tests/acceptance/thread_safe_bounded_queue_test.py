@@ -1,5 +1,5 @@
 """
-Integration tests for the ThreadSafeConnection bounded work queue.
+Integration tests for the Connection bounded work queue.
 
 These tests require a RabbitMQ broker listening on 127.0.0.1:5672 with the
 default guest/guest credentials.  They will fail, not skip, if the broker is
@@ -18,7 +18,7 @@ import unittest
 import uuid
 
 import pika
-from pika.adapters.thread_safe_connection import ThreadSafeConnection
+from pika.adapters.thread_safe_connection import Connection
 from pika.exceptions import WorkQueueFullError
 from tests.misc.test_utils import retry_assertion, safe_close
 
@@ -35,7 +35,7 @@ BLOCKING_CALL_TIMEOUT = 10
 class ThreadSafeBoundedQueueTestCaseBase(unittest.TestCase):
 
     def _connect(self, **kwargs):
-        conn = ThreadSafeConnection(DEFAULT_PARAMS, **kwargs)
+        conn = Connection(DEFAULT_PARAMS, **kwargs)
         self.addCleanup(safe_close, conn, timeout=BLOCKING_CALL_TIMEOUT)
         return conn
 

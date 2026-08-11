@@ -1,7 +1,7 @@
 """
-Example: publishing from multiple threads using ThreadSafeConnection.
+Example: publishing from multiple threads using Connection.
 
-ThreadSafeConnection runs SelectConnection's IOLoop in a dedicated background thread.  Every call to
+Connection runs SelectConnection's IOLoop in a dedicated background thread.  Every call to
 channel.basic_publish() is routed through add_callback_threadsafe so that _tx_buffers is only ever
 touched from the IOLoop thread, eliminating the IndexError race seen in issues #1144 and #511.
 
@@ -12,7 +12,7 @@ import logging
 import threading
 
 import pika
-from pika.adapters.thread_safe_connection import ThreadSafeConnection
+from pika.adapters.thread_safe_connection import Connection
 from pika.exchange_type import ExchangeType
 
 LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
@@ -30,7 +30,7 @@ def main():
         credentials=pika.PlainCredentials('guest', 'guest'))
 
     LOGGER.info('Connecting ...')
-    conn = ThreadSafeConnection(parameters)
+    conn = Connection(parameters)
 
     # channel() blocks until the channel is open.
     ch = conn.channel()
@@ -45,7 +45,7 @@ def main():
     LOGGER.info('Topology declared: %s -> %s -> %s', EXCHANGE_NAME, ROUTING_KEY,
                 QUEUE_NAME)
 
-    # Publish from 5 threads simultaneously - safe with ThreadSafeConnection.
+    # Publish from 5 threads simultaneously - safe with Connection.
     n_threads = 5
     barrier = threading.Barrier(n_threads)
 

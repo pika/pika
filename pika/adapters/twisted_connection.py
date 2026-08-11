@@ -1202,7 +1202,7 @@ class TwistedProtocolConnection(protocol.Protocol):
                  custom_reactor: Any = None) -> None:
         warnings.warn(
             'TwistedProtocolConnection is deprecated and will be removed in '
-            'Pika 2.0. Use ThreadSafeConnection instead, which works with any '
+            'Pika 2.0. Use Connection instead, which works with any '
             'framework including Twisted. See '
             'https://pika.github.io/pika/modules/adapters/thread_safe/',
             DeprecationWarning,

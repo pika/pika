@@ -366,7 +366,7 @@ class BlockingConnection:
         """
         warnings.warn(
             'BlockingConnection is deprecated and will be removed in Pika 2.0. '
-            'Use ThreadSafeConnection instead, which runs its own IOLoop on a '
+            'Use Connection instead, which runs its own IOLoop on a '
             'background thread and provides a thread-safe blocking API that '
             'does not stall heartbeats on slow message processing. See '
             'https://pika.github.io/pika/modules/adapters/thread_safe/',
