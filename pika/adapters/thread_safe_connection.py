@@ -563,8 +563,13 @@ class Channel:
 
         self._wrapper._schedule_unchecked(_remove)
 
-    def _blocking_rpc(self, method_name: str, channel_method,
-                      timeout: float | None, *args, **kwargs) -> Any:
+    def _blocking_rpc(self,
+                      method_name: str,
+                      channel_method,
+                      timeout: float | None,
+                      *args,
+                      on_sent: Callable[[], None] | None = None,
+                      **kwargs) -> Any:
         """
         Execute a channel RPC and block until the broker responds.
 
@@ -581,6 +586,11 @@ class Channel:
         :param method_name: Human-readable name for timeout messages.
         :param channel_method: Bound method on the raw channel.
         :param timeout: Seconds to wait.
+        :param on_sent: Optional zero-argument callable run on the IOLoop thread
+            immediately after *channel_method* writes its frame, ahead of any
+            callback already queued behind it.  For state that must be ordered
+            against the frame going out rather than against the broker's
+            response coming back.
         :returns: The broker response frame.
         :raises TimeoutError: if *timeout* expires.
         :raises Exception: if the connection or channel closes first.
@@ -602,6 +612,8 @@ class Channel:
             try:
                 self._channel.add_on_close_callback(_on_chan_close)
                 channel_method(*args, **kwargs, callback=_on_ok)
+                if on_sent is not None:
+                    on_sent()
             except Exception as exc:
                 error[0] = exc
                 ready.set()
@@ -952,13 +964,27 @@ class Channel:
                 self._safe_dispatch, 'publisher confirm callback',
                 ack_nack_callback, method_frame)
 
+        def _arm_seq_no() -> None:
+            # Runs on the IOLoop thread the moment Confirm.Select is written,
+            # so it is ordered ahead of every publish the IOLoop has queued
+            # behind it.  Arming from the calling thread once the RPC returns
+            # instead would miss each publish issued during the round trip: the
+            # broker numbers those from 1, leaving the counter permanently
+            # behind the broker's delivery tags.
+            #
+            # Arm only once.  A confirm_delivery that timed out may still have
+            # reached the broker, and the retry's second Confirm.Select does not
+            # reset the broker's counter, so neither may this.
+            if self._next_publish_seq_no is None:
+                self._next_publish_seq_no = 0
+
         result = self._blocking_rpc(
             'confirm_delivery',
             self._channel.confirm_delivery,
             timeout,
+            on_sent=_arm_seq_no,
             ack_nack_callback=_wrapped_ack_nack,
         )
-        self._next_publish_seq_no = 0
         self._confirm_select_ok = result
         return result
 
