@@ -2289,6 +2289,50 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         ch = conn.channel()
         self.assertIn(ch, conn._channels)
 
+    def test_channel_close_drops_it_from_connection_tracking(self):
+        """
+        A closed channel must not stay on _channels.
+
+        The list exists only so the shutdown sweep can reach every live pool, and a channel whose
+        pool is shut down has nothing left to drain.  Left append-only, a connection with channel
+        churn retains every Channel it ever opened, along with that channel's work pool, raw channel
+        and per-RPC callbacks.
+        """
+        conn, mock_conn, mock_ioloop = self._make_connection()
+
+        def execute_scheduled(cb):
+            mock_raw_ch = MagicMock()
+            mock_conn.channel.side_effect = lambda on_open_callback: on_open_callback(
+                mock_raw_ch)
+            cb()
+
+        mock_ioloop.add_callback_threadsafe.side_effect = execute_scheduled
+
+        for _ in range(5):
+            ch = conn.channel()
+            self.assertIn(ch, conn._channels)
+            ch.close()
+            self.assertNotIn(ch, conn._channels)
+        self.assertEqual(conn._channels, [])
+
+    def test_shutdown_sweep_drops_every_channel_from_tracking(self):
+        """
+        The connection-wide sweep leaves the tracking list empty.
+
+        Mutating the list from _shutdown_pool is safe during the sweep because
+        _shutdown_all_consumer_pools snapshots it under the lock before iterating.
+        """
+        conn, _mock_conn, _mock_ioloop = self._make_connection()
+
+        channels = [Channel(MagicMock(), conn) for _ in range(3)]
+        with conn._channel_waiters_lock:
+            conn._channels.extend(channels)
+
+        conn._shutdown_all_consumer_pools()
+
+        self.assertTrue(all(ch._pool_shutdown for ch in channels))
+        self.assertEqual(conn._channels, [])
+
     def test_connection_close_shuts_down_channel_pools(self):
         """Pool shutdown happens after ioloop.start() returns, not inside _on_connection_closed
         (which runs on the IOLoop thread).

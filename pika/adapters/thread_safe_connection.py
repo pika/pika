@@ -427,6 +427,14 @@ class Channel:
         """
         Shut down the consumer work pool, allowing in-flight work to finish.
 
+        Also drops this channel from the connection's tracking list.  That list exists only so
+        :meth:`~Connection._shutdown_all_consumer_pools` can reach every live pool, and a channel
+        whose pool is shut down has nothing left to drain; left in place the entries accumulate for
+        the life of the connection, retaining each closed channel's pool, raw channel and per-RPC
+        callbacks.  This is the one choke point for the transition and ``_pool_shutdown`` makes it
+        idempotent, so each channel is dropped exactly once whether it was closed by the user or
+        swept at connection shutdown.
+
         :param timeout: Seconds to wait for the worker to drain and exit. ``None`` waits
             indefinitely. A wedged worker that outlives a finite *timeout* is left running (it is a
             daemon thread) rather than stalling the caller; a warning is logged.
@@ -439,6 +447,13 @@ class Channel:
             if self._pool_shutdown:
                 return
             self._pool_shutdown = True
+            # Safe to mutate while a sweep is in flight:
+            # _shutdown_all_consumer_pools snapshots the list under this same
+            # lock before iterating it.
+            try:
+                self._wrapper._channels.remove(self)
+            except ValueError:
+                pass
         if not self._consumer_work_pool.shutdown(wait=True, timeout=timeout):
             LOGGER.warning(
                 'Channel %s consumer work pool did not drain within '
