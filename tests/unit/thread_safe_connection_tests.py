@@ -2289,6 +2289,114 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         ch = conn.channel()
         self.assertIn(ch, conn._channels)
 
+    def test_channel_close_drops_it_from_connection_tracking(self):
+        """
+        A closed channel must not stay on _channels.
+
+        The list exists only so the shutdown sweep can reach every live pool, and a channel whose
+        pool is shut down has nothing left to drain.  Left append-only, a connection with channel
+        churn retains every Channel it ever opened, along with that channel's work pool, raw channel
+        and per-RPC callbacks.
+        """
+        conn, mock_conn, mock_ioloop = self._make_connection()
+
+        def execute_scheduled(cb):
+            mock_raw_ch = MagicMock()
+            mock_conn.channel.side_effect = lambda on_open_callback: on_open_callback(
+                mock_raw_ch)
+            cb()
+
+        mock_ioloop.add_callback_threadsafe.side_effect = execute_scheduled
+
+        for _ in range(5):
+            ch = conn.channel()
+            self.assertIn(ch, conn._channels)
+            ch.close()
+            self.assertNotIn(ch, conn._channels)
+        self.assertEqual(conn._channels, [])
+
+    def test_shutdown_sweep_drops_every_channel_from_tracking(self):
+        """
+        The connection-wide sweep leaves the tracking list empty.
+
+        Mutating the list from _shutdown_pool is safe during the sweep because
+        _shutdown_all_consumer_pools snapshots it under the lock before iterating.
+        """
+        conn, _mock_conn, _mock_ioloop = self._make_connection()
+
+        channels = [Channel(MagicMock(), conn) for _ in range(3)]
+        with conn._channel_waiters_lock:
+            conn._channels.extend(channels)
+
+        conn._shutdown_all_consumer_pools()
+
+        self.assertTrue(all(ch._pool_shutdown for ch in channels))
+        self.assertEqual(conn._channels, [])
+
+    def test_channel_open_registers_broker_close_hook(self):
+        """
+        Opening a channel registers the broker-close hook on the raw channel.
+
+        The hook is what drops a broker-closed channel from tracking, so a channel that opened
+        without it would leak until connection teardown.
+        """
+        conn, mock_conn, mock_ioloop = self._make_connection()
+
+        def execute_scheduled(cb):
+            mock_raw_ch = MagicMock()
+            mock_conn.channel.side_effect = lambda on_open_callback: on_open_callback(
+                mock_raw_ch)
+            cb()
+
+        mock_ioloop.add_callback_threadsafe.side_effect = execute_scheduled
+
+        ch = conn.channel()
+        ch._channel.add_on_close_callback.assert_called_once_with(
+            ch._on_broker_close)
+
+    def test_broker_close_drops_channel_without_joining(self):
+        """
+        A broker-initiated close drops the channel from tracking and signals the pool to drain
+        without joining.
+
+        The hook runs on the IOLoop thread, where joining a worker that is mid delivery-callback
+        would deadlock, so it must use shutdown(wait=False) rather than _shutdown_pool's join.
+        """
+        from pika.exceptions import ChannelClosedByBroker
+        conn, _mock_conn, _mock_ioloop = self._make_connection()
+        ch = Channel(MagicMock(), conn)
+        ch._consumer_work_pool = MagicMock()
+        with conn._channel_waiters_lock:
+            conn._channels.append(ch)
+
+        ch._on_broker_close(ch._channel,
+                            ChannelClosedByBroker(320, 'connection closed'))
+
+        self.assertNotIn(ch, conn._channels)
+        self.assertTrue(ch._pool_shutdown)
+        ch._consumer_work_pool.shutdown.assert_called_once_with(wait=False)
+
+    def test_client_close_reason_left_to_shutdown_pool(self):
+        """
+        A client-initiated close is ignored by the hook.
+
+        close() drives the removal and the worker join itself via _shutdown_pool, so the hook must
+        not pre-empt it: the channel stays tracked and the pool untouched until then.
+        """
+        from pika.exceptions import ChannelClosedByClient
+        conn, _mock_conn, _mock_ioloop = self._make_connection()
+        ch = Channel(MagicMock(), conn)
+        ch._consumer_work_pool = MagicMock()
+        with conn._channel_waiters_lock:
+            conn._channels.append(ch)
+
+        ch._on_broker_close(ch._channel,
+                            ChannelClosedByClient(200, 'Normal shutdown'))
+
+        self.assertIn(ch, conn._channels)
+        self.assertFalse(ch._pool_shutdown)
+        ch._consumer_work_pool.shutdown.assert_not_called()
+
     def test_connection_close_shuts_down_channel_pools(self):
         """Pool shutdown happens after ioloop.start() returns, not inside _on_connection_closed
         (which runs on the IOLoop thread).

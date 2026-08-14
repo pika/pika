@@ -423,27 +423,87 @@ class Channel:
         """
         self._consumer_work_pool.shutdown(wait=False)
 
+    def _claim_pool_shutdown(self) -> bool:
+        """
+        Claim this channel's pool shutdown and drop it from connection tracking.
+
+        Returns ``True`` if this call is the first to claim the shutdown - so the caller owns any
+        follow-up work, such as joining the worker - and ``False`` if a prior close already claimed
+        it.  Being idempotent lets a user :meth:`close`, the broker-close hook
+        (:meth:`_on_broker_close`) and the connection-shutdown sweep race while each channel is
+        dropped from ``_channels`` exactly once.
+
+        The tracking list exists only so :meth:`~Connection._shutdown_all_consumer_pools` can reach
+        every live pool, and a channel whose pool is shutting down has nothing left to drain; left
+        in place the entries accumulate for the life of the connection, retaining each closed
+        channel's pool, raw channel and per-RPC callbacks.
+
+        :returns: ``True`` if this call claimed the shutdown, ``False`` if a prior close already did.
+        """
+        # Safe to mutate the list while a sweep is in flight:
+        # _shutdown_all_consumer_pools snapshots it under this same lock before
+        # iterating.
+        with self._wrapper._channel_waiters_lock:
+            if self._pool_shutdown:
+                return False
+            self._pool_shutdown = True
+            try:
+                self._wrapper._channels.remove(self)
+            except ValueError:
+                pass
+        return True
+
     def _shutdown_pool(self, timeout: float | None = None) -> None:
         """
-        Shut down the consumer work pool, allowing in-flight work to finish.
+        Shut down the consumer work pool, joining its worker.
+
+        Claims the shutdown and drops the channel from tracking via :meth:`_claim_pool_shutdown`,
+        then joins the worker.  Used by the paths that can afford to wait off the IOLoop thread: a
+        user :meth:`close` (on the caller's thread) and the connection-shutdown sweep (after the
+        IOLoop has stopped).
 
         :param timeout: Seconds to wait for the worker to drain and exit. ``None`` waits
             indefinitely. A wedged worker that outlives a finite *timeout* is left running (it is a
             daemon thread) rather than stalling the caller; a warning is logged.
         """
-        # Atomically claim the shutdown so concurrent close() calls do not both
-        # run the join.  The join itself stays outside the lock: it can block
-        # for the whole timeout, and holding the connection-wide lock that long
-        # would stall every other channel operation.
-        with self._wrapper._channel_waiters_lock:
-            if self._pool_shutdown:
-                return
-            self._pool_shutdown = True
+        # The join stays outside the lock: it can block for the whole timeout,
+        # and holding the connection-wide lock that long would stall every other
+        # channel operation.
+        if not self._claim_pool_shutdown():
+            return
         if not self._consumer_work_pool.shutdown(wait=True, timeout=timeout):
             LOGGER.warning(
                 'Channel %s consumer work pool did not drain within '
                 '%s seconds; abandoning its worker thread',
                 self._channel.channel_number, timeout)
+
+    def _on_broker_close(self, _channel, reason) -> None:
+        """
+        Drop this channel from tracking when the broker closes it on its own.
+
+        Registered once per channel, on the IOLoop thread, right after the channel opens.  A client
+        close - a user :meth:`close`, or the per-channel closes a graceful :meth:`Connection.close`
+        issues - reports :class:`~pika.exceptions.ChannelClosedByClient` and is left to
+        :meth:`_shutdown_pool`, so this handles only broker- or error-initiated closes.  Without it
+        those channels stay in ``_channels`` (with their pool, worker thread, raw channel and
+        per-RPC callbacks) until the connection itself is torn down - the leak #1688 describes,
+        reached through a close path :meth:`_shutdown_pool` never sees.
+
+        Runs on the IOLoop thread, so it must not join the worker: joining a worker that is mid
+        delivery-callback and waiting on this same IOLoop would deadlock, which is why pool joins
+        are otherwise deferred off this thread (see :meth:`~Connection._on_connection_closed`).  It
+        only signals the pool to drain; the daemon worker exits on its own once the channel is
+        closed and no further deliveries arrive.  The connection-shutdown sweep, running after the
+        IOLoop stops, joins any channel this has not already dropped.
+
+        :param _channel: The raw channel reporting the close (unused).
+        :param reason: The exception describing why the channel closed.
+        """
+        from pika.exceptions import ChannelClosedByClient
+        if isinstance(reason, ChannelClosedByClient):
+            return
+        if self._claim_pool_shutdown():
+            self._consumer_work_pool.shutdown(wait=False)
 
     def _register_waiter(self) -> tuple[Event, list[BaseException | None]]:
         """
@@ -1700,6 +1760,13 @@ class Connection:
                          work_queue_maxsize=self._work_queue_maxsize,
                          work_queue_put_timeout=self._work_queue_put_timeout)
             self._channels.append(ch)
+        # Register the broker-close hook on the IOLoop thread, where the raw
+        # channel's callback stack is safe to mutate.  A broker close arriving
+        # in the brief gap before this runs simply falls back to the
+        # connection-shutdown sweep, which still drops the channel from
+        # tracking.
+        self._schedule_unchecked(
+            lambda: ch._channel.add_on_close_callback(ch._on_broker_close))
         return ch
 
     def close(self, timeout: float | None = 10) -> None:
