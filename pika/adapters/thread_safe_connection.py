@@ -663,7 +663,13 @@ class Channel:
             if self._next_publish_seq_no is not None:
                 self._next_publish_seq_no += 1
                 if on_publish is not None:
-                    on_publish(self._next_publish_seq_no)
+                    # Dispatch through _safe_dispatch like every other user
+                    # callback (consumer, publisher-confirm, ...) so an
+                    # exception from user code is logged and contained
+                    # instead of propagating out of the IOLoop thread and
+                    # killing the whole connection (#1687).
+                    self._safe_dispatch('publish callback', on_publish,
+                                        self._next_publish_seq_no)
 
         self._wrapper._schedule_unchecked(_publish)
 
