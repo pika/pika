@@ -91,6 +91,10 @@ class ChannelTests(unittest.TestCase):
     def test_init_cancelled(self):
         self.assertIsInstance(self.obj._cancelled, set)
 
+    def test_init_nowait_cancelled(self):
+        self.assertIsInstance(self.obj._nowait_cancelled, collections.deque)
+        self.assertEqual(len(self.obj._nowait_cancelled), 0)
+
     def test_init_consumers(self):
         self.assertEqual(self.obj._consumers, {})
 
@@ -218,6 +222,72 @@ class ChannelTests(unittest.TestCase):
 
         self.assertTrue(self.obj._rpc.called)
         self.assertFalse(self.callbacks.add.called)
+
+    def _cancel_nowait(self, consumer_tag, auto_ack=True):
+        """Register a consumer, then cancel it with nowait."""
+        self.obj._consumers[consumer_tag] = logging.debug
+        if auto_ack:
+            self.obj._consumers_with_noack.add(consumer_tag)
+        self.obj.basic_cancel(consumer_tag=consumer_tag)
+
+    def test_basic_cancel_asynch_retains_tag(self):
+        # The tag is kept so a delivery already in flight is rejected rather
+        # than left unacknowledged; see Channel._on_deliver.
+        self.obj._set_state(self.obj.OPEN)
+        self._cancel_nowait('ctag0')
+
+        self.assertIn('ctag0', self.obj._cancelled)
+        self.assertIn('ctag0', self.obj._consumers_with_noack)
+        self.assertNotIn('ctag0', self.obj._consumers)
+        self.assertEqual(list(self.obj._nowait_cancelled), ['ctag0'])
+
+    def test_basic_cancel_asynch_evicts_oldest_tag_beyond_cap(self):
+        self.obj._set_state(self.obj.OPEN)
+        self.obj._MAX_RETAINED_CANCELLED_TAGS = 3
+
+        for index in range(5):
+            self._cancel_nowait(f'ctag{index}')
+
+        # Retention is bounded and evicts in cancellation order.
+        self.assertEqual(list(self.obj._nowait_cancelled),
+                         ['ctag2', 'ctag3', 'ctag4'])
+        self.assertEqual(self.obj._cancelled, {'ctag2', 'ctag3', 'ctag4'})
+        self.assertEqual(self.obj._consumers_with_noack,
+                         {'ctag2', 'ctag3', 'ctag4'})
+
+    def test_basic_cancel_asynch_retention_is_bounded_by_default(self):
+        self.obj._set_state(self.obj.OPEN)
+        cap = channel.Channel._MAX_RETAINED_CANCELLED_TAGS
+
+        for index in range(cap + 200):
+            self._cancel_nowait(f'ctag{index}')
+
+        self.assertEqual(len(self.obj._cancelled), cap)
+        self.assertEqual(len(self.obj._consumers_with_noack), cap)
+        self.assertEqual(len(self.obj._nowait_cancelled), cap)
+
+    def test_basic_cancel_asynch_evicted_tag_may_be_reused(self):
+        self.obj._set_state(self.obj.OPEN)
+        self.obj._MAX_RETAINED_CANCELLED_TAGS = 1
+        self._cancel_nowait('ctag0')
+        self._cancel_nowait('ctag1')
+
+        # 'ctag0' has been evicted, so it is no longer a duplicate.
+        self.obj.basic_consume('queue', logging.debug, consumer_tag='ctag0')
+
+        self.assertIn('ctag0', self.obj._consumers)
+        self.assertNotIn('ctag0', self.obj._cancelled)
+
+    def test_basic_cancel_synch_not_queued_for_eviction(self):
+        # A cancel that expects Basic.CancelOk retires its own entry in
+        # _on_cancelok, so it must not be evicted out from under itself.
+        self.obj._set_state(self.obj.OPEN)
+        self.obj._consumers['ctag0'] = logging.debug
+
+        self.obj.basic_cancel('ctag0', callback=mock.Mock())
+
+        self.assertIn('ctag0', self.obj._cancelled)
+        self.assertEqual(len(self.obj._nowait_cancelled), 0)
 
     def test_basic_cancel_asynch_with_user_callback_raises_value_error(self):
         self.obj._set_state(self.obj.OPEN)
@@ -1253,6 +1323,18 @@ class ChannelTests(unittest.TestCase):
         self.obj._cleanup()
         self.callbacks.cleanup.assert_called_once_with(
             str(self.obj.channel_number))
+
+    def test_cleanup_releases_consumer_state(self):
+        self.obj._set_state(self.obj.OPEN)
+        self._cancel_nowait('ctag0')
+        self.obj._consumers['ctag1'] = logging.debug
+
+        self.obj._cleanup()
+
+        self.assertEqual(self.obj._consumers, {})
+        self.assertEqual(self.obj._cancelled, set())
+        self.assertEqual(self.obj._consumers_with_noack, set())
+        self.assertEqual(len(self.obj._nowait_cancelled), 0)
 
     def test_handle_content_frame_method_returns_none(self):
         frame_value = frame.Method(1, spec.Basic.Deliver('ctag0', 1))
