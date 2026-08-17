@@ -546,12 +546,12 @@ class ChannelTests(unittest.TestCase):
         self.assertEqual(tags, [1, 2, 3])
 
     def test_on_publish_exception_is_contained(self):
-        """An exception from on_publish is logged and swallowed.
+        """
+        An exception from on_publish is logged and swallowed.
 
-        Regression test for #1687: on_publish used to run unguarded on the
-        IOLoop thread, so an exception from user code propagated out of
-        ``ioloop.start()`` and killed the whole connection. It must be
-        contained like every other user callback (consumer, publisher
+        Regression test for #1687: on_publish used to run unguarded on the IOLoop thread, so an
+        exception from user code propagated out of ``ioloop.start()`` and killed the whole
+        connection. It must be contained like every other user callback (consumer, publisher
         confirm, ...), leaving the connection usable and the tag consumed.
         """
         ch, _raw_ch, wrapper = self._make_channel()

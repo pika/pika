@@ -663,11 +663,15 @@ class Channel:
             if self._next_publish_seq_no is not None:
                 self._next_publish_seq_no += 1
                 if on_publish is not None:
-                    # Dispatch through _safe_dispatch like every other user
-                    # callback (consumer, publisher-confirm, ...) so an
-                    # exception from user code is logged and contained
-                    # instead of propagating out of the IOLoop thread and
-                    # killing the whole connection (#1687).
+                    # Guard on_publish with _safe_dispatch so an exception
+                    # from user code is logged and contained instead of
+                    # propagating out of the IOLoop thread and killing the
+                    # whole connection (#1687).  Unlike the consumer, confirm,
+                    # return and cancel callbacks, which _submit_or_terminate
+                    # hands to the work pool, on_publish runs inline here on
+                    # the IOLoop thread as the basic_publish docstring
+                    # documents; _safe_dispatch adds only the exception guard,
+                    # not the pool dispatch.
                     self._safe_dispatch('publish callback', on_publish,
                                         self._next_publish_seq_no)
 
