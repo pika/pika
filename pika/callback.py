@@ -284,7 +284,16 @@ class CallbackManager:
                 except KeyError:
                     pass
 
-        self._cleanup_callback_dict(prefix, key)
+            self._cleanup_callback_dict(prefix, key)
+        elif arguments is None:
+            # Only prefix and key given: remove every callback for them, as the
+            # docstring promises.
+            self.remove_all(prefix, key)
+        else:
+            # An arguments filter without a callback_value has no defined
+            # removal semantics here; leave the stack untouched rather than
+            # wipe the whole key.
+            self._cleanup_callback_dict(prefix, key)
         return True
 
     @sanitize_prefix

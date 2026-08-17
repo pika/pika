@@ -214,6 +214,34 @@ class ConnectionTests(unittest.TestCase):
 
         self.assertTrue(self.connection.is_closed)
 
+    def test_on_stream_terminated_does_not_duplicate_blocked_callbacks(self):
+        """
+        A terminate re-init cycle must not accumulate the internal Connection.Blocked/Unblocked
+        callbacks (issue #1052).
+
+        _on_stream_terminated removes them and _init_connection_state re-adds them; a broken
+        _remove_callbacks leaves the originals in place so the re-add doubles the count.
+        """
+        params = connection.ConnectionParameters(blocked_connection_timeout=60)
+        with mock.patch.object(ConstructibleConnection,
+                               '_adapter_connect_stream'):
+            conn = ConstructibleConnection(params)
+        conn._set_connection_state(connection.Connection.CONNECTION_OPEN)
+        conn._opened = True
+        conn._adapter_disconnect_stream = mock.Mock()
+
+        before_blocked = conn.callbacks.pending(0, spec.Connection.Blocked)
+        before_unblocked = conn.callbacks.pending(0, spec.Connection.Unblocked)
+        self.assertEqual(before_blocked, 1)
+        self.assertEqual(before_unblocked, 1)
+
+        conn._on_stream_terminated(Exception('boom'))
+
+        self.assertEqual(conn.callbacks.pending(0, spec.Connection.Blocked),
+                         before_blocked)
+        self.assertEqual(conn.callbacks.pending(0, spec.Connection.Unblocked),
+                         before_unblocked)
+
     def test_on_stream_terminated_invokes_connection_closed_callback(self):
         """_on_stream_terminated invokes `Connection.ON_CONNECTION_CLOSED` callbacks."""
         process_mock = mock.Mock(wraps=self.connection.callbacks.process)
