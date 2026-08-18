@@ -299,6 +299,23 @@ class CallbackTests(unittest.TestCase):
             self.mock_caller,
             self.obj._stack[self.PREFIX][other_key][0][self.CALLBACK])
 
+    def test_remove_no_callback_value_removes_all_for_key(self):
+        # With no callback_value, remove() must drop every callback for the
+        # prefix/key, as its docstring promises (see issue #1052).
+        self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock)
+        self.obj.add(self.PREFIX_CLASS, self.KEY, self.mock_caller)
+        self.assertTrue(self.obj.remove(self.PREFIX, self.KEY))
+        self.assertNotIn(self.KEY, self.obj._stack.get(self.PREFIX, {}))
+
+    def test_remove_arguments_without_callback_value_leaves_stack(self):
+        # An arguments filter with no callback_value has no defined removal
+        # semantics; remove() must not wipe the whole key in that case.
+        self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock)
+        self.obj.add(self.PREFIX_CLASS, self.KEY, self.mock_caller)
+        self.assertTrue(
+            self.obj.remove(self.PREFIX, self.KEY, arguments={'x': 1}))
+        self.assertEqual(len(self.obj._stack[self.PREFIX][self.KEY]), 2)
+
     def test_remove_all(self):
         self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock)
         self.obj.remove_all(self.PREFIX, self.KEY)

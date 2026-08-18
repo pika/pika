@@ -261,11 +261,16 @@ class CallbackManager:
         Remove a callback from the stack by prefix, key and optionally the callback itself.
 
         If you only pass in prefix and key, all callbacks for that prefix and key will be removed.
+        Passing ``arguments`` without a ``callback_value`` removes nothing, since an arguments
+        filter on its own has no defined removal semantics here.
 
         :param prefix: The prefix for keeping track of callbacks with
         :param key: The callback key
         :param callback_value: The method defined to call on callback
-        :param arguments: Optional arguments to check
+        :param arguments: Optional arguments to match against; only honored together with
+            ``callback_value``
+        :returns: True if the prefix and key exist, whether or not a callback was actually removed;
+            see :meth:`remove_matching` when the caller needs to know that a removal occurred
         """
         if callback_value:
             offsets_to_remove = []
@@ -284,7 +289,16 @@ class CallbackManager:
                 except KeyError:
                     pass
 
-        self._cleanup_callback_dict(prefix, key)
+            self._cleanup_callback_dict(prefix, key)
+        elif arguments is None:
+            # Only prefix and key given: remove every callback for them, as the
+            # docstring promises.
+            self.remove_all(prefix, key)
+        else:
+            # An arguments filter without a callback_value has no defined
+            # removal semantics here; leave the stack untouched rather than
+            # wipe the whole key.
+            self._cleanup_callback_dict(prefix, key)
         return True
 
     @sanitize_prefix
