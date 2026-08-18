@@ -321,9 +321,13 @@ class Channel:
 
         A cancelled consumer's tag is retained so that a delivery already in flight when the cancel
         was sent is rejected rather than left unacknowledged. A cancel that expects a Basic.CancelOk
-        retires its own entry on arrival; a nowait cancel has no reply to retire it, so at most
-        `_MAX_RETAINED_CANCELLED_TAGS` of those are kept and the oldest are dropped beyond that (see
-        `_retain_cancelled_tag`).
+        retires its own entry on arrival; a nowait cancel has no reply to retire it, so its tag is
+        kept only until `_MAX_RETAINED_CANCELLED_TAGS` later nowait cancels displace it (see
+        `_retain_cancelled_tag`). Past that point its retention lapses: a straggling delivery for it
+        is logged as unexpected and left unacknowledged rather than rejected, and the tag may be
+        reused by `basic_consume`, so reusing the same explicit consumer_tag risks a delivery for
+        the old consumer reaching the new one. The cap is a generous approximation of the broker's
+        in-flight window, so this only bites under extreme nowait-cancel churn.
 
         :param consumer_tag: Identifier for the consumer
         :param callback: callback(pika.frame.Method) for method Basic.CancelOk. If None, do not
@@ -1143,10 +1147,15 @@ class Channel:
         entry in `_on_cancelok`, but a nowait cancel asks the broker for no reply, so nothing
         retires it and the entries would otherwise accumulate for the life of the channel.
 
-        Bound them here instead.  The window in which a late delivery can still arrive is bounded by
-        what the broker had already dispatched, never by how many consumers have been cancelled
-        since, so evicting in cancellation order past `_MAX_RETAINED_CANCELLED_TAGS` leaves the
-        reject behaviour intact while keeping retention constant in the number of cancels.
+        Bound them here instead.  The number of deliveries that can still be in flight for a
+        cancelled consumer is bounded by what the broker had already dispatched, so a cap on
+        retained nowait-cancelled tags approximates that window: evicting in cancellation order past
+        `_MAX_RETAINED_CANCELLED_TAGS` keeps retention constant in the number of cancels.  The cap
+        is not the true window, though, since it is measured in cancels rather than deliveries, so
+        once a tag is evicted its reject-and-reserve behaviour lapses: a straggling delivery for it
+        is logged as unexpected and left unacknowledged (see `_on_deliver`), and `basic_consume`
+        will accept the tag again.  The default is large enough that this only occurs under extreme
+        nowait-cancel churn.
 
         A tag cannot be queued twice: `basic_consume` refuses a tag that is still in `_cancelled`,
         and on the nowait path only eviction takes it back out again.

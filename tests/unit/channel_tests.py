@@ -278,6 +278,31 @@ class ChannelTests(unittest.TestCase):
         self.assertIn('ctag0', self.obj._consumers)
         self.assertNotIn('ctag0', self.obj._cancelled)
 
+    def test_basic_cancel_asynch_evicted_tag_delivery_is_not_rejected(self):
+        # Once a tag is evicted past the cap its retention lapses: a straggling
+        # delivery for it can no longer be rejected, so _on_deliver logs it as
+        # unexpected and leaves it unacknowledged. This documents the residual
+        # window the cap trades for bounded retention.
+        self.obj._set_state(self.obj.OPEN)
+        self.obj._MAX_RETAINED_CANCELLED_TAGS = 1
+        self._cancel_nowait('ctag0', auto_ack=False)
+        self._cancel_nowait('ctag1', auto_ack=False)
+
+        self.assertNotIn('ctag0', self.obj._cancelled)
+        self.assertNotIn('ctag0', self.obj._consumers)
+
+        method = frame.Method(self.obj.channel_number,
+                              spec.Basic.Deliver('ctag0', 1))
+        header = frame.Header(self.obj.channel_number, 10,
+                              spec.BasicProperties())
+        with mock.patch.object(self.obj, 'basic_reject') as reject, \
+                mock.patch.object(channel.LOGGER, 'error') as log_error:
+            self.obj._on_deliver(method, header, b'body')
+
+        reject.assert_not_called()
+        log_error.assert_called_once()
+        self.assertIn('Unexpected delivery', log_error.call_args[0][0])
+
     def test_basic_cancel_synch_not_queued_for_eviction(self):
         # A cancel that expects Basic.CancelOk retires its own entry in
         # _on_cancelok, so it must not be evicted out from under itself.
