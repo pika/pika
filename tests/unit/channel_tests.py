@@ -295,8 +295,11 @@ class ChannelTests(unittest.TestCase):
                               spec.Basic.Deliver('ctag0', 1))
         header = frame.Header(self.obj.channel_number, 10,
                               spec.BasicProperties())
-        with mock.patch.object(self.obj, 'basic_reject') as reject, \
-                mock.patch.object(channel.LOGGER, 'error') as log_error:
+        with contextlib.ExitStack() as stack:
+            reject = stack.enter_context(
+                mock.patch.object(self.obj, 'basic_reject'))
+            log_error = stack.enter_context(
+                mock.patch.object(channel.LOGGER, 'error'))
             self.obj._on_deliver(method, header, b'body')
 
         reject.assert_not_called()
