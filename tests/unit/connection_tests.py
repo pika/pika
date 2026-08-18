@@ -242,6 +242,33 @@ class ConnectionTests(unittest.TestCase):
         self.assertEqual(conn.callbacks.pending(0, spec.Connection.Unblocked),
                          before_unblocked)
 
+    def test_on_stream_terminated_does_not_inflate_one_shot_callbacks(self):
+        """
+        A terminate re-init cycle must not inflate the one-shot call counter of the internal
+        Connection.Close/Connection.Start handlers (issue #1052).
+
+        Unlike the blocked/unblocked handlers, these are bound methods added with one_shot=True, so
+        a re-add compares equal and add() bumps the existing entry's counter instead of appending.
+        pending() therefore stays at 1 while the handler silently gains an extra life, surviving its
+        first invocation.
+        """
+        self.connection._adapter_disconnect_stream = mock.Mock()
+        callbacks = self.connection.callbacks
+
+        def call_counts(method_cls):
+            return [
+                entry[callbacks.CALLS]
+                for entry in callbacks._stack['0'][method_cls.NAME]
+            ]
+
+        self.assertEqual(call_counts(spec.Connection.Close), [1])
+        self.assertEqual(call_counts(spec.Connection.Start), [1])
+
+        self.connection._on_stream_terminated(Exception('boom'))
+
+        self.assertEqual(call_counts(spec.Connection.Close), [1])
+        self.assertEqual(call_counts(spec.Connection.Start), [1])
+
     def test_on_stream_terminated_invokes_connection_closed_callback(self):
         """_on_stream_terminated invokes `Connection.ON_CONNECTION_CLOSED` callbacks."""
         process_mock = mock.Mock(wraps=self.connection.callbacks.process)
