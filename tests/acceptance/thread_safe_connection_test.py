@@ -538,3 +538,75 @@ class TestPerRPCCallbacksDoNotAccumulate(ThreadSafeTestCaseBase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestPublishDuringConfirmSelectRoundTrip(ThreadSafeTestCaseBase):
+    """
+    A publish issued while Confirm.SelectOk is in flight must carry the broker's tag.
+
+    The broker numbers from the first publish it processes after Confirm.Select, so a publish made
+    during the round trip is tag 1.  Arming the wrapper's counter on the calling thread once
+    confirm_delivery returned skipped it, leaving every later tag one behind the broker's (issue
+    #1683).
+    """
+
+    def test(self):
+        conn = self._connect()
+        ch = conn.channel()
+        queue = self._unique_queue()
+        ch.queue_declare(queue=queue, durable=False, exclusive=True)
+
+        acked = []
+        reported = []
+        select_sent = threading.Event()
+
+        raw_confirm_delivery = ch._channel.confirm_delivery
+
+        def _hooked(*args, **kwargs):
+            result = raw_confirm_delivery(*args, **kwargs)
+            # Confirm.Select is written and Confirm.SelectOk is still in
+            # flight.  The hook only makes the timing deterministic; any thread
+            # publishing while another is inside confirm_delivery lands in the
+            # same window.
+            select_sent.set()
+            return result
+
+        ch._channel.confirm_delivery = _hooked
+
+        def _publish(body):
+            ch.basic_publish(
+                exchange='',
+                routing_key=queue,
+                body=body,
+                on_publish=lambda tag, b=body: reported.append(
+                    (b.decode(), tag)),
+            )
+
+        def _on_confirm(method_frame):
+            acked.append(method_frame.method.delivery_tag)
+
+        enabler = threading.Thread(target=ch.confirm_delivery,
+                                   args=(_on_confirm,))
+        enabler.start()
+        try:
+            self.assertTrue(select_sent.wait(BLOCKING_CALL_TIMEOUT),
+                            'Confirm.Select was never written')
+            _publish(b'A')
+        finally:
+            enabler.join(timeout=BLOCKING_CALL_TIMEOUT)
+        self.assertFalse(enabler.is_alive(), 'confirm_delivery did not return')
+
+        _publish(b'B')
+        _publish(b'C')
+
+        # The broker may ack with multiple=True, so assert how far the
+        # confirmations reached rather than counting individual tags.
+        @retry_assertion(timeout_sec=BLOCKING_CALL_TIMEOUT)
+        def assert_all_confirmed():
+            assert acked, 'no publisher confirm arrived'
+            self.assertEqual(max(acked), 3)
+
+        assert_all_confirmed()
+
+        self.assertEqual(reported, [('A', 1), ('B', 2), ('C', 3)])
+        self.assertEqual(ch.next_publish_seq_no, 4)
