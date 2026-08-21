@@ -26,6 +26,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -45,6 +47,47 @@ CODEGEN = REPO_ROOT / 'utils' / 'codegen.py'
 SPEC = REPO_ROOT / 'pika' / 'spec.py'
 
 DOWNLOAD_TIMEOUT = 30
+DOWNLOAD_RETRIES = 3
+RETRY_BACKOFF_SECONDS = 2.0
+# HTTP statuses worth retrying. A 404 (input moved) or other client error will
+# not fix itself, so those fail fast rather than burn the backoff.
+_RETRYABLE_HTTP_STATUS = frozenset({429, 500, 502, 503, 504})
+
+
+def _fetch(url: str) -> bytes:
+    """
+    Download ``url``, retrying transient failures with exponential backoff.
+
+    A dropped connection, timeout, or 5xx/429 from ``raw.githubusercontent.com`` is retried so a
+    passing spec check does not flake on a momentary upstream hiccup.  A 404 or other client error
+    means the input moved rather than blipped, so it fails fast.
+
+    :param url: The raw-content URL to download.
+    :returns: The response body.
+    :raises RuntimeError: if every attempt fails; the message names the URL and the last error.
+    """
+    last_error: Exception | None = None
+    for attempt in range(1, DOWNLOAD_RETRIES + 1):
+        try:
+            with urllib.request.urlopen(url,
+                                        timeout=DOWNLOAD_TIMEOUT) as response:
+                return response.read()
+        except urllib.error.HTTPError as error:
+            if error.code not in _RETRYABLE_HTTP_STATUS:
+                raise RuntimeError(f'fetching {url} failed: HTTP {error.code} '
+                                   f'{error.reason}') from error
+            last_error = error
+        except (urllib.error.URLError, TimeoutError) as error:
+            last_error = error
+        if attempt < DOWNLOAD_RETRIES:
+            delay = RETRY_BACKOFF_SECONDS * attempt
+            print(
+                f'fetch attempt {attempt}/{DOWNLOAD_RETRIES} failed '
+                f'({last_error}); retrying in {delay:.0f}s',
+                file=sys.stderr)
+            time.sleep(delay)
+    raise RuntimeError(f'fetching {url} failed after {DOWNLOAD_RETRIES} '
+                       f'attempts: {last_error}')
 
 
 def fetch_codegen_inputs(dest: Path, ref: str) -> None:
@@ -52,14 +95,13 @@ def fetch_codegen_inputs(dest: Path, ref: str) -> None:
     Download the upstream code generator inputs into ``dest``.
 
     :param dest: Directory to populate, created if it does not exist.
-    :param ref:``rabbitmq/rabbitmq-server`` branch, tag, or commit to fetch from.
+    :param ref: Branch, tag, or commit in ``rabbitmq/rabbitmq-server`` to fetch from.
     """
     dest.mkdir(parents=True, exist_ok=True)
     for name in CODEGEN_FILES:
         url = f'{RAW_BASE}/{ref}/deps/rabbitmq_codegen/{name}'
         print(f'fetching {url}', file=sys.stderr)
-        with urllib.request.urlopen(url, timeout=DOWNLOAD_TIMEOUT) as response:
-            (dest / name).write_bytes(response.read())
+        (dest / name).write_bytes(_fetch(url))
 
 
 def generate(workdir: Path, ref: str) -> Path:
@@ -67,7 +109,7 @@ def generate(workdir: Path, ref: str) -> Path:
     Run the code generator and yapf inside ``workdir`` and return the result.
 
     :param workdir: Temporary tree holding the upstream inputs.
-    :param ref:``rabbitmq/rabbitmq-server`` branch, tag, or commit to fetch from.
+    :param ref: Branch, tag, or commit in ``rabbitmq/rabbitmq-server`` to fetch from.
     :returns: Path to the generated, formatted spec module.
     """
     fetch_codegen_inputs(workdir / 'deps' / 'rabbitmq_codegen', ref)
@@ -132,7 +174,13 @@ def main() -> int:
     args = parser.parse_args()
 
     with tempfile.TemporaryDirectory() as tmp:
-        generated = generate(Path(tmp), args.ref)
+        try:
+            generated = generate(Path(tmp), args.ref)
+        except RuntimeError as error:
+            # Distinct from a spec mismatch (exit 1): the upstream inputs could
+            # not be fetched, so the check neither passed nor found drift.
+            print(f'error: {error}', file=sys.stderr)
+            return 2
         if args.check:
             return check(generated, args.ref)
         shutil.copyfile(generated, SPEC)
