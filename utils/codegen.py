@@ -1,10 +1,13 @@
 """
 codegen.py generates pika/spec.py.
 
-The required spec json file can be found at https://github.com/rabbitmq/rabbitmq-server .
+Prefer the wrapper, which fetches the upstream inputs and runs both steps below
+for you, and which CI runs with `--check`:
+hatch run spec-regen
 
-After cloning it run the following to generate a spec.py
-file:
+To drive this script directly, clone
+https://github.com/rabbitmq/rabbitmq-server for the required spec json file and
+run:
 python ./utils/codegen.py ../rabbitmq-server
 
 The generator emits unformatted output, so reformat it afterwards. The

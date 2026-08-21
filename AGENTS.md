@@ -22,6 +22,7 @@ tests/unit/             # unit tests
 tests/acceptance/       # acceptance tests (require a running RabbitMQ)
 tests/typing/           # type-checker fixtures (checked by hatch run typecheck)
 utils/codegen.py        # code generator for pika/spec.py
+utils/regen_spec.py     # regenerate/verify pika/spec.py (hatch run spec-regen)
 examples/               # usage examples
 ```
 
@@ -60,6 +61,23 @@ directly. Changes to spec classes or constants require modifying the code
 generator and regenerating the file. Pull requests that modify `spec.py`
 without corresponding `utils/codegen.py` changes will be rejected.
 
+Regenerate with `hatch run spec-regen`, which is the only supported recipe:
+`utils/regen_spec.py` downloads `amqp_codegen.py` and
+`amqp-rabbitmq-0.9.1.json` from `rabbitmq/rabbitmq-server`, runs
+`utils/codegen.py` in a temp tree, and reformats the result with yapf (`fmt`
+excludes `spec.py`, so this step is not optional). `hatch run spec-check` is the
+same code path without writing: it diffs against the committed file and is what
+the `codegen` workflow enforces on every pull request.
+
+- **Do not pin the upstream ref.** `DEFAULT_REF` is `main` for the same reason
+  ruff is left unpinned: an upstream AMQP spec change shows up as a CI failure
+  on the next push rather than leaving `spec.py` silently behind. Use `--ref`
+  to generate from another revision when investigating; do not turn that into a
+  committed pin to make a failure go away.
+- **When `spec-check` fails with a diff you did not cause,** upstream changed
+  the spec. Regenerating and committing `spec.py` is the fix, and it belongs in
+  its own commit rather than buried in an unrelated pull request.
+
 ## Git conventions
 
 - **Commit message format:** 50-70 character subject line in active voice,
@@ -85,6 +103,11 @@ without corresponding `utils/codegen.py` changes will be rejected.
 - **Type check** (`.github/workflows/mypy.yaml`): runs `mypy` on every push
   and pull request. Requires `tornado` and `twisted` to be installed so mypy
   can resolve optional-dependency types.
+- **Codegen** (`.github/workflows/codegen.yaml`): runs `hatch run spec-check`
+  on every push and pull request to verify `pika/spec.py` still matches the
+  output of `utils/codegen.py`. Deliberately not path-filtered: a skipped
+  path-filtered job never reports to a required status check, and running
+  unconditionally also catches a hand-edited `spec.py`.
 - **Tests** (`.github/workflows/main.yaml`): the entry point on every push
   and pull request. Calls the reusable test workflow twice, once for Python
   3.10-3.14 and once for 3.7-3.9, builds the docs, and gates all of it
