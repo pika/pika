@@ -545,6 +545,28 @@ class ChannelTests(unittest.TestCase):
         wrapper._schedule_unchecked.call_args[0][0]()
         self.assertEqual(tags, [1, 2, 3])
 
+    def test_on_publish_exception_is_contained(self):
+        """
+        An exception from on_publish is logged and swallowed.
+
+        Regression test for #1687: on_publish used to run unguarded on the IOLoop thread, so an
+        exception from user code propagated out of ``ioloop.start()`` and killed the whole
+        connection. It must be contained like every other user callback (consumer, publisher
+        confirm, ...), leaving the connection usable and the tag consumed.
+        """
+        ch, _raw_ch, wrapper = self._make_channel()
+        ch._next_publish_seq_no = 0
+
+        def boom(tag):
+            raise ValueError('user bug while recording tag')
+
+        ch.basic_publish(exchange='ex',
+                         routing_key='rk',
+                         body=b'x',
+                         on_publish=boom)
+        wrapper._schedule_unchecked.call_args[0][0]()  # must not raise
+        self.assertEqual(ch._next_publish_seq_no, 1)
+
     def test_on_publish_not_called_when_publish_raises(self):
         """If the raw basic_publish raises, the tag is not consumed and on_publish is not
         invoked.

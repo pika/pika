@@ -397,12 +397,12 @@ class Channel:
     @staticmethod
     def _safe_dispatch(label, callback, *args) -> None:
         """
-        Execute *callback* on the pool worker, logging any exception.
+        Run *callback*, logging any exception instead of letting it propagate.
 
-        Used to wrap user callbacks before submitting them to a
-        :class:`_BoundedWorkPool` so that exceptions are not silently lost
-        and so that one failing dispatch does not prevent subsequent
-        dispatches from being processed.
+        Wraps a user callback so one failing dispatch neither escapes into the caller nor prevents
+        later dispatches from running.  Most callers submit the wrapped callback to a
+        :class:`_BoundedWorkPool`, so it runs on a pool worker; :meth:`basic_publish` calls it
+        inline on the IOLoop thread. Either way the exception is contained here.
 
         :param label: Human-readable name of the callback for log lines.
         :param callback: The user callback.
@@ -642,7 +642,9 @@ class Channel:
             publish frame is written successfully, with the delivery tag (int) as its sole argument.
             Only meaningful when publisher confirms are enabled via :meth:`confirm_delivery`;
             ignored otherwise. Must return quickly (same contract as any
-            :meth:`~Connection.add_callback_threadsafe` callback).
+            :meth:`~Connection.add_callback_threadsafe` callback). An exception raised by this
+            callback is logged and suppressed rather than propagated, so it does not tear down the
+            connection.
         :raises Exception: if the connection is already closed.
         """
         self._check_not_closed()
@@ -663,7 +665,17 @@ class Channel:
             if self._next_publish_seq_no is not None:
                 self._next_publish_seq_no += 1
                 if on_publish is not None:
-                    on_publish(self._next_publish_seq_no)
+                    # Guard on_publish with _safe_dispatch so an exception
+                    # from user code is logged and contained instead of
+                    # propagating out of the IOLoop thread and killing the
+                    # whole connection (#1687).  Unlike the consumer, confirm,
+                    # return and cancel callbacks, which _submit_or_terminate
+                    # hands to the work pool, on_publish runs inline here on
+                    # the IOLoop thread as the basic_publish docstring
+                    # documents; _safe_dispatch adds only the exception guard,
+                    # not the pool dispatch.
+                    self._safe_dispatch('publish callback', on_publish,
+                                        self._next_publish_seq_no)
 
         self._wrapper._schedule_unchecked(_publish)
 
