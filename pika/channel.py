@@ -82,6 +82,10 @@ class Channel:
 
     _ON_CHANNEL_CLEANUP_CB_KEY = '_on_channel_cleanup'
 
+    # Upper bound on the number of nowait-cancelled consumer tags retained in
+    # `_cancelled`; see `_retain_cancelled_tag`.
+    _MAX_RETAINED_CANCELLED_TAGS = 1024
+
     def __init__(self, connection: Connection, channel_number: int,
                  on_open_callback: _OnOpenCallback | None) -> None:
         """
@@ -110,6 +114,9 @@ class Channel:
         self._blocking: Any | None = None
         self._has_on_flow_callback: bool = False
         self._cancelled: set = set()
+        # Nowait-cancelled tags in cancellation order, bounding how many of
+        # them `_cancelled` retains; see `_retain_cancelled_tag`.
+        self._nowait_cancelled: deque = deque()
         self._consumers: dict = {}
         self._consumers_with_noack: set = set()
         self._on_flowok_callback: Callable[..., Any] | None = None
@@ -312,6 +319,16 @@ class Channel:
         basic.cancel from the client). This allows clients to be notified of the loss of consumers
         due to events such as queue deletion.
 
+        A cancelled consumer's tag is retained so that a delivery already in flight when the cancel
+        was sent is rejected rather than left unacknowledged. A cancel that expects a Basic.CancelOk
+        retires its own entry on arrival; a nowait cancel has no reply to retire it, so its tag is
+        kept only until `_MAX_RETAINED_CANCELLED_TAGS` later nowait cancels displace it (see
+        `_retain_cancelled_tag`). Past that point its retention lapses: a straggling delivery for it
+        is logged as unexpected and left unacknowledged rather than rejected, and the tag may be
+        reused by `basic_consume`, so reusing the same explicit consumer_tag risks a delivery for
+        the old consumer reaching the new one. The cap is a generous approximation of the broker's
+        in-flight window, so this only bites under extreme nowait-cancel churn.
+
         :param consumer_tag: Identifier for the consumer
         :param callback: callback(pika.frame.Method) for method Basic.CancelOk. If None, do not
             expect a Basic.CancelOk response, otherwise, callback must be callable
@@ -339,9 +356,7 @@ class Channel:
 
         if nowait:
             # This is our last opportunity while the channel is open to remove
-            # this consumer callback and help gc; unfortunately, this consumer's
-            # self._cancelled and self._consumers_with_noack (if any) entries
-            # will persist until the channel is closed.
+            # this consumer callback and help gc.
             del self._consumers[consumer_tag]
 
         if callback is not None:
@@ -349,6 +364,9 @@ class Channel:
                                callback)
 
         self._cancelled.add(consumer_tag)
+
+        if nowait:
+            self._retain_cancelled_tag(consumer_tag)
 
         self._rpc(spec.Basic.Cancel(consumer_tag=consumer_tag, nowait=nowait),
                   self._on_cancelok if not nowait else None,
@@ -1103,6 +1121,9 @@ class Channel:
         self.callbacks.process(self.channel_number,
                                self._ON_CHANNEL_CLEANUP_CB_KEY, self, self)
         self._consumers = {}
+        self._cancelled = set()
+        self._nowait_cancelled = deque()
+        self._consumers_with_noack = set()
         self.callbacks.cleanup(str(self.channel_number))
         self._cookie = None
 
@@ -1115,6 +1136,35 @@ class Channel:
         self._consumers_with_noack.discard(consumer_tag)
         self._consumers.pop(consumer_tag, None)
         self._cancelled.discard(consumer_tag)
+
+    def _retain_cancelled_tag(self, consumer_tag: str) -> None:
+        """
+        Retain a nowait-cancelled consumer tag, evicting the oldest once the cap is reached.
+
+        A cancelled tag stays in `_cancelled` (and `_consumers_with_noack`) so that a delivery the
+        broker had already dispatched when `Basic.Cancel` was sent is rejected rather than left
+        unacknowledged; see `_on_deliver`.  A cancel that expects a `Basic.CancelOk` retires its own
+        entry in `_on_cancelok`, but a nowait cancel asks the broker for no reply, so nothing
+        retires it and the entries would otherwise accumulate for the life of the channel.
+
+        Bound them here instead.  The number of deliveries that can still be in flight for a
+        cancelled consumer is bounded by what the broker had already dispatched, so a cap on
+        retained nowait-cancelled tags approximates that window: evicting in cancellation order past
+        `_MAX_RETAINED_CANCELLED_TAGS` keeps retention constant in the number of cancels.  The cap
+        is not the true window, though, since it is measured in cancels rather than deliveries, so
+        once a tag is evicted its reject-and-reserve behaviour lapses: a straggling delivery for it
+        is logged as unexpected and left unacknowledged (see `_on_deliver`), and `basic_consume`
+        will accept the tag again.  The default is large enough that this only occurs under extreme
+        nowait-cancel churn.
+
+        A tag cannot be queued twice: `basic_consume` refuses a tag that is still in `_cancelled`,
+        and on the nowait path only eviction takes it back out again.
+
+        :param consumer_tag: The consumer tag just cancelled with nowait
+        """
+        self._nowait_cancelled.append(consumer_tag)
+        while len(self._nowait_cancelled) > self._MAX_RETAINED_CANCELLED_TAGS:
+            self._cleanup_consumer_ref(self._nowait_cancelled.popleft())
 
     def _get_cookie(self) -> Any:
         """
