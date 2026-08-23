@@ -1683,6 +1683,29 @@ class Connection:
         for ch in channels:
             ch._shutdown_pool(timeout=max(0.0, deadline - time.monotonic()))
 
+    def _is_pool_worker_thread(self) -> bool:
+        """
+        True if the calling thread is one of this connection's pool worker threads.
+
+        Covers every channel's consumer worker plus the connection's own event-callback worker
+        (:attr:`_connection_work_pool`).  :meth:`close` uses this to detect that it is running from
+        inside a delivery/event callback so it can avoid joining :attr:`_ioloop_thread`: that thread's
+        post-``ioloop.start()`` cleanup tail (:meth:`_shutdown_all_consumer_pools`,
+        :meth:`_shutdown_connection_pool`) joins every pool worker in turn, including this one, so
+        joining it here would deadlock each thread waiting on the other (issue #1686).
+
+        Reading each pool's ``_thread`` without its lock is safe here: a worker only executes this
+        check from within its own run loop, by which point ``_thread`` was already assigned (under
+        the pool's lock, before ``start()``) by the thread that created it - that assignment
+        happens-before anything the worker itself observes.
+        """
+        current = threading.current_thread()
+        if current is self._connection_work_pool._thread:
+            return True
+        with self._channel_waiters_lock:
+            channels = list(self._channels)
+        return any(current is ch._consumer_work_pool._thread for ch in channels)
+
     def _shutdown_connection_pool(self, timeout: float | None = None) -> None:
         """
         Shut down the connection-level event-callback pool.
@@ -1796,6 +1819,14 @@ class Connection:
         callback).  When called from the IOLoop thread the close is initiated synchronously and the
         method returns immediately without joining.
 
+        Also safe to call from a delivery or connection-event callback running on one of this
+        connection's pool worker threads (e.g. a consumer's ``on_message_callback``).  The IOLoop
+        thread's own post-close cleanup joins every pool worker, including whichever one is running
+        the callback that called ``close()``, so joining :attr:`_ioloop_thread` from there would
+        deadlock the two threads against each other. In that case the close is scheduled and this
+        method returns immediately without joining; the worker exits normally once the callback
+        returns.
+
         Calling ``close()`` on an already-closed connection is a no-op.
 
         :param timeout: Seconds to wait for a clean close before force-stopping the IOLoop. Defaults
@@ -1824,6 +1855,18 @@ class Connection:
                     exc_info=True)
 
         self._connection.ioloop.add_callback_threadsafe(_safe_close)
+
+        if self._is_pool_worker_thread():
+            # Called from within a delivery or connection-event callback running on one of this
+            # connection's pool worker threads. The IOLoop thread's post-close cleanup tail
+            # (_shutdown_all_consumer_pools / _shutdown_connection_pool) joins every pool worker,
+            # including this one, once ioloop.start() returns - so joining self._ioloop_thread here
+            # would deadlock: this thread waiting on the IOLoop thread, which is waiting on this
+            # thread to return from the very callback that called close(). The close is already
+            # scheduled above; leave the pool's own self-join guard
+            # (_BoundedWorkPool.shutdown) to let this worker exit normally once the callback returns.
+            return
+
         self._ioloop_thread.join(timeout=timeout)
         if self._ioloop_thread.is_alive():
             self._connection.ioloop.add_callback_threadsafe(
