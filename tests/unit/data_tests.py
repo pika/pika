@@ -206,9 +206,7 @@ class DataTests(unittest.TestCase):
 
     def test_decode_value_timestamp_out_of_datetime_range(self):
         # `timestamp` is a u64 (AMQP 0-9-1 errata), so the wire carries values
-        # `datetime` cannot hold; they must not raise out of the decoder. These
-        # cover each exception `datetime.fromtimestamp` raises across that
-        # range: ValueError, OSError and OverflowError.
+        # `datetime` cannot hold; they must not raise out of the decoder.
         values = (253402300800, 1772000000000, 2**63 - 1, 2**64 - 1)
         decoded = {}
         for seconds in values:

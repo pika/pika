@@ -5,7 +5,7 @@ from __future__ import annotations
 import calendar
 import decimal
 import struct
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from pika import exceptions
@@ -51,6 +51,12 @@ _PACK_TAG_INT = struct.Struct('>ci')
 _PACK_TAG_LONG_LONG = struct.Struct('>cq')
 _PACK_TAG_UNSIGNED_LONG_LONG = struct.Struct('>cQ')
 _PACK_TAG_BYTE_INT = struct.Struct('>cBi')
+
+# Reference point for decoding the `timestamp` field type. Adding a
+# `timedelta` is a little slower than `datetime.fromtimestamp` but stays in
+# Python, so the range that decodes does not vary by platform: on Windows
+# `fromtimestamp` goes through a `time_t` that stops at year 3000.
+_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 # Single-byte `bytes` objects indexed by value. Shared with `pika.spec`,
 # which imports this table for its bit-field buffers.
@@ -257,8 +263,8 @@ def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:
     elif kind == _FIELD_TIMESTAMP:
         seconds = _PACK_UNSIGNED_LONG_LONG.unpack_from(encoded, offset)[0]
         try:
-            value = datetime.fromtimestamp(seconds, timezone.utc)
-        except (OSError, OverflowError, ValueError):
+            value = _EPOCH + timedelta(seconds=seconds)
+        except (OverflowError, ValueError):
             # Raising would escape the frame decoder, where the transport
             # reports anything unexpected as a lost stream and drops the
             # connection.
