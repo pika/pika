@@ -1,5 +1,6 @@
 """Tests for pika.frame."""
 
+import struct
 import unittest
 
 from pika import DeliveryMode, exceptions, frame, spec
@@ -105,6 +106,22 @@ class FrameTests(unittest.TestCase):
 
     def test_decode_heartbeat_frame_bytes_consumed(self):
         self.assertEqual(frame.decode_frame(self.HEARTBEAT)[0], 8)
+
+    def test_decode_header_frame_timestamp_out_of_datetime_range(self):
+        # `timestamp` is a u64, so a header can carry a value `datetime` cannot
+        # hold. Decoding must not raise: an exception escaping here reaches the
+        # connection's read path, which reports it as a lost stream and drops
+        # the connection.
+        table = b'\x02ts' + b'T' + struct.pack('>Q', 1772000000000)
+        payload = (struct.pack('>HHQ', spec.BasicProperties.INDEX, 0, 0) +
+                   struct.pack('>H', spec.BasicProperties.FLAG_HEADERS) +
+                   struct.pack('>I', len(table)) + table)
+        encoded = (struct.pack('>BHI', spec.FRAME_HEADER, 1, len(payload)) +
+                   payload + bytes((spec.FRAME_END,)))
+        consumed, frame_value = frame.decode_frame(encoded)
+        self.assertEqual(consumed, len(encoded))
+        assert isinstance(frame_value, frame.Header)
+        self.assertEqual(frame_value.properties.headers, {'ts': 1772000000000})
 
     def test_decode_frame_invalid_frame_type(self):
         self.assertRaises(exceptions.InvalidFrameError, frame.decode_frame,

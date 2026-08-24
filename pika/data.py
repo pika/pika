@@ -216,6 +216,8 @@ def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:
 
     :param encoded: The binary encoded data to decode
     :param offset: The starting byte offset
+    :returns: tuple of (decoded value, new offset). A `timestamp` is a u64, so one outside the range
+        `datetime` can hold decodes to its raw integer seconds.
     :raises: pika.exceptions.InvalidFieldTypeException
     """
     # Dispatch on the raw type-tag byte (avoids a bytes allocation per field);
@@ -253,9 +255,14 @@ def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:
 
     # Timestamp
     elif kind == _FIELD_TIMESTAMP:
-        value = datetime.fromtimestamp(
-            _PACK_UNSIGNED_LONG_LONG.unpack_from(encoded, offset)[0],
-            timezone.utc)
+        seconds = _PACK_UNSIGNED_LONG_LONG.unpack_from(encoded, offset)[0]
+        try:
+            value = datetime.fromtimestamp(seconds, timezone.utc)
+        except (OSError, OverflowError, ValueError):
+            # Raising would escape the frame decoder, where the transport
+            # reports anything unexpected as a lost stream and drops the
+            # connection.
+            value = seconds
         offset += 8
 
     # Field Table
