@@ -1170,7 +1170,9 @@ class Connection(abc.ABC):
         The callback will be passed the connection and an exception instance. The exception will
         either be an instance of `exceptions.ConnectionClosed` if a fully-open connection was closed
         by user or broker or exception of another type that describes the cause of connection
-        closure/failure.
+        closure/failure. If the stream died because some other exception was raised - for example
+        from one of your own callbacks - that exception is available as the reason's `__cause__`,
+        so `traceback.print_exception(reason)` shows where it came from.
 
         :param callback: Callback to call on close, having the signature:
             callback(pika.connection.Connection, exception)

@@ -49,6 +49,32 @@ class BaseConnectionTests(unittest.TestCase):
                           None,
                           internal_connection_workflow=True)
 
+    def test_proto_connection_lost_chains_original_error(self):
+        try:
+            raise ZeroDivisionError('division by zero')
+        except ZeroDivisionError as exc:
+            original = exc
+
+        with mock.patch.object(self.connection,
+                               '_on_stream_terminated') as term_mock:
+            self.connection._proto_connection_lost(original)
+
+        reason = term_mock.call_args[0][0]
+        self.assertIsInstance(reason, pika.exceptions.StreamLostError)
+        self.assertIs(reason.__cause__, original)
+        self.assertIsNotNone(reason.__cause__.__traceback__)
+
+    def test_proto_connection_lost_eof_has_no_cause(self):
+        self.connection._got_eof = True
+
+        with mock.patch.object(self.connection,
+                               '_on_stream_terminated') as term_mock:
+            self.connection._proto_connection_lost(None)
+
+        reason = term_mock.call_args[0][0]
+        self.assertIsInstance(reason, pika.exceptions.StreamLostError)
+        self.assertIsNone(reason.__cause__)
+
     def test_tcp_options_with_dict_tcp_options(self):
 
         tcp_options = {'TCP_KEEPIDLE': 60}
