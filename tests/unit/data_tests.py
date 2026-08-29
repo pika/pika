@@ -138,6 +138,24 @@ class DataTests(unittest.TestCase):
         self.assertEqual(value, b'\xff\xfe')
         self.assertEqual(offset, 3)
 
+    def test_encode_decimal_scale_too_large(self):
+        value = decimal.Decimal('0.' + '0' * 300 + '1')
+        self.assertRaises(exceptions.UnencodableDecimalError, data.encode_value,
+                          [], value)
+
+    def test_encode_decimal_mantissa_out_of_range(self):
+        value = decimal.Decimal('99999999999999999999.99')
+        self.assertRaises(exceptions.UnencodableDecimalError, data.encode_value,
+                          [], value)
+
+    def test_encode_decimal_nan(self):
+        self.assertRaises(exceptions.UnencodableDecimalError, data.encode_value,
+                          [], decimal.Decimal('NaN'))
+
+    def test_encode_decimal_infinity(self):
+        self.assertRaises(exceptions.UnencodableDecimalError, data.encode_value,
+                          [], decimal.Decimal('Infinity'))
+
     def test_decode_value_short_short_int(self):
         # b'b' = signed byte
         encoded = b'\x00\x00\x00\x04\x01kb\xff'

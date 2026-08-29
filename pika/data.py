@@ -165,14 +165,24 @@ def encode_value(pieces: list[bytes], value: Any) -> int:
         pieces.append(_PACK_TAG_DOUBLE.pack(b'd', value))
         return 9
     elif isinstance(value, decimal.Decimal):
+        if not value.is_finite():
+            raise exceptions.UnencodableDecimalError(value)
         value = value.normalize()
-        if value.as_tuple().exponent < 0:
-            decimals = -value.as_tuple().exponent
+        exponent = value.as_tuple().exponent
+        assert isinstance(exponent, int)  # guaranteed by is_finite() above
+        if exponent < 0:
+            decimals = -exponent
             raw = int(value * (decimal.Decimal(10)**decimals))
-            pieces.append(_PACK_TAG_BYTE_INT.pack(b'D', decimals, raw))
         else:
             # per spec, the "decimals" octet is unsigned (!)
-            pieces.append(_PACK_TAG_BYTE_INT.pack(b'D', 0, int(value)))
+            decimals = 0
+            raw = int(value)
+        # 4.2.5.3: the scale is an unsigned octet and the value a signed long;
+        # a Decimal whose scale or mantissa doesn't fit those bounds has no
+        # AMQP decimal representation.
+        if decimals > 255 or not -2**31 <= raw < 2**31:
+            raise exceptions.UnencodableDecimalError(value)
+        pieces.append(_PACK_TAG_BYTE_INT.pack(b'D', decimals, raw))
         return 6
     elif isinstance(value, datetime):
         pieces.append(
