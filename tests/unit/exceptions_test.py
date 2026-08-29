@@ -1,5 +1,6 @@
 """Tests for pika.exceptions."""
 
+import decimal
 import unittest
 from unittest.mock import MagicMock
 
@@ -359,6 +360,12 @@ class ExceptionTests(unittest.TestCase):
             repr(exceptions.ShortStringTooLong('toolong')),
             'ShortStringTooLong: AMQP Short String can contain up to 255 bytes: toolong'
         )
+
+    def test_unencodable_decimal_error_repr(self):
+        self.assertEqual(
+            repr(exceptions.UnencodableDecimalError(decimal.Decimal('NaN'))),
+            'UnencodableDecimalError: decimal.Decimal value has no AMQP decimal '
+            'representation: NaN')
 
     def test_duplicate_get_ok_callback_repr(self):
         self.assertEqual(
