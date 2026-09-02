@@ -3291,11 +3291,21 @@ class ConnectionTests(unittest.TestCase):
         conn._ioloop_thread.join.assert_not_called()
 
     def test_is_pool_worker_thread_false_for_unrelated_thread(self):
-        """A thread that owns none of this connection's pools must not be misidentified."""
+        """
+        A thread that owns none of this connection's pools must not be misidentified.
+
+        The pools point at real but distinct worker threads (not ``None``), so this exercises a
+        genuine thread-identity mismatch rather than the current thread being compared against an
+        unset ``_thread``.
+        """
         conn, _mock_conn, _mock_ioloop = self._make_connection()
         ch = Channel(MagicMock(), conn)
         with conn._channel_waiters_lock:
             conn._channels.append(ch)
+        # Distinct thread objects that are never this thread; the check must
+        # compare identities and return False, not match on a shared default.
+        conn._connection_work_pool._thread = threading.Thread()
+        ch._consumer_work_pool._thread = threading.Thread()
 
         self.assertFalse(conn._is_pool_worker_thread())
 

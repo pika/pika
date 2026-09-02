@@ -1825,14 +1825,17 @@ class Connection:
         the callback that called ``close()``, so joining :attr:`_ioloop_thread` from there would
         deadlock the two threads against each other. In that case the close is scheduled and this
         method returns immediately without joining; the worker exits normally once the callback
-        returns.
+        returns.  Because this path does not join the IOLoop thread, *timeout* is not applied on it:
+        the close is best-effort and an unresponsive broker is not force-stopped from here, so a
+        healthy handshake is assumed (see #1706).
 
         Calling ``close()`` on an already-closed connection is a no-op.
 
         :param timeout: Seconds to wait for a clean close before force-stopping the IOLoop. Defaults
             to 10 seconds, which is sufficient for a healthy broker on any reasonable network. The
             pathological force path may wait up to twice this (once for the clean join, once for the
-            forced join). Pass ``None`` to wait indefinitely.
+            forced join). Pass ``None`` to wait indefinitely. Ignored when ``close()`` is called
+            from one of this connection's pool worker threads (see above).
         """
         if threading.current_thread() is self._ioloop_thread:
             try:
@@ -1863,8 +1866,11 @@ class Connection:
             # including this one, once ioloop.start() returns - so joining self._ioloop_thread here
             # would deadlock: this thread waiting on the IOLoop thread, which is waiting on this
             # thread to return from the very callback that called close(). The close is already
-            # scheduled above; leave the pool's own self-join guard
-            # (_BoundedWorkPool.shutdown) to let this worker exit normally once the callback returns.
+            # scheduled above, so return without joining. This worker then returns from the
+            # callback and, when the cleanup tail calls shutdown() on its pool and joins it, exits
+            # via the drained-and-shutdown check at the top of _run_worker. (The shutdown() self-
+            # join guard is not what saves us here: that fires only when a worker shuts down its own
+            # pool, whereas here the IOLoop thread, not this worker, calls shutdown().)
             return
 
         self._ioloop_thread.join(timeout=timeout)
