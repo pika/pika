@@ -159,7 +159,9 @@ def encode_value(pieces: list[bytes], value: Any) -> int:
             return 9
     elif isinstance(value, float):
         # A Python float is a C double, so 'd' is the lossless tag. It is also
-        # what decode_value yields for both 'f' and 'd'.
+        # what decode_value yields for both 'f' and 'd'. Non-finite values
+        # (inf, nan) are valid IEEE-754 doubles and encode losslessly, unlike
+        # decimal.Decimal, which has no wire representation for them.
         pieces.append(_PACK_TAG_DOUBLE.pack(b'd', value))
         return 9
     elif isinstance(value, decimal.Decimal):
