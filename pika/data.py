@@ -51,6 +51,7 @@ _PACK_TAG_INT = struct.Struct('>ci')
 _PACK_TAG_LONG_LONG = struct.Struct('>cq')
 _PACK_TAG_UNSIGNED_LONG_LONG = struct.Struct('>cQ')
 _PACK_TAG_BYTE_INT = struct.Struct('>cBi')
+_PACK_TAG_DOUBLE = struct.Struct('>cd')
 
 # Single-byte `bytes` objects indexed by value. Shared with `pika.spec`,
 # which imports this table for its bit-field buffers.
@@ -156,6 +157,13 @@ def encode_value(pieces: list[bytes], value: Any) -> int:
         except struct.error:
             pieces.append(_PACK_TAG_LONG_LONG.pack(b'l', value))
             return 9
+    elif isinstance(value, float):
+        # A Python float is a C double, so 'd' is the lossless tag. It is also
+        # what decode_value yields for both 'f' and 'd'. Non-finite values
+        # (inf, nan) are valid IEEE-754 doubles and encode losslessly, unlike
+        # decimal.Decimal, which has no wire representation for them.
+        pieces.append(_PACK_TAG_DOUBLE.pack(b'd', value))
+        return 9
     elif isinstance(value, decimal.Decimal):
         value = value.normalize()
         if value.as_tuple().exponent < 0:

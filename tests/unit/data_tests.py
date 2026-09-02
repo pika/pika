@@ -2,6 +2,7 @@
 
 import datetime
 import decimal
+import math
 import struct
 import unittest
 from collections import OrderedDict
@@ -13,7 +14,7 @@ from pika import data, exceptions
 class DataTests(unittest.TestCase):
 
     FIELD_TBL_ENCODED = (
-        b'\x00\x00\x00\xe5'
+        b'\x00\x00\x00\xf7'
         b'\x05arrayA\x00\x00\x00\x0fI\x00\x00\x00\x01I'
         b'\x00\x00\x00\x02I\x00\x00\x00\x03'
         b'\x07boolvalt\x01'
@@ -30,6 +31,7 @@ class DataTests(unittest.TestCase):
         b'\x07unicodeS\x00\x00\x00\x08utf8=\xe2\x9c\x93')
 
     FIELD_TBL_ENCODED += b'\x05bytesx\x00\x00\x00\x06foobar'
+    FIELD_TBL_ENCODED += b'\x08floatvald' + struct.pack('>d', 2.5)
 
     FIELD_TBL_VALUE: ClassVar[OrderedDict] = OrderedDict([
         ('array', [1, 2, 3]),
@@ -55,6 +57,7 @@ class DataTests(unittest.TestCase):
                            tzinfo=datetime.timezone.utc)),
         ('unicode', 'utf8=✓'),
         ('bytes', b'foobar'),
+        ('floatval', 2.5),
     ])
 
     def test_decode_bytes(self):
@@ -79,7 +82,7 @@ class DataTests(unittest.TestCase):
     def test_encode_table_bytes(self):
         result = []
         byte_count = data.encode_table(result, self.FIELD_TBL_VALUE)
-        self.assertEqual(byte_count, 233)
+        self.assertEqual(byte_count, 251)
 
     def test_decode_table(self):
         value, _byte_count = data.decode_table(self.FIELD_TBL_ENCODED, 0)
@@ -87,7 +90,7 @@ class DataTests(unittest.TestCase):
 
     def test_decode_table_bytes(self):
         _value, byte_count = data.decode_table(self.FIELD_TBL_ENCODED, 0)
-        self.assertEqual(byte_count, 233)
+        self.assertEqual(byte_count, 251)
 
     def test_decode_signed_long_negative(self):
         """
@@ -182,6 +185,40 @@ class DataTests(unittest.TestCase):
         encoded = b'\x00\x00\x00\x0b\x01kd' + struct.pack('>d', 3.14)
         result, _ = data.decode_table(encoded, 0)
         self.assertAlmostEqual(result['k'], 3.14, places=10)
+
+    def test_encode_value_double(self):
+        # A Python float is a C double, so it encodes as b'd'
+        pieces = []
+        length = data.encode_value(pieces, 3.14)
+        self.assertEqual(b''.join(pieces), b'd' + struct.pack('>d', 3.14))
+        self.assertEqual(length, 9)
+
+    def test_encode_decode_float_roundtrip(self):
+        # Every float decode_value can yield must also be encodable
+        for value in (0.0, 3.14, -1.5, 1e300, float('inf'), float('-inf')):
+            table = {'k': value}
+            pieces = []
+            data.encode_table(pieces, table)
+            decoded, _ = data.decode_table(b''.join(pieces), 0)
+            self.assertEqual(decoded, table)
+
+    def test_encode_decode_nan_roundtrip(self):
+        # NaN is a float decode_value can yield too, but it is never equal to
+        # itself, so it cannot ride the assertEqual loop above
+        pieces = []
+        data.encode_table(pieces, {'k': float('nan')})
+        decoded, _ = data.decode_table(b''.join(pieces), 0)
+        self.assertTrue(math.isnan(decoded['k']))
+
+    def test_reencode_wire_float(self):
+        # A 32-bit b'f' field off the wire must survive a decode/encode cycle,
+        # which is what forwarding a message with its headers does
+        encoded = b'\x00\x00\x00\x07\x01kf' + struct.pack('>f', 1.5)
+        decoded, _ = data.decode_table(encoded, 0)
+        pieces = []
+        data.encode_table(pieces, decoded)
+        redecoded, _ = data.decode_table(b''.join(pieces), 0)
+        self.assertEqual(redecoded, decoded)
 
     def test_decode_value_long_string_invalid_utf8(self):
         # b'S' with non-UTF-8 content stays as bytes
