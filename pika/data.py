@@ -264,10 +264,14 @@ def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:
         seconds = _PACK_UNSIGNED_LONG_LONG.unpack_from(encoded, offset)[0]
         try:
             value = _EPOCH + timedelta(seconds=seconds)
-        except (OverflowError, ValueError):
-            # Raising would escape the frame decoder, where the transport
-            # reports anything unexpected as a lost stream and drops the
-            # connection.
+        except OverflowError:
+            # A u64 past what `datetime` can hold overflows the `timedelta` or
+            # its addition to the epoch; both raise `OverflowError` (never
+            # `ValueError`, unlike `datetime.fromtimestamp`). Raising would
+            # escape the frame decoder, where the transport reports anything
+            # unexpected as a lost stream and drops the connection, so fall
+            # back to the raw seconds. This loses the `timestamp` type: re-
+            # encoding the int yields a long-long ('l'), not a 'T'.
             value = seconds
         offset += 8
 
