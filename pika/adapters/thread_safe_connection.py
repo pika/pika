@@ -618,11 +618,26 @@ class Channel:
             try:
                 self._channel.add_on_close_callback(_on_chan_close)
                 channel_method(*args, **kwargs, callback=_on_ok)
-                if on_sent is not None:
-                    on_sent()
             except Exception as exc:
                 error[0] = exc
                 ready.set()
+                return
+            # The frame is on the wire.  Run the post-send hook separately: if
+            # channel_method delivered its response synchronously (result and
+            # ready already set) a raising hook must not clobber that result,
+            # since _blocking_rpc checks error ahead of result.  Surface the
+            # hook's failure only while the response is still outstanding.
+            if on_sent is not None:
+                try:
+                    on_sent()
+                except Exception as exc:
+                    if not ready.is_set():
+                        error[0] = exc
+                        ready.set()
+                    else:
+                        LOGGER.exception(
+                            'on_sent hook raised after %s completed',
+                            method_name)
 
         self._wrapper._schedule_unchecked(_invoke)
 
@@ -968,6 +983,15 @@ class Channel:
         listener cannot stall heartbeats.
 
         Safe to call from any thread.
+
+        A :class:`TimeoutError` does not mean confirms are off.  The
+        Confirm.Select frame is written before the wait begins and may
+        well have reached the broker, which then numbers publishes from
+        1, so the delivery-tag counter is armed regardless of whether
+        Confirm.SelectOk arrived in time.  A subsequent publish therefore
+        still fires its ``on_publish`` and advances
+        :attr:`next_publish_seq_no`.  Retry ``confirm_delivery`` rather
+        than assuming confirms were left disabled.
 
         :param ack_nack_callback:
             ``callback(method_frame)`` called for each Basic.Ack or

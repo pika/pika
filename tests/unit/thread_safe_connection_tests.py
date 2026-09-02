@@ -2027,6 +2027,54 @@ class BlockingRPCErrorPathTests(unittest.TestCase):
             ch.queue_declare(queue='q', timeout=0.5)
         self.assertIs(ctx.exception, reason)
 
+    def test_on_sent_error_does_not_mask_delivered_response(self):
+        """An on_sent hook raising after channel_method already delivered its response must not turn
+        a successful RPC into a raised error.
+        """
+        ch, raw_ch, wrapper = self._make_channel()
+        ok = object()
+
+        def deliver(*_args, callback, **_kwargs):
+            callback(ok)  # broker response delivered synchronously
+
+        raw_ch.queue_declare.side_effect = deliver
+        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
+
+        def boom():
+            raise RuntimeError('hook failed after send')
+
+        result = ch._blocking_rpc('queue_declare',
+                                  raw_ch.queue_declare,
+                                  0.5,
+                                  on_sent=boom,
+                                  queue='q')
+        self.assertIs(result, ok)
+
+    def test_on_sent_error_surfaces_when_response_outstanding(self):
+        """If on_sent raises before the response arrives, the error surfaces: the post-send state
+        the caller needed was not established.
+        """
+        ch, raw_ch, wrapper = self._make_channel()
+
+        def no_response(*_args, callback, **_kwargs):
+            pass  # broker has not responded yet
+
+        raw_ch.queue_declare.side_effect = no_response
+        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
+
+        boom = RuntimeError('hook failed before response')
+
+        def raise_boom():
+            raise boom
+
+        with self.assertRaises(RuntimeError) as ctx:
+            ch._blocking_rpc('queue_declare',
+                             raw_ch.queue_declare,
+                             0.5,
+                             on_sent=raise_boom,
+                             queue='q')
+        self.assertIs(ctx.exception, boom)
+
 
 class BasicGetTests(unittest.TestCase):
     """Cover Channel.basic_get success, empty, error and channel-close paths."""
