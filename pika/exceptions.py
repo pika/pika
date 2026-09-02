@@ -422,6 +422,15 @@ class ShortStringTooLong(AMQPError):
             f'{self.args[0]!s:.300}')
 
 
+class UnencodableDecimalError(AMQPError):
+
+    @override
+    def __repr__(self) -> str:
+        return (
+            f'{self.__class__.__name__}: decimal.Decimal value has no AMQP decimal '
+            f'representation: {self.args[0]!s:.300}')
+
+
 class DuplicateGetOkCallback(ChannelError):
 
     @override
