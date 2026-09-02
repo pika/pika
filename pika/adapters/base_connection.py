@@ -445,21 +445,27 @@ class BaseConnection(connection.Connection):
 
         if error is None:
             # Either result of `eof_received()` or abort
+            reason = None
             if self._got_eof:
-                error = pika.exceptions.StreamLostError(
+                reason = pika.exceptions.StreamLostError(
                     'Transport indicated EOF',
                     host=self.params.host,
                     port=self.params.port)
         else:
-            error = pika.exceptions.StreamLostError(
+            reason = pika.exceptions.StreamLostError(
                 f'Stream connection lost: {error!r}',
                 host=self.params.host,
                 port=self.params.port)
+            # pika/pika#1390: keep the original traceback reachable. This pins
+            # the error's traceback (and the frame locals it captured) for as
+            # long as this reason is held as self._error, an accepted cost for
+            # diagnosability.
+            reason.__cause__ = error
 
-        LOGGER.log(logging.DEBUG if error is None else logging.ERROR,
-                   'connection_lost: %r', error)
+        LOGGER.log(logging.DEBUG if reason is None else logging.ERROR,
+                   'connection_lost: %r', reason)
 
-        self._on_stream_terminated(error)
+        self._on_stream_terminated(reason)
 
     def _proto_eof_received(self) -> bool:
         """
