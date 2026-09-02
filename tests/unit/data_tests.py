@@ -183,6 +183,32 @@ class DataTests(unittest.TestCase):
         result, _ = data.decode_table(encoded, 0)
         self.assertAlmostEqual(result['k'], 3.14, places=10)
 
+    def test_encode_value_double(self):
+        # A Python float is a C double, so it encodes as b'd'
+        pieces = []
+        length = data.encode_value(pieces, 3.14)
+        self.assertEqual(b''.join(pieces), b'd' + struct.pack('>d', 3.14))
+        self.assertEqual(length, 9)
+
+    def test_encode_decode_float_roundtrip(self):
+        # Every float decode_value can yield must also be encodable
+        for value in (0.0, 3.14, -1.5, 1e300, float('inf'), float('-inf')):
+            table = {'k': value}
+            pieces = []
+            data.encode_table(pieces, table)
+            decoded, _ = data.decode_table(b''.join(pieces), 0)
+            self.assertEqual(decoded, table)
+
+    def test_reencode_wire_float(self):
+        # A 32-bit b'f' field off the wire must survive a decode/encode cycle,
+        # which is what forwarding a message with its headers does
+        encoded = b'\x00\x00\x00\x07\x01kf' + struct.pack('>f', 1.5)
+        decoded, _ = data.decode_table(encoded, 0)
+        pieces = []
+        data.encode_table(pieces, decoded)
+        redecoded, _ = data.decode_table(b''.join(pieces), 0)
+        self.assertEqual(redecoded, decoded)
+
     def test_decode_value_long_string_invalid_utf8(self):
         # b'S' with non-UTF-8 content stays as bytes
         raw = b'\xff\xfe'
