@@ -5,7 +5,7 @@ from __future__ import annotations
 import calendar
 import decimal
 import struct
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from pika import exceptions
@@ -52,6 +52,12 @@ _PACK_TAG_LONG_LONG = struct.Struct('>cq')
 _PACK_TAG_UNSIGNED_LONG_LONG = struct.Struct('>cQ')
 _PACK_TAG_BYTE_INT = struct.Struct('>cBi')
 _PACK_TAG_DOUBLE = struct.Struct('>cd')
+
+# Reference point for decoding the `timestamp` field type. Adding a
+# `timedelta` is a little slower than `datetime.fromtimestamp` but stays in
+# Python, so the range that decodes does not vary by platform: on Windows
+# `fromtimestamp` goes through a `time_t` that stops at year 3000.
+_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 # Single-byte `bytes` objects indexed by value. Shared with `pika.spec`,
 # which imports this table for its bit-field buffers.
@@ -242,6 +248,8 @@ def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:
 
     :param encoded: The binary encoded data to decode
     :param offset: The starting byte offset
+    :returns: tuple of (decoded value, new offset). A `timestamp` is a u64, so one outside the range
+        `datetime` can hold decodes to its raw integer seconds.
     :raises: pika.exceptions.InvalidFieldTypeException
     """
     # Dispatch on the raw type-tag byte (avoids a bytes allocation per field);
@@ -279,9 +287,18 @@ def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:
 
     # Timestamp
     elif kind == _FIELD_TIMESTAMP:
-        value = datetime.fromtimestamp(
-            _PACK_UNSIGNED_LONG_LONG.unpack_from(encoded, offset)[0],
-            timezone.utc)
+        seconds = _PACK_UNSIGNED_LONG_LONG.unpack_from(encoded, offset)[0]
+        try:
+            value = _EPOCH + timedelta(seconds=seconds)
+        except OverflowError:
+            # A u64 past what `datetime` can hold overflows the `timedelta` or
+            # its addition to the epoch; both raise `OverflowError` (never
+            # `ValueError`, unlike `datetime.fromtimestamp`). Raising would
+            # escape the frame decoder, where the transport reports anything
+            # unexpected as a lost stream and drops the connection, so fall
+            # back to the raw seconds. This loses the `timestamp` type: re-
+            # encoding the int yields a long-long ('l'), not a 'T'.
+            value = seconds
         offset += 8
 
     # Field Table

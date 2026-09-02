@@ -274,3 +274,28 @@ class DataTests(unittest.TestCase):
         result, _ = data.decode_table(encoded, 0)
         self.assertIsInstance(result['k'], bytes)
         self.assertEqual(result['k'], raw)
+
+    def test_decode_value_timestamp_max_representable(self):
+        encoded = b'\x00\x00\x00\x0b\x01kT' + struct.pack('>Q', 253402300799)
+        result, _ = data.decode_table(encoded, 0)
+        self.assertEqual(
+            result['k'],
+            datetime.datetime(9999,
+                              12,
+                              31,
+                              23,
+                              59,
+                              59,
+                              tzinfo=datetime.timezone.utc))
+
+    def test_decode_value_timestamp_out_of_datetime_range(self):
+        # `timestamp` is a u64 (AMQP 0-9-1 errata), so the wire carries values
+        # `datetime` cannot hold; they must not raise out of the decoder.
+        values = (253402300800, 1772000000000, 2**63 - 1, 2**64 - 1)
+        decoded = {}
+        for seconds in values:
+            encoded = (b'\x00\x00\x00\x0b\x01kT' + struct.pack('>Q', seconds))
+            result, offset = data.decode_table(encoded, 0)
+            self.assertEqual(offset, 15)
+            decoded[seconds] = result['k']
+        self.assertEqual(decoded, {seconds: seconds for seconds in values})
