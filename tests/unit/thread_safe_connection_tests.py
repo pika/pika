@@ -3239,6 +3239,76 @@ class ConnectionTests(unittest.TestCase):
         conn.close()
         mock_conn.close.assert_called_once()
 
+    def test_close_from_connection_pool_worker_schedules_but_does_not_join(
+            self):
+        """
+        Close() called from the connection's own event-callback worker must not join the IOLoop
+        thread.
+
+        Regression test for issue #1686. The IOLoop thread's post-close cleanup tail joins this
+        worker as part of _shutdown_connection_pool, so a join here would deadlock the two threads
+        against each other.
+        """
+        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn._ioloop_thread = MagicMock()
+        # Simulate close() running on the connection's event-callback worker.
+        conn._connection_work_pool._thread = threading.current_thread()
+
+        conn.close()
+
+        mock_ioloop.add_callback_threadsafe.assert_called_once()
+        # The close must still be scheduled onto the IOLoop...
+        mock_ioloop.add_callback_threadsafe.call_args[0][0]()
+        mock_conn.close.assert_called_once()
+        # ...but this thread must not have joined the IOLoop thread.
+        conn._ioloop_thread.join.assert_not_called()
+
+    def test_close_from_channel_consumer_worker_schedules_but_does_not_join(
+            self):
+        """
+        Close() called from a channel's consumer worker (e.g. inside on_message_callback) must not
+        join the IOLoop thread.
+
+        Regression test for issue #1686: `Connection.close()` deadlocks against its own IOLoop
+        cleanup tail when called from a consumer callback. The IOLoop thread's post-close cleanup
+        tail joins every tracked channel's consumer worker, including this one, so joining the
+        IOLoop thread from here would deadlock: this thread waiting on the IOLoop thread, which is
+        waiting on this thread to return from the callback that called close().
+        """
+        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn._ioloop_thread = MagicMock()
+        ch = Channel(MagicMock(), conn)
+        # Simulate close() running on this channel's consumer worker thread.
+        ch._consumer_work_pool._thread = threading.current_thread()
+        with conn._channel_waiters_lock:
+            conn._channels.append(ch)
+
+        conn.close()
+
+        mock_ioloop.add_callback_threadsafe.assert_called_once()
+        mock_ioloop.add_callback_threadsafe.call_args[0][0]()
+        mock_conn.close.assert_called_once()
+        conn._ioloop_thread.join.assert_not_called()
+
+    def test_is_pool_worker_thread_false_for_unrelated_thread(self):
+        """
+        A thread that owns none of this connection's pools must not be misidentified.
+
+        The pools point at real but distinct worker threads (not ``None``), so this exercises a
+        genuine thread-identity mismatch rather than the current thread being compared against an
+        unset ``_thread``.
+        """
+        conn, _mock_conn, _mock_ioloop = self._make_connection()
+        ch = Channel(MagicMock(), conn)
+        with conn._channel_waiters_lock:
+            conn._channels.append(ch)
+        # Distinct thread objects that are never this thread; the check must
+        # compare identities and return False, not match on a shared default.
+        conn._connection_work_pool._thread = threading.Thread()
+        ch._consumer_work_pool._thread = threading.Thread()
+
+        self.assertFalse(conn._is_pool_worker_thread())
+
     def test_abort_swallows_close_errors(self):
         conn, _mock_conn, _ = self._make_connection()
         # Force conn.close() to raise

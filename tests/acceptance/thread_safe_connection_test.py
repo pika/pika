@@ -10,6 +10,7 @@ real AMQP frame exchange, and real concurrent threads.
 """
 
 import threading
+import time
 import unittest
 import uuid
 
@@ -356,6 +357,75 @@ class TestConcurrentClose(ThreadSafeTestCaseBase):
 
         self.assertEqual([], errors)
         self.assertTrue(conn.is_closed)
+
+
+class TestCloseFromConsumerCallback(ThreadSafeTestCaseBase):
+    """
+    Connection.close() called from a consumer's on_message_callback must return promptly.
+
+    Regression test for issue #1686. close() used to join the IOLoop thread unconditionally, but the
+    IOLoop thread's own post-close cleanup tail (_shutdown_all_consumer_pools) joins every channel's
+    consumer worker - including the very worker running this callback - before it can exit. Joining
+    from inside the callback therefore self-deadlocked: this thread waiting on the IOLoop thread,
+    which was waiting on this thread to return from the callback that called close(). With the fix,
+    close() detects it is running on a pool worker thread and returns immediately after scheduling the
+    close, letting the worker (and then the IOLoop thread) exit normally once the callback returns.
+    """
+
+    def test_bounded_timeout_returns_promptly(self):
+        conn = self._connect()
+        ch = conn.channel()
+        queue = self._unique_queue()
+        ch.queue_declare(queue=queue, durable=False, exclusive=True)
+        ch.basic_publish(exchange='', routing_key=queue, body=b'stop')
+
+        done = threading.Event()
+        elapsed = [None]
+
+        def on_message(channel, method, _properties, _body):
+            channel.basic_ack(method.delivery_tag)
+            started = time.monotonic()
+            conn.close(timeout=BLOCKING_CALL_TIMEOUT)
+            elapsed[0] = time.monotonic() - started
+            done.set()
+
+        ch.basic_consume(queue=queue, on_message_callback=on_message)
+
+        self.assertTrue(
+            done.wait(timeout=BLOCKING_CALL_TIMEOUT),
+            'conn.close() called from the consumer callback did not return '
+            f'within {BLOCKING_CALL_TIMEOUT}s')
+        self.assertLess(
+            elapsed[0], 2,
+            'conn.close() blocked instead of returning immediately when '
+            'called from the consumer callback')
+
+        retry_assertion(BLOCKING_CALL_TIMEOUT)(
+            lambda: self.assertTrue(conn.is_closed))()
+
+    def test_unbounded_timeout_does_not_deadlock(self):
+        conn = self._connect()
+        ch = conn.channel()
+        queue = self._unique_queue()
+        ch.queue_declare(queue=queue, durable=False, exclusive=True)
+        ch.basic_publish(exchange='', routing_key=queue, body=b'stop')
+
+        done = threading.Event()
+
+        def on_message(channel, method, _properties, _body):
+            channel.basic_ack(method.delivery_tag)
+            conn.close(timeout=None)
+            done.set()
+
+        ch.basic_consume(queue=queue, on_message_callback=on_message)
+
+        self.assertTrue(
+            done.wait(timeout=BLOCKING_CALL_TIMEOUT),
+            'conn.close(timeout=None) called from the consumer callback '
+            'deadlocked')
+
+        retry_assertion(BLOCKING_CALL_TIMEOUT)(
+            lambda: self.assertTrue(conn.is_closed))()
 
 
 class TestAddCallbackThreadsafeAfterClose(ThreadSafeTestCaseBase):
