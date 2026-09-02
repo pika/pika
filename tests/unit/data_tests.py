@@ -156,6 +156,35 @@ class DataTests(unittest.TestCase):
         self.assertRaises(exceptions.UnencodableDecimalError, data.encode_value,
                           [], decimal.Decimal('Infinity'))
 
+    def test_encode_decimal_excess_precision_is_not_silently_rounded(self):
+        # A finite value with more significant digits than the thread-local
+        # decimal context precision (28 by default) must be rejected, not
+        # silently rounded down to a small mantissa and encoded as a different
+        # number. as_tuple() keeps every digit regardless of context.
+        value = decimal.Decimal('1.0000000000000000000000000000005')
+        self.assertRaises(exceptions.UnencodableDecimalError, data.encode_value,
+                          [], value)
+
+    def test_encode_decimal_context_precision_does_not_affect_result(self):
+        # Encoding must not depend on the ambient decimal context, so a low
+        # context precision cannot round an in-range value before it is packed.
+        value = decimal.Decimal('12345.6789')
+        with decimal.localcontext() as ctx:
+            ctx.prec = 3
+            pieces = []
+            data.encode_table(pieces, {'k': value})
+        decoded, _ = data.decode_table(b''.join(pieces), 0)
+        self.assertEqual(decoded, {'k': value})
+
+    def test_encode_decimal_preserves_trailing_zeros(self):
+        # Dropping normalize() keeps the scale exactly as given, so a value
+        # with trailing fractional zeros round-trips to that same scale.
+        value = decimal.Decimal('1.10')
+        pieces = []
+        data.encode_table(pieces, {'k': value})
+        decoded, _ = data.decode_table(b''.join(pieces), 0)
+        self.assertEqual(decoded, {'k': value})
+
     def test_decode_value_short_short_int(self):
         # b'b' = signed byte
         encoded = b'\x00\x00\x00\x04\x01kb\xff'

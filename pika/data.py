@@ -167,16 +167,24 @@ def encode_value(pieces: list[bytes], value: Any) -> int:
     elif isinstance(value, decimal.Decimal):
         if not value.is_finite():
             raise exceptions.UnencodableDecimalError(value)
-        value = value.normalize()
-        exponent = value.as_tuple().exponent
+        # Derive the mantissa and scale from as_tuple() using integer
+        # arithmetic. normalize() and Decimal multiplication both apply the
+        # thread-local context precision (28 digits by default), which would
+        # silently round a high-precision value down to a small mantissa that
+        # passes the range check below and encodes as a different number.
+        sign, digits, exponent = value.as_tuple()
         assert isinstance(exponent, int)  # guaranteed by is_finite() above
+        raw = 0
+        for digit in digits:
+            raw = raw * 10 + digit
+        if sign:
+            raw = -raw
         if exponent < 0:
             decimals = -exponent
-            raw = int(value * (decimal.Decimal(10)**decimals))
         else:
             # per spec, the "decimals" octet is unsigned (!)
             decimals = 0
-            raw = int(value)
+            raw *= 10**exponent
         # 4.2.5.3: the scale is an unsigned octet and the value a signed long;
         # a Decimal whose scale or mantissa doesn't fit those bounds has no
         # AMQP decimal representation.
