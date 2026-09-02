@@ -369,6 +369,26 @@ class ConnectionTests(unittest.TestCase):
             self.assertIs(type(conn_exc), exceptions.ProbableAccessDeniedError)
             self.assertSequenceEqual(conn_exc.args, [repr(original_exc)])
 
+    def test_on_stream_terminated_pre_open_error_chains_original(self):
+        """A pre-open heuristic error keeps the original error as its `__cause__` (pika/pika#1390),
+        so the chained traceback is not lost when `StreamLostError` is replaced.
+        """
+        with mock.patch.object(self.connection.callbacks,
+                               'process') as process_mock:
+            self.connection._adapter_disconnect_stream = mock.Mock()
+
+            self.connection._set_connection_state(
+                self.connection.CONNECTION_START)
+            self.connection._opened = False
+
+            original_exc = exceptions.StreamLostError(1, 'error text')
+            self.connection._on_stream_terminated(original_exc)
+
+            conn_exc = process_mock.call_args_list[0][0][4]
+            self.assertIs(type(conn_exc),
+                          exceptions.ProbableAuthenticationError)
+            self.assertIs(conn_exc.__cause__, original_exc)
+
     @mock.patch('pika.connection.Connection._adapter_connect_stream')
     def test_new_conn_should_use_first_channel(self, connect):
         """_next_channel_number in new conn should always be 1."""

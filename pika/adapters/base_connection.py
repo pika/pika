@@ -456,7 +456,10 @@ class BaseConnection(connection.Connection):
                 f'Stream connection lost: {error!r}',
                 host=self.params.host,
                 port=self.params.port)
-            # pika/pika#1390: keep the original traceback reachable
+            # pika/pika#1390: keep the original traceback reachable. This pins
+            # the error's traceback (and the frame locals it captured) for as
+            # long as this reason is held as self._error, an accepted cost for
+            # diagnosability.
             reason.__cause__ = error
 
         LOGGER.log(logging.DEBUG if reason is None else logging.ERROR,

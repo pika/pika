@@ -1171,8 +1171,8 @@ class Connection(abc.ABC):
         either be an instance of `exceptions.ConnectionClosed` if a fully-open connection was closed
         by user or broker or exception of another type that describes the cause of connection
         closure/failure. If the stream died because some other exception was raised - for example
-        from one of your own callbacks - that exception is available as the reason's `__cause__`,
-        so `traceback.print_exception(reason)` shows where it came from.
+        from one of your own callbacks - most adapters chain that exception onto the reason as its
+        `__cause__`, so inspecting `reason.__cause__` reveals where it came from.
 
         :param callback: Callback to call on close, having the signature:
             callback(pika.connection.Connection, exception)
@@ -2169,9 +2169,11 @@ class Connection(abc.ABC):
                 self._error,
             (exceptions.StreamLostError, exceptions.ConnectionClosedByBroker)):
             # Heuristically deduce error based on connection state
+            original_error = self._error
+            deduced_error: Exception | None = None
             if self.connection_state == self.CONNECTION_PROTOCOL:
                 LOGGER.error('Probably incompatible Protocol Versions')
-                self._error = exceptions.IncompatibleProtocolError(
+                deduced_error = exceptions.IncompatibleProtocolError(
                     repr(self._error),
                     host=self.params.host,
                     port=self.params.port)
@@ -2179,7 +2181,7 @@ class Connection(abc.ABC):
                 LOGGER.error(
                     'Connection closed while authenticating indicating a '
                     'probable authentication error')
-                self._error = exceptions.ProbableAuthenticationError(
+                deduced_error = exceptions.ProbableAuthenticationError(
                     repr(self._error),
                     host=self.params.host,
                     port=self.params.port)
@@ -2187,7 +2189,7 @@ class Connection(abc.ABC):
                 LOGGER.error('Connection closed while tuning the connection '
                              'indicating a probable permission error when '
                              'accessing a virtual host')
-                self._error = exceptions.ProbableAccessDeniedError(
+                deduced_error = exceptions.ProbableAccessDeniedError(
                     repr(self._error),
                     host=self.params.host,
                     port=self.params.port)
@@ -2197,6 +2199,11 @@ class Connection(abc.ABC):
             ]:
                 LOGGER.warning('Unexpected connection state on disconnect: %i',
                                self.connection_state)
+            if deduced_error is not None:
+                # pika/pika#1390: keep the original error (and the __cause__
+                # traceback it carries) reachable behind the heuristic one.
+                deduced_error.__cause__ = original_error
+                self._error = deduced_error
 
         # Transition to closed state
         self._set_connection_state(self.CONNECTION_CLOSED)
