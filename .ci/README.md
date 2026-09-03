@@ -6,13 +6,22 @@ pika's acceptance tests on GitHub Actions.
 ## How the test matrix works
 
 `.github/workflows/main.yaml` triggers on push and PR. It calls the reusable
-workflow `.github/workflows/_test.yaml` twice:
+workflow `.github/workflows/_test.yaml` three times. Each call matrices over
+`python-version` and `test-tls: [true, false]`; `test-modern` and
+`test-legacy` run on both the Linux and Windows runners, while `test-preview`
+is Linux-only:
 
-- `test-modern` - Python 3.10-3.14, ubuntu-latest, macos-latest
-- `test-legacy` - Python 3.7-3.9, ubuntu-22.04, macos-15-intel
+- `test-modern` - Python 3.10-3.14, ubuntu-latest + windows-latest
+- `test-legacy` - Python 3.7-3.9, ubuntu-22.04 + windows-latest
+- `test-preview` - pre-release Python 3.15, ubuntu-latest; non-blocking
 
-Each invocation matrices over `python-version` and `test-tls: [true, false]`,
-producing job names like `build/test on ubuntu-latest py3.12 tls=true`.
+macOS runs separately as the standalone `test-macos` job in `main.yaml` (not
+through the reusable workflow): only the latest supported CPython on
+macos-latest, both TLS modes. It is slow and occasionally flaky, so it is kept
+minimal and non-blocking, but still exercises the BSD-only KQueuePoller path
+and feeds its coverage to Codecov.
+
+Job names look like `build/test on ubuntu-latest py3.12 tls=true`.
 
 The `--use-tls` pytest flag is passed when `test-tls` is true, directing tests
 to connect on port 5671 instead of 5672.

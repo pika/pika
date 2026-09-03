@@ -21,7 +21,6 @@ jobs:
     with:
       python-versions: '["3.10","3.11","3.12","3.13","3.14"]'
       ubuntu-runner: ubuntu-latest
-      macos-runner: macos-latest
       legacy: false
 
   test-legacy:
@@ -29,7 +28,6 @@ jobs:
     with:
       python-versions: '["3.7","3.8","3.9"]'
       ubuntu-runner: ubuntu-22.04
-      macos-runner: macos-15-intel
       legacy: true
 
   # Pre-release Python. Deliberately absent from the `tests-passed` needs list:
@@ -51,10 +49,53 @@ jobs:
       linux-only: true
       upload-coverage: false
 
+  # macOS is slow and occasionally flaky, so it is not run across the full
+  # matrix like Linux and Windows. This single leg exercises only the latest
+  # supported CPython on macos-latest (both TLS modes), enough to keep the
+  # BSD-only KQueuePoller path covered by real runs. Deliberately absent from
+  # the `tests-passed` needs list so a macOS flake does not block a merge; its
+  # coverage still feeds Codecov (see the `coverage` job). Bump the Python
+  # version here when a newer stable release joins `test-modern`.
+  test-macos:
+    name: build/test on macos-latest py${{ matrix.python-version }} tls=${{ matrix.test-tls }}
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.14']
+        test-tls: [true, false]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install and start RabbitMQ
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./.ci/macos/gha-setup.sh
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip wheel
+          python -m pip install hatch
+      - name: Test with pytest
+        run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml ${{ matrix.test-tls && '--use-tls' || '' }}
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-macos-py${{ matrix.python-version }}-tls-${{ matrix.test-tls }}
+          path: coverage.xml
+          retention-days: 7
+          if-no-files-found: error
+
   coverage:
     name: upload coverage to Codecov
     runs-on: ubuntu-latest
-    needs: [test-modern, test-legacy]
+    # Wait for the macOS leg too so its coverage (the only source for the
+    # BSD-only KQueuePoller lines) is merged, but tolerate a macOS flake: run
+    # as long as the blocking legs passed.
+    needs: [test-modern, test-legacy, test-macos]
+    if: ${{ !cancelled() && needs.test-modern.result == 'success' && needs.test-legacy.result == 'success' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Download coverage artifacts

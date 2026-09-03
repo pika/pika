@@ -111,13 +111,16 @@ the `codegen` workflow enforces on every pull request.
 - **Tests** (`.github/workflows/main.yaml`): the entry point on every push
   and pull request. Calls the reusable test workflow three times: once for
   Python 3.10-3.14, once for 3.7-3.9, and once for pre-release 3.15 in a
-  non-blocking, Linux-only `test-preview` leg (absent from the `tests-passed`
-  needs list). It also builds the docs and gates the blocking legs behind a
-  `tests-passed` job. Acceptance tests require a RabbitMQ server
-  (started via Docker in CI). Coverage is uploaded to Codecov.
+  non-blocking, Linux-only `test-preview` leg. macOS runs as a separate,
+  non-blocking `test-macos` job (latest supported Python on macos-latest
+  only), kept minimal because macOS is slow and flaky. Both non-blocking legs
+  are absent from the `tests-passed` needs list. It also builds the docs and
+  gates the blocking legs behind `tests-passed`. Acceptance tests require a
+  RabbitMQ server (started via Docker in CI). Coverage is uploaded to Codecov.
 - **Reusable tests** (`.github/workflows/_test.yaml`): the matrix itself,
-  Linux, macOS, and Windows crossed with each Python version and with TLS
-  on and off. Invoked via `workflow_call`; never triggered directly.
+  Linux and Windows crossed with each Python version and with TLS on and off
+  (macOS runs separately; see the `test-macos` job in `main.yaml`). Invoked
+  via `workflow_call`; never triggered directly.
 - **Docs** (`.github/workflows/docs.yaml`): runs `hatch run docs:build`.
   Invoked via `workflow_call` from the test workflow.
 - **CodeQL** (`.github/workflows/codeql-analysis.yml`): security analysis on
