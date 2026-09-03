@@ -32,6 +32,25 @@ jobs:
       macos-runner: macos-15-intel
       legacy: true
 
+  # Pre-release Python. Deliberately absent from the `tests-passed` needs list:
+  # this leg reports breakage early without letting an unreleased interpreter
+  # block a merge. That non-blocking property depends on branch protection
+  # requiring only the `tests-passed` check, not every individual job; keep it
+  # that way. Promote it into `test-modern` once 3.15 ships a final release,
+  # and add the trove classifier at the same time.
+  #
+  # Linux-only and no coverage upload: this is an early-warning smoke test, so
+  # it skips the slow, expensive macOS and Windows legs and keeps pre-release
+  # coverage out of the Codecov report.
+  test-preview:
+    uses: ./.github/workflows/_test.yaml
+    with:
+      python-versions: '["3.15"]'
+      ubuntu-runner: ubuntu-latest
+      allow-prereleases: true
+      linux-only: true
+      upload-coverage: false
+
   coverage:
     name: upload coverage to Codecov
     runs-on: ubuntu-latest

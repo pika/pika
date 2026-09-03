@@ -109,9 +109,11 @@ the `codegen` workflow enforces on every pull request.
   path-filtered job never reports to a required status check, and running
   unconditionally also catches a hand-edited `spec.py`.
 - **Tests** (`.github/workflows/main.yaml`): the entry point on every push
-  and pull request. Calls the reusable test workflow twice, once for Python
-  3.10-3.14 and once for 3.7-3.9, builds the docs, and gates all of it
-  behind a `tests-passed` job. Acceptance tests require a RabbitMQ server
+  and pull request. Calls the reusable test workflow three times: once for
+  Python 3.10-3.14, once for 3.7-3.9, and once for pre-release 3.15 in a
+  non-blocking, Linux-only `test-preview` leg (absent from the `tests-passed`
+  needs list). It also builds the docs and gates the blocking legs behind a
+  `tests-passed` job. Acceptance tests require a RabbitMQ server
   (started via Docker in CI). Coverage is uploaded to Codecov.
 - **Reusable tests** (`.github/workflows/_test.yaml`): the matrix itself,
   Linux, macOS, and Windows crossed with each Python version and with TLS
