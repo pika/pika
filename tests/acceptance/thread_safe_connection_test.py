@@ -538,3 +538,139 @@ class TestPerRPCCallbacksDoNotAccumulate(ThreadSafeTestCaseBase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestPublishDuringConfirmSelectRoundTrip(ThreadSafeTestCaseBase):
+    """
+    A publish issued while Confirm.SelectOk is in flight must carry the broker's tag.
+
+    The broker numbers from the first publish it processes after Confirm.Select, so a publish made
+    during the round trip is tag 1.  Arming the wrapper's counter on the calling thread once
+    confirm_delivery returned skipped it, leaving every later tag one behind the broker's (issue
+    #1683).
+    """
+
+    def test(self):
+        conn = self._connect()
+        ch = conn.channel()
+        queue = self._unique_queue()
+        ch.queue_declare(queue=queue, durable=False, exclusive=True)
+
+        acked = []
+        reported = []
+        select_sent = threading.Event()
+
+        raw_confirm_delivery = ch._channel.confirm_delivery
+
+        def _hooked(*args, **kwargs):
+            result = raw_confirm_delivery(*args, **kwargs)
+            # Confirm.Select is written and Confirm.SelectOk is still in
+            # flight.  The hook only makes the timing deterministic; any thread
+            # publishing while another is inside confirm_delivery lands in the
+            # same window.
+            select_sent.set()
+            return result
+
+        ch._channel.confirm_delivery = _hooked
+
+        def _publish(body):
+            ch.basic_publish(
+                exchange='',
+                routing_key=queue,
+                body=body,
+                on_publish=lambda tag, b=body: reported.append(
+                    (b.decode(), tag)),
+            )
+
+        def _on_confirm(method_frame):
+            acked.append(method_frame.method.delivery_tag)
+
+        enabler = threading.Thread(target=ch.confirm_delivery,
+                                   args=(_on_confirm,))
+        enabler.start()
+        try:
+            self.assertTrue(select_sent.wait(BLOCKING_CALL_TIMEOUT),
+                            'Confirm.Select was never written')
+            _publish(b'A')
+        finally:
+            enabler.join(timeout=BLOCKING_CALL_TIMEOUT)
+        self.assertFalse(enabler.is_alive(), 'confirm_delivery did not return')
+
+        _publish(b'B')
+        _publish(b'C')
+
+        # The broker may ack with multiple=True, so assert how far the
+        # confirmations reached rather than counting individual tags.
+        @retry_assertion(timeout_sec=BLOCKING_CALL_TIMEOUT)
+        def assert_all_confirmed():
+            assert acked, 'no publisher confirm arrived'
+            self.assertEqual(max(acked), 3)
+
+        assert_all_confirmed()
+
+        self.assertEqual(reported, [('A', 1), ('B', 2), ('C', 3)])
+        self.assertEqual(ch.next_publish_seq_no, 4)
+
+
+class TestConfirmDeliveryRetryAgainstRealChannel(ThreadSafeTestCaseBase):
+    """
+    A retried confirm_delivery must not raise or reset the counter on a real broker.
+
+    A confirm_delivery that timed out may still have reached the broker, so the retry sends a second
+    Confirm.Select to an already-confirming channel.  The wrapper's own retry unit test uses a mock
+    raw channel, so this exercises the real pika Channel accepting that second Confirm.Select and
+    the counter surviving it (issue #1683).
+    """
+
+    def test(self):
+        conn = self._connect()
+        ch = conn.channel()
+        queue = self._unique_queue()
+        ch.queue_declare(queue=queue, durable=False, exclusive=True)
+
+        acked = []
+
+        def _on_confirm(method_frame):
+            acked.append(method_frame.method.delivery_tag)
+
+        ch.confirm_delivery(_on_confirm)
+
+        reported = []
+
+        def _publish(body):
+            ch.basic_publish(
+                exchange='',
+                routing_key=queue,
+                body=body,
+                on_publish=lambda tag, b=body: reported.append(
+                    (b.decode(), tag)),
+            )
+
+        _publish(b'A')
+
+        # Simulate the state left by a confirm_delivery that timed out after
+        # the broker already enabled confirms: the wrapper never cached the
+        # Confirm.SelectOk, so the retry is let through the guard.
+        ch._confirm_select_ok = None
+
+        # confirm_delivery blocks on the round trip, so by the time it returns
+        # the IOLoop has already run publish A, which was scheduled ahead of
+        # it; the counter is therefore a deterministic 1 (property 2).  The real
+        # channel must accept this second Confirm.Select without raising, and
+        # the retry must not reset the counter the broker never reset.
+        ch.confirm_delivery(_on_confirm)
+        self.assertEqual(ch.next_publish_seq_no, 2)
+
+        # If the retry had reset the counter, B would be tag 1; tag 2 proves it
+        # was preserved across the second Confirm.Select.
+        _publish(b'B')
+
+        @retry_assertion(timeout_sec=BLOCKING_CALL_TIMEOUT)
+        def assert_all_confirmed():
+            assert acked, 'no publisher confirm arrived'
+            self.assertEqual(max(acked), 2)
+
+        assert_all_confirmed()
+
+        self.assertEqual(reported, [('A', 1), ('B', 2)])
+        self.assertEqual(ch.next_publish_seq_no, 3)

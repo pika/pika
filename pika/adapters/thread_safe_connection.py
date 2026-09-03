@@ -380,6 +380,12 @@ class Channel:
         self._pool_shutdown = False
         self._next_publish_seq_no: int | None = None
         self._confirm_select_ok = None
+        # Serializes confirm_delivery so two threads cannot both pass the
+        # _confirm_select_ok guard while the first is still waiting for
+        # Confirm.SelectOk.  Per-channel rather than the connection-wide
+        # _channel_waiters_lock: the call blocks for a broker round trip, which
+        # must not stall operations on other channels.
+        self._confirm_lock = threading.Lock()
 
     def _check_not_closed(self) -> None:
         """
@@ -563,8 +569,13 @@ class Channel:
 
         self._wrapper._schedule_unchecked(_remove)
 
-    def _blocking_rpc(self, method_name: str, channel_method,
-                      timeout: float | None, *args, **kwargs) -> Any:
+    def _blocking_rpc(self,
+                      method_name: str,
+                      channel_method,
+                      timeout: float | None,
+                      *args,
+                      on_sent: Callable[[], None] | None = None,
+                      **kwargs) -> Any:
         """
         Execute a channel RPC and block until the broker responds.
 
@@ -581,6 +592,11 @@ class Channel:
         :param method_name: Human-readable name for timeout messages.
         :param channel_method: Bound method on the raw channel.
         :param timeout: Seconds to wait.
+        :param on_sent: Optional zero-argument callable run on the IOLoop thread
+            immediately after *channel_method* writes its frame, ahead of any
+            callback already queued behind it.  For state that must be ordered
+            against the frame going out rather than against the broker's
+            response coming back.
         :returns: The broker response frame.
         :raises TimeoutError: if *timeout* expires.
         :raises Exception: if the connection or channel closes first.
@@ -605,6 +621,23 @@ class Channel:
             except Exception as exc:
                 error[0] = exc
                 ready.set()
+                return
+            # The frame is on the wire.  Run the post-send hook separately: if
+            # channel_method delivered its response synchronously (result and
+            # ready already set) a raising hook must not clobber that result,
+            # since _blocking_rpc checks error ahead of result.  Surface the
+            # hook's failure only while the response is still outstanding.
+            if on_sent is not None:
+                try:
+                    on_sent()
+                except Exception as exc:
+                    if not ready.is_set():
+                        error[0] = exc
+                        ready.set()
+                    else:
+                        LOGGER.exception(
+                            'on_sent hook raised after %s completed',
+                            method_name)
 
         self._wrapper._schedule_unchecked(_invoke)
 
@@ -931,10 +964,17 @@ class Channel:
         """
         Enable publisher confirms and block until Confirm.SelectOk arrives.
 
-        Idempotent: calling this method more than once on the same channel
-        returns the original Confirm.SelectOk without sending a frame to
-        the broker or resetting the delivery-tag counter, matching the
+        Idempotent: calling this method more than once on the same
+        channel - concurrently from several threads included - returns
+        the original Confirm.SelectOk without sending a frame to the
+        broker or resetting the delivery-tag counter, matching the
         behavior of the RabbitMQ Java and .NET clients.
+
+        Concurrent callers are serialized on a per-channel lock, so a
+        second thread waits for the first call's round trip to finish
+        before it is handed the cached frame.  Its own *timeout* bounds
+        only the wait for the broker's response, not that queueing, so
+        it can block for the first caller's timeout on top of its own.
 
         The *ack_nack_callback* is dispatched on the channel's worker
         thread (same as delivery callbacks), not the IOLoop thread.
@@ -943,6 +983,15 @@ class Channel:
         listener cannot stall heartbeats.
 
         Safe to call from any thread.
+
+        A :class:`TimeoutError` does not mean confirms are off.  The
+        Confirm.Select frame is written before the wait begins and may
+        well have reached the broker, which then numbers publishes from
+        1, so the delivery-tag counter is armed regardless of whether
+        Confirm.SelectOk arrived in time.  A subsequent publish therefore
+        still fires its ``on_publish`` and advances
+        :attr:`next_publish_seq_no`.  Retry ``confirm_delivery`` rather
+        than assuming confirms were left disabled.
 
         :param ack_nack_callback:
             ``callback(method_frame)`` called for each Basic.Ack or
@@ -954,25 +1003,40 @@ class Channel:
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
-        if self._confirm_select_ok is not None:
-            return self._confirm_select_ok
+        with self._confirm_lock:
+            if self._confirm_select_ok is not None:
+                return self._confirm_select_ok
 
-        def _wrapped_ack_nack(method_frame) -> None:
-            _submit_or_terminate(
-                self._consumer_work_pool, self._wrapper._connection,
-                'Publisher confirm dropped: work pool shut down',
-                self._safe_dispatch, 'publisher confirm callback',
-                ack_nack_callback, method_frame)
+            def _wrapped_ack_nack(method_frame) -> None:
+                _submit_or_terminate(
+                    self._consumer_work_pool, self._wrapper._connection,
+                    'Publisher confirm dropped: work pool shut down',
+                    self._safe_dispatch, 'publisher confirm callback',
+                    ack_nack_callback, method_frame)
 
-        result = self._blocking_rpc(
-            'confirm_delivery',
-            self._channel.confirm_delivery,
-            timeout,
-            ack_nack_callback=_wrapped_ack_nack,
-        )
-        self._next_publish_seq_no = 0
-        self._confirm_select_ok = result
-        return result
+            def _arm_seq_no() -> None:
+                # Runs on the IOLoop thread the moment Confirm.Select is
+                # written, so it is ordered ahead of every publish the IOLoop
+                # has queued behind it.  Arming from the calling thread once the
+                # RPC returns instead would miss each publish issued during the
+                # round trip: the broker numbers those from 1, leaving the
+                # counter permanently behind the broker's delivery tags.
+                #
+                # Arm only once.  A confirm_delivery that timed out may still
+                # have reached the broker, and the retry's second Confirm.Select
+                # does not reset the broker's counter, so neither may this.
+                if self._next_publish_seq_no is None:
+                    self._next_publish_seq_no = 0
+
+            result = self._blocking_rpc(
+                'confirm_delivery',
+                self._channel.confirm_delivery,
+                timeout,
+                on_sent=_arm_seq_no,
+                ack_nack_callback=_wrapped_ack_nack,
+            )
+            self._confirm_select_ok = result
+            return result
 
     def basic_consume(self,
                       queue,
