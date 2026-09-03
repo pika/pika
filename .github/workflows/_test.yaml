@@ -20,6 +20,11 @@ on:
         required: false
         type: boolean
         default: false
+      allow-prereleases:
+        description: 'Let setup-python resolve pre-release Python builds (alpha, beta, rc)'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build-windows:
@@ -36,6 +41,7 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
+          allow-prereleases: ${{ inputs.allow-prereleases }}
       - name: Resolve RabbitMQ and Erlang versions
         id: versions
         shell: pwsh
@@ -92,6 +98,7 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
+          allow-prereleases: ${{ inputs.allow-prereleases }}
       - name: Install and start RabbitMQ
         run: ./.ci/linux/gha-setup.sh
       - name: Install dependencies
@@ -122,6 +129,7 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
+          allow-prereleases: ${{ inputs.allow-prereleases }}
       - name: Install and start RabbitMQ
         env:
           GH_TOKEN: ${{ github.token }}
