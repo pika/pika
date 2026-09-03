@@ -12,9 +12,10 @@ on:
         required: true
         type: string
       macos-runner:
-        description: 'macOS runner image, e.g. macos-latest or macos-15-intel'
-        required: true
+        description: 'macOS runner image, e.g. macos-latest or macos-15-intel. Unused when linux-only is true'
+        required: false
         type: string
+        default: macos-latest
       legacy:
         description: 'Apply legacy-Python tweaks (virtualenv pin)'
         required: false
@@ -25,10 +26,21 @@ on:
         required: false
         type: boolean
         default: false
+      linux-only:
+        description: 'Run only the Linux jobs, skipping the windows and macos legs'
+        required: false
+        type: boolean
+        default: false
+      upload-coverage:
+        description: 'Upload a coverage artifact for the coverage job to collect'
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   build-windows:
     name: build/test on windows-latest py${{ matrix.python-version }} tls=${{ matrix.test-tls }}
+    if: ${{ !inputs.linux-only }}
     runs-on: windows-latest
     strategy:
       fail-fast: false
@@ -77,6 +89,7 @@ jobs:
       - name: Test with pytest
         run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml ${{ matrix.test-tls && '--use-tls' || '' }}
       - name: Upload coverage artifact
+        if: ${{ inputs.upload-coverage }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-windows-py${{ matrix.python-version }}-tls-${{ matrix.test-tls }}
@@ -108,6 +121,7 @@ jobs:
       - name: Test with pytest
         run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml ${{ matrix.test-tls && '--use-tls' || '' }}
       - name: Upload coverage artifact
+        if: ${{ inputs.upload-coverage }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-linux-py${{ matrix.python-version }}-tls-${{ matrix.test-tls }}
@@ -117,6 +131,7 @@ jobs:
 
   build-macos:
     name: build/test on ${{ inputs.macos-runner }} py${{ matrix.python-version }} tls=${{ matrix.test-tls }}
+    if: ${{ !inputs.linux-only }}
     runs-on: ${{ inputs.macos-runner }}
     strategy:
       fail-fast: false
@@ -141,6 +156,7 @@ jobs:
       - name: Test with pytest
         run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml ${{ matrix.test-tls && '--use-tls' || '' }}
       - name: Upload coverage artifact
+        if: ${{ inputs.upload-coverage }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-macos-py${{ matrix.python-version }}-tls-${{ matrix.test-tls }}
