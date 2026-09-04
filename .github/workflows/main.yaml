@@ -38,7 +38,7 @@ jobs:
   # and add the trove classifier at the same time.
   #
   # Linux-only and no coverage upload: this is an early-warning smoke test, so
-  # it skips the slow, expensive macOS and Windows legs and keeps pre-release
+  # it skips the slow, expensive Windows legs and keeps pre-release
   # coverage out of the Codecov report.
   test-preview:
     uses: ./.github/workflows/_test.yaml
