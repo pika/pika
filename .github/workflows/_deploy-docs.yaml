@@ -40,17 +40,25 @@ on:
         required: false
         type: boolean
         default: true
+      validate:
+        description: 'Run a standalone strict docs build first. False when the caller already built this exact commit'
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 
-# Serialize deploys so two runs cannot interleave their read-modify-write of
-# `gh-pages`. `queue: max` matters as much as the group does: with the default
-# `queue: single` a newly queued run cancels whichever run is already pending,
-# so a `main` push landing while a release deploy waited its turn would drop
-# the release's docs and still report the release as green.
+# Serialize real deploys so two runs cannot interleave their read-modify-write
+# of `gh-pages`. `queue: max` matters as much as the group does: with the default
+# `queue: single` a newly queued run cancels whichever run is already pending, so
+# a `main` push landing while a release deploy waited its turn would drop the
+# release's docs and still report the release as green.
+#
+# A validation run touches no remote, so it gets a per-ref group of its own
+# rather than queueing behind, and delaying, the deploys that do.
 concurrency:
-  group: deploy-docs
+  group: ${{ inputs.push && 'deploy-docs' || format('deploy-docs-validate-{0}', github.ref) }}
   cancel-in-progress: false
   queue: max
 
@@ -108,8 +116,11 @@ jobs:
           done
 
       # Fail before anything touches `gh-pages`. `docs:build` runs
-      # `mkdocs build --strict`, which `mike`'s own build does not.
+      # `mkdocs build --strict`, which `mike`'s own build does not. Callers that
+      # have already built this exact commit under `--strict` pass
+      # `validate: false` rather than paying for a third build of it.
       - name: Validate documentation build
+        if: ${{ inputs.validate }}
         run: hatch run docs:build
 
       - name: Configure git
@@ -154,6 +165,15 @@ jobs:
             # any real version supersedes it.
             echo "'$first_alias' is on the dev bootstrap; $VERSION takes it."
             echo "move=true" >> "$GITHUB_OUTPUT"
+          elif [ "$VERSION" = "dev" ]; then
+            # The mirror image, and it must be explicit rather than left to the
+            # comparison below: `sort -V` ranks `dev` above every numeric
+            # version, so the dev deploy would otherwise take `latest` back off
+            # a real release on every push to `main`. This is the steady state
+            # once anything has shipped, so it is a notice rather than a
+            # warning.
+            echo "'$first_alias' belongs to release $holder; the dev deploy leaves it there."
+            echo "move=false" >> "$GITHUB_OUTPUT"
           else
             newest=$(printf '%s\n%s\n' "$holder" "$VERSION" | sort -V | tail -1)
             if [ "$newest" = "$VERSION" ]; then

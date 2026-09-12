@@ -1,27 +1,22 @@
 name: Deploy Docs
 
-# Entry point for publishing the documentation site. The work lives in the
-# reusable `_deploy-docs.yaml`; this file only decides what to publish.
+# Manual entry point for publishing the documentation site. The work lives in
+# the reusable `_deploy-docs.yaml`.
 #
-#   - push to `main`    -> `dev`
-#   - manual dispatch   -> whatever the operator asks for
+# Nothing here is automatic. The two automated paths call the reusable workflow
+# themselves, so that each can gate the deploy on the right thing:
 #
-# Release versions are NOT published from here. `release.yaml` calls
-# `_deploy-docs.yaml` itself, as its last job, so the docs go out only after the
-# wheel is on PyPI and the release is otherwise complete, and so a failed docs
-# deploy fails the release run rather than being reported nowhere.
+#   - `main.yaml` publishes `dev` after `tests-passed`, so `dev` docs never come
+#     from a commit whose test matrix failed.
+#   - `release.yaml` publishes the release version as its last job, after the
+#     wheel is on PyPI and the release is otherwise complete.
 #
-# There is deliberately no `on.push.tags` trigger. A tag pushed by `release.yaml`
-# authenticates with GITHUB_TOKEN, and GitHub documents that events triggered by
-# GITHUB_TOKEN do not create a workflow run, so such a trigger would be dead for
-# every automated release while still firing for a hand-pushed tag. That split
-# behaviour is worse than not having it: a hand-pushed maintenance tag would
-# publish and take the `latest` alias with no release-flow gating at all.
+# This file exists for the cases neither covers: re-publishing after a failed
+# deploy, the one-time bootstrap described in RELEASE.md, or backfilling a
+# version. Because it takes the version and aliases as inputs, it cannot silently
+# do the wrong thing with a ref the way a tag trigger would.
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       ref:
@@ -49,18 +44,7 @@ permissions:
   contents: read
 
 jobs:
-  # A push to `main` republishes `dev`. The alias inputs stay empty: `dev` takes
-  # `latest` only during the one-time bootstrap, which RELEASE.md covers, and
-  # never afterwards.
-  dev:
-    if: github.event_name == 'push'
-    uses: ./.github/workflows/_deploy-docs.yaml
-    with:
-      ref: ${{ github.sha }}
-      version: dev
-
-  manual:
-    if: github.event_name == 'workflow_dispatch'
+  deploy:
     uses: ./.github/workflows/_deploy-docs.yaml
     with:
       ref: ${{ inputs.ref }}

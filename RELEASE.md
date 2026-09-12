@@ -137,29 +137,27 @@ Because every page lives under a version directory, there is no unversioned
 `/modules/...` path. Links from the library and the README use `latest/`, which
 the alias resolves to the newest stable release.
 
-### Setup: one-time bootstrap
+### Setup: bootstrap
 
-Two things exist only once a stable release has been deployed: the `latest`
-alias, and the `index.html` at the site root that redirects to it. Until then
-`https://pika.github.io/pika/` and every `latest/` URL return 404, including
-the ones in the adapter deprecation warnings.
+The `latest` alias and the `index.html` at the site root that redirects to it
+would otherwise exist only once a stable release had been deployed, leaving
+`https://pika.github.io/pika/` and every `latest/` URL returning 404 in the
+meantime, including the ones compiled into the adapter deprecation warnings of
+any wheel released before then.
 
-After the first `main` deploy creates `gh-pages`, point `latest` at `dev` so
-those URLs resolve before the first release:
+The `main` deploy handles this itself: it asks for `latest` on every push, so the
+first deploy takes the alias and writes the root redirect, and after a release
+has taken `latest` the deploy's alias guard declines to move it back. No manual
+command is needed, and re-running it is safe.
 
-```bash
-git fetch origin gh-pages
-hatch run docs:mike alias --push --update-aliases dev latest
-hatch run docs:mike set-default --push latest
-```
+What does need doing by hand, once, is the repository configuration:
 
-This is needed once. The first stable release moves `latest` from `dev` to
-`MAJOR.MINOR` on its own, and later pushes to `main` redeploy `dev` without
-disturbing the alias, so `latest` keeps pointing at the release.
-
-Also set repo Settings → Pages → Source to `Deploy from a branch`, branch
-`gh-pages`, folder `/ (root)`, and make sure no branch-protection rule on
-`gh-pages` blocks the Actions push.
+1. Confirm no branch-protection rule on `gh-pages` blocks the
+   `github-actions[bot]` push. If the first deploy fails at the push, this is
+   why.
+2. Set Settings -> Pages -> Source to `Deploy from a branch`, branch `gh-pages`,
+   folder `/ (root)`. The branch has to exist first, so do this after the first
+   deploy.
 
 ### Rebuilding `gh-pages` from scratch
 

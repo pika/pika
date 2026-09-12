@@ -129,3 +129,41 @@ jobs:
       - name: Check test-legacy status
         if: ${{ needs.test-legacy.result != 'success' }}
         run: exit 1
+
+  # Exercise the publish path on pull requests without touching the remote.
+  # `docs` above runs `mkdocs build --strict`, but that is not the same build:
+  # `mike` injects its own plugin into a derived config and rebuilds, and that
+  # build can fail on its own (a theme asset colliding with an `extra_css` entry,
+  # for one). Without this, such a change merges green and first fails during a
+  # release, after the wheel is already published.
+  validate-docs-deploy:
+    if: ${{ github.event_name == 'pull_request' }}
+    uses: ./.github/workflows/_deploy-docs.yaml
+    with:
+      ref: ${{ github.sha }}
+      version: dev
+      push: false
+
+  # Publish `dev` from `main`, gated on the full matrix. This lives here rather
+  # than on a `push` trigger in deploy-docs.yaml so it can depend on
+  # `tests-passed`: an independent workflow would race the matrix and publish
+  # `dev` docs from a commit whose tests then failed.
+  #
+  # It asks for `latest` every time, which is the one-time bootstrap in
+  # RELEASE.md rather than a per-push intent: before the first release nothing
+  # holds `latest`, so `dev` takes it and the site root starts resolving instead
+  # of returning 404 for every `latest/` URL compiled into a shipped wheel.
+  # Afterwards the deploy's alias guard declines the move, so this is idempotent.
+  #
+  # `validate: false` because `tests-passed` requires the `docs` job, which has
+  # already built this exact commit under `--strict`.
+  deploy-dev-docs:
+    needs: tests-passed
+    if: ${{ github.event_name == 'push' }}
+    uses: ./.github/workflows/_deploy-docs.yaml
+    with:
+      ref: ${{ github.sha }}
+      version: dev
+      aliases: latest
+      set-default: true
+      validate: false
