@@ -1,0 +1,221 @@
+name: pika docs deploy (reusable)
+
+# Build the MkDocs site and publish it to the `gh-pages` branch with `mike`,
+# which keeps every version in its own subdirectory. GitHub Pages must be
+# configured to serve from that branch.
+#
+# The caller passes the version name and aliases explicitly instead of having
+# this workflow infer them from a ref. The callers already know: `release.yaml`
+# knows its own `mode`, and a push to `main` always publishes `dev`. Inferring
+# them here would mean re-deriving "is this a pre-release" from tag text, which
+# gets the answer wrong for any tag whose pre-release segment happens to be all
+# digits.
+#
+# Invoked via `workflow_call`; never triggered directly. `deploy-docs.yaml` is
+# the entry point for a `main` push and for a manual deploy.
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Git ref to build the docs from'
+        required: true
+        type: string
+      version:
+        description: 'Version name to publish under, e.g. dev, 1.5, or 1.5.0rc1'
+        required: true
+        type: string
+      aliases:
+        description: 'Space-separated aliases to point at this version, e.g. latest. Empty for none'
+        required: false
+        type: string
+        default: ''
+      set-default:
+        description: 'Point the site-root redirect at the first alias'
+        required: false
+        type: boolean
+        default: false
+      push:
+        description: 'Publish to gh-pages. False builds and deploys to a local branch only, which validates the mike path without touching the remote'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+# Serialize deploys so two runs cannot interleave their read-modify-write of
+# `gh-pages`. `queue: max` matters as much as the group does: with the default
+# `queue: single` a newly queued run cancels whichever run is already pending,
+# so a `main` push landing while a release deploy waited its turn would drop
+# the release's docs and still report the release as green.
+concurrency:
+  group: deploy-docs
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  deploy:
+    name: Publish ${{ inputs.version }}
+    runs-on: ubuntu-latest
+    permissions:
+      # `mike` commits to and pushes `gh-pages`.
+      contents: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          # `mike` rewrites the whole `gh-pages` branch and pushes it without
+          # --force, so it needs the `origin/gh-pages` ref to build on. It does
+          # not read git tags; the version name is an input. Shallowing this
+          # leaves `mike` with no remote ref to find, and it then builds
+          # `gh-pages` as a root commit whose version index holds only the new
+          # version, which fails at the push as a non-fast-forward.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install documentation dependencies
+        run: python -m pip install hatch
+
+      - name: Validate inputs
+        env:
+          VERSION: ${{ inputs.version }}
+          ALIASES: ${{ inputs.aliases }}
+        run: |
+          # A version name reaches `gh-pages` as a directory name and a
+          # `versions.json` entry, and nothing downstream can tell a typo from
+          # an intended name. `mike` has no `delete` step anywhere in this
+          # repo's automation, so a bad name has to be removed by hand.
+          case "$VERSION" in
+            dev) ;;
+            *)
+              if ! printf '%s' "$VERSION" | grep -qE '^[0-9]+\.[0-9]+$|^[0-9]+\.[0-9]+\.[0-9]+[a-zA-Z][a-zA-Z0-9]*$'; then
+                echo "::error::version must be dev, MAJOR.MINOR, or a full pre-release version such as 1.5.0rc1; got '$VERSION'"
+                exit 1
+              fi
+              ;;
+          esac
+          for alias in $ALIASES; do
+            if ! printf '%s' "$alias" | grep -qE '^[a-z][a-z0-9-]*$'; then
+              echo "::error::alias must be lowercase alphanumeric with dashes; got '$alias'"
+              exit 1
+            fi
+          done
+
+      # Fail before anything touches `gh-pages`. `docs:build` runs
+      # `mkdocs build --strict`, which `mike`'s own build does not.
+      - name: Validate documentation build
+        run: hatch run docs:build
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # Moving an alias is a site-wide change: `latest` also backs the site-root
+      # redirect and every `latest/` URL compiled into shipped wheels. `mike
+      # deploy --update-aliases` takes an alias from its current holder without
+      # complaint, so a deploy on an older tag would quietly roll the whole site
+      # backward. That is reachable by hand (RELEASE.md documents re-running a
+      # deploy on a tag) and automatically, once a maintenance branch carries
+      # this workflow.
+      - name: Decide whether this version may take the aliases
+        id: alias
+        env:
+          VERSION: ${{ inputs.version }}
+          ALIASES: ${{ inputs.aliases }}
+        run: |
+          if [ -z "$ALIASES" ]; then
+            echo "move=false" >> "$GITHUB_OUTPUT"
+            echo "No aliases requested."
+            exit 0
+          fi
+
+          first_alias="${ALIASES%% *}"
+
+          # `mike list` fails when `gh-pages` does not exist yet, which is the
+          # first-deploy case and means nothing holds the alias.
+          holder=$(hatch run docs:mike list --json 2>/dev/null \
+            | python3 .ci/docs_site.py alias-holder --alias "$first_alias")
+
+          if [ -z "$holder" ]; then
+            echo "Nothing holds '$first_alias' yet; taking it."
+            echo "move=true" >> "$GITHUB_OUTPUT"
+          elif [ "$holder" = "$VERSION" ]; then
+            echo "'$first_alias' already points at $VERSION; refreshing it."
+            echo "move=true" >> "$GITHUB_OUTPUT"
+          elif [ "$holder" = "dev" ]; then
+            # `dev` holds the alias only as the pre-first-release bootstrap, so
+            # any real version supersedes it.
+            echo "'$first_alias' is on the dev bootstrap; $VERSION takes it."
+            echo "move=true" >> "$GITHUB_OUTPUT"
+          else
+            newest=$(printf '%s\n%s\n' "$holder" "$VERSION" | sort -V | tail -1)
+            if [ "$newest" = "$VERSION" ]; then
+              echo "$VERSION is newer than the current holder $holder; taking '$first_alias'."
+              echo "move=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "::warning::'$first_alias' stays on $holder; $VERSION is older, so moving it would roll the site backward. Publishing $VERSION without the alias."
+              echo "move=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Deploy
+        env:
+          VERSION: ${{ inputs.version }}
+          ALIASES: ${{ inputs.aliases }}
+          MOVE_ALIASES: ${{ steps.alias.outputs.move }}
+          SET_DEFAULT: ${{ inputs.set-default }}
+          PUSH: ${{ inputs.push }}
+        run: |
+          deploy_args=(deploy)
+          if [ "$PUSH" = "true" ]; then
+            deploy_args+=(--push)
+          fi
+          if [ "$MOVE_ALIASES" = "true" ]; then
+            deploy_args+=(--update-aliases "$VERSION" $ALIASES)
+          else
+            deploy_args+=("$VERSION")
+          fi
+          hatch run docs:mike "${deploy_args[@]}"
+
+          # `set-default` writes the redirect at the site root, which no
+          # `deploy` creates.
+          if [ "$SET_DEFAULT" = "true" ] && [ "$MOVE_ALIASES" = "true" ]; then
+            first_alias="${ALIASES%% *}"
+            if [ "$PUSH" = "true" ]; then
+              hatch run docs:mike set-default --push "$first_alias"
+            else
+              hatch run docs:mike set-default "$first_alias"
+            fi
+          fi
+
+      # `mike` puts its `push` inside the same block that downgrades an empty
+      # commit to a warning, so a deploy whose built output is byte-identical to
+      # what is already published skips the push and still exits 0. Re-running a
+      # deploy to repair a partial publish therefore looks like it worked. Read
+      # the remote back rather than trusting the exit code.
+      - name: Verify the deploy reached the remote
+        if: ${{ inputs.push }}
+        env:
+          VERSION: ${{ inputs.version }}
+          ALIASES: ${{ inputs.aliases }}
+          MOVE_ALIASES: ${{ steps.alias.outputs.move }}
+        run: |
+          git fetch --quiet origin gh-pages
+
+          # Only assert the aliases when this run was allowed to move them; a
+          # deploy that declined the move publishes the version alone.
+          expect_aliases=''
+          if [ "$MOVE_ALIASES" = "true" ]; then
+            expect_aliases="$ALIASES"
+          fi
+
+          git show "origin/gh-pages:versions.json" \
+            | python3 .ci/docs_site.py verify \
+                --version "$VERSION" --aliases "$expect_aliases"

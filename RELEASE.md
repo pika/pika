@@ -48,6 +48,7 @@ The entire flow lives in a single `release.yaml` workflow:
 2. The `publish-pypi` / `publish-test-pypi` job downloads that artifact and publishes it, authenticating with the `PYPI_API_TOKEN` / `TEST_PYPI_API_TOKEN` repository secrets. Downstream jobs never rebuild, so the bytes tested are the bytes shipped
 3. The `smoke-test` job installs the just-published wheel from the matching index and runs `.ci/smoke_test.py` against a live broker (see Post-release verification)
 4. The `github-release` job creates a GitHub Release with notes auto-generated from merged PRs (`--generate-notes`, grouped per `.github/release.yml`)
+5. The `deploy-docs` job runs last and dispatches `deploy-docs.yaml` on the new tag, so the documentation site is published only after the wheel is on PyPI, the smoke test has passed, and the Release exists
 
 A `dry-run` dispatch computes the version and builds the artifact, then stops - nothing is committed, tagged, or published.
 
@@ -90,9 +91,47 @@ bypass the relevant rules (or the push step will fail).
 `deploy-docs.yaml` publishes the MkDocs site to the `gh-pages` branch with
 [`mike`](https://github.com/jimporter/mike), which keeps every version in its
 own subdirectory. A push to `main` publishes `dev`; a stable release tag
-publishes `MAJOR.MINOR` and moves the `latest` alias to it. `release.yaml`
-dispatches the deploy explicitly after tagging, because a tag pushed with
-`GITHUB_TOKEN` does not fire a `push` trigger.
+publishes `MAJOR.MINOR` and moves the `latest` alias to it.
+
+The work lives in the reusable `_deploy-docs.yaml`. Two workflows call it:
+
+- `deploy-docs.yaml` on a push to `main`, publishing `dev`, and on manual
+  dispatch for anything else.
+- `release.yaml`, as its terminal `deploy-docs` job, which runs after the PyPI
+  publish, the smoke test, and the GitHub Release. A release that fails partway
+  through therefore never publishes its docs.
+
+`release.yaml` calls it with `uses:` rather than dispatching it with
+`gh workflow run`, so the deploy's conclusion is the release's conclusion. A
+dispatch returns as soon as the API accepts it, which would report the release
+as successful whether or not the docs ever published.
+
+The caller passes the version name and aliases explicitly. A stable release
+publishes `MAJOR.MINOR` and takes `latest`; a pre-release publishes under its
+full version and takes nothing. That decision is made in `release.yaml`, where
+the mode is known, rather than inferred from the tag text.
+
+Two guards worth knowing about:
+
+- **An alias is never moved backwards.** Before moving `latest`, the deploy
+  compares the version it is publishing against whichever version currently
+  holds the alias, and declines the move if the current holder is newer. Without
+  this, a deploy on an older tag would take `latest` and the site-root redirect
+  with it, rolling the whole site back for every reader and every `latest/` URL
+  compiled into a shipped wheel. `dev` is treated as superseded by any real
+  version, since it holds the alias only as the pre-release bootstrap below.
+- **The deploy is verified against the remote.** `mike` places its push inside
+  the same block that downgrades an empty commit to a warning, so a deploy whose
+  built output matches what is already published skips the push and still exits
+  0. The workflow reads `versions.json` back from `origin/gh-pages` afterwards
+  and fails if the version, or an alias it was supposed to move, is not there.
+
+If an upstream job fails and the docs job is skipped, deploy by hand with the
+same parameters that job would have passed:
+
+```bash
+gh workflow run deploy-docs.yaml -f ref=<tag> -f version=<MAJOR.MINOR> -f aliases=latest -f set-default=true
+```
 
 Because every page lives under a version directory, there is no unversioned
 `/modules/...` path. Links from the library and the README use `latest/`, which

@@ -49,10 +49,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      # Needed to dispatch the deploy-docs workflow below.
-      actions: write
     outputs:
       version: ${{ steps.version.outputs.new }}
+      docs-version: ${{ steps.version.outputs.docs_version }}
+      docs-aliases: ${{ steps.version.outputs.docs_aliases }}
+      docs-set-default: ${{ steps.version.outputs.docs_set_default }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -104,8 +105,12 @@ jobs:
           new_version="${major}.${minor}.${patch}"
           case "$MODE" in
             prerelease)
-              if ! echo "$PRERELEASE_TAG" | grep -qE '^[a-zA-Z0-9]+$'; then
-                echo "::error::prerelease_tag must be alphanumeric (e.g. b1, rc1)"
+              # Must start with a letter. An all-digit suffix would append
+              # straight onto the patch number, so `prerelease_tag=1` on a
+              # 1.5.0 bump yields the version `1.5.01`, which reads as a
+              # stable release to anything that inspects the text.
+              if ! echo "$PRERELEASE_TAG" | grep -qE '^[a-zA-Z][a-zA-Z0-9]*$'; then
+                echo "::error::prerelease_tag must start with a letter and be alphanumeric (e.g. b1, rc1)"
                 exit 1
               fi
               new_version="${new_version}${PRERELEASE_TAG}"
@@ -120,6 +125,35 @@ jobs:
 
           echo "new=$new_version" >> "$GITHUB_OUTPUT"
           echo "Bumping $current -> $new_version (mode: $MODE)"
+
+          # Docs-site parameters, decided here because this is where the mode is
+          # known. The deploy workflow takes them as inputs rather than
+          # re-deriving "is this a pre-release" from the tag text, which cannot
+          # distinguish a pre-release from a stable release reliably.
+          #
+          # A stable release publishes MAJOR.MINOR, so a patch release updates
+          # the same version directory in place, and takes the `latest` alias
+          # plus the site-root redirect. A pre-release publishes under its full
+          # version and takes nothing, leaving `latest` on the last stable
+          # release.
+          case "$MODE" in
+            release)
+              echo "docs_version=${major}.${minor}" >> "$GITHUB_OUTPUT"
+              echo "docs_aliases=latest" >> "$GITHUB_OUTPUT"
+              echo "docs_set_default=true" >> "$GITHUB_OUTPUT"
+              ;;
+            prerelease)
+              echo "docs_version=$new_version" >> "$GITHUB_OUTPUT"
+              echo "docs_aliases=" >> "$GITHUB_OUTPUT"
+              echo "docs_set_default=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              # `test` and `dry-run` never tag, so they never deploy docs.
+              echo "docs_version=" >> "$GITHUB_OUTPUT"
+              echo "docs_aliases=" >> "$GITHUB_OUTPUT"
+              echo "docs_set_default=false" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
 
       - name: Update version
         env:
@@ -163,20 +197,6 @@ jobs:
         run: |
           git ls-remote --tags origin "refs/tags/$NEW_VERSION" | grep -q "$NEW_VERSION" \
             || { echo "::error::Tag $NEW_VERSION not found on remote after push"; exit 1; }
-
-      # The tag push above uses GITHUB_TOKEN, and events triggered by
-      # GITHUB_TOKEN do not create new workflow runs, so deploy-docs.yaml's
-      # on.push.tags trigger never fires for release tags. Dispatch it
-      # explicitly (workflow_dispatch events are exempt from that rule).
-      # Guarded on the same modes as the tag push: `test` and `dry-run` never
-      # create a tag, and dispatching on a nonexistent ref is a hard failure
-      # (HTTP 422), not a warning.
-      - name: Deploy release docs
-        if: ${{ inputs.mode == 'release' || inputs.mode == 'prerelease' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          NEW_VERSION: ${{ steps.version.outputs.new }}
-        run: gh workflow run deploy-docs.yaml --ref "$NEW_VERSION"
 
       - name: Dry-run summary
         if: ${{ inputs.mode == 'dry-run' }}
@@ -318,3 +338,30 @@ jobs:
             --title "pika $TAG" \
             --generate-notes \
             $PRERELEASE_FLAG
+
+  # Docs go last, once the wheel is on PyPI and the release is otherwise
+  # complete. Publishing them earlier would leave a version of the docs live for
+  # a release that then failed, and the docs are the one artifact here that
+  # announces a version to readers rather than to a package index.
+  #
+  # Called with `uses:` rather than dispatched with `gh workflow run`, so its
+  # conclusion is this run's conclusion. A dispatch returns as soon as the API
+  # accepts it, which would report the release as successful whether or not the
+  # docs ever published, with no status check and no notification to the person
+  # who started the release.
+  #
+  # `smoke-test` is deliberately in `needs`: the docs announce a version to
+  # readers, so they should not go out for a wheel that could not be installed
+  # and used. That does make the docs wait on the least deterministic job in the
+  # release, and a broker flake there leaves the release published with the docs
+  # unpublished. Recovery is a manual dispatch of deploy-docs.yaml with the
+  # version and aliases this job would have passed; RELEASE.md spells it out.
+  deploy-docs:
+    needs: [release, publish-pypi, smoke-test, github-release]
+    if: ${{ inputs.mode == 'release' || inputs.mode == 'prerelease' }}
+    uses: ./.github/workflows/_deploy-docs.yaml
+    with:
+      ref: ${{ needs.release.outputs.version }}
+      version: ${{ needs.release.outputs.docs-version }}
+      aliases: ${{ needs.release.outputs.docs-aliases }}
+      set-default: ${{ needs.release.outputs.docs-set-default == 'true' }}

@@ -1,83 +1,69 @@
 name: Deploy Docs
 
-# Build and publish the versioned MkDocs site to the `gh-pages` branch using
-# `mike`. GitHub Pages must be configured to serve from the `gh-pages` branch.
+# Entry point for publishing the documentation site. The work lives in the
+# reusable `_deploy-docs.yaml`; this file only decides what to publish.
 #
-#   - push to `main`        -> publishes the `dev` version
-#   - stable release tag    -> publishes `MAJOR.MINOR` and moves the `latest`
-#                              alias (and the default redirect) to it
-#   - pre-release tag       -> publishes under the full tag, leaves `latest`
-#                              pointing at the last stable release
+#   - push to `main`    -> `dev`
+#   - manual dispatch   -> whatever the operator asks for
 #
-# NOTE: tags pushed by release.yaml use GITHUB_TOKEN and therefore do NOT
-# fire the on.push.tags trigger below; release.yaml dispatches this workflow
-# explicitly on the tag ref instead. The tag trigger remains for manually
-# pushed tags.
+# Release versions are NOT published from here. `release.yaml` calls
+# `_deploy-docs.yaml` itself, as its last job, so the docs go out only after the
+# wheel is on PyPI and the release is otherwise complete, and so a failed docs
+# deploy fails the release run rather than being reported nowhere.
+#
+# There is deliberately no `on.push.tags` trigger. A tag pushed by `release.yaml`
+# authenticates with GITHUB_TOKEN, and GitHub documents that events triggered by
+# GITHUB_TOKEN do not create a workflow run, so such a trigger would be dead for
+# every automated release while still firing for a hand-pushed tag. That split
+# behaviour is worse than not having it: a hand-pushed maintenance tag would
+# publish and take the `latest` alias with no release-flow gating at all.
+
 on:
   push:
     branches:
       - main
-    tags:
-      - "[0-9]+.[0-9]+.[0-9]+"
-      - "[0-9]+.[0-9]+.[0-9]+[a-zA-Z]*"
   workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to build from, e.g. main or 1.5.0'
+        required: true
+        type: string
+        default: main
+      version:
+        description: 'Version name to publish under: dev, MAJOR.MINOR, or a full pre-release version'
+        required: true
+        type: string
+        default: dev
+      aliases:
+        description: 'Space-separated aliases to point at this version, e.g. latest. Empty for none'
+        required: false
+        type: string
+        default: ''
+      set-default:
+        description: 'Point the site-root redirect at the first alias'
+        required: false
+        type: boolean
+        default: false
 
-# `mike` commits to and pushes the `gh-pages` branch.
 permissions:
-  contents: write
-
-# Serialize deploys so two runs cannot race on pushing `gh-pages`. Do not
-# cancel in progress: a half-finished `mike` push would leave the branch in an
-# inconsistent state.
-concurrency:
-  group: deploy-docs
-  cancel-in-progress: false
+  contents: read
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
+  # A push to `main` republishes `dev`. The alias inputs stay empty: `dev` takes
+  # `latest` only during the one-time bootstrap, which RELEASE.md covers, and
+  # never afterwards.
+  dev:
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/_deploy-docs.yaml
+    with:
+      ref: ${{ github.sha }}
+      version: dev
 
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # `mike` needs the full history of `gh-pages` to amend it, and tags
-          # for version detection.
-          fetch-depth: 0
-
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.12"
-          cache: pip
-
-      - name: Install documentation dependencies
-        run: python -m pip install hatch
-
-      # Fail fast on broken docs before touching `gh-pages`. `docs:build` runs
-      # `mkdocs build --strict`.
-      - name: Validate documentation build
-        run: hatch run docs:build
-
-      - name: Configure git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Deploy development docs
-        if: github.ref == 'refs/heads/main'
-        run: hatch run docs:mike deploy --push --update-aliases dev
-
-      - name: Deploy release docs
-        if: startsWith(github.ref, 'refs/tags/')
-        env:
-          TAG: ${{ github.ref_name }}
-        run: |
-          if echo "$TAG" | grep -qE '[a-zA-Z]'; then
-            # Pre-release: publish under its own tag and leave `latest` alone.
-            hatch run docs:mike deploy --push "$TAG"
-          else
-            # Stable release: publish MAJOR.MINOR so patch releases update the
-            # same version in place, and move `latest` to it.
-            docs_version="${TAG%.*}"
-            hatch run docs:mike deploy --push --update-aliases "$docs_version" latest
-            hatch run docs:mike set-default --push latest
-          fi
+  manual:
+    if: github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/_deploy-docs.yaml
+    with:
+      ref: ${{ inputs.ref }}
+      version: ${{ inputs.version }}
+      aliases: ${{ inputs.aliases }}
+      set-default: ${{ inputs.set-default }}
