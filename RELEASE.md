@@ -134,8 +134,12 @@ gh workflow run deploy-docs.yaml -f ref=<tag> -f version=<MAJOR.MINOR> -f aliase
 ```
 
 Because every page lives under a version directory, there is no unversioned
-`/modules/...` path. Links from the library and the README use `latest/`, which
-the alias resolves to the newest stable release.
+`/modules/...` path. A link that must land on a specific page therefore needs a
+version in it, and the adapter deprecation warnings use `latest/` so the alias
+resolves them to the newest stable release. Links that only need the docs home,
+such as the README badge, point at the bare site root instead and let its
+redirect follow `latest` on their behalf, which does not go stale if the alias
+scheme ever changes.
 
 ### Setup: bootstrap
 
@@ -162,20 +166,37 @@ What does need doing by hand, once, is the repository configuration:
 ### Rebuilding `gh-pages` from scratch
 
 `gh-pages` holds built output only, so it can be deleted and regenerated. The
-history is not worth preserving, but the layout is: `mike` records versions in
-a `versions.json` that only the deploys themselves write, so a rebuild has to
+history is not worth preserving, but the layout is: `mike` records versions in a
+`versions.json` that only the deploys themselves write, so a rebuild has to
 replay each version rather than restore a snapshot.
 
-Delete the branch, then for every version to republish, check out its tag and
-deploy under the same name the original deploy used:
+**Delete the local branch as well as the remote one.** `mike` syncs from the
+remote only when the local branch is behind it or has diverged; when the local
+branch is merely *ahead*, which is what a freshly deleted remote makes it, `mike`
+uses the local branch as-is and republishes the entire pre-delete version index
+without a warning. Deleting only the remote therefore looks like it worked and
+undoes the rebuild:
 
 ```bash
-git checkout 1.5.0
+git push origin --delete gh-pages
+git branch -D gh-pages          # the step that is easy to miss
+```
+
+Then, for every version to republish, check out the **newest** tag in that
+series and deploy under the name the original deploy used:
+
+```bash
+git checkout <newest tag in the series, e.g. 1.5.3>
 hatch run docs:mike deploy --push 1.5    # MAJOR.MINOR, not the full tag
 ```
 
-Then redeploy `dev` from `main` and re-establish the alias and the root
-redirect, which no `deploy` recreates:
+The newest tag matters because a stable release publishes `MAJOR.MINOR` and each
+patch overwrites that same directory. Rebuilding `1.5` from tag `1.5.0` when the
+series ended at `1.5.3` silently reverts the published `1.5` docs by three patch
+releases, and nothing records which patch a directory holds.
+
+Then redeploy `dev` from `main` and re-establish the alias and the root redirect,
+which no `deploy` recreates:
 
 ```bash
 git checkout main
@@ -185,10 +206,24 @@ hatch run docs:mike set-default --push latest
 ```
 
 Deploy order does not matter: `mike` sorts the version selector itself, newest
-first, with non-version names such as `dev` at the top. A tag predating the
-MkDocs migration has no `mkdocs.yml` and cannot be rebuilt this way, but none
-need to be; 1.4.0 and earlier were Sphinx-era and were never published by
-`mike`.
+first, with non-version names such as `dev` at the top.
+
+Only versions whose tag carries an `mkdocs.yml` can be replayed, which today
+means none of them: every released tag up to and including the 1.4 series
+predates the MkDocs migration. Until 1.5.0 ships there is nothing to replay, and
+a rebuild reduces to redeploying `dev` from `main` and pointing `latest` at it.
+
+### Pruning pre-release versions
+
+A pre-release publishes a full copy of the site under its own version, and no
+alias points at it. Nothing removes those, so the version selector accumulates
+every `b1` and `rc1` indefinitely. Delete them once the stable release they led
+to has shipped:
+
+```bash
+hatch run docs:mike list                        # see what is published
+hatch run docs:mike delete --push 1.5.0rc1
+```
 
 ## Post-release verification
 

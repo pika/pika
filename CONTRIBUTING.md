@@ -85,10 +85,16 @@ To preview **multiple versions** locally:
 1. Install deps (includes `mike`).
 
 2. Deploy the current tree as one or more version labels on your **local**
-   `gh-pages` branch (omit `--push` to stay offline):
+   `gh-pages` branch. Always omit `--push`: the published site is deployed by CI
+   and a hand-pushed `gh-pages` fights the next automated deploy over the version
+   index. Use the same naming the deploy uses, so a local preview matches what
+   the real site will look like: a stable release is `MAJOR.MINOR`, a pre-release
+   is its full version, and `dev` is a version in its own right rather than an
+   alias.
 
-        hatch run docs:mike deploy 1.3.2
-        hatch run docs:mike deploy --update-aliases 1.4.0b0 dev latest
+        hatch run docs:mike deploy 1.5
+        hatch run docs:mike deploy 1.6.0rc1
+        hatch run docs:mike deploy --update-aliases dev latest
         hatch run docs:mike set-default latest
 
 3. Serve that branch:

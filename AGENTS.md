@@ -117,12 +117,28 @@ the `codegen` workflow enforces on every pull request.
   are absent from the `tests-passed` needs list. It also builds the docs and
   gates the blocking legs behind `tests-passed`. Acceptance tests require a
   RabbitMQ server (started via Docker in CI). Coverage is uploaded to Codecov.
+  Two docs jobs hang off it: `validate-docs-deploy` exercises the `mike` publish
+  path on pull requests without pushing, and `deploy-dev-docs` publishes the
+  `dev` docs after `tests-passed`.
 - **Reusable tests** (`.github/workflows/_test.yaml`): the matrix itself,
   Linux and Windows crossed with each Python version and with TLS on and off
   (macOS runs separately; see the `test-macos` job in `main.yaml`). Invoked
   via `workflow_call`; never triggered directly.
 - **Docs** (`.github/workflows/docs.yaml`): runs `hatch run docs:build`.
   Invoked via `workflow_call` from the test workflow.
+- **Deploy docs** (`.github/workflows/deploy-docs.yaml`): manual
+  (`workflow_dispatch`) entry point for publishing the documentation site,
+  taking the version and aliases as inputs. The automated paths do not go
+  through it: `main.yaml` publishes `dev` after `tests-passed`, and
+  `release.yaml` publishes the release version as its last job.
+- **Reusable docs deploy** (`.github/workflows/_deploy-docs.yaml`): builds the
+  site and publishes it to `gh-pages` with `mike`, one directory per version.
+  Invoked via `workflow_call`; never triggered directly. It validates its
+  inputs, refuses to move an alias such as `latest` backwards onto an older
+  version, and reads `gh-pages` back afterwards because `mike` skips its push
+  when a deploy produces no change and still exits 0. Helper logic lives in
+  `.ci/docs_site.py`. See `RELEASE.md` for the site layout and recovery
+  procedures.
 - **CodeQL** (`.github/workflows/codeql-analysis.yml`): security analysis on
   push, pull request, and a weekly schedule.
 - **Release** (`.github/workflows/release.yaml`): manual only, triggered by
