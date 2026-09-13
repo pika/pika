@@ -45,6 +45,10 @@ permissions:
 
 jobs:
   deploy:
+    # See the note in release.yaml: a called workflow cannot elevate the
+    # caller's token, so the caller has to grant the write the deploy needs.
+    permissions:
+      contents: write
     uses: ./.github/workflows/_deploy-docs.yaml
     with:
       ref: ${{ inputs.ref }}

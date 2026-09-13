@@ -105,12 +105,16 @@ jobs:
           new_version="${major}.${minor}.${patch}"
           case "$MODE" in
             prerelease)
-              # Must start with a letter. An all-digit suffix would append
-              # straight onto the patch number, so `prerelease_tag=1` on a
-              # 1.5.0 bump yields the version `1.5.01`, which reads as a
-              # stable release to anything that inspects the text.
-              if ! echo "$PRERELEASE_TAG" | grep -qE '^[a-zA-Z][a-zA-Z0-9]*$'; then
-                echo "::error::prerelease_tag must start with a letter and be alphanumeric (e.g. b1, rc1)"
+              # An allowlist of the PEP 440 pre-release spellings, because
+              # neither "alphanumeric" nor "starts with a letter" is the same
+              # condition as "is a pre-release". An all-digit suffix appends
+              # straight onto the patch number, so `prerelease_tag=1` yields
+              # `1.5.01`; and `post1`, `r1` and `rev1` are post-release
+              # segments, so `1.5.0post1` normalizes to `1.5.0.post1`, sorts
+              # ABOVE `1.5.0`, and plain `pip install pika` selects it with no
+              # --pre, while this workflow would still mark it a pre-release.
+              if ! echo "$PRERELEASE_TAG" | grep -qE '^(a|b|c|rc|alpha|beta|pre|preview)[0-9]+$'; then
+                echo "::error::prerelease_tag must be a PEP 440 pre-release segment: a, b, c, rc, alpha, beta, pre or preview followed by a number (e.g. b1, rc1)"
                 exit 1
               fi
               new_version="${new_version}${PRERELEASE_TAG}"
@@ -359,6 +363,13 @@ jobs:
   deploy-docs:
     needs: [release, publish-pypi, smoke-test, github-release]
     if: ${{ inputs.mode == 'release' || inputs.mode == 'prerelease' }}
+    # Required, and easy to leave off. This workflow sets `contents: read` at
+    # the top level, and a called workflow can only maintain or reduce the
+    # caller's token, never elevate it. Without this the called job's
+    # `contents: write` is capped at read and `mike` fails pushing `gh-pages`,
+    # after the wheel is already on PyPI.
+    permissions:
+      contents: write
     uses: ./.github/workflows/_deploy-docs.yaml
     with:
       ref: ${{ needs.release.outputs.version }}

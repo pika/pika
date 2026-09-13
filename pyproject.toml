@@ -141,12 +141,12 @@ dependencies = [
 ]
 
 [tool.hatch.envs.default.scripts]
-fmt = "yapf --in-place --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/ utils/"
-fmt-check = "yapf --diff --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/ utils/"
+fmt = "yapf --in-place --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/ utils/ .ci/docs_site.py"
+fmt-check = "yapf --diff --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/ utils/ .ci/docs_site.py"
 lint = "ruff check pika/ tests/ examples/ utils/ --fix"
 lint-check = "ruff check pika/ tests/ examples/ utils/"
-docfmt = "docformatter --in-place --recursive pika/ tests/ examples/ utils/ --exclude pika/spec.py"
-docfmt-check = "docformatter --check --diff --recursive pika/ tests/ examples/ utils/ --exclude pika/spec.py"
+docfmt = "docformatter --in-place --recursive pika/ tests/ examples/ utils/ .ci/docs_site.py --exclude pika/spec.py"
+docfmt-check = "docformatter --check --diff --recursive pika/ tests/ examples/ utils/ .ci/docs_site.py --exclude pika/spec.py"
 typecheck = "python -m mypy pika/ tests/typing/"
 spec-regen = "python utils/regen_spec.py"
 spec-check = "python utils/regen_spec.py --check"
@@ -180,8 +180,8 @@ dependencies = [
 
 [tool.hatch.envs.docs.scripts]
 build = "mkdocs build --strict"
-serve = "mkdocs serve"
-serve-live = "mkdocs serve --livereload"
+serve = "mkdocs serve --no-strict"
+serve-live = "mkdocs serve --livereload --no-strict"
 
 [tool.pytest.ini_options]
 minversion = "7.0"

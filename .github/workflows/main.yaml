@@ -12,6 +12,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Every other workflow in the repo pins this; without it the jobs below run with
+# whatever the repository default happens to be. `deploy-dev-docs` needs write
+# and asks for it explicitly, so flipping the repository default to read-only
+# cannot silently break the docs deploy.
+permissions:
+  contents: read
+
 jobs:
   docs:
     uses: ./.github/workflows/docs.yaml
@@ -117,7 +124,7 @@ jobs:
 
   tests-passed:
     runs-on: ubuntu-latest
-    needs: [docs, test-modern, test-legacy]
+    needs: [docs, test-modern, test-legacy, validate-docs-deploy]
     if: always()
     steps:
       - name: Check docs status
@@ -129,20 +136,37 @@ jobs:
       - name: Check test-legacy status
         if: ${{ needs.test-legacy.result != 'success' }}
         run: exit 1
+      - name: Check validate-docs-deploy status
+        # Tested for failure rather than for success: this job runs only on pull
+        # requests, so on a push to `main` it is skipped, and requiring success
+        # would fail every push.
+        if: ${{ contains(fromJSON('["failure", "cancelled"]'), needs.validate-docs-deploy.result) }}
+        run: exit 1
 
-  # Exercise the publish path on pull requests without touching the remote.
-  # `docs` above runs `mkdocs build --strict`, but that is not the same build:
-  # `mike` injects its own plugin into a derived config and rebuilds, and that
-  # build can fail on its own (a theme asset colliding with an `extra_css` entry,
-  # for one). Without this, such a change merges green and first fails during a
-  # release, after the wheel is already published.
+  # Exercise the publish path on pull requests without touching the remote, so a
+  # change that breaks only the deploy fails here rather than during a release,
+  # after the wheel is already on PyPI. `mike` runs its own `mkdocs build` and
+  # then rewrites the branch, and neither of those is what the `docs` job above
+  # covers.
+  #
+  # It requests an alias so the alias decision, `set-default` and the helper in
+  # `.ci/docs_site.py` all execute; with no alias every one of them
+  # short-circuits and the job proves nothing about the path a release takes.
+  # `push: false` keeps it off the remote, which also means the token stays at
+  # the workflow default of `contents: read`.
+  #
+  # In `tests-passed` below, because a check that cannot block a merge does not
+  # prevent the failure mode described above.
   validate-docs-deploy:
     if: ${{ github.event_name == 'pull_request' }}
     uses: ./.github/workflows/_deploy-docs.yaml
     with:
       ref: ${{ github.sha }}
       version: dev
+      aliases: latest
+      set-default: true
       push: false
+      validate: false
 
   # Publish `dev` from `main`, gated on the full matrix. This lives here rather
   # than on a `push` trigger in deploy-docs.yaml so it can depend on
@@ -160,6 +184,9 @@ jobs:
   deploy-dev-docs:
     needs: tests-passed
     if: ${{ github.event_name == 'push' }}
+    # `mike` pushes `gh-pages`, and the workflow-level default above is read.
+    permissions:
+      contents: write
     uses: ./.github/workflows/_deploy-docs.yaml
     with:
       ref: ${{ github.sha }}

@@ -95,6 +95,8 @@ jobs:
           VERSION: ${{ inputs.version }}
           ALIASES: ${{ inputs.aliases }}
         run: |
+          set -euo pipefail
+
           # A version name reaches `gh-pages` as a directory name and a
           # `versions.json` entry, and nothing downstream can tell a typo from
           # an intended name. `mike` has no `delete` step anywhere in this
@@ -108,12 +110,25 @@ jobs:
               fi
               ;;
           esac
-          for alias in $ALIASES; do
-            if ! printf '%s' "$alias" | grep -qE '^[a-z][a-z0-9-]*$'; then
-              echo "::error::alias must be lowercase alphanumeric with dashes; got '$alias'"
+
+          # At most one alias. The deploy moves every alias it is given but the
+          # decision below is made for one, so a second alias would ride along
+          # unchecked. Nothing needs more than `latest`; reject rather than
+          # half-check. This also rejects stray whitespace, which otherwise
+          # yields an empty first alias and skips the decision entirely.
+          case "$ALIASES" in
+            '') ;;
+            *[![:alnum:]-]*)
+              echo "::error::aliases must be a single lowercase alias with no whitespace; got '$ALIASES'"
               exit 1
-            fi
-          done
+              ;;
+            *)
+              if ! printf '%s' "$ALIASES" | grep -qE '^[a-z][a-z0-9-]*$'; then
+                echo "::error::alias must be lowercase alphanumeric with dashes; got '$ALIASES'"
+                exit 1
+              fi
+              ;;
+          esac
 
       # Fail before anything touches `gh-pages`. `docs:build` runs
       # `mkdocs build --strict`, which `mike`'s own build does not. Callers that
@@ -135,55 +150,29 @@ jobs:
       # backward. That is reachable by hand (RELEASE.md documents re-running a
       # deploy on a tag) and automatically, once a maintenance branch carries
       # this workflow.
-      - name: Decide whether this version may take the aliases
+      - name: Decide whether this version may take the alias
         id: alias
         env:
           VERSION: ${{ inputs.version }}
           ALIASES: ${{ inputs.aliases }}
         run: |
+          set -euo pipefail
+
           if [ -z "$ALIASES" ]; then
             echo "move=false" >> "$GITHUB_OUTPUT"
-            echo "No aliases requested."
+            echo "No alias requested."
             exit 0
           fi
 
-          first_alias="${ALIASES%% *}"
-
-          # `mike list` fails when `gh-pages` does not exist yet, which is the
-          # first-deploy case and means nothing holds the alias.
-          holder=$(hatch run docs:mike list --json 2>/dev/null \
-            | python3 .ci/docs_site.py alias-holder --alias "$first_alias")
-
-          if [ -z "$holder" ]; then
-            echo "Nothing holds '$first_alias' yet; taking it."
-            echo "move=true" >> "$GITHUB_OUTPUT"
-          elif [ "$holder" = "$VERSION" ]; then
-            echo "'$first_alias' already points at $VERSION; refreshing it."
-            echo "move=true" >> "$GITHUB_OUTPUT"
-          elif [ "$holder" = "dev" ]; then
-            # `dev` holds the alias only as the pre-first-release bootstrap, so
-            # any real version supersedes it.
-            echo "'$first_alias' is on the dev bootstrap; $VERSION takes it."
-            echo "move=true" >> "$GITHUB_OUTPUT"
-          elif [ "$VERSION" = "dev" ]; then
-            # The mirror image, and it must be explicit rather than left to the
-            # comparison below: `sort -V` ranks `dev` above every numeric
-            # version, so the dev deploy would otherwise take `latest` back off
-            # a real release on every push to `main`. This is the steady state
-            # once anything has shipped, so it is a notice rather than a
-            # warning.
-            echo "'$first_alias' belongs to release $holder; the dev deploy leaves it there."
-            echo "move=false" >> "$GITHUB_OUTPUT"
-          else
-            newest=$(printf '%s\n%s\n' "$holder" "$VERSION" | sort -V | tail -1)
-            if [ "$newest" = "$VERSION" ]; then
-              echo "$VERSION is newer than the current holder $holder; taking '$first_alias'."
-              echo "move=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "::warning::'$first_alias' stays on $holder; $VERSION is older, so moving it would roll the site backward. Publishing $VERSION without the alias."
-              echo "move=false" >> "$GITHUB_OUTPUT"
-            fi
-          fi
+          # No `2>/dev/null` and `pipefail` on purpose. `mike list --json` prints
+          # `[]` and exits 0 when `gh-pages` is absent, so silencing it hid only
+          # real errors, and the helper reads an unreadable payload as "nothing
+          # holds the alias" if allowed to, which hands the alias over on any
+          # failure. Both halves now fail the job instead.
+          move=$(hatch run docs:mike list --json \
+            | hatch run docs:python .ci/docs_site.py alias-decision \
+                --version "$VERSION" --alias "$ALIASES")
+          echo "move=$move" >> "$GITHUB_OUTPUT"
 
       - name: Deploy
         env:
@@ -193,49 +182,71 @@ jobs:
           SET_DEFAULT: ${{ inputs.set-default }}
           PUSH: ${{ inputs.push }}
         run: |
-          deploy_args=(deploy)
+          set -euo pipefail
+
+          # `--allow-empty` is what makes the push unconditional. `mike` puts its
+          # push inside the block that downgrades an empty commit to a warning,
+          # so a deploy whose output matches what is already published skips the
+          # push and still exits 0, which makes re-running a deploy to repair a
+          # partial publish look like it worked.
+          deploy_args=(deploy --allow-empty)
           if [ "$PUSH" = "true" ]; then
             deploy_args+=(--push)
           fi
           if [ "$MOVE_ALIASES" = "true" ]; then
-            deploy_args+=(--update-aliases "$VERSION" $ALIASES)
+            deploy_args+=(--update-aliases "$VERSION" "$ALIASES")
           else
             deploy_args+=("$VERSION")
           fi
           hatch run docs:mike "${deploy_args[@]}"
 
           # `set-default` writes the redirect at the site root, which no
-          # `deploy` creates.
-          if [ "$SET_DEFAULT" = "true" ] && [ "$MOVE_ALIASES" = "true" ]; then
-            first_alias="${ALIASES%% *}"
+          # `deploy` creates. It names an alias, not a version, so it is
+          # independent of whether this run moved that alias: gating it on the
+          # move meant a repair run whose alias was already correct silently
+          # skipped the redirect and left the site root returning 404.
+          if [ "$SET_DEFAULT" = "true" ] && [ -n "$ALIASES" ]; then
+            set_default_args=(set-default --allow-empty)
             if [ "$PUSH" = "true" ]; then
-              hatch run docs:mike set-default --push "$first_alias"
-            else
-              hatch run docs:mike set-default "$first_alias"
+              set_default_args+=(--push)
             fi
+            hatch run docs:mike "${set_default_args[@]}" "$ALIASES"
           fi
 
-      # `mike` puts its `push` inside the same block that downgrades an empty
-      # commit to a warning, so a deploy whose built output is byte-identical to
-      # what is already published skips the push and still exits 0. Re-running a
-      # deploy to repair a partial publish therefore looks like it worked. Read
-      # the remote back rather than trusting the exit code.
+      # Read the remote back rather than trusting exit codes. `--allow-empty`
+      # above makes the pushes unconditional, but the whole point of this step is
+      # not to depend on `mike` reporting what it did.
       - name: Verify the deploy reached the remote
         if: ${{ inputs.push }}
         env:
           VERSION: ${{ inputs.version }}
           ALIASES: ${{ inputs.aliases }}
           MOVE_ALIASES: ${{ steps.alias.outputs.move }}
+          SET_DEFAULT: ${{ inputs.set-default }}
         run: |
+          set -euo pipefail
           git fetch --quiet origin gh-pages
 
-          # Only assert the aliases when this run was allowed to move them; a
-          # deploy that declined the move publishes the version alone.
+          # Only assert the alias when this run was allowed to move it; a deploy
+          # that declined the move publishes the version alone.
           expect_aliases=''
           if [ "$MOVE_ALIASES" = "true" ]; then
             expect_aliases="$ALIASES"
           fi
 
           git show "origin/gh-pages:versions.json" \
-            | python3 .ci/docs_site.py verify \
+            | hatch run docs:python .ci/docs_site.py verify \
                 --version "$VERSION" --aliases "$expect_aliases"
+
+          # The site-root redirect is a separate file that no `deploy` writes, so
+          # `versions.json` being correct says nothing about whether
+          # `https://pika.github.io/pika/` resolves. That URL is the README
+          # badge, the README docs link and the `information` client property
+          # pika sends to every broker, so assert it exists.
+          if [ "$SET_DEFAULT" = "true" ]; then
+            if ! git cat-file -e "origin/gh-pages:index.html" 2>/dev/null; then
+              echo "::error::no index.html at the root of gh-pages, so the site root will 404"
+              exit 1
+            fi
+            echo "site-root redirect is present on origin/gh-pages"
+          fi
