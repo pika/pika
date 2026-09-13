@@ -12,13 +12,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Every other workflow in the repo pins this; without it the jobs below run with
-# whatever the repository default happens to be. `deploy-dev-docs` needs write
-# and asks for it explicitly, so flipping the repository default to read-only
-# cannot silently break the docs deploy.
-permissions:
-  contents: read
-
 jobs:
   docs:
     uses: ./.github/workflows/docs.yaml
@@ -184,7 +177,8 @@ jobs:
   deploy-dev-docs:
     needs: tests-passed
     if: ${{ github.event_name == 'push' }}
-    # `mike` pushes `gh-pages`, and the workflow-level default above is read.
+    # `mike` pushes `gh-pages`. Declared here rather than relying on the
+    # repository's default workflow permissions, which can be set to read-only.
     permissions:
       contents: write
     uses: ./.github/workflows/_deploy-docs.yaml

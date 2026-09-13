@@ -50,17 +50,19 @@ permissions:
   contents: read
 
 # Serialize real deploys so two runs cannot interleave their read-modify-write
-# of `gh-pages`. `queue: max` matters as much as the group does: with the default
-# `queue: single` a newly queued run cancels whichever run is already pending, so
-# a `main` push landing while a release deploy waited its turn would drop the
-# release's docs and still report the release as green.
+# of `gh-pages`. A validation run touches no remote, so it gets a per-ref group
+# of its own rather than queueing behind, and delaying, the deploys that do.
 #
-# A validation run touches no remote, so it gets a per-ref group of its own
-# rather than queueing behind, and delaying, the deploys that do.
+# GitHub cancels a *pending* run when another joins the same group, and
+# `cancel-in-progress: false` does not prevent that, so a `main` push landing
+# while a release deploy waits its turn can still evict it. There is no
+# concurrency option that changes this. What makes it tolerable is that this
+# workflow is now called with `uses:` rather than dispatched: an evicted deploy
+# shows up as a cancelled job in the release run, so the release fails loudly
+# instead of reporting success with its docs unpublished.
 concurrency:
   group: ${{ inputs.push && 'deploy-docs' || format('deploy-docs-validate-{0}', github.ref) }}
   cancel-in-progress: false
-  queue: max
 
 jobs:
   deploy:
