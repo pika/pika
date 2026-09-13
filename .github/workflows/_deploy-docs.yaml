@@ -46,31 +46,39 @@ on:
         type: boolean
         default: true
 
-permissions:
-  contents: read
+# Deliberately no `permissions:` block here, at either level. A called workflow
+# may only maintain or reduce the caller's token, so declaring `contents: write`
+# unconditionally made GitHub reject any caller that granted less: `main.yaml`
+# pinning `contents: read` at the workflow level, with `validate-docs-deploy`
+# adding no grant of its own, produced a startup failure that ran no jobs at all.
+# Inheriting gives each caller what it needs, and keeps a write-capable token away
+# from the pull-request validation run, which pushes nothing but does run `mike`
+# and `hatch` over configuration the pull request supplies.
 
 # Serialize real deploys so two runs cannot interleave their read-modify-write
 # of `gh-pages`. A validation run touches no remote, so it gets a per-ref group
 # of its own rather than queueing behind, and delaying, the deploys that do.
 #
-# GitHub cancels a *pending* run when another joins the same group, and
-# `cancel-in-progress: false` does not prevent that, so a `main` push landing
-# while a release deploy waits its turn can still evict it. There is no
-# concurrency option that changes this. What makes it tolerable is that this
-# workflow is now called with `uses:` rather than dispatched: an evicted deploy
-# shows up as a cancelled job in the release run, so the release fails loudly
-# instead of reporting success with its docs unpublished.
+# `queue: max` is as load-bearing as the group. Under the default
+# `queue: single` GitHub allows one pending run per group and "any existing
+# pending job or workflow run in the same group is canceled and replaced", which
+# `cancel-in-progress: false` does not prevent: a `main` push landing while a
+# release deploy waited its turn would evict the release's docs. `max` allows up
+# to 100 pending runs, processed first-in-first-out. It may not be combined with
+# `cancel-in-progress: true`, which is why that stays false.
+#
+# Note that actionlint 1.7.12 reports `queue` as an unknown key. Its schema lags;
+# the key is documented under `concurrency` in the workflow-syntax reference and
+# is present in schemastore's github-workflow schema.
 concurrency:
   group: ${{ inputs.push && 'deploy-docs' || format('deploy-docs-validate-{0}', github.ref) }}
   cancel-in-progress: false
+  queue: max
 
 jobs:
   deploy:
     name: Publish ${{ inputs.version }}
     runs-on: ubuntu-latest
-    permissions:
-      # `mike` commits to and pushes `gh-pages`.
-      contents: write
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -91,6 +99,13 @@ jobs:
 
       - name: Install documentation dependencies
         run: python -m pip install hatch
+
+      # Create the environment in one place. Two `hatch run` invocations that
+      # start concurrently, as the two halves of a shell pipeline do, both try to
+      # create it and collide, which fails the step. Doing it once up front also
+      # keeps the env-creation output from being mistaken for command output.
+      - name: Create the docs environment
+        run: hatch env create docs
 
       - name: Validate inputs
         env:
@@ -171,9 +186,13 @@ jobs:
           # real errors, and the helper reads an unreadable payload as "nothing
           # holds the alias" if allowed to, which hands the alias over on any
           # failure. Both halves now fail the job instead.
-          move=$(hatch run docs:mike list --json \
-            | hatch run docs:python .ci/docs_site.py alias-decision \
-                --version "$VERSION" --alias "$ALIASES")
+          # Written to a file rather than piped between two `hatch run` calls:
+          # the two halves of a pipeline run concurrently, and on a cold runner
+          # both would try to create the `docs` environment at once and collide.
+          listing="$RUNNER_TEMP/versions-local.json"
+          hatch run docs:mike list --json > "$listing"
+          move=$(hatch run docs:python .ci/docs_site.py alias-decision \
+            --version "$VERSION" --alias "$ALIASES" < "$listing")
           echo "move=$move" >> "$GITHUB_OUTPUT"
 
       - name: Deploy

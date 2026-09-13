@@ -12,6 +12,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Pinned like every other workflow in the repo, rather than inheriting whatever
+# the repository default happens to be. The jobs that publish documentation raise
+# this to `contents: write` themselves; `validate-docs-deploy` deliberately does
+# not, because it pushes nothing.
+permissions:
+  contents: read
+
 jobs:
   docs:
     uses: ./.github/workflows/docs.yaml

@@ -211,8 +211,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return int(args.func(args))
-    except (ValueError, json.JSONDecodeError) as exc:
-        print(f'::error::{exc}')
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        # stderr, not stdout: `alias-decision`'s caller captures stdout to read
+        # the verdict, so an annotation printed there is swallowed into a shell
+        # variable and the failing step reports an empty log.
+        print(f'::error::{exc}', file=sys.stderr)
         return 1
 
 

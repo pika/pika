@@ -134,6 +134,65 @@ class ShouldMoveAliasTests(unittest.TestCase):
                                         '1.5', 'latest')
 
 
+class AliasDecisionCommandTests(unittest.TestCase):
+    """
+    The CLI contract, which the workflow depends on literally.
+
+    The shell reads stdout and compares it against the string `true`, so anything else means the
+    deploy silently stops passing `--update-aliases` and `latest` freezes on whatever held it.
+    """
+
+    def _run(self, payload, version, alias='latest'):
+        argv = ['alias-decision', '--version', version, '--alias', alias]
+        out, err = io.StringIO(), io.StringIO()
+        original = (docs_site.sys.stdin, docs_site.sys.stdout,
+                    docs_site.sys.stderr)
+        docs_site.sys.stdin = io.StringIO(payload)
+        docs_site.sys.stdout, docs_site.sys.stderr = out, err
+        try:
+            code = docs_site.main(argv)
+        finally:
+            (docs_site.sys.stdin, docs_site.sys.stdout,
+             docs_site.sys.stderr) = original
+        return code, out.getvalue(), err.getvalue()
+
+    def test_prints_exactly_true(self):
+        code, out, _ = self._run('[]', 'dev')
+        self.assertEqual(code, 0)
+        self.assertEqual(out, 'true\n')
+
+    def test_prints_exactly_false(self):
+        payload = json.dumps(_versions(('1.5', ['latest'])))
+        code, out, _ = self._run(payload, 'dev')
+        self.assertEqual(code, 0)
+        self.assertEqual(out, 'false\n')
+
+    def test_reason_goes_to_stderr_not_stdout(self):
+        """
+        The verdict is the only thing on stdout.
+
+        The caller captures it in a shell variable, so anything else printed there corrupts the
+        comparison, and anything printed there instead of stderr vanishes from the log.
+        """
+        payload = json.dumps(_versions(('1.5', ['latest'])))
+        _, out, err = self._run(payload, 'dev')
+        self.assertEqual(out.strip(), 'false')
+        self.assertIn('latest', err)
+
+    def test_unreadable_payload_exits_nonzero_without_printing_a_verdict(self):
+        """
+        Failing closed means failing, not answering `true`.
+
+        Treating an unreadable payload as "nothing holds the alias" is what handed the alias over on
+        any error.
+        """
+        for payload in ('', 'error: could not read', '{"not": "a list"}'):
+            code, out, err = self._run(payload, 'dev')
+            self.assertEqual(code, 1, msg=payload)
+            self.assertNotIn('true', out, msg=payload)
+            self.assertIn('::error::', err, msg=payload)
+
+
 class VerifyTests(unittest.TestCase):
 
     def _run(self, versions, version, aliases=''):
