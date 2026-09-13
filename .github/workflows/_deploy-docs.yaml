@@ -111,22 +111,16 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
           ALIASES: ${{ inputs.aliases }}
+          SET_DEFAULT: ${{ inputs.set-default }}
         run: |
           set -euo pipefail
 
-          # A version name reaches `gh-pages` as a directory name and a
-          # `versions.json` entry, and nothing downstream can tell a typo from
-          # an intended name. `mike` has no `delete` step anywhere in this
-          # repo's automation, so a bad name has to be removed by hand.
-          case "$VERSION" in
-            dev) ;;
-            *)
-              if ! printf '%s' "$VERSION" | grep -qE '^[0-9]+\.[0-9]+$|^[0-9]+\.[0-9]+\.[0-9]+[a-zA-Z][a-zA-Z0-9]*$'; then
-                echo "::error::version must be dev, MAJOR.MINOR, or a full pre-release version such as 1.5.0rc1; got '$VERSION'"
-                exit 1
-              fi
-              ;;
-          esac
+          # Checked in the helper, where `packaging` can tell a post-release from
+          # a pre-release and a non-canonical spelling such as `1.05` from `1.5`.
+          # A shell regex admitted both, and a bad name reaches `gh-pages` as a
+          # directory only a manual `mike delete` removes.
+          hatch run docs:python .ci/docs_site.py check-version \
+            --version "$VERSION"
 
           # At most one alias. The deploy moves every alias it is given but the
           # decision below is made for one, so a second alias would ride along
@@ -146,6 +140,15 @@ jobs:
               fi
               ;;
           esac
+
+          # The site-root redirect names an alias, so asking for one without an
+          # alias to point at cannot be satisfied. The two are separate fields on
+          # the manual form, so reject the combination here rather than deploying
+          # and then failing on a redirect that was never going to be written.
+          if [ "$SET_DEFAULT" = "true" ] && [ -z "$ALIASES" ]; then
+            echo "::error::set-default needs an alias to point the site root at"
+            exit 1
+          fi
 
       # Fail before anything touches `gh-pages`. `docs:build` runs
       # `mkdocs build --strict`, which `mike`'s own build does not. Callers that
@@ -226,7 +229,15 @@ jobs:
           # independent of whether this run moved that alias: gating it on the
           # move meant a repair run whose alias was already correct silently
           # skipped the redirect and left the site root returning 404.
+          #
+          # `mike` refuses an alias no published version holds, and it does so
+          # after the deploy above has already pushed, so check first rather than
+          # aborting half way through.
           if [ "$SET_DEFAULT" = "true" ] && [ -n "$ALIASES" ]; then
+            if ! hatch run docs:mike list "$ALIASES" > /dev/null 2>&1; then
+              echo "::error::cannot point the site root at '$ALIASES': no published version holds it"
+              exit 1
+            fi
             set_default_args=(set-default --allow-empty)
             if [ "$PUSH" = "true" ]; then
               set_default_args+=(--push)
@@ -234,9 +245,20 @@ jobs:
             hatch run docs:mike "${set_default_args[@]}" "$ALIASES"
           fi
 
-      # Read the remote back rather than trusting exit codes. `--allow-empty`
-      # above makes the pushes unconditional, but the whole point of this step is
-      # not to depend on `mike` reporting what it did.
+      # Recorded before the deploy so the check afterwards can require the branch
+      # to have moved. Asserting only that a version is listed is satisfied by a
+      # previous deploy: a patch release publishes into the same MAJOR.MINOR
+      # directory, so a 1.5.1 whose push was lost still finds 1.5 carrying
+      # `latest` from 1.5.0 and reports success.
+      - name: Record the published tip
+        if: ${{ inputs.push }}
+        id: before
+        run: |
+          set -euo pipefail
+          git fetch --quiet origin gh-pages || true
+          echo "sha=$(git rev-parse --verify --quiet origin/gh-pages || true)" \
+            >> "$GITHUB_OUTPUT"
+
       - name: Verify the deploy reached the remote
         if: ${{ inputs.push }}
         env:
@@ -244,9 +266,16 @@ jobs:
           ALIASES: ${{ inputs.aliases }}
           MOVE_ALIASES: ${{ steps.alias.outputs.move }}
           SET_DEFAULT: ${{ inputs.set-default }}
+          BEFORE_SHA: ${{ steps.before.outputs.sha }}
         run: |
           set -euo pipefail
           git fetch --quiet origin gh-pages
+          after_sha=$(git rev-parse origin/gh-pages)
+
+          if [ "$after_sha" = "$BEFORE_SHA" ]; then
+            echo "::error::gh-pages is still at $after_sha, so nothing was published"
+            exit 1
+          fi
 
           # Only assert the alias when this run was allowed to move it; a deploy
           # that declined the move publishes the version alone.
@@ -260,14 +289,15 @@ jobs:
                 --version "$VERSION" --aliases "$expect_aliases"
 
           # The site-root redirect is a separate file that no `deploy` writes, so
-          # `versions.json` being correct says nothing about whether
-          # `https://pika.github.io/pika/` resolves. That URL is the README
-          # badge, the README docs link and the `information` client property
-          # pika sends to every broker, so assert it exists.
-          if [ "$SET_DEFAULT" = "true" ]; then
-            if ! git cat-file -e "origin/gh-pages:index.html" 2>/dev/null; then
-              echo "::error::no index.html at the root of gh-pages, so the site root will 404"
+          # `versions.json` being correct says nothing about whether the site root
+          # resolves. Match the target, not merely the file's existence: any
+          # earlier deploy leaves an `index.html` behind, and mike renders it as
+          # `href="<identifier>/"`.
+          if [ "$SET_DEFAULT" = "true" ] && [ -n "$ALIASES" ]; then
+            if ! git show "origin/gh-pages:index.html" \
+                | grep -q "$ALIASES/"; then
+              echo "::error::the site-root redirect does not point at '$ALIASES'"
               exit 1
             fi
-            echo "site-root redirect is present on origin/gh-pages"
+            echo "site-root redirect points at '$ALIASES'"
           fi

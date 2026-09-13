@@ -79,19 +79,30 @@ def find_version(versions: list[dict[str, Any]],
     return None
 
 
-def is_prerelease(name: str) -> bool:
+def parse_release(name: str) -> Version | None:
     """
-    True if *name* is a PEP 440 pre-release.
+    Return *name* as a stable release version, or None if it is not one.
 
-    A name that is not a version at all, such as ``dev``, is not a pre-release; the callers handle
-    those separately.
+    None covers three cases the caller must not treat as a release: `dev`, a pre-release, and a name
+    `packaging` cannot parse at all. Answering False for the unparsable case, as an
+    ``is_prerelease``-style helper does, makes a typo such as ``1.5.0rcl`` look like a stable release
+    and take the alias.
+
+    A name is rejected unless it round-trips through normalization, so `1.05` is not accepted as
+    `1.5`: `mike` keys its entries by the literal string, so the two would become separate published
+    directories that compare equal.
 
     :param name: A version name as published by `mike`.
     """
     try:
-        return Version(name).is_prerelease
+        version = Version(name)
     except InvalidVersion:
-        return False
+        return None
+    if version.is_prerelease or version.is_postrelease or version.is_devrelease:
+        return None
+    if str(version) != name:
+        return None
+    return version
 
 
 def should_move_alias(versions: list[dict[str, Any]], version: str,
@@ -99,32 +110,38 @@ def should_move_alias(versions: list[dict[str, Any]], version: str,
     """
     Decide whether *version* may take *alias* from whichever version holds it.
 
-    The rules, in the order they are applied:
+    Only a stable release may hold the alias, plus `dev` as a bootstrap until the first release
+    exists. Eligibility is therefore decided by parsing rather than by the order of a rule list: a
+    name that is not a canonical stable release is refused outright, whether it is a pre-release, a
+    post-release or a typo.
 
-    1. A pre-release never takes an alias. `latest` drives the site root and the URLs in released
-       wheels, so it points at released documentation only.
-    2. Refreshing the current holder is always allowed.
-    3. An unheld alias is free to take, which is what bootstraps a new site.
-    4. Any real version supersedes `dev`, which holds the alias only until the first release.
-    5. `dev` never takes the alias back off a real version.
-    6. Otherwise the newer version wins, compared by PEP 440 rather than lexically.
+    Taking an unheld alias requires positive evidence that nothing is published, not merely an empty
+    version list. `mike` reports an empty list when `versions.json` is missing as well as when the
+    branch is absent, so a partially rebuilt site would otherwise read as a fresh one and hand the
+    alias to `dev`.
 
     :param versions: Parsed `versions.json` entries.
     :param version: The version being published.
     :param alias: The alias being requested.
     :returns: Tuple of (may move, human-readable reason).
-    :raises ValueError: if two real versions cannot be compared, since silently declining or
-        silently moving would both be wrong.
+    :raises ValueError: if the current holder is not a version this policy could have granted the
+        alias to, since that means the site is in a state this code did not create and neither
+        answer is safe.
     """
     holder = alias_holder(versions, alias)
+    candidate = parse_release(version)
 
-    if is_prerelease(version):
-        return False, (f'{version} is a pre-release, which never takes '
+    if candidate is None and version != DEV_VERSION:
+        return False, (f'{version} is not a stable release, so it never takes '
                        f'{alias!r}')
     if holder == version:
         return True, f'{alias!r} already points at {version}; refreshing it'
     if not holder:
-        return True, f'nothing holds {alias!r} yet'
+        if versions:
+            return False, (
+                f'nothing holds {alias!r}, but {len(versions)} version(s) are '
+                f'published, so this is not a fresh site; assign it by hand')
+        return True, f'nothing holds {alias!r} on an empty site'
     if holder == DEV_VERSION:
         return True, (f'{alias!r} is on the {DEV_VERSION} bootstrap; '
                       f'{version} supersedes it')
@@ -132,16 +149,55 @@ def should_move_alias(versions: list[dict[str, Any]], version: str,
         return False, (f'{alias!r} belongs to release {holder}; '
                        f'{DEV_VERSION} leaves it there')
 
+    # The holder is parsed permissively, unlike the candidate. This policy never
+    # grants the alias to a pre-release, but one can hold it because a human
+    # assigned it, and the release it precedes must still be able to reclaim it:
+    # that is the ordinary case of a release candidate being superseded.
     try:
-        moving_forward = Version(version) >= Version(holder)
+        current = Version(holder)
     except InvalidVersion as exc:
-        raise ValueError(f'cannot compare {version!r} with the current holder '
-                         f'{holder!r} of {alias!r}: {exc}') from exc
+        raise ValueError(
+            f'{holder!r} holds {alias!r} and is not a version at all, so '
+            f'whether {version} supersedes it cannot be decided here') from exc
 
-    if moving_forward:
+    if candidate >= current:
         return True, f'{version} is newer than the current holder {holder}'
     return False, (f'{alias!r} stays on {holder}; {version} is older, so '
                    f'moving it would roll the site backward')
+
+
+def check_version_name(name: str) -> None:
+    """
+    Raise unless *name* is a version name this scheme publishes under.
+
+    That is `dev`, a canonical stable release, or a canonical pre-release. A name reaches `gh-pages`
+    as a directory and a `versions.json` entry that only a manual `mike delete` removes, and the
+    shell has no way to tell `1.05` from `1.5` or a post-release from a pre-release.
+
+    :param name: The requested version name.
+    :raises ValueError: if the name is not one of those forms.
+    """
+    if name == DEV_VERSION:
+        return
+    try:
+        version = Version(name)
+    except InvalidVersion as exc:
+        raise ValueError(f'{name!r} is not a version: {exc}') from exc
+    if version.is_postrelease or version.is_devrelease:
+        raise ValueError(
+            f'{name!r} is a post-release or development release; publish a '
+            f'stable release or a pre-release')
+    if str(version) != name:
+        raise ValueError(
+            f'{name!r} is not canonical; `packaging` normalizes it to '
+            f'{str(version)!r} while `mike` would key it literally, so the two '
+            f'would become separate published directories')
+
+
+def _cmd_check_version(args: argparse.Namespace) -> int:
+    check_version_name(args.version)
+    print(f'{args.version} is a publishable version name')
+    return 0
 
 
 def _cmd_alias_decision(args: argparse.Namespace) -> int:
@@ -189,6 +245,11 @@ def main(argv: list[str] | None = None) -> int:
     """
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
+
+    check = sub.add_parser(
+        'check-version', help='fail unless a version name is publishable')
+    check.add_argument('--version', required=True)
+    check.set_defaults(func=_cmd_check_version)
 
     decision = sub.add_parser(
         'alias-decision',

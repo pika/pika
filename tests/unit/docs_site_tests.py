@@ -133,6 +133,79 @@ class ShouldMoveAliasTests(unittest.TestCase):
             docs_site.should_move_alias(_versions(('nonsense', ['latest'])),
                                         '1.5', 'latest')
 
+    def test_unparsable_candidate_is_refused_even_on_an_empty_site(self):
+        """
+        A typo must not take the alias by falling through the bootstrap rule.
+
+        Deciding eligibility by parsing rather than by rule order is what closes this: previously
+        `1.5.0rcl` reached "nothing holds it yet" and took the alias.
+        """
+        for name in ('1.5.0rcl', '1.5.0GA', 'nonsense', '1.05'):
+            self.assertFalse(self._decide([], name), msg=name)
+
+    def test_unheld_alias_on_a_populated_site_is_refused(self):
+        """
+        An empty version list is the only evidence of a fresh site.
+
+        `mike` reports no versions when `versions.json` is missing as well as when the branch is
+        absent, so a half-rebuilt site would otherwise read as a bootstrap and hand `latest` to
+        `dev`.
+        """
+        populated = _versions(('1.5', []), ('1.6', []))
+        self.assertFalse(self._decide(populated, 'dev'))
+        self.assertFalse(self._decide(populated, '1.6'))
+
+    def test_bootstrap_still_works_on_a_genuinely_empty_site(self):
+        self.assertTrue(self._decide([], 'dev'))
+
+
+class ParseReleaseTests(unittest.TestCase):
+
+    def test_accepts_a_canonical_stable_release(self):
+        self.assertIsNotNone(docs_site.parse_release('1.5'))
+        self.assertIsNotNone(docs_site.parse_release('1.5.3'))
+
+    def test_rejects_prereleases_and_postreleases(self):
+        for name in ('1.5.0rc1', '1.5.0b1', '1.5.0a1', '1.5.0.post1',
+                     '1.5.0.dev1'):
+            self.assertIsNone(docs_site.parse_release(name), msg=name)
+
+    def test_rejects_unparsable_names(self):
+        """
+        A typo must not read as a stable release.
+
+        `1.5.0rcl` is a finger-slip for `1.5.0rc1`; answering False to "is this a pre-release" made
+        it eligible for the alias.
+        """
+        for name in ('1.5.0rcl', '1.5.0GA', '1.5.0final', 'nonsense', 'dev'):
+            self.assertIsNone(docs_site.parse_release(name), msg=name)
+
+    def test_rejects_non_canonical_spellings(self):
+        """
+        `1.05` equals `1.5` to `packaging` but is a distinct directory to `mike`.
+
+        Accepting both would publish two trees that compare equal and fight over the alias.
+        """
+        self.assertIsNone(docs_site.parse_release('1.05'))
+        self.assertIsNone(docs_site.parse_release('1.5.0-1'))
+
+
+class CheckVersionNameTests(unittest.TestCase):
+
+    def test_accepts_the_publishable_forms(self):
+        for name in ('dev', '1.5', '1.5.3', '1.6.0rc1', '1.6.0b2'):
+            docs_site.check_version_name(name)
+
+    def test_rejects_post_and_dev_releases(self):
+        for name in ('1.5.0.post1', '1.5.0.dev1'):
+            with self.assertRaises(ValueError, msg=name):
+                docs_site.check_version_name(name)
+
+    def test_rejects_non_canonical_and_unparsable(self):
+        for name in ('1.05', '1.5.0rcl', 'wip-1617', ''):
+            with self.assertRaises(ValueError, msg=name):
+                docs_site.check_version_name(name)
+
 
 class AliasDecisionCommandTests(unittest.TestCase):
     """

@@ -127,6 +127,8 @@ force-one-line-summary = false
 [tool.hatch.envs.default]
 dependencies = [
     "coverage",
+    # tests/unit/docs_site_tests.py loads .ci/docs_site.py, which imports this.
+    "packaging",
     "docformatter",
     "gevent",
     "pytest>=7.0.0",
@@ -168,6 +170,8 @@ run = "python examples/{args}"
 
 [tool.hatch.envs.docs]
 dependencies = [
+    # Used directly by .ci/docs_site.py, not only via mkdocs.
+    "packaging",
     "mkdocs",
     "mkdocs-material",
     "mkdocstrings[python]",

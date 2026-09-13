@@ -162,7 +162,12 @@ jobs:
     uses: ./.github/workflows/_deploy-docs.yaml
     with:
       ref: ${{ github.sha }}
-      version: dev
+      # A release version rather than `dev`, so this always exercises
+      # `--update-aliases`. With `dev` it would stop doing so the moment a real
+      # release held `latest`, leaving the one command that can roll the whole
+      # site backward unrehearsed against an unpinned `mike`. The value is
+      # arbitrary and never published: `push: false` keeps it local to the runner.
+      version: '9999.0'
       aliases: latest
       set-default: true
       push: false

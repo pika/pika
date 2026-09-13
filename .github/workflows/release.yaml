@@ -105,16 +105,17 @@ jobs:
           new_version="${major}.${minor}.${patch}"
           case "$MODE" in
             prerelease)
-              # An allowlist of the PEP 440 pre-release spellings, because
-              # neither "alphanumeric" nor "starts with a letter" is the same
-              # condition as "is a pre-release". An all-digit suffix appends
-              # straight onto the patch number, so `prerelease_tag=1` yields
-              # `1.5.01`; and `post1`, `r1` and `rev1` are post-release
-              # segments, so `1.5.0post1` normalizes to `1.5.0.post1`, sorts
-              # ABOVE `1.5.0`, and plain `pip install pika` selects it with no
-              # --pre, while this workflow would still mark it a pre-release.
-              if ! echo "$PRERELEASE_TAG" | grep -qE '^(a|b|c|rc|alpha|beta|pre|preview)[0-9]+$'; then
-                echo "::error::prerelease_tag must be a PEP 440 pre-release segment: a, b, c, rc, alpha, beta, pre or preview followed by a number (e.g. b1, rc1)"
+              # Only the canonical spellings, so the tag, the version PyPI
+              # indexes and the published docs directory are the same string.
+              # PEP 440 also accepts `c`, `pre`, `preview`, `alpha` and `beta`,
+              # but they normalize onto `rc`, `a` and `b`: releasing `c1` and
+              # later `rc1` computes two different tags for one PyPI version, and
+              # the tag is pushed before the publish runs, so the second attempt
+              # leaves `main` bumped and tagged with nothing published. `post`
+              # and `rev` are not pre-releases at all, and `dev` is one but sorts
+              # below every `a`, so it is excluded as a release channel.
+              if ! echo "$PRERELEASE_TAG" | grep -qE '^(a|b|rc)[0-9]+$'; then
+                echo "::error::prerelease_tag must be a canonical PEP 440 pre-release segment: a, b or rc followed by a number (e.g. b1, rc1)"
                 exit 1
               fi
               new_version="${new_version}${PRERELEASE_TAG}"
