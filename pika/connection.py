@@ -1629,7 +1629,7 @@ class Connection(abc.ABC):
                 'exchange_exchange_bindings': True,
                 'publisher_confirms': True
             },
-            'information': 'See https://pika.rtfd.org',
+            'information': 'See https://pika.github.io/pika/',
             'version': pika.__version__
         }
 

@@ -515,7 +515,7 @@ class ConnectionTests(unittest.TestCase):
                 'exchange_exchange_bindings': True,
                 'publisher_confirms': True
             },
-            'information': 'See https://pika.rtfd.org',
+            'information': 'See https://pika.github.io/pika/',
             'version': pika.__version__
         }
         self.assertDictEqual(self.connection._client_properties, expectation)
