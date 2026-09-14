@@ -143,17 +143,17 @@ class ShouldMoveAliasTests(unittest.TestCase):
         for name in ('1.5.0rcl', '1.5.0GA', 'nonsense', '1.05'):
             self.assertFalse(self._decide([], name), msg=name)
 
-    def test_unheld_alias_on_a_populated_site_is_refused(self):
+    def test_unheld_alias_is_taken_on_a_populated_site(self):
         """
-        An empty version list is the only evidence of a fresh site.
+        Nothing holding the alias means the site root is broken, so attaching it repairs the site.
 
-        `mike` reports no versions when `versions.json` is missing as well as when the branch is
-        absent, so a half-rebuilt site would otherwise read as a bootstrap and hand `latest` to
-        `dev`.
+        Refusing here wedged the deploy instead: the version published, `set-default` then failed
+        because no version held the alias, and the job stayed red on every push and every pull
+        request until someone assigned it by hand.
         """
         populated = _versions(('1.5', []), ('1.6', []))
-        self.assertFalse(self._decide(populated, 'dev'))
-        self.assertFalse(self._decide(populated, '1.6'))
+        self.assertTrue(self._decide(populated, 'dev'))
+        self.assertTrue(self._decide(populated, '1.6'))
 
     def test_equal_versions_spelled_differently_are_refused(self):
         """

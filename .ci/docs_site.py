@@ -120,10 +120,12 @@ def should_move_alias(versions: list[dict[str, Any]], version: str,
     name that is not a canonical stable release is refused outright, whether it is a pre-release, a
     post-release or a typo.
 
-    Taking an unheld alias requires positive evidence that nothing is published, not merely an empty
-    version list. `mike` reports an empty list when `versions.json` is missing as well as when the
-    branch is absent, so a partially rebuilt site would otherwise read as a fresh one and hand the
-    alias to `dev`.
+    An unheld alias is free to take. If nothing holds it the site root has nothing to redirect to,
+    so attaching it repairs the site rather than risking it. An earlier version refused this
+    whenever any version was published, meaning to protect a half-rebuilt site, but `mike` reports
+    no versions for a missing `versions.json` just as it does for a missing branch, so that case
+    took the permitted path anyway; all the rule achieved was to wedge the one state where taking
+    the alias is correct.
 
     :param versions: Parsed `versions.json` entries.
     :param version: The version being published.
@@ -142,11 +144,7 @@ def should_move_alias(versions: list[dict[str, Any]], version: str,
     if holder == version:
         return True, f'{alias!r} already points at {version}; refreshing it'
     if not holder:
-        if versions:
-            return False, (
-                f'nothing holds {alias!r}, but {len(versions)} version(s) are '
-                f'published, so this is not a fresh site; assign it by hand')
-        return True, f'nothing holds {alias!r} on an empty site'
+        return True, f'nothing holds {alias!r}'
     if holder == DEV_VERSION:
         return True, (f'{alias!r} is on the {DEV_VERSION} bootstrap; '
                       f'{version} supersedes it')

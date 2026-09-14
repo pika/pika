@@ -30,15 +30,15 @@ on:
         type: string
         default: dev
       aliases:
-        description: 'Space-separated aliases to point at this version, e.g. latest. Empty for none'
+        description: 'Alias to point at this version, e.g. latest. Empty for none'
         required: false
         type: string
-        default: ''
+        default: latest
       set-default:
-        description: 'Point the site-root redirect at the first alias'
+        description: 'Point the site-root redirect at the alias'
         required: false
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: read
