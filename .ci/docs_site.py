@@ -246,8 +246,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
 
-    check = sub.add_parser(
-        'check-version', help='fail unless a version name is publishable')
+    check = sub.add_parser('check-version',
+                           help='fail unless a version name is publishable')
     check.add_argument('--version', required=True)
     check.set_defaults(func=_cmd_check_version)
 
