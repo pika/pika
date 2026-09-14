@@ -46,7 +46,7 @@ class LoadVersionsTests(unittest.TestCase):
         `mike list --json` prints `[]` even when the branch is absent, so treating empty as "nothing
         published" would hand over the alias on any error.
         """
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, 'did the mike command fail'):
             docs_site.load_versions(io.StringIO('   \n'))
 
     def test_invalid_json_raises(self):
@@ -54,7 +54,7 @@ class LoadVersionsTests(unittest.TestCase):
             docs_site.load_versions(io.StringIO('error: could not read'))
 
     def test_non_list_raises(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             docs_site.load_versions(io.StringIO('{"version": "1.5"}'))
 
 
@@ -155,8 +155,26 @@ class ShouldMoveAliasTests(unittest.TestCase):
         self.assertFalse(self._decide(populated, 'dev'))
         self.assertFalse(self._decide(populated, '1.6'))
 
-    def test_bootstrap_still_works_on_a_genuinely_empty_site(self):
-        self.assertTrue(self._decide([], 'dev'))
+    def test_equal_versions_spelled_differently_are_refused(self):
+        """
+        `1.6.0` and `1.6` compare equal but are separate directories to `mike`.
+
+        Publishing the second would leave two full trees for one release, with the alias on
+        whichever deployed last and every inbound link pointing at the frozen one.
+        """
+        self.assertFalse(self._decide(_versions(('1.6', ['latest'])), '1.6.0'))
+        self.assertFalse(self._decide(_versions(('1.6.0', ['latest'])), '1.6'))
+
+    def test_epoch_and_local_versions_are_refused(self):
+        """
+        An epoch outranks every ordinary release, so nothing could supersede it.
+
+        Both would also become directory names containing `!` or `+`.
+        """
+        for name in ('1!1.0', '1.5+local'):
+            self.assertFalse(self._decide(_versions(('9999.0', ['latest'])),
+                                          name),
+                             msg=name)
 
 
 class ParseReleaseTests(unittest.TestCase):
@@ -198,6 +216,11 @@ class CheckVersionNameTests(unittest.TestCase):
 
     def test_rejects_post_and_dev_releases(self):
         for name in ('1.5.0.post1', '1.5.0.dev1'):
+            with self.assertRaises(ValueError, msg=name):
+                docs_site.check_version_name(name)
+
+    def test_rejects_epoch_and_local_versions(self):
+        for name in ('1!1.0', '1.5+local'):
             with self.assertRaises(ValueError, msg=name):
                 docs_site.check_version_name(name)
 
@@ -262,7 +285,7 @@ class AliasDecisionCommandTests(unittest.TestCase):
         for payload in ('', 'error: could not read', '{"not": "a list"}'):
             code, out, err = self._run(payload, 'dev')
             self.assertEqual(code, 1, msg=payload)
-            self.assertNotIn('true', out, msg=payload)
+            self.assertEqual(out, '', msg=payload)
             self.assertIn('::error::', err, msg=payload)
 
 
@@ -270,13 +293,19 @@ class VerifyTests(unittest.TestCase):
 
     def _run(self, versions, version, aliases=''):
         argv = ['verify', '--version', version, '--aliases', aliases]
-        stdin = io.StringIO(json.dumps(versions))
-        original = docs_site.sys.stdin
-        docs_site.sys.stdin = stdin
+        original = (docs_site.sys.stdin, docs_site.sys.stdout,
+                    docs_site.sys.stderr)
+        docs_site.sys.stdin = io.StringIO(json.dumps(versions))
+        # Captured, not merely redirected: `_cmd_verify` prints `::error::`
+        # annotations, which GitHub parses as workflow commands if they reach the
+        # unit job's real stdout.
+        docs_site.sys.stdout, docs_site.sys.stderr = io.StringIO(), io.StringIO(
+        )
         try:
             return docs_site.main(argv)
         finally:
-            docs_site.sys.stdin = original
+            (docs_site.sys.stdin, docs_site.sys.stdout,
+             docs_site.sys.stderr) = original
 
     def test_published_with_alias_passes(self):
         self.assertEqual(
@@ -295,13 +324,39 @@ class VerifyTests(unittest.TestCase):
         self.assertEqual(self._run(_versions(('1.5', [])), '1.5', 'latest'), 1)
 
     def test_unreadable_payload_fails(self):
-        stdin = io.StringIO('')
-        original = docs_site.sys.stdin
-        docs_site.sys.stdin = stdin
+        self.assertEqual(self._run_raw('', ['verify', '--version', '1.5']), 1)
+
+    def test_no_aliases_expected_is_the_steady_state(self):
+        """
+        Every `dev` push after the first verifies with no alias expectation.
+
+        A change to how the alias list is split would break only this path, which is the one the
+        automated deploy takes most often.
+        """
+        self.assertEqual(self._run(_versions(('dev', [])), 'dev'), 0)
+
+    def _run_raw(self, payload, argv):
+        original = (docs_site.sys.stdin, docs_site.sys.stdout,
+                    docs_site.sys.stderr)
+        docs_site.sys.stdin = io.StringIO(payload)
+        docs_site.sys.stdout, docs_site.sys.stderr = io.StringIO(), io.StringIO(
+        )
         try:
-            self.assertEqual(docs_site.main(['verify', '--version', '1.5']), 1)
+            return docs_site.main(argv)
         finally:
-            docs_site.sys.stdin = original
+            (docs_site.sys.stdin, docs_site.sys.stdout,
+             docs_site.sys.stderr) = original
+
+    def test_check_version_cli_gates_by_exit_code(self):
+        """
+        The workflow relies on the exit status, which nothing else asserted.
+
+        Wrapping the command in `except ValueError: return 0` would silently disable the input gate.
+        """
+        self.assertEqual(
+            self._run_raw('', ['check-version', '--version', '1.6']), 0)
+        self.assertEqual(
+            self._run_raw('', ['check-version', '--version', '1.05']), 1)
 
 
 if __name__ == '__main__':

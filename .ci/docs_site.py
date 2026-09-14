@@ -48,7 +48,7 @@ def load_versions(stream: Any) -> list[dict[str, Any]]:
             'mike command fail?)')
     data = json.loads(text)
     if not isinstance(data, list):
-        raise ValueError(f'expected a JSON list of versions, got {type(data)}')
+        raise TypeError(f'expected a JSON list of versions, got {type(data)}')
     return data
 
 
@@ -100,6 +100,11 @@ def parse_release(name: str) -> Version | None:
         return None
     if version.is_prerelease or version.is_postrelease or version.is_devrelease:
         return None
+    # An epoch or a local segment would become a directory name containing `!`
+    # or `+`, and an epoch also outranks every ordinary release, so a typo such
+    # as `1!1.0` would take the alias and nothing could ever supersede it.
+    if version.epoch != 0 or version.local is not None:
+        return None
     if str(version) != name:
         return None
     return version
@@ -149,6 +154,11 @@ def should_move_alias(versions: list[dict[str, Any]], version: str,
         return False, (f'{alias!r} belongs to release {holder}; '
                        f'{DEV_VERSION} leaves it there')
 
+    # `candidate` is not None here: the first branch returned for every name
+    # that failed to parse as a stable release. Stated for the type checker,
+    # which cannot see that through five intervening branches.
+    assert candidate is not None
+
     # The holder is parsed permissively, unlike the candidate. This policy never
     # grants the alias to a pre-release, but one can hold it because a human
     # assigned it, and the release it precedes must still be able to reclaim it:
@@ -160,7 +170,14 @@ def should_move_alias(versions: list[dict[str, Any]], version: str,
             f'{holder!r} holds {alias!r} and is not a version at all, so '
             f'whether {version} supersedes it cannot be decided here') from exc
 
-    if candidate >= current:
+    if candidate == current:
+        # Equal but spelled differently, so `mike` would publish a second full
+        # tree beside the first: `1.6.0` and `1.6` compare equal and would both
+        # exist as directories, with the alias on whichever deployed last.
+        return False, (
+            f'{version} and the current holder {holder} are the same version '
+            f'spelled differently; publish under {holder} instead')
+    if candidate > current:
         return True, f'{version} is newer than the current holder {holder}'
     return False, (f'{alias!r} stays on {holder}; {version} is older, so '
                    f'moving it would roll the site backward')
@@ -183,6 +200,10 @@ def check_version_name(name: str) -> None:
         version = Version(name)
     except InvalidVersion as exc:
         raise ValueError(f'{name!r} is not a version: {exc}') from exc
+    if version.epoch != 0 or version.local is not None:
+        raise ValueError(
+            f'{name!r} carries an epoch or a local segment, which would become '
+            f'a directory name containing "!" or "+"')
     if version.is_postrelease or version.is_devrelease:
         raise ValueError(
             f'{name!r} is a post-release or development release; publish a '

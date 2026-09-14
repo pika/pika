@@ -107,7 +107,10 @@ jobs:
             prerelease)
               # Canonical spellings only, so the tag, the PyPI version and the
               # docs directory are one string; see RELEASE.md.
-              if ! echo "$PRERELEASE_TAG" | grep -qE '^(a|b|rc)[0-9]+$'; then
+              # No leading zeros: `b01` matches a naive pattern but normalizes
+              # to `b1`, so the tag and the version PyPI indexes would differ,
+              # and the docs deploy would reject it after both are unrecoverable.
+              if ! echo "$PRERELEASE_TAG" | grep -qE '^(a|b|rc)(0|[1-9][0-9]*)$'; then
                 echo "::error::prerelease_tag must be a canonical PEP 440 pre-release segment: a, b or rc followed by a number (e.g. b1, rc1)"
                 exit 1
               fi

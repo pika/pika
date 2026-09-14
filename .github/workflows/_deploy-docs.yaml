@@ -198,6 +198,20 @@ jobs:
             --version "$VERSION" --alias "$ALIASES" < "$listing")
           echo "move=$move" >> "$GITHUB_OUTPUT"
 
+      # Recorded before the deploy so the check afterwards can require the branch
+      # to have moved. Asserting only that a version is listed is satisfied by a
+      # previous deploy: a patch release publishes into the same MAJOR.MINOR
+      # directory, so a 1.5.1 whose push was lost still finds 1.5 carrying
+      # `latest` from 1.5.0 and reports success.
+      - name: Record the published tip
+        if: ${{ inputs.push }}
+        id: before
+        run: |
+          set -euo pipefail
+          git fetch --quiet origin gh-pages || true
+          echo "sha=$(git rev-parse --verify --quiet origin/gh-pages || true)" \
+            >> "$GITHUB_OUTPUT"
+
       - name: Deploy
         env:
           VERSION: ${{ inputs.version }}
@@ -244,20 +258,6 @@ jobs:
             fi
             hatch run docs:mike "${set_default_args[@]}" "$ALIASES"
           fi
-
-      # Recorded before the deploy so the check afterwards can require the branch
-      # to have moved. Asserting only that a version is listed is satisfied by a
-      # previous deploy: a patch release publishes into the same MAJOR.MINOR
-      # directory, so a 1.5.1 whose push was lost still finds 1.5 carrying
-      # `latest` from 1.5.0 and reports success.
-      - name: Record the published tip
-        if: ${{ inputs.push }}
-        id: before
-        run: |
-          set -euo pipefail
-          git fetch --quiet origin gh-pages || true
-          echo "sha=$(git rev-parse --verify --quiet origin/gh-pages || true)" \
-            >> "$GITHUB_OUTPUT"
 
       - name: Verify the deploy reached the remote
         if: ${{ inputs.push }}
