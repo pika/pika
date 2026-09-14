@@ -88,58 +88,64 @@ bypass the relevant rules (or the push step will fail).
 
 ## Documentation site
 
-`deploy-docs.yaml` publishes the MkDocs site to the `gh-pages` branch with
-[`mike`](https://github.com/jimporter/mike), which keeps every version in its
-own subdirectory. A push to `main` publishes `dev`; a stable release tag
-publishes `MAJOR.MINOR` and moves the `latest` alias to it.
+The site is published to the `gh-pages` branch with [`mike`](https://github.com/jimporter/mike), which keeps every version in its own subdirectory. `latest` is an alias, and the `index.html` at the site root redirects to whichever version holds it.
 
-The work lives in the reusable `_deploy-docs.yaml`. Two workflows call it:
+The work lives in the reusable `_deploy-docs.yaml`, which nothing triggers directly. Three callers decide what to publish:
 
-- `deploy-docs.yaml` on a push to `main`, publishing `dev`, and on manual
-  dispatch for anything else.
-- `release.yaml`, as its terminal `deploy-docs` job, which runs after the PyPI
-  publish, the smoke test, and the GitHub Release. A release that fails partway
-  through therefore never publishes its docs.
+| caller | when | publishes |
+|--------|------|-----------|
+| `main.yaml`, job `deploy-dev-docs` | push to `main`, after `tests-passed` | `dev` |
+| `release.yaml`, job `deploy-docs` | end of a release or pre-release | `MAJOR.MINOR` for a release, the full version for a pre-release |
+| `deploy-docs.yaml` | manual dispatch only | whatever you ask for |
 
-`release.yaml` calls it with `uses:` rather than dispatching it with
-`gh workflow run`, so the deploy's conclusion is the release's conclusion. A
-dispatch returns as soon as the API accepts it, which would report the release
-as successful whether or not the docs ever published.
+The `dev` publish lives in `main.yaml` rather than on its own `push` trigger so that it can depend on `tests-passed`; an independent workflow would race the test matrix and publish documentation from a commit whose tests then failed. `main.yaml` also runs `validate-docs-deploy` on every pull request, which performs a full deploy with `push: false`. That rehearsal asks for a release version and an alias on purpose: with `dev` and no alias, the alias decision, `set-default` and `.ci/docs_site.py` all short-circuit, and the job would prove nothing about the path a release takes. `mike` is unpinned, so this is what catches a `mike` release that changes alias handling.
 
-The caller passes the version name and aliases explicitly. A stable release
-publishes `MAJOR.MINOR` and takes `latest`; a pre-release publishes under its
-full version and takes nothing. That decision is made in `release.yaml`, where
-the mode is known, rather than inferred from the tag text.
+`release.yaml` calls the deploy with `uses:` rather than dispatching it with `gh workflow run`, so the deploy's conclusion is the release's conclusion. A dispatch returns as soon as the API accepts it, which would report a release as successful whether or not its documentation ever published. It runs last, after the PyPI publish, the smoke test and the GitHub Release, so a release that fails partway through never publishes docs for a version nobody can install. That does make the docs wait on `smoke-test`, the least deterministic job in the release: a broker flake there leaves the release published with its documentation unpublished, recoverable by hand as described below.
 
-Two guards worth knowing about:
+The version name and alias are inputs rather than something the deploy infers from a tag, because `release.yaml` knows its own mode and tag text does not distinguish a pre-release from a stable release reliably.
 
-- **An alias is never moved backwards.** Before moving `latest`, the deploy
-  compares the version it is publishing against whichever version currently
-  holds the alias, and declines the move if the current holder is newer. Without
-  this, a deploy on an older tag would take `latest` and the site-root redirect
-  with it, rolling the whole site back for every reader and every `latest/` URL
-  compiled into a shipped wheel. `dev` is treated as superseded by any real
-  version, since it holds the alias only as the pre-release bootstrap below.
-- **The deploy is verified against the remote.** `mike` places its push inside
-  the same block that downgrades an empty commit to a warning, so a deploy whose
-  built output matches what is already published skips the push and still exits
-  0. The workflow reads `versions.json` back from `origin/gh-pages` afterwards
-  and fails if the version, or an alias it was supposed to move, is not there.
+### Guards
 
-If an upstream job fails and the docs job is skipped, deploy by hand with the
-same parameters that job would have passed:
+Three things are checked because getting them wrong is silent rather than loud.
+
+**Only a stable release may hold `latest`.** It backs the site root and every `latest/` URL compiled into a released wheel, so `.ci/docs_site.py` decides eligibility by parsing the version with `packaging`, not by matching a pattern. A pre-release, a post-release, a non-canonical spelling such as `1.05`, and a typo such as `1.5.0rcl` are all refused. `dev` is the one exception, and only until a release exists.
+
+**An alias is never moved backwards.** Before moving `latest`, the deploy compares the version it is publishing against the version currently holding the alias and declines the move if the holder is newer. Without this, a deploy on an older tag would take `latest` and the site-root redirect with it, rolling the whole site back for every reader. A stable release can still reclaim the alias from its own release candidate, which is a forward move.
+
+**The deploy is verified against the remote.** `mike` places its push inside the block that downgrades an empty commit to a warning, so a deploy producing no change skips the push and still exits 0. Checking that a version is merely *listed* is not enough either: a patch release publishes into the same `MAJOR.MINOR` directory, so a 1.5.1 whose push was lost would still find `1.5` carrying `latest` from 1.5.0. The workflow therefore records the `gh-pages` tip before deploying and requires it to have moved, then reads `versions.json` back and checks the site-root redirect points at the alias it was asked to set.
+
+### Configuration
+
+`mkdocs.yml` carries four settings that exist only because the site is versioned:
+
+- `strict: true` makes `mike`'s own `mkdocs build` strict. Without it a warning that fails the pull-request docs job would pass during a deploy. `hatch run docs:serve` passes `--no-strict` so authoring a page before wiring up `nav` still starts a server.
+- The `mike` plugin is declared explicitly. `mike` injects it when deploying, but only with defaults, and declaring it is what makes `canonical_version` reachable.
+- `canonical_version: latest` stops every published version from declaring itself canonical, which would let an unreleased `dev` page outrank the released one. See #1712 for the effect this has on per-version sitemaps.
+- `extra.version.default: latest` names the versions that are current, so they do not show the outdated-version banner. That banner comes from `overrides/main.html`: mkdocs-material renders it only from an `outdated` block that is empty in the stock theme, so without the override a reader landing on an old version from a search result gets no signal, and the version-comparison JavaScript is never loaded. Its link is relative rather than pointing at `latest` directly, so a page published years from now still resolves through the site root instead of hard-coding today's alias.
+
+### Permissions
+
+A called workflow can only maintain or reduce the caller's token, never elevate it, and this applies to the *demand* as well as the grant: `_deploy-docs.yaml` therefore declares no `permissions` at all. Declaring `contents: write` there made GitHub reject any caller that granted less, which showed up as a startup failure that ran no jobs and reported no checks rather than as a red job.
+
+Each caller grants what it needs instead. The three that push declare `contents: write`; `validate-docs-deploy` declares nothing and inherits `contents: read`, which is correct because it pushes nothing and keeps a write-capable token away from a job that runs `mike` and `hatch` over configuration a pull request supplied.
+
+### Recovering a skipped or failed deploy
+
+Dispatch `deploy-docs.yaml` with the parameters the automated job would have passed. They differ by mode, and using the release parameters for a pre-release would move `latest` onto a release candidate:
 
 ```bash
-gh workflow run deploy-docs.yaml -f ref=<tag> -f version=<MAJOR.MINOR> -f aliases=latest -f set-default=true
+# after a failed stable release
+gh workflow run deploy-docs.yaml -f ref=1.6.0 -f version=1.6 -f aliases=latest -f set-default=true
+
+# after a failed pre-release: no alias, no site-root change
+gh workflow run deploy-docs.yaml -f ref=1.6.0rc1 -f version=1.6.0rc1
 ```
 
-Because every page lives under a version directory, there is no unversioned
-`/modules/...` path. A link that must land on a specific page therefore needs a
-version in it, and the adapter deprecation warnings use `latest/` so the alias
-resolves them to the newest stable release. Links that only need the docs home,
-such as the README badge, point at the bare site root instead and let its
-redirect follow `latest` on their behalf, which does not go stale if the alias
-scheme ever changes.
+### Links into the site
+
+Because every page lives under a version directory there is no unversioned `/modules/...` path, so a link that must land on a specific page needs a version in it. The adapter deprecation warnings use `latest/` for that reason. Links that only need the docs home point at the bare site root and let its redirect follow the alias, which does not go stale if the alias scheme changes: that is why the README badge, the README documentation link and the `information` client property pika sends to every broker all use the root.
+
+`README.md` is snippet-included into `docs/index.md`, so its absolute `latest/contributing/` link appears on every version's home page and always resolves to the current guide. That is deliberate: the README is also rendered on GitHub and on the PyPI project page, where a repository-relative link would be broken, and contributing instructions should reflect current practice rather than the release a reader happens to be viewing.
 
 ### Setup: bootstrap
 

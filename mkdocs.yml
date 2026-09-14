@@ -7,10 +7,7 @@ repo_url: https://github.com/pika/pika
 docs_dir: docs
 site_dir: site
 
-# Treat every warning as an error. `hatch run docs:build` passes --strict
-# anyway, but `mike` runs its own `mkdocs build` when it deploys, and that build
-# takes its settings from here. Without this, a warning that fails the docs job
-# on a pull request would pass during the deploy.
+# `mike` reads this when it deploys, so the published build is strict too.
 strict: true
 
 # Snippets pull README.md and CONTRIBUTING.md from the repo root; MkDocs only
@@ -20,8 +17,6 @@ watch:
 
 theme:
   name: material
-  # Supplies `overrides/main.html`, which fills in the theme's empty `outdated`
-  # block so a reader on an older version sees a warning.
   custom_dir: overrides
 
   # Added modern visuals
@@ -73,15 +68,8 @@ theme:
     - toc.follow
 
 plugins:
-  # `mike` injects this plugin itself when it deploys, but only with default
-  # settings. Declaring it here is what makes `canonical_version` reachable, and
-  # `mike` honours an existing entry rather than overriding it.
+  # Declared so `canonical_version` can be set; see RELEASE.md.
   - mike:
-      # Without this, the plugin rewrites `site_url` to each version's own
-      # directory, so every published version declares itself canonical and a
-      # search engine can rank an unreleased `dev` page above the released one.
-      # Pointing all of them at the `latest` alias makes the current release the
-      # canonical copy of every page.
       canonical_version: latest
   - search
   - mkdocstrings:
@@ -119,10 +107,7 @@ extra_css:
 extra:
   version:
     provider: mike
-    # Versions carrying this alias are current, so they do not get the outdated
-    # warning from `overrides/main.html`. This is also the theme's default when
-    # unset, but the deploy treats `latest` as the alias that decides the site
-    # root, so state it rather than leaving the two to agree by coincidence.
+    # Versions carrying this alias are current, so they skip the banner.
     default: latest
   social:
     - icon: fontawesome/brands/github

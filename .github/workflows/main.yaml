@@ -12,10 +12,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Pinned like every other workflow in the repo, rather than inheriting whatever
-# the repository default happens to be. The jobs that publish documentation raise
-# this to `contents: write` themselves; `validate-docs-deploy` deliberately does
-# not, because it pushes nothing.
+# Jobs that publish documentation raise this themselves; see RELEASE.md.
 permissions:
   contents: read
 
@@ -137,60 +134,34 @@ jobs:
         if: ${{ needs.test-legacy.result != 'success' }}
         run: exit 1
       - name: Check validate-docs-deploy status
-        # Tested for failure rather than for success: this job runs only on pull
-        # requests, so on a push to `main` it is skipped, and requiring success
-        # would fail every push.
+        # Failure, not success: it is skipped on a push, where it does not run.
         if: ${{ contains(fromJSON('["failure", "cancelled"]'), needs.validate-docs-deploy.result) }}
         run: exit 1
 
-  # Exercise the publish path on pull requests without touching the remote, so a
-  # change that breaks only the deploy fails here rather than during a release,
-  # after the wheel is already on PyPI. `mike` runs its own `mkdocs build` and
-  # then rewrites the branch, and neither of those is what the `docs` job above
-  # covers.
-  #
-  # It requests an alias so the alias decision, `set-default` and the helper in
-  # `.ci/docs_site.py` all execute; with no alias every one of them
-  # short-circuits and the job proves nothing about the path a release takes.
-  # `push: false` keeps it off the remote, which also means the token stays at
-  # the workflow default of `contents: read`.
-  #
-  # In `tests-passed` below, because a check that cannot block a merge does not
-  # prevent the failure mode described above.
+  # Rehearse the publish path on pull requests without touching the remote, so a
+  # deploy-only breakage fails here rather than mid-release. See RELEASE.md for
+  # why it asks for an alias and a release version.
   validate-docs-deploy:
     if: ${{ github.event_name == 'pull_request' }}
     uses: ./.github/workflows/_deploy-docs.yaml
     with:
       ref: ${{ github.sha }}
-      # A release version rather than `dev`, so this always exercises
-      # `--update-aliases`. With `dev` it would stop doing so the moment a real
-      # release held `latest`, leaving the one command that can roll the whole
-      # site backward unrehearsed against an unpinned `mike`. The value is
-      # arbitrary and never published: `push: false` keeps it local to the runner.
+      # Arbitrary and never published; `push: false` keeps it on the runner.
       version: '9999.0'
       aliases: latest
       set-default: true
       push: false
       validate: false
 
-  # Publish `dev` from `main`, gated on the full matrix. This lives here rather
-  # than on a `push` trigger in deploy-docs.yaml so it can depend on
-  # `tests-passed`: an independent workflow would race the matrix and publish
-  # `dev` docs from a commit whose tests then failed.
+  # Publish `dev` from `main`, gated on the full matrix: a `push` trigger in
+  # deploy-docs.yaml would race it and publish from a commit whose tests failed.
   #
-  # It asks for `latest` every time, which is the one-time bootstrap in
-  # RELEASE.md rather than a per-push intent: before the first release nothing
-  # holds `latest`, so `dev` takes it and the site root starts resolving instead
-  # of returning 404 for every `latest/` URL compiled into a shipped wheel.
-  # Afterwards the deploy's alias guard declines the move, so this is idempotent.
-  #
-  # `validate: false` because `tests-passed` requires the `docs` job, which has
-  # already built this exact commit under `--strict`.
+  # Asking for `latest` every push is the bootstrap described in RELEASE.md, and
+  # is idempotent: the alias guard declines it once a release holds the alias.
   deploy-dev-docs:
     needs: tests-passed
     if: ${{ github.event_name == 'push' }}
-    # `mike` pushes `gh-pages`. Declared here rather than relying on the
-    # repository's default workflow permissions, which can be set to read-only.
+    # `mike` pushes `gh-pages`.
     permissions:
       contents: write
     uses: ./.github/workflows/_deploy-docs.yaml

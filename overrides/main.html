@@ -1,20 +1,7 @@
 {% extends "base.html" %}
 
-<!--
-  The version warning shown when a reader is not on the current release.
-
-  mkdocs-material renders this banner only from the `outdated` block, which is
-  empty in the stock theme, so a versioned site shows nothing at all without an
-  override: a reader who lands on an old version from a search result gets no
-  signal that a newer one exists. The block also guards the version-comparison
-  JavaScript, which is not loaded onto the page unless the block has content.
-
-  The link is deliberately relative rather than pointing at `latest` directly. It
-  resolves to the site root, which redirects to whichever version currently holds
-  the default alias, so a page published years ago does not hard-code today's
-  alias. Which versions count as current is set by `extra.version.default` in
-  mkdocs.yml.
--->
+{# Fills the theme's empty `outdated` block; see RELEASE.md for why it is needed
+   and why the link is relative. #}
 {% block outdated %}
   You're not viewing the latest version.
   <a href="{{ '../' ~ base_url }}">

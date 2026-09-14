@@ -105,15 +105,8 @@ jobs:
           new_version="${major}.${minor}.${patch}"
           case "$MODE" in
             prerelease)
-              # Only the canonical spellings, so the tag, the version PyPI
-              # indexes and the published docs directory are the same string.
-              # PEP 440 also accepts `c`, `pre`, `preview`, `alpha` and `beta`,
-              # but they normalize onto `rc`, `a` and `b`: releasing `c1` and
-              # later `rc1` computes two different tags for one PyPI version, and
-              # the tag is pushed before the publish runs, so the second attempt
-              # leaves `main` bumped and tagged with nothing published. `post`
-              # and `rev` are not pre-releases at all, and `dev` is one but sorts
-              # below every `a`, so it is excluded as a release channel.
+              # Canonical spellings only, so the tag, the PyPI version and the
+              # docs directory are one string; see RELEASE.md.
               if ! echo "$PRERELEASE_TAG" | grep -qE '^(a|b|rc)[0-9]+$'; then
                 echo "::error::prerelease_tag must be a canonical PEP 440 pre-release segment: a, b or rc followed by a number (e.g. b1, rc1)"
                 exit 1
@@ -132,15 +125,7 @@ jobs:
           echo "Bumping $current -> $new_version (mode: $MODE)"
 
           # Docs-site parameters, decided here because this is where the mode is
-          # known. The deploy workflow takes them as inputs rather than
-          # re-deriving "is this a pre-release" from the tag text, which cannot
-          # distinguish a pre-release from a stable release reliably.
-          #
-          # A stable release publishes MAJOR.MINOR, so a patch release updates
-          # the same version directory in place, and takes the `latest` alias
-          # plus the site-root redirect. A pre-release publishes under its full
-          # version and takes nothing, leaving `latest` on the last stable
-          # release.
+          # known rather than inferred from tag text. See RELEASE.md.
           case "$MODE" in
             release)
               echo "docs_version=${major}.${minor}" >> "$GITHUB_OUTPUT"
@@ -344,31 +329,13 @@ jobs:
             --generate-notes \
             $PRERELEASE_FLAG
 
-  # Docs go last, once the wheel is on PyPI and the release is otherwise
-  # complete. Publishing them earlier would leave a version of the docs live for
-  # a release that then failed, and the docs are the one artifact here that
-  # announces a version to readers rather than to a package index.
-  #
-  # Called with `uses:` rather than dispatched with `gh workflow run`, so its
-  # conclusion is this run's conclusion. A dispatch returns as soon as the API
-  # accepts it, which would report the release as successful whether or not the
-  # docs ever published, with no status check and no notification to the person
-  # who started the release.
-  #
-  # `smoke-test` is deliberately in `needs`: the docs announce a version to
-  # readers, so they should not go out for a wheel that could not be installed
-  # and used. That does make the docs wait on the least deterministic job in the
-  # release, and a broker flake there leaves the release published with the docs
-  # unpublished. Recovery is a manual dispatch of deploy-docs.yaml with the
-  # version and aliases this job would have passed; RELEASE.md spells it out.
+  # Last, so a release that fails partway never publishes its docs, and called
+  # with `uses:` so the deploy's conclusion is this run's. See RELEASE.md for the
+  # ordering, the `smoke-test` dependency and how to recover a skipped deploy.
   deploy-docs:
     needs: [release, publish-pypi, smoke-test, github-release]
     if: ${{ inputs.mode == 'release' || inputs.mode == 'prerelease' }}
-    # Required, and easy to leave off. This workflow sets `contents: read` at
-    # the top level, and a called workflow can only maintain or reduce the
-    # caller's token, never elevate it. Without this the called job's
-    # `contents: write` is capped at read and `mike` fails pushing `gh-pages`,
-    # after the wheel is already on PyPI.
+    # Required: a called workflow cannot elevate the caller's token.
     permissions:
       contents: write
     uses: ./.github/workflows/_deploy-docs.yaml

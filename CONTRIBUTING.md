@@ -104,6 +104,16 @@ To preview **multiple versions** locally:
 4. Open the URL it prints (default `http://127.0.0.1:8000`) and use the version
    selector. `mike list` shows what is installed; `mike delete VERSION` removes
    one version.
+
+5. Delete the local branch when you are done:
+
+        git branch -D gh-pages
+
+   Do this even though you never pushed. Once CI has published to `gh-pages` and
+   you fetch it, your local branch has diverged from the remote, and every `mike`
+   write command refuses to run against a diverged branch: `deploy`, `delete` and
+   `set-default` all fail with `gh-pages has diverged from origin/gh-pages`.
+   Deleting the local branch is the fix; the next preview recreates it.
    
 ## Code Formatting and Linting
 
