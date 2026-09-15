@@ -182,8 +182,14 @@ jobs:
           listing="$RUNNER_TEMP/versions-local.json"
           hatch run docs:mike list --json > "$listing"
           reason="$RUNNER_TEMP/alias-reason.txt"
-          move=$(hatch run docs:python .ci/docs_site.py alias-decision \
-            --version "$VERSION" --alias "$ALIASES" < "$listing" 2> "$reason")
+          # Replay the captured stderr on the failure path: `set -e` aborts
+          # on the assignment, so nothing would ever read the file.
+          if ! move=$(hatch run docs:python .ci/docs_site.py alias-decision \
+                --version "$VERSION" --alias "$ALIASES" < "$listing" \
+                2> "$reason"); then
+            cat "$reason" >&2
+            exit 1
+          fi
           echo "move=$move" >> "$GITHUB_OUTPUT"
 
           # Declining is a site-wide outcome, so say so where it is visible. The
