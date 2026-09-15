@@ -40,11 +40,6 @@ on:
         required: false
         type: boolean
         default: true
-      validate:
-        description: 'Run a standalone strict docs build first. False when the caller already built this exact commit'
-        required: false
-        type: boolean
-        default: true
 
 # Deliberately no `permissions:` block here, at either level. A called workflow
 # may only maintain or reduce the caller's token, so declaring `contents: write`
@@ -150,14 +145,6 @@ jobs:
             exit 1
           fi
 
-      # Fail before anything touches `gh-pages`. `docs:build` runs
-      # `mkdocs build --strict`, which `mike`'s own build does not. Callers that
-      # have already built this exact commit under `--strict` pass
-      # `validate: false` rather than paying for a third build of it.
-      - name: Validate documentation build
-        if: ${{ inputs.validate }}
-        run: hatch run docs:build
-
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
@@ -194,9 +181,22 @@ jobs:
           # both would try to create the `docs` environment at once and collide.
           listing="$RUNNER_TEMP/versions-local.json"
           hatch run docs:mike list --json > "$listing"
+          reason="$RUNNER_TEMP/alias-reason.txt"
           move=$(hatch run docs:python .ci/docs_site.py alias-decision \
-            --version "$VERSION" --alias "$ALIASES" < "$listing")
+            --version "$VERSION" --alias "$ALIASES" < "$listing" 2> "$reason")
           echo "move=$move" >> "$GITHUB_OUTPUT"
+
+          # Declining is a site-wide outcome, so say so where it is visible. The
+          # reason goes to stderr, which is a collapsed log section, and the run
+          # is otherwise green: an operator repairing the site would be told
+          # nothing about the alias staying where it was.
+          if [ "$move" = "true" ]; then
+            cat "$reason"
+          else
+            echo "::warning::$ALIASES was not moved to $VERSION: $(cat "$reason")"
+            echo "\`$ALIASES\` was **not** moved to \`$VERSION\`: $(cat "$reason")" \
+              >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       # Recorded before the deploy so the check afterwards can require the branch
       # to have moved. Asserting only that a version is listed is satisfied by a
@@ -248,8 +248,12 @@ jobs:
           # after the deploy above has already pushed, so check first rather than
           # aborting half way through.
           if [ "$SET_DEFAULT" = "true" ] && [ -n "$ALIASES" ]; then
-            if ! hatch run docs:mike list "$ALIASES" > /dev/null 2>&1; then
-              echo "::error::cannot point the site root at '$ALIASES': no published version holds it"
+            # stderr is kept: `mike list` also loads the mkdocs config and checks
+            # remote status, so a config error under `strict: true`, a broken
+            # environment or an unreadable `versions.json` all exit nonzero here
+            # and would otherwise be reported as an alias problem.
+            if ! hatch run docs:mike list "$ALIASES" > /dev/null; then
+              echo "::error::cannot point the site root at '$ALIASES'; see the error above"
               exit 1
             fi
             set_default_args=(set-default --allow-empty)
@@ -294,9 +298,16 @@ jobs:
           # earlier deploy leaves an `index.html` behind, and mike renders it as
           # `href="<identifier>/"`.
           if [ "$SET_DEFAULT" = "true" ] && [ -n "$ALIASES" ]; then
+            if ! git cat-file -e "origin/gh-pages:index.html" 2>/dev/null; then
+              echo "::error::no index.html at the root of gh-pages, so the site root will 404"
+              exit 1
+            fi
+            # mike renders the redirect as href="<identifier>/", so match that
+            # exactly: an unanchored search for the alias would accept
+            # href="verylatest/" for an alias of `latest`.
             if ! git show "origin/gh-pages:index.html" \
-                | grep -q "$ALIASES/"; then
-              echo "::error::the site-root redirect does not point at '$ALIASES'"
+                | grep -qF "href=\"$ALIASES/\""; then
+              echo "::error::the site-root redirect exists but does not point at '$ALIASES'"
               exit 1
             fi
             echo "site-root redirect points at '$ALIASES'"

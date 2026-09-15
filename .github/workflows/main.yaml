@@ -151,7 +151,6 @@ jobs:
       aliases: latest
       set-default: true
       push: false
-      validate: false
 
   # Publish `dev` from `main`, gated on the full matrix: a `push` trigger in
   # deploy-docs.yaml would race it and publish from a commit whose tests failed.
@@ -170,4 +169,3 @@ jobs:
       version: dev
       aliases: latest
       set-default: true
-      validate: false

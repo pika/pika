@@ -48,7 +48,7 @@ The entire flow lives in a single `release.yaml` workflow:
 2. The `publish-pypi` / `publish-test-pypi` job downloads that artifact and publishes it, authenticating with the `PYPI_API_TOKEN` / `TEST_PYPI_API_TOKEN` repository secrets. Downstream jobs never rebuild, so the bytes tested are the bytes shipped
 3. The `smoke-test` job installs the just-published wheel from the matching index and runs `.ci/smoke_test.py` against a live broker (see Post-release verification)
 4. The `github-release` job creates a GitHub Release with notes auto-generated from merged PRs (`--generate-notes`, grouped per `.github/release.yml`)
-5. The `deploy-docs` job runs last and dispatches `deploy-docs.yaml` on the new tag, so the documentation site is published only after the wheel is on PyPI, the smoke test has passed, and the Release exists
+5. The `deploy-docs` job runs last and calls the reusable deploy on the new tag, so the documentation site is published only after the wheel is on PyPI, the smoke test has passed, and the Release exists
 
 A `dry-run` dispatch computes the version and builds the artifact, then stops - nothing is committed, tagged, or published.
 
