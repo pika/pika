@@ -23,6 +23,7 @@ tests/acceptance/       # acceptance tests (require a running RabbitMQ)
 tests/typing/           # type-checker fixtures (checked by hatch run typecheck)
 utils/codegen.py        # code generator for pika/spec.py
 utils/regen_spec.py     # regenerate/verify pika/spec.py (hatch run spec-regen)
+.ci/docs_site.py        # docs-site deploy helper (alias policy, verification)
 examples/               # usage examples
 ```
 
@@ -47,10 +48,11 @@ examples/               # usage examples
   suppress. Fix the flagged code; never add a version pin to make the
   failure go away.
 - **Type checking:** [mypy](https://mypy-lang.org/). Configuration is in
-  `mypy.ini`. Run `hatch run typecheck`, which covers `pika/` and the
-  downstream-consumer fixtures in `tests/typing/`. The fixtures exist because
-  `mypy.ini` sets `packages = pika`, so a run without them never observes code
-  that consumes pika from the outside.
+  `mypy.ini`. Run `hatch run typecheck`, which covers `pika/`, the
+  downstream-consumer fixtures in `tests/typing/`, and `.ci/docs_site.py`. The
+  fixtures exist because `mypy.ini` sets `packages = pika`, so a run without
+  them never observes code that consumes pika from the outside.
+  `.ci/docs_site.py` is also covered by `fmt`, `lint` and `docfmt`.
 - Use single quotes for strings unless the string contains a single quote.
 - No trailing whitespace. Check before committing.
 
