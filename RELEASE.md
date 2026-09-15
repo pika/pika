@@ -137,8 +137,9 @@ Dispatch `deploy-docs.yaml` with the parameters the automated job would have pas
 # after a failed stable release
 gh workflow run deploy-docs.yaml -f ref=1.6.0 -f version=1.6 -f aliases=latest -f set-default=true
 
-# after a failed pre-release: no alias, no site-root change
-gh workflow run deploy-docs.yaml -f ref=1.6.0rc1 -f version=1.6.0rc1
+# after a failed pre-release: no alias, no site-root change. Both are explicit
+# because an omitted input takes the form's default.
+gh workflow run deploy-docs.yaml -f ref=1.6.0rc1 -f version=1.6.0rc1 -f aliases= -f set-default=false
 ```
 
 ### Links into the site
