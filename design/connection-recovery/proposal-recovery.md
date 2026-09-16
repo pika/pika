@@ -1,5 +1,7 @@
 # Design: Auto-recovery for pika's ThreadSafeConnection
 
+Before reading: `README.md` in this directory records the pika 2.0.0 constraints that govern this design - one `Connection`/`Channel` type, all other adapters removed, and the API free to change. They override anything below that assumes otherwise.
+
 > Status: proposal, for review before implementation begins. Recovery is a
 > first-class `RECOVERING` state on the adapter `Connection`/`Channel`
 > lifecycle, driven by the connection's own persistent IOLoop rather than a

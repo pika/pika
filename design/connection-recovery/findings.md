@@ -1,5 +1,7 @@
 # Findings: what clients do when you publish during recovery
 
+Before reading: `README.md` in this directory records the pika 2.0.0 constraints that govern this design - one `Connection`/`Channel` type, all other adapters removed, and the API free to change. They override anything below that assumes otherwise.
+
 This document records what we measured about how existing AMQP 0.9.1 clients behave when an application publishes while the client is recovering a dropped connection. It exists to ground the pika recovery design (see `proposal-recovery.md` and `design-state-machine.md`) in observed behavior rather than assumption.
 
 The runnable harnesses that produced these results are at https://github.com/lukebakken/amqp091-misc (a `java/` harness against the RabbitMQ Java client and a `go/` harness against amqp091-go). Both publish continuously while a TCP outage is injected with toxiproxy (disable the proxy in front of the broker, wait, re-enable), and both verify reliable delivery end-to-end by draining the queue and comparing to what was produced.

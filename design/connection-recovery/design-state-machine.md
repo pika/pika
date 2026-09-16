@@ -1,5 +1,7 @@
 # Design: recovery as a first-class connection/channel state machine
 
+Before reading: `README.md` in this directory records the pika 2.0.0 constraints that govern this design - one `Connection`/`Channel` type, all other adapters removed, and the API free to change. They override anything below that assumes otherwise.
+
 Status: adopted, and kept as the derivation rather than as a specification. `proposal-recovery.md` now follows this framing and is the authoritative document; read it for the worked-out detail. This one records how the direction was arrived at, grounded in the measurements in `findings.md`, along with the precedent it borrows from and the questions it raised.
 
 Terminology note: pika now has two classes named `Connection` and two named `Channel`. "Base `Connection`/`Channel`" means `pika.connection.Connection` / `pika.channel.Channel` (one transport session; dies and stays dead). "Adapter `Connection`/`Channel`" means `pika.adapters.thread_safe_connection.Connection` / `.Channel` (the stable handle an application holds, which can swap its inner connection across reconnects). Unless qualified, "the connection" below means the adapter `Connection`.
