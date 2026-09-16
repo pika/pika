@@ -41,7 +41,7 @@ follows the framing explored in `design-state-machine.md`.
 
 Fail-fast during recovery matches how existing clients actually behave:
 `findings.md` shows neither the RabbitMQ Java client nor `amqp091-go` lets
-a call during recovery run as it would on a healthy connection — both fail
+a call during recovery run as it would on a healthy connection - both fail
 fast (`AlreadyClosedException` / `ErrClosed`), and `amqp091-go` documents a
 reconnect-handshake hazard where publishing blindly during recovery can
 interleave a frame with the `channel.open` handshake and cause a protocol
@@ -49,8 +49,8 @@ violation. Both expect the application to gate on connection state.
 
 Running recovery on the connection's existing IOLoop, rather than a
 dedicated thread, removes an entire class of concurrency machinery that a
-second thread would otherwise require — reentrancy flags, cross-thread
-atomicity guards, condition-variable backoff — because state transitions
+second thread would otherwise require - reentrancy flags, cross-thread
+atomicity guards, condition-variable backoff - because state transitions
 and the redial sequence itself execute on the same thread as every other
 piece of connection state. See "Composing channel-level and
 connection-level recovery" below for what concurrency risk remains once
@@ -71,8 +71,8 @@ dedicated background thread, 1:1 with the inner connection: when the inner
 connection dies, that thread's `self._connection.ioloop.start()` call
 returns and the thread exits. We propose decoupling them: the IOLoop
 thread and the `IOLoop` instance it runs become properties of the
-**adapter** `ThreadSafeConnection` itself — constructed once in `__init__`
-and outliving any single inner connection — while `self._connection` (the
+**adapter** `ThreadSafeConnection` itself - constructed once in `__init__`
+and outliving any single inner connection - while `self._connection` (the
 inner `SelectConnection`) is what gets rebuilt on each redial. See
 "Persistent IOLoop and the redial sequence" below for how.
 
@@ -85,7 +85,7 @@ blocked caller with this exception" mechanism, guarded by
 `self._channel_waiters_lock`; recovery **coexists with, rather than
 replaces**, that mechanism. Recovery's own state lives directly on the
 adapter `Connection`/`Channel` objects, as the same kind of state value
-`_check_not_closed` already reads today — see "Where state lives" below.
+`_check_not_closed` already reads today - see "Where state lives" below.
 
 ## Goals
 
@@ -95,7 +95,7 @@ test (`TestConsumeContinuityAcrossRecovery`): an app consuming via
 `callback` after a connection drop and automatic recovery, with **no
 application code changes**.
 
-Recovery must be **opt-in** — default behavior stays unchanged unless the
+Recovery must be **opt-in** - default behavior stays unchanged unless the
 caller passes a `recovery=` config. We intend to cover this with a
 regression test (`TestDefaultBehaviorUnchangedWithoutRecoveryConfig`).
 
@@ -104,7 +104,7 @@ A call issued while the connection or channel is `RECOVERING` must fail
 already-closed error. We intend to verify this with
 `TestOperationDuringRecoveryRaisesDedicatedException` (below): a
 `basic_publish` (or any guarded call) issued between the drop and the
-`RECOVERING → OPEN` transition raises `ConnectionRecovering` /
+`RECOVERING -> OPEN` transition raises `ConnectionRecovering` /
 `ChannelRecovering`, and an app can `except` that specific type.
 
 ## Non-goals
@@ -112,7 +112,7 @@ already-closed error. We intend to verify this with
 - No changes to `BlockingConnection` or any adapter other than
   `ThreadSafeConnection`.
 - Recovery does not attempt to make in-flight synchronous RPCs survive a
-  drop transparently (see "Existing in-flight blocking waiters" below) —
+  drop transparently (see "Existing in-flight blocking waiters" below) -
   a waiter blocked mid-call when the drop happens is woken with the close
   reason, exactly as it is today; it is not silently retried.
 - No multi-host/cluster failover logic beyond what `AMQPConnectionWorkflow`
@@ -143,7 +143,7 @@ class TopologyRecoveryMode(enum.Enum):
     #: re-subscribed, since consumer subscriptions are always lost on
     #: reconnect regardless of queue durability. Durable, non-auto-delete
     #: exchanges and queues (and bindings purely between them) are skipped,
-    #: since the broker retains them across a network interruption — use
+    #: since the broker retains them across a network interruption - use
     #: this mode when durable topology is managed declaratively or
     #: out-of-band and only the connection-scoped entities need restoring.
     ONLY_TRANSIENT = 'only_transient'
@@ -182,7 +182,7 @@ class TopologyRecoveryEntity:
 `RecoveryConfig` and `TopologyRecoveryEntity` carry the recovery policy and
 per-entity failure reporting; both are orthogonal to how state is
 represented. There is deliberately no separate `RecoveryState` enum on
-`RecoveryCoordinator` — "is the connection recovering" is answered by the
+`RecoveryCoordinator` - "is the connection recovering" is answered by the
 connection's own lifecycle state, described next.
 
 ### Lifecycle state
@@ -205,7 +205,7 @@ These are new types, distinct from base `pika.connection.Connection`'s own
 `CONNECTION_CLOSED/INIT/PROTOCOL/START/TUNE/OPEN/CLOSING` and base
 `pika.channel.Channel`'s `CLOSED/OPENING/OPEN/CLOSING`. The base classes
 already guard on their states (`ConnectionWrongStateError`,
-`ChannelWrongStateError`) and are unaffected — a base `Connection` is 1:1
+`ChannelWrongStateError`) and are unaffected - a base `Connection` is 1:1
 with a transport session, reaches `CLOSED`, and never comes back; recovery
 means constructing a new one. `ConnectionState`/`ChannelState` are the
 adapter-level states that make that construction-of-a-new-one process
@@ -236,14 +236,14 @@ class ChannelRecovering(ChannelWrongStateError): ...
 Every public operation that today calls `_check_not_closed()` (on the
 connection) or the channel's equivalent not-open guard checks `self._state`
 and raises `ConnectionRecovering`/`ChannelRecovering` when it is
-`RECOVERING` — fail-fast, matching `findings.md`, not block-until-open.
+`RECOVERING` - fail-fast, matching `findings.md`, not block-until-open.
 Subclassing the existing wrong-state errors keeps `except
 ConnectionWrongStateError`/`except ChannelWrongStateError` code working
 unchanged; recovery-aware code can additionally do `except
 ChannelRecovering: wait_for_open(); republish()`.
 
 This guard applies to calls made through the public wrapper API.
-`_recover_topology`'s own internal calls take a different path — see
+`_recover_topology`'s own internal calls take a different path - see
 "Topology replay must not use the blocking wrapper API" below for why.
 
 ### Observability
@@ -257,7 +257,7 @@ listener list per object, the equivalent of `amqp091-go`'s
 `NotifyStateChange` and the AMQP 1.0 Java client's `StateListener`, fired
 for every transition (not just ones related to recovery). `state` and
 `is_recovering` are synchronous properties, giving a synchronous,
-gate-able answer to "is this recovering right now" — see `findings.md`
+gate-able answer to "is this recovering right now" - see `findings.md`
 for why that matters.
 
 **`is_open`/`is_closed` are redefined in terms of `_state`.** Today both
@@ -285,7 +285,7 @@ current code) checks `self._closed_reason` under lock and then falls
 through to `self._connection.is_closed` unlocked, documented as covering
 only the brief window between the connection reaching the closed state and
 `_on_connection_closed` running. That framing stops being true once
-`_state` is meant to be authoritative — any remaining direct read of the
+`_state` is meant to be authoritative - any remaining direct read of the
 raw inner object's `is_open`/`is_closed`/`is_closing` is no longer a
 narrow race-window fallback, it is a second source of truth that can
 disagree with `_state` for the entire, possibly multi-step duration of a
@@ -296,11 +296,11 @@ channel before doing anything else. If the old raw channel already
 reports closed (broker dropped it) while the wrapper's `_state ==
 ChannelState.RECOVERING`, this returns immediately as if `close()`
 succeeded, instead of applying the terminal rule or raising
-`ChannelRecovering` — silently swallowing an app-issued `close()` during
+`ChannelRecovering` - silently swallowing an app-issued `close()` during
 recovery. Before implementation, every direct read of the inner
 `Connection`/`Channel` object's `is_open`/`is_closed`/`is_closing` in
-`thread_safe_connection.py` needs auditing — not just the two public
-properties above — and either migrated to `_state` or justified in a
+`thread_safe_connection.py` needs auditing - not just the two public
+properties above - and either migrated to `_state` or justified in a
 comment why that specific read must stay narrow, the same way today's
 `_check_not_closed` docstring justifies its fallback.
 
@@ -313,15 +313,15 @@ path:
 
 | Callback | Fires on transition |
 |---|---|
-| `add_on_open_callback(obj)` | any `→ OPEN` |
-| `add_on_close_callback(obj, reason)` | any `→ CLOSED` |
-| `add_on_recovery_started_callback(obj, reason)` | `OPEN → RECOVERING` |
-| `add_on_recovery_succeeded_callback(obj, skipped)` | `RECOVERING → OPEN` |
-| `add_on_recovery_failed_callback(obj, error)` | `RECOVERING → CLOSED` |
+| `add_on_open_callback(obj)` | any `-> OPEN` |
+| `add_on_close_callback(obj, reason)` | any `-> CLOSED` |
+| `add_on_recovery_started_callback(obj, reason)` | `OPEN -> RECOVERING` |
+| `add_on_recovery_succeeded_callback(obj, skipped)` | `RECOVERING -> OPEN` |
+| `add_on_recovery_failed_callback(obj, error)` | `RECOVERING -> CLOSED` |
 
 **"Convenience wrapper over state transitions" is not quite literal for
 the last two rows.** `add_state_change_listener`'s callback shape is
-`(obj, old_state, new_state, reason=None)` — there is no `skipped` or
+`(obj, old_state, new_state, reason=None)` - there is no `skipped` or
 `error` slot anywhere in that tuple. `add_on_close_callback(obj, reason)`
 and `add_on_recovery_started_callback(obj, reason)` really are pure
 filters over that signature (`reason` is already there). But
@@ -330,47 +330,47 @@ filters over that signature (`reason` is already there). But
 transition event doesn't carry: which topology entities got skipped during
 replay, or which error ended the last redial attempt. Implementing these
 as "just a filtered listener" requires the recovery driver to stash that
-result somewhere readable at the moment it fires the `RECOVERING → OPEN` /
-`RECOVERING → CLOSED` transition (e.g. on `RecoveryCoordinator`, alongside
+result somewhere readable at the moment it fires the `RECOVERING -> OPEN` /
+`RECOVERING -> CLOSED` transition (e.g. on `RecoveryCoordinator`, alongside
 `attempt`), and the two convenience methods read it from there rather than
 from anything `add_state_change_listener` itself provides. Deciding
 whether that extra state lives on `RecoveryCoordinator` or is threaded
 through as an enriched `reason` object on the transition itself is needed
-before implementation — the latter would make the sugar literal, at the
+before implementation - the latter would make the sugar literal, at the
 cost of giving every listener a payload shape that varies by transition.
 
 `add_on_recovery_*_callback` raise `ValueError` if called on a
 connection/channel not constructed with a `RecoveryConfig`, since those
 transitions cannot occur without one; `add_on_close_callback`,
 `add_on_open_callback`, and `add_state_change_listener` carry no such
-restriction. `add_on_close_callback`'s "any cause" behavior — explicit
+restriction. `add_on_close_callback`'s "any cause" behavior - explicit
 `close()`, a drop with no `RecoveryConfig`, or recovery exhausting its
-budget — falls out for free from being sugar over "any transition into
+budget - falls out for free from being sugar over "any transition into
 `CLOSED`," rather than needing independent special-casing across separate
 teardown paths.
 
 Connection-level and channel-level recovery notifications stay
 partitioned, and the partition falls out of the state machine
 structurally: `_recover_channel` transitions *that channel's own*
-`_state`, so that channel's listeners — both `add_state_change_listener`
-and the `add_on_recovery_*_callback` sugar — fire from that literal
+`_state`, so that channel's listeners - both `add_state_change_listener`
+and the `add_on_recovery_*_callback` sugar - fire from that literal
 transition. A connection-wide drop only ever transitions the
 *connection's* `_state`; it does not individually transition each
 channel's `_state`. So a connection-wide drop fires the connection's own
-listeners, full stop — no listener registered directly on a channel
+listeners, full stop - no listener registered directly on a channel
 (neither `add_state_change_listener` nor the `add_on_recovery_*_callback`
 sugar) fires, since nothing ever assigns a new value to that channel's
 `_state`. This is what `TestFullReconnectDoesNotFireChannelRecoveryCallbacks`
 locks in, and it keeps the two notification paths answering two different
 questions: a channel's own listeners mean "did *this specific channel*
 have an isolated episode," a connection's listeners mean "did the whole
-connection drop and come back" — see "Channel-level recovery" above.
+connection drop and come back" - see "Channel-level recovery" above.
 
 **This creates a gap worth resolving before implementation, not papering
 over.** "Composing channel-level and connection-level recovery" defines a
 channel's *effective* state during a connection-wide drop as derived from
 the connection's state (`effective_state = CONNECTION.RECOVERING implies
-RECOVERING else ch._state`) — but only for the *guard* that decides
+RECOVERING else ch._state`) - but only for the *guard* that decides
 whether to raise `ChannelRecovering` on a call. It says nothing about
 `ch.is_recovering` or `ch.state`, which, per the above, are read directly
 off the literal `ch._state` field. The result: during a connection-wide
@@ -381,13 +381,13 @@ polling `ch.is_recovering` before deciding whether to call would see a
 stale "not recovering" right up until the call itself raises. Whether
 `is_recovering`/`state` on a channel should also fold in the connection's
 effective state, or whether this asymmetry between the query properties
-and the guard is acceptable, needs deciding — it is the same class of gap
+and the guard is acceptable, needs deciding - it is the same class of gap
 as the `is_open`/`is_closed` split-brain issue under "Observability"
 above, just between two read paths on the same object instead of between
 the wrapper and the raw inner object.
 
 `ThreadSafeConnection.__init__` gains one new kwarg, `recovery:
-RecoveryConfig | None = None` — not on `Parameters`, which is
+RecoveryConfig | None = None` - not on `Parameters`, which is
 adapter-neutral and consumed only by the initial-connect-only
 `AMQPConnectionWorkflow`.
 
@@ -397,14 +397,14 @@ adapter-neutral and consumed only by the initial-connect-only
 when the caller doesn't opt in. Lifecycle state does not live on the
 coordinator: it is `ThreadSafeConnection._state: ConnectionState` (and
 `ThreadSafeChannel._state: ChannelState`) directly, always present whether
-or not recovery is configured — a connection without `RecoveryConfig`
+or not recovery is configured - a connection without `RecoveryConfig`
 simply never transitions to `RECOVERING`, but it still has `_state`, since
 the `_check_not_closed` replacement needs somewhere to read from
 regardless. `RecoveryCoordinator` (in `pika/recovery.py`) holds only:
 
 - `config: RecoveryConfig`
 - `attempt: int`
-- `topology: dict[int, ChannelTopology]` — **the single, connection-wide
+- `topology: dict[int, ChannelTopology]` - **the single, connection-wide
   topology store, keyed by channel number.** See "Topology ledger" below
   for why this must live here rather than on each `ThreadSafeChannel`.
 
@@ -414,7 +414,7 @@ inside `_recover_topology(channels)`), not a `RecoveryCoordinator` field,
 since nothing outside that one pass ever needs it again.
 
 **Locking model.** `_state` and `topology` are both read and written from
-multiple app-caller threads regardless of recovery — concurrent
+multiple app-caller threads regardless of recovery - concurrent
 `queue_declare`/`exchange_declare` calls from different threads already
 need `topology`'s mutations serialized, and `state` needs to be safely
 readable from any thread via the `state` property. Both reuse the existing
@@ -426,7 +426,7 @@ state read cross-thread.
 
 `_recover_topology` must snapshot (deep-copy) `topology` under the lock,
 release it, and only then issue the redeclare calls against that
-snapshot — not because of a competing recovery thread, but because
+snapshot - not because of a competing recovery thread, but because
 `_recover_topology` runs as a sequence of non-blocking, callback-chained
 operations on the loop thread (see below), and holding a lock across a
 suspended callback chain would block every other loop activity, including
@@ -434,7 +434,7 @@ the callbacks that would eventually resume the chain.
 
 **Why `topology` lives on the coordinator and not per-channel:** AMQP
 exchanges, queues, and bindings are scoped to the *connection* (vhost),
-not to the channel that happened to declare them — a binding created on
+not to the channel that happened to declare them - a binding created on
 channel B can reference an exchange declared on channel A, and either
 channel can legally delete an entity the other one created. See "Topology
 ledger" below for the concrete failure modes a per-channel store would
@@ -460,7 +460,7 @@ def _on_connection_closed(self, _connection, reason):
 Two details matter here:
 
 1. **Stop the reporting connection's ioloop, not necessarily
-   `self._connection`'s** — operate on the `_connection` parameter and
+   `self._connection`'s** - operate on the `_connection` parameter and
    return early if it isn't the current one, so a stale notification from
    an already-superseded connection can't stop the new one's loop.
 2. **Recovery trigger condition** stays `not isinstance(reason,
@@ -468,7 +468,7 @@ Two details matter here:
    robustness against non-standard close reasons.
 
 **Existing in-flight blocking waiters are still woken immediately** with
-the close reason when recovery starts — a synchronous RPC blocked
+the close reason when recovery starts - a synchronous RPC blocked
 mid-network-drop is not resumed transparently; it fails, as it does today.
 What differs from today is only that *subsequent* calls made before
 reconnection completes now fail immediately and catchably
@@ -477,8 +477,8 @@ own timeout against a stopped loop.
 
 ### Calling into the connection during recovery
 
-Every guarded public method — `_check_not_closed`'s replacement,
-`_register_waiter`, `channel()`, and the equivalent channel-level guard —
+Every guarded public method - `_check_not_closed`'s replacement,
+`_register_waiter`, `channel()`, and the equivalent channel-level guard -
 reads `self._state` and raises the dedicated exception when it is
 `RECOVERING`. This fail-fast behavior matches `findings.md`: neither
 reference client lets a call during recovery run as it would on a healthy
@@ -486,14 +486,14 @@ connection, and both require the application to gate on connection state
 rather than assume transparency.
 
 The recovery pass's own internal calls are the one place that does *not*
-go through the public wrapper API — see "Topology replay must not use the
+go through the public wrapper API - see "Topology replay must not use the
 blocking wrapper API" below for why.
 
 **`close()` on both the connection and the channel is unconditional**: it
-transitions state to `CLOSING`→`CLOSED` (idempotently) and schedules
+transitions state to `CLOSING`->`CLOSED` (idempotently) and schedules
 `self._connection.close()`/the raw channel's close via
 `add_callback_threadsafe`, regardless of what recovery is doing. The
-terminal rule (`CLOSING`/`CLOSED` → only `CLOSED`) makes this safe without
+terminal rule (`CLOSING`/`CLOSED` -> only `CLOSED`) makes this safe without
 any handshake between `close()` and an in-flight redial: if a redial
 attempt is in flight on the loop when `close()` schedules its own
 callback, that callback runs on the same loop, sees the terminal state
@@ -509,7 +509,7 @@ no-op when it fires, or the pending timer can be cancelled outright at
 
 `pika.adapters.select_connection.SelectConnection.__init__` already accepts
 a `custom_ioloop` parameter (also true of the asyncio/tornado connection
-adapters) and wraps it as the connection's `nbio` service — the mechanism
+adapters) and wraps it as the connection's `nbio` service - the mechanism
 this design needs already exists in pika, just unused by
 `ThreadSafeConnection` today. We propose `ThreadSafeConnection.__init__`
 construct one `IOLoop` instance up front (`self._ioloop`), start the
@@ -518,15 +518,15 @@ background thread running `self._ioloop.start()` (not
 lifetime to the inner connection), and construct the first
 `SelectConnection` with `custom_ioloop=self._ioloop`. A redial then
 constructs a **new** `SelectConnection(parameters, ..., on_open_callback=...,
-custom_ioloop=self._ioloop)` bound to the *same* persistent loop and thread
-— the thread never stops and never gets rebuilt across a reconnect, which
+custom_ioloop=self._ioloop)` bound to the *same* persistent loop and thread -
+the thread never stops and never gets rebuilt across a reconnect, which
 is what makes driving recovery on it (instead of a second thread) possible
 in the first place.
 
 Redial therefore does not need shared `_open_inner_connection`/
 `_start_ioloop_thread` helpers extracted for `__init__` to call: there is
 no "fresh IOLoop thread" to build on redial, only a fresh inner
-`SelectConnection` object bound to the loop that already exists — a small,
+`SelectConnection` object bound to the loop that already exists - a small,
 self-contained change scoped to `__init__` and the redial path.
 
 `ThreadSafeConnection._recover_connection(reason)`, run as a sequence of
@@ -547,7 +547,7 @@ loop-scheduled steps rather than a thread body:
      custom_ioloop=self._ioloop)`.
    - On success, swaps `self._connection` (still under
      `_channel_waiters_lock`, for the benefit of cross-thread readers of
-     e.g. `is_open`), fires `add_on_open_callback` — before topology
+     e.g. `is_open`), fires `add_on_open_callback` - before topology
      replay runs, so a listener sees "we have a live connection again" as
      distinct from and earlier than "topology is fully recovered." The
      app's existing `ThreadSafeChannel`/`ThreadSafeConnection` references
@@ -570,7 +570,7 @@ stop there; otherwise call `_recover_topology(channels)`.
 `ThreadSafeChannel.queue_declare` and friends work by blocking the
 *calling* thread on a `threading.Event` that only gets set when the IOLoop
 thread processes the broker's reply and calls `add_callback_threadsafe`'s
-corresponding wakeup. That's fine when the caller is an app thread — some
+corresponding wakeup. That's fine when the caller is an app thread - some
 other thread is blocked, and the IOLoop thread is free to run and
 eventually set the event. It self-deadlocks if the *IOLoop thread itself*
 calls it: the loop thread would block waiting on an event that only its
@@ -584,7 +584,7 @@ non-blocking, callback-based API directly (`raw_channel.exchange_declare(
 exchange=..., callback=on_declared)`), chaining each phase's entities
 through their own reply callbacks rather than sequential blocking calls.
 The phased ordering requirement (all exchanges before any queue, all
-queues before any binding, all bindings before any consumer — see
+queues before any binding, all bindings before any consumer - see
 "Topology ledger" below) is unaffected; only the mechanism for advancing
 from one entity to the next changes, from "the call returns" to "the
 callback fires." This is a hard correctness requirement: a
@@ -596,8 +596,8 @@ including the timers that would otherwise detect the stall).
 
 ### Publisher confirms hook
 
-The `RECOVERING → OPEN` transition is the natural place to signal "the
-confirm sequence has reset; treat outstanding publishes as unknown" —
+The `RECOVERING -> OPEN` transition is the natural place to signal "the
+confirm sequence has reset; treat outstanding publishes as unknown" -
 `findings.md` shows both reference clients reset delivery/confirm tags
 across recovery (unconfirmed set discarded in the Java client, pending
 `DeferredConfirmation`s nacked in `amqp091-go`). A confirm-tracking helper
@@ -605,7 +605,7 @@ can subscribe via `add_state_change_listener` (or the
 `add_on_recovery_succeeded_callback` sugar) to fail and republish
 outstanding confirms at exactly that transition, giving the at-least-once
 pattern `findings.md` demonstrates a clean anchor instead of ad hoc
-detection. Consumers on the republish side must be idempotent — recovery
+detection. Consumers on the republish side must be idempotent - recovery
 can produce a genuine duplicate delivery when a message reached the broker
 but its confirmation was lost to the drop, the same as both reference
 clients.
@@ -619,15 +619,15 @@ close one channel while the connection stays healthy.
 None`, wired to `ThreadSafeConnection._on_channel_closed_for_recovery`.
 
 `_recover_channel(ch, reason)` mirrors `_recover_connection`'s shape but
-scoped to one channel and driven the same way — loop-scheduled steps, not
+scoped to one channel and driven the same way - loop-scheduled steps, not
 a thread body: transition `ch._state` to `RECOVERING` (firing `ch`'s own
 `on_recovery_started`), reopen just this channel, call
 `_recover_topology([ch])`. On success, transition `ch._state` to `OPEN`
 (firing `ch.on_recovery_succeeded`); on exhaustion, transition to `CLOSED`
-(firing `ch.on_recovery_failed`) — **never** the connection-wide listeners,
+(firing `ch.on_recovery_failed`) - **never** the connection-wide listeners,
 which stay reserved for `_recover_connection`, for the structural reason
 given under "Observability" above. Exhaustion does **not** tear down the
-whole connection — that one channel is simply left `CLOSED`.
+whole connection - that one channel is simply left `CLOSED`.
 `_recover_topology([ch])` still recovers against the full connection-wide
 `coordinator.topology` (filtered to entries relevant to `ch`), not a store
 scoped to `ch` alone.
@@ -637,16 +637,16 @@ scoped to `ch` alone.
 Channel-level and connection-level recovery passes can interact in ways
 that need explicit handling:
 
-- **Scenario A**: a channel-level recovery pass retriggering itself — a
+- **Scenario A**: a channel-level recovery pass retriggering itself - a
   second broker-initiated close notification for the same channel
   arriving while its own `_recover_channel` pass is already in flight.
 - **Scenario B**: a connection-level pass starting while a channel-level
-  pass already owns a channel — the whole connection drops while one
+  pass already owns a channel - the whole connection drops while one
   channel is mid-recovery from its own soft error.
 
 Because everything relevant runs on one loop thread, neither scenario
-involves two callers actually executing at the same instant — only one
-callback body ever runs at a time — but callback chains can still
+involves two callers actually executing at the same instant - only one
+callback body ever runs at a time - but callback chains can still
 interleave across their suspended points, so both still need guarding.
 
 **A channel's effective state derives from the connection's state.**
@@ -662,7 +662,7 @@ with no separate flag to propagate and nothing to wait for.
 **What single-threaded execution does not remove: staleness across a
 suspended callback chain.** `_recover_channel`'s own
 `_recover_topology([ch])` call is a chain of callbacks, each waiting on a
-broker reply — it is suspended, not actively running, between those
+broker reply - it is suspended, not actively running, between those
 replies. The connection can still drop for real while a channel-level pass
 is suspended mid-chain, because the drop is itself just another callback
 the loop will run next. The two are never *concurrent* (only one callback
@@ -670,16 +670,16 @@ body ever executes at a time), but they can still **interleave**: the
 channel-level pass's next callback can fire after the connection-level
 transition has already happened. Every callback in `_recover_channel`'s
 chain checks `self._connection._state == ConnectionState.RECOVERING` (or
-worse) before proceeding to its next step, and yields — clearing its own
-bookkeeping, logging at `info`, **not** firing `ch.on_recovery_failed` —
+worse) before proceeding to its next step, and yields - clearing its own
+bookkeeping, logging at `info`, **not** firing `ch.on_recovery_failed` -
 if a connection-level pass has taken over. This is a hand-off, not a
 failure the app needs to hear about as one.
 
 **Scenario A** reduces to a per-step check the same way: because only one
 callback body runs at a time, `_on_channel_closed_for_recovery` firing
 again for a channel that already has a `_recover_channel` chain in flight
-can simply check `ch._state == ChannelState.RECOVERING` and return early
-— there is no window between "decide to start a pass" and "the pass's
+can simply check `ch._state == ChannelState.RECOVERING` and return early -
+there is no window between "decide to start a pass" and "the pass's
 state change actually lands" for a second invocation to slip through,
 because both the decision and the state change happen in the same,
 uninterrupted callback.
@@ -689,7 +689,7 @@ thread model**: if a channel-level pass's replay completes successfully in
 the same window a connection-level pass's own
 `_reopen_channels_and_recover_topology()` reaches that channel, the
 connection-level pass still reopens and redeclares it again as part of its
-complete sweep — it does not try to detect "was this one already
+complete sweep - it does not try to detect "was this one already
 handled." `_reopen_channel(ch)` must explicitly close any existing,
 still-open `ch._channel` before installing its replacement, or that
 redundant reopen leaks a channel number that was never sent a
@@ -717,7 +717,7 @@ concrete, broker-reproducible failure modes:
 We propose the same shape as `amqp091-go`'s `Connection.
 topologyConfiguration map[uint16]*TopologyConfiguration`:
 `coordinator.topology: dict[int, ChannelTopology]`, keyed by
-`channel_number`, on `RecoveryCoordinator` — `ThreadSafeChannel` itself
+`channel_number`, on `RecoveryCoordinator` - `ThreadSafeChannel` itself
 holds no topology state. `ChannelTopology` holds:
 
 ```python
@@ -749,14 +749,14 @@ name throughout `ThreadSafeChannel`) rather than a generic `kind`.
 
 **Recording:** `ThreadSafeChannel.exchange_declare`, `queue_declare`,
 `queue_bind`, `exchange_bind`, `basic_consume`, `basic_qos`,
-`confirm_delivery` each call a coordinator method —
+`confirm_delivery` each call a coordinator method -
 `self._connection._recovery.record_exchange(self.channel_number, record)`
-and so on — guarded by `if self._connection._recovery is not None:`, after
+and so on - guarded by `if self._connection._recovery is not None:`, after
 the broker ack succeeds, under `_channel_waiters_lock` as described above.
 
 **Removal:** `exchange_delete`, `queue_delete`, `queue_unbind`,
 `exchange_unbind`, `basic_cancel` symmetrically call `remove_exchange(name)`,
-`remove_queue(name)`, etc. — no channel argument, scanning every bucket in
+`remove_queue(name)`, etc. - no channel argument, scanning every bucket in
 `topology`. `remove_queue`/`remove_exchange` cascade: deleting a queue
 removes any binding referencing it from every bucket, returning the
 exchanges those bindings sourced from so an auto-delete exchange left with
@@ -773,7 +773,7 @@ durability.
 `basic_consume`'s `_wrapped_callback` closes over the caller-supplied
 `on_message_callback` value directly, so recovering via
 `ch.basic_consume(queue, on_message_callback, consumer_tag=tag, ...)`
-re-creates an identical closure around the *same* Python callback object —
+re-creates an identical closure around the *same* Python callback object -
 the mechanism `TestConsumeContinuityAcrossRecovery` depends on.
 
 Server-generated queue names: `queue_declare('')` records
@@ -790,7 +790,7 @@ binding referencing a since-deleted queue) closes the entire channel, not
 just the offending entity. `_recover_topology`'s `_skip_or_abort` helper
 checks `ch.is_closed` after recording a skip and, if so, calls
 `_reopen_channel(ch)` before continuing with the channel's remaining
-entities — driven through the same callback-chained mechanism described
+entities - driven through the same callback-chained mechanism described
 above, not a blocking reopen call.
 
 ## Proposed file-by-file changes
@@ -821,7 +821,7 @@ above, not a blocking reopen call.
     instances bound to the persistent `self._ioloop`),
     `_reopen_channels_and_recover_topology`, `_reopen_channel`,
     `_recover_topology` (driving the raw `Channel`'s non-blocking API
-    directly — see "Topology replay must not use the blocking wrapper
+    directly - see "Topology replay must not use the blocking wrapper
     API" above), `_on_channel_closed_for_recovery`, `_recover_channel`.
   - `ThreadSafeChannel` gains `self._closed`, `self._state: ChannelState`,
     an effective-state check that also consults the connection's state
@@ -830,7 +830,7 @@ above, not a blocking reopen call.
     `add_on_close_callback`, `add_on_open_callback`,
     `add_on_recovery_started_callback`, `add_on_recovery_succeeded_callback`,
     `add_on_recovery_failed_callback` (own listener list, populated only by
-    `_recover_channel` — never by `_recover_connection`), plus
+    `_recover_channel` - never by `_recover_connection`), plus
     recording/removal call sites in the declare/bind/consume/delete/unbind/
     cancel methods that delegate to `self._connection._recovery.record_*`/
     `remove_*`.
@@ -853,7 +853,7 @@ above, not a blocking reopen call.
   truthy for any attribute access, so an un-set `_recovery` would look
   like an opted-in `RecoveryCoordinator`).
 
-`pika/spec.py` remains untouched — no protocol/spec changes are needed,
+`pika/spec.py` remains untouched - no protocol/spec changes are needed,
 since recovery is pure client-side orchestration of existing AMQP methods.
 
 ## Proposed test plan
@@ -865,87 +865,87 @@ helper that proxies TCP to the real broker in a subprocess), the same
 technique `tests/acceptance/thread_safe_connection_test.py` already uses.
 Queue/exchange names would be uuid-suffixed.
 
-1. `TestPublishContinuityAcrossRecovery` — publish before a drop, confirm
+1. `TestPublishContinuityAcrossRecovery` - publish before a drop, confirm
    it landed (via passive declare), publish again after recovery succeeds
    (via a retrying helper), assert both messages are present. Durable,
    non-exclusive queue.
-2. `TestConsumeContinuityAcrossRecovery` — **the core requirement**:
+2. `TestConsumeContinuityAcrossRecovery` - **the core requirement**:
    register `basic_consume` once, drop the connection, publish more
    messages from a second, independent connection after recovery
    completes, assert they arrive at the *original* callback with zero
    additional app calls.
-3. `TestExclusiveQueueRecovery` — an exclusive queue (deleted by the
+3. `TestExclusiveQueueRecovery` - an exclusive queue (deleted by the
    broker on disconnect) is transparently redeclared; verify via a passive
    declare on the reopened channel after recovery succeeds.
-4. `TestDeletedQueueSkipAndContinue` — a binding to a queue declared on a
+4. `TestDeletedQueueSkipAndContinue` - a binding to a queue declared on a
    separate, untracked connection is deleted while the primary connection
    is down, so binding recovery gets a real 404. Assert
    `on_topology_entity_error` fires with a `'binding'` entity whose
    `channel_number` matches, `on_recovery_succeeded`'s `skipped` list
    contains it, and everything else recovers fully.
-5. `TestTopologyRecoveryDisabled` — `topology_recovery_mode=DISABLED`:
+5. `TestTopologyRecoveryDisabled` - `topology_recovery_mode=DISABLED`:
    reconnects but a previously-declared queue is not redeclared.
-6. `TestOnlyTransientTopologyRecovery` — `ONLY_TRANSIENT`: an exclusive
+6. `TestOnlyTransientTopologyRecovery` - `ONLY_TRANSIENT`: an exclusive
    queue and its binding to a durable exchange are redeclared; a durable
    queue deleted out-of-band before the drop is not recreated.
-7. `TestRetryExhaustionRaisesCleanly` — `max_attempts=2` against a
+7. `TestRetryExhaustionRaisesCleanly` - `max_attempts=2` against a
    forwarder that's never restarted; assert `on_recovery_failed` fires,
    the original close callback fires, `connection.state == ConnectionState.CLOSED`
    (not a separate `FAILED` value), with no hang.
-8. `TestExplicitCloseDoesNotTriggerRecovery` — `connection.close()` never
+8. `TestExplicitCloseDoesNotTriggerRecovery` - `connection.close()` never
    fires `on_recovery_started`.
-9. `TestDefaultBehaviorUnchangedWithoutRecoveryConfig` — regression guard:
+9. `TestDefaultBehaviorUnchangedWithoutRecoveryConfig` - regression guard:
    omitting `recovery=` reproduces today's exact wake-all/teardown
    behavior on a forced drop.
-10. `TestOperationDuringRecoveryRaisesDedicatedException` — drop the
+10. `TestOperationDuringRecoveryRaisesDedicatedException` - drop the
     connection, and while `state == ConnectionState.RECOVERING` (before
     the redial completes), issue a `basic_publish` and assert it raises
     `ConnectionRecovering` (or `ChannelRecovering`, for a channel-scoped
     call) synchronously rather than timing out. Repeat for a
     channel-scoped soft-error recovery episode.
-11. `TestChannelLevelRecoveryWithoutFullConnectionReconnect` — redeclaring
+11. `TestChannelLevelRecoveryWithoutFullConnectionReconnect` - redeclaring
     an existing exchange with mismatched durability triggers a 406 that
     closes only that channel; assert the channel's own
     `add_on_recovery_succeeded_callback` fires while the connection-wide
     ones never fire.
-12. `TestMultiChannelTopologyRecoveryOrdering` — channel 1 declares a
+12. `TestMultiChannelTopologyRecoveryOrdering` - channel 1 declares a
     transient exchange and a server-named exclusive queue; channel 2
     declares the binding and the consumer. After a drop and recovery,
-    assert the full exchange → binding → queue → consumer chain is
+    assert the full exchange -> binding -> queue -> consumer chain is
     functional on both channels regardless of processing order.
-13. `TestCrossChannelDeletionRemovesStaleTopology` — channel A declares a
+13. `TestCrossChannelDeletionRemovesStaleTopology` - channel A declares a
     queue; channel B deletes it. Drop and recover; assert the queue is
     *not* incorrectly redeclared from channel A's side of the store.
-14. `TestChannelRecoveryDoesNotDuplicatePassOnPermanentConflict` — a
+14. `TestChannelRecoveryDoesNotDuplicatePassOnPermanentConflict` - a
     permanent per-entity conflict, skipped via `should_skip` every attempt,
     produces exactly one active `_recover_channel` episode for that
     channel at a time, not an unbounded chain.
-15. `TestChannelCloseAndOpenCallbacksFireOnRecovery` — register
+15. `TestChannelCloseAndOpenCallbacksFireOnRecovery` - register
     `add_on_close_callback`/`add_on_open_callback` on a channel, force a
     broker-initiated single-channel close, assert close fires with the
     broker's reason and open fires once usable again, with no
     connection-level `on_recovery_*` firing in between.
-16. `TestFullReconnectDoesNotFireChannelRecoveryCallbacks` — force a full
+16. `TestFullReconnectDoesNotFireChannelRecoveryCallbacks` - force a full
     connection drop on a connection whose channels have
     `add_on_recovery_succeeded_callback` registered; assert the
     connection-wide callback fires exactly once while no per-channel
     `on_recovery_*` fires for any channel.
-17. `TestConnectionCloseAndOpenCallbacksFireOnRecovery` — register
+17. `TestConnectionCloseAndOpenCallbacksFireOnRecovery` - register
     `add_on_close_callback`/`add_on_open_callback` on the connection;
     assert `add_on_open_callback` fires once the redial succeeds and
     *before* `on_recovery_succeeded`; assert `add_on_close_callback` fires
     on an explicit `close()` even with no `RecoveryConfig` at all.
-18. `TestConnectionRecoverySupersedesInFlightChannelRecovery` — trigger an
+18. `TestConnectionRecoverySupersedesInFlightChannelRecovery` - trigger an
     isolated channel-level recovery, and while it's mid-backoff, force a
     full connection drop. Assert the channel-level pass's
     `on_recovery_failed` never fires (it yields), the connection-level
     pass's `on_recovery_succeeded` fires once, and the channel ends up open
     and recovered exactly once.
-19. `TestSupersededChannelRecoverySucceedsAnyway` — the timing variant of
+19. `TestSupersededChannelRecoverySucceedsAnyway` - the timing variant of
     #18 where the channel-level pass's in-flight attempt completes right as
     the connection-level pass takes over: assert the channel ends up with
     exactly one live raw channel afterward.
-20. `TestPersistentIOLoopSurvivesReconnect` — assert the same
+20. `TestPersistentIOLoopSurvivesReconnect` - assert the same
     `self._ioloop`/thread identity is used before and after a forced drop
     and successful redial (e.g. by tagging the thread object and comparing
     identity, not just liveness), confirming the redial did not spin up a
@@ -966,7 +966,7 @@ merging, given the timing-sensitive nature of drop simulation.
 - State machine: every guarded public method raises
   `ConnectionRecovering`/`ChannelRecovering` (not a generic wrong-state
   error) when `state == RECOVERING`; the terminal rule (`CLOSING`/`CLOSED`
-  → only `CLOSED` may follow, even if a redial callback tries to set
+  -> only `CLOSED` may follow, even if a redial callback tries to set
   `OPEN` after `close()` ran); `state`/`is_recovering` properties reflect
   the current value under concurrent access from another thread.
 - Callback-sugar correctness: each `add_on_*_callback` fires exactly on
@@ -975,7 +975,7 @@ merging, given the timing-sensitive nature of drop simulation.
   including ones none of the named callbacks cover.
 - Recovery-callback partition: `_recover_channel` fires only a channel's
   own listeners, never the coordinator/connection-wide ones, and vice
-  versa for `_recover_connection` — asserted directly, so the split
+  versa for `_recover_connection` - asserted directly, so the split
   doesn't regress to a shared-list design.
 - Composing channel/connection recovery: a channel's effective state
   reads `RECOVERING` while the *connection* is `RECOVERING`, even if the
@@ -986,7 +986,7 @@ merging, given the timing-sensitive nature of drop simulation.
   `_state` is already `RECOVERING` returns immediately without starting a
   second chain.
 - `_reopen_channel` closes a still-open previous raw channel before
-  installing its replacement — exercised directly (call it twice on a
+  installing its replacement - exercised directly (call it twice on a
   channel that's still open in between).
 - `_on_connection_closed` recovery triggers: fires for non-client closes,
   not for `ConnectionClosedByClient`; a second close event while already
@@ -998,7 +998,7 @@ merging, given the timing-sensitive nature of drop simulation.
   `self._ioloop_thread`, which `close()` already knows how to join today.
 - Deadlock regression guard: `_recover_topology` never calls a
   `ThreadSafeChannel` blocking wrapper method (`queue_declare`,
-  `exchange_declare`, etc.) from the loop thread — asserted by patching
+  `exchange_declare`, etc.) from the loop thread - asserted by patching
   those methods to raise if invoked from the recovery code path, so a
   future change that accidentally reintroduces a blocking call during
   replay fails a unit test instead of hanging an acceptance test.
@@ -1029,11 +1029,16 @@ here:
   exceptions, listeners) at the level where the stable handle lives, with
   per-adapter recovery drivers. Deciding this changes where the code
   lands, so it's worth resolving before implementation rather than after.
+- **Opt-in block-until-open.** Non-goals rules a blocking mode out of this
+  proposal: a call during `RECOVERING` always fails fast. Whether to add an
+  opt-in "block until open, with a timeout" mode later, for callers who
+  would rather wait than handle the exception, is open. It would be purely
+  additive, leaving fail-fast as the default.
 - **Migration/compatibility**: confirming the new exceptions subclassing
   the existing wrong-state errors preserves current behavior for code that
   doesn't opt into recovery at all (it should, since a connection without
   `RecoveryConfig` never transitions to `RECOVERING`, but this needs an
-  explicit regression test — see `TestDefaultBehaviorUnchangedWithoutRecoveryConfig`).
+  explicit regression test - see `TestDefaultBehaviorUnchangedWithoutRecoveryConfig`).
 
 ## Honest unknowns
 
@@ -1043,13 +1048,13 @@ here:
   the full `_run_ioloop`/thread-lifecycle refactor in
   `ThreadSafeConnection.__init__` needed to decouple the thread from the
   inner connection has not been prototyped end-to-end. A minimal
-  prototype — persistent `self._ioloop`, one forced redial, one
-  `RECOVERING`-gated `basic_publish` raising the new exception — would
+  prototype - persistent `self._ioloop`, one forced redial, one
+  `RECOVERING`-gated `basic_publish` raising the new exception - would
   settle the remaining risk before the full phased build-out below.
 - The callback-chained rewrite of `_recover_topology` (driving the raw
   `Channel`'s non-blocking API instead of the blocking wrapper methods)
   touches every entity type's declare/bind/consume call site, not just
-  the phased-ordering logic that sits on top of it — a larger mechanical
+  the phased-ordering logic that sits on top of it - a larger mechanical
   change than the topology ledger's data model alone suggests.
 
 ## Next steps
@@ -1057,17 +1062,17 @@ here:
 Pending sign-off on the direction above, implementation proceeds in
 phases, each closed out with its own unit and integration coverage:
 
-1. **Core state machine** — `ConnectionState`/`ChannelState`,
+1. **Core state machine** - `ConnectionState`/`ChannelState`,
    `ConnectionRecovering`/`ChannelRecovering`, `state`/`is_recovering`
    properties, `add_state_change_listener` and the `add_on_*_callback`
    sugar, guard integration into every existing public method's
-   not-closed check. No topology, no reconnection yet — this phase makes
+   not-closed check. No topology, no reconnection yet - this phase makes
    "is it recovering" answerable and enforced even before recovery can
    succeed at anything.
    - Unit: guard raises the dedicated exception per state; terminal-rule
      enforcement; callback-sugar-fires-on-correct-transition tests.
    - Integration: none yet (no reconnection exists to exercise).
-2. **Persistent IOLoop and connection-level redial** — decouple
+2. **Persistent IOLoop and connection-level redial** - decouple
    `self._ioloop`/thread from the inner `SelectConnection` in `__init__`;
    `_on_connection_closed` branching; `_recover_connection`,
    `_try_reconnect_once` bound to `custom_ioloop=self._ioloop`; `close()`
@@ -1081,7 +1086,7 @@ phases, each closed out with its own unit and integration coverage:
      `TestPersistentIOLoopSurvivesReconnect`,
      `TestOperationDuringRecoveryRaisesDedicatedException` (connection-level
      half).
-3. **Channel-level recovery and state composition** —
+3. **Channel-level recovery and state composition** -
    `_register_recovery_close_listener`, `_on_channel_closed_for_recovery`,
    `_recover_channel`, the effective-state derivation rule from
    "Composing channel-level and connection-level recovery." Both the
@@ -1101,7 +1106,7 @@ phases, each closed out with its own unit and integration coverage:
      `TestSupersededChannelRecoverySucceedsAnyway`,
      `TestOperationDuringRecoveryRaisesDedicatedException` (channel-level
      half).
-4. **Topology ledger and callback-chained replay** —
+4. **Topology ledger and callback-chained replay** -
    `coordinator.topology`, `ChannelTopology` and the `*Record` dataclasses,
    `record_*`/`remove_*` methods and call sites, `_recover_topology`
    rewritten against the raw `Channel`'s non-blocking API (see "Topology
@@ -1111,7 +1116,7 @@ phases, each closed out with its own unit and integration coverage:
    for the ordering/split-brain-removal reasons in "Topology ledger"
    above. **The callback-chained replay mechanism must also land complete
    in this phase**, not as a "blocking calls for now, convert later"
-   intermediate step — a blocking call issued from the loop thread hangs
+   intermediate step - a blocking call issued from the loop thread hangs
    the connection outright rather than degrading gracefully, so there is
    no safe partial version of this phase to ship.
    - Unit: `TopologyStoreTests`; the deadlock regression guard described
@@ -1122,13 +1127,13 @@ phases, each closed out with its own unit and integration coverage:
      `TestOnlyTransientTopologyRecovery`,
      `TestMultiChannelTopologyRecoveryOrdering`,
      `TestCrossChannelDeletionRemovesStaleTopology`.
-5. **Publisher confirms hook** — the `RECOVERING → OPEN` reset point
+5. **Publisher confirms hook** - the `RECOVERING -> OPEN` reset point
    described above, plus an example helper showing the fail-and-republish
    pattern from `findings.md`.
-6. **Hardening pass** — run the full acceptance suite repeatedly to check
+6. **Hardening pass** - run the full acceptance suite repeatedly to check
    for flakiness, run `fmt-check`/`lint-check`/`docfmt-check`/`typecheck`
    across all changed files.
-7. **Example and docs** — `examples/thread_safe_recovery_example.py`,
+7. **Example and docs** - `examples/thread_safe_recovery_example.py`,
    docstrings, changelog entry.
 
 Each phase should be its own reviewable PR (or a small stack of PRs) rather
