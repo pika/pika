@@ -1,6 +1,6 @@
 # Design: recovery as a first-class connection/channel state machine
 
-Status: exploration. This is an alternative framing to `proposal-recovery.md`, not a replacement worked out to the same level of detail. It captures a direction to evaluate against that proposal, grounded in the measurements in `findings.md`.
+Status: adopted, and kept as the derivation rather than as a specification. `proposal-recovery.md` now follows this framing and is the authoritative document; read it for the worked-out detail. This one records how the direction was arrived at, grounded in the measurements in `findings.md`, along with the precedent it borrows from and the questions it raised.
 
 Terminology note: pika now has two classes named `Connection` and two named `Channel`. "Base `Connection`/`Channel`" means `pika.connection.Connection` / `pika.channel.Channel` (one transport session; dies and stays dead). "Adapter `Connection`/`Channel`" means `pika.adapters.thread_safe_connection.Connection` / `.Channel` (the stable handle an application holds, which can swap its inner connection across reconnects). Unless qualified, "the connection" below means the adapter `Connection`.
 
@@ -8,14 +8,14 @@ Terminology note: pika now has two classes named `Connection` and two named `Cha
 
 Give the adapter `Connection` and `Channel` a single authoritative lifecycle state that includes a `RECOVERING` state. Every public operation guards on that state, and an operation attempted while `RECOVERING` raises a dedicated, catchable exception (`ConnectionRecovering` / `ChannelRecovering`, each subclassing the existing wrong-state error). Recovery is driven on a persistent event loop rather than a separate recovery thread. The state is observable (listeners) and reactive (the guard), so an application can both ask "am I recovering?" and catch the fact that it is.
 
-## Where this differs from the current proposal
+## The two choices this reverses
 
-`proposal-recovery.md` makes two core choices this design reverses:
+`proposal-recovery.md` originally made two core choices that this framing reverses, and that it has since been rewritten to drop:
 
-1. Recovery lives in a separate `RecoveryCoordinator` with its own `RecoveryState {IDLE, RECONNECTING, FAILED}`, deliberately kept apart from pika's real connection state, and no public operation reads it. A call during recovery "runs exactly as it would on a healthy connection." The consequence, which the proposal's Open Questions acknowledges, is that there is no synchronous way to ask whether recovery is in progress and nothing for an app to catch reactively.
-2. Recovery runs on a new dedicated thread (`pika-recovery-{id}`), because the dying connection's IOLoop is being stopped.
+1. Recovery lived in a separate `RecoveryCoordinator` with its own `RecoveryState {IDLE, RECONNECTING, FAILED}`, deliberately kept apart from pika's real connection state, and no public operation read it. A call during recovery "ran exactly as it would on a healthy connection." The consequence, which that proposal's Open Questions acknowledged, was that there was no synchronous way to ask whether recovery was in progress and nothing for an app to catch reactively.
+2. Recovery ran on a new dedicated thread (`pika-recovery-{id}`), because the dying connection's IOLoop was being stopped.
 
-`findings.md` is the empirical case against choice 1: both reference clients fail fast, and amqp091-go, whose docs the proposal cites, actually requires the app to gate on connection state and can cause a protocol violation otherwise. Choice 2 is the source of most of the proposal's concurrency machinery (the re-entrant `_recovering` flag, the `is_open`-first cross-level race guard, the condition-variable-vs-sleep backoff, the stale-connection early return); much of that is a tax on running recovery as a thread that mutates shared state the state machine does not know about.
+`findings.md` is the empirical case against choice 1: both reference clients fail fast, and amqp091-go, whose docs that framing cited, actually requires the app to gate on connection state and can cause a protocol violation otherwise. Choice 2 was the source of most of that proposal's concurrency machinery (a re-entrant `_recovering` flag, an `is_open`-first cross-level race guard, condition-variable-vs-sleep backoff, a stale-connection early return); much of it was a tax on running recovery as a thread that mutates shared state the state machine does not know about.
 
 ## The concept we are borrowing
 
@@ -29,7 +29,7 @@ AMQP 0.9.1 has a different lifecycle than 1.0, so the state contents differ. Wha
 
 ## What pika already has
 
-pika is closer to this than the current proposal treats it as being.
+pika is closer to this than the original proposal treated it as being.
 
 - Base `Connection` already has a state machine (`CONNECTION_CLOSED/INIT/PROTOCOL/START/TUNE/OPEN/CLOSING`, set via `_set_connection_state`) and guards that already raise `ConnectionWrongStateError` when not open (for example `channel()` and `close()`).
 - Base `Channel` has `CLOSED/OPENING/OPEN/CLOSING` and a single guard, `_raise_if_not_open`, that every public operation including `basic_publish` calls, already raising `ChannelWrongStateError` with a state-specific message.
@@ -57,11 +57,11 @@ Subclassing keeps backward compatibility (existing wrong-state handlers still ca
 
 ### Thread model: drive recovery on a persistent loop
 
-The adapter runs a `SelectConnection` IOLoop on a background thread; today that loop is owned by the inner connection and stops when it dies, which is why the current proposal spawns a separate recovery thread. The cleaner path is to make the poller/IOLoop persistent and owned by the adapter `Connection`, decoupled from the inner connection instance, so a reconnect is "build a new inner connection bound to the same persistent loop" and the whole redial-plus-redeclare sequence is a series of loop-driven state transitions rather than a thread racing the handle. Recovery steps that touch the socket stay on the loop thread (as all protocol already does); backoff uses loop timers, not `time.sleep`. Note that the async adapters (asyncio, tornado, twisted) already own a persistent external loop, so this model is natural there with no extra thread at all; the thread-safe adapter is the one that needs the persistent-loop change to avoid a recovery thread.
+The adapter runs a `SelectConnection` IOLoop on a background thread; today that loop is owned by the inner connection and stops when it dies, which is why the original proposal spawned a separate recovery thread. The cleaner path is to make the poller/IOLoop persistent and owned by the adapter `Connection`, decoupled from the inner connection instance, so a reconnect is "build a new inner connection bound to the same persistent loop" and the whole redial-plus-redeclare sequence is a series of loop-driven state transitions rather than a thread racing the handle. Recovery steps that touch the socket stay on the loop thread (as all protocol already does); backoff uses loop timers, not `time.sleep`. Note that the async adapters (asyncio, tornado, twisted) already own a persistent external loop, so this model is natural there with no extra thread at all; the thread-safe adapter is the one that needs the persistent-loop change to avoid a recovery thread.
 
 ### Observable and reactive
 
-The state machine makes "is it recovering?" answerable two ways: a synchronous `state` / `is_recovering` property (closing the proposal's Open Question), and ordered state-change listeners (the equivalent of amqp091-go's `NotifyStateChange` and the 1.0 client's `StateListener`). Recovery-aware apps gate on `OPEN` via a listener; everything else can catch `*Recovering`.
+The state machine makes "is it recovering?" answerable two ways: a synchronous `state` / `is_recovering` property, which `proposal-recovery.md` now specifies, and ordered state-change listeners (the equivalent of amqp091-go's `NotifyStateChange` and the 1.0 client's `StateListener`). Recovery-aware apps gate on `OPEN` via a listener; everything else can catch `*Recovering`.
 
 ### Publisher confirms hook
 
@@ -69,13 +69,15 @@ The `RECOVERING -> OPEN` transition is the single, natural place to signal "the 
 
 ## Scope decision to make first
 
-Is the state model a base-level concept shared by all adapters, or thread-safe-adapter-only (the current proposal's scope)? Recommendation: share the state contract at the level where the stable handle lives, with per-adapter recovery drivers (an async loop for asyncio/tornado/twisted, the persistent thread-backed loop for the thread-safe adapter). The contract (states, guard, exceptions, listeners) can be common even though the driver differs. Deciding this early matters because it changes where the code lands.
+Is the state model a base-level concept shared by all adapters, or thread-safe-adapter-only (the proposal's scope)? Recommendation: share the state contract at the level where the stable handle lives, with per-adapter recovery drivers (an async loop for asyncio/tornado/twisted, the persistent thread-backed loop for the thread-safe adapter). The contract (states, guard, exceptions, listeners) can be common even though the driver differs. Deciding this early matters because it changes where the code lands.
 
 ## What this does not remove
 
-A state machine makes the lifecycle explicit and the failures catchable. It does not remove the genuinely necessary parts of the current proposal: the connection-wide topology ledger, consumer re-subscription, server-named-queue rename handling, and at-least-once/idempotency. Those are still required. This design changes the contract around recovery, not the need to redeclare topology.
+A state machine makes the lifecycle explicit and the failures catchable. It does not remove the genuinely necessary parts of the proposal: the connection-wide topology ledger, consumer re-subscription, server-named-queue rename handling, and at-least-once/idempotency. Those are still required. This design changes the contract around recovery, not the need to redeclare topology.
 
 ## Open questions
+
+Three of these remain open in `proposal-recovery.md`, which reproduces them: the exact adapter state set, opt-in block-until-open, and migration compatibility. The proposal answers the fourth: channel-level recovery has its own sections there.
 
 - The exact 0.9.1 state set for the adapter handles (do we mirror base `OPENING/OPEN/CLOSING/CLOSED` plus `RECOVERING`, or a smaller set?).
 - Whether channel-level recovery (broker soft-error closing one channel while the connection stays up) is a `RECOVERING` state on just that `Channel`, and how it composes with a connection-level `RECOVERING`.
