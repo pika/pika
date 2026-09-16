@@ -51,6 +51,9 @@ jobs:
       contents: write
     outputs:
       version: ${{ steps.version.outputs.new }}
+      docs-version: ${{ steps.version.outputs.docs_version }}
+      docs-aliases: ${{ steps.version.outputs.docs_aliases }}
+      docs-set-default: ${{ steps.version.outputs.docs_set_default }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -102,8 +105,13 @@ jobs:
           new_version="${major}.${minor}.${patch}"
           case "$MODE" in
             prerelease)
-              if ! echo "$PRERELEASE_TAG" | grep -qE '^[a-zA-Z0-9]+$'; then
-                echo "::error::prerelease_tag must be alphanumeric (e.g. b1, rc1)"
+              # Canonical spellings only, so the tag, the PyPI version and the
+              # docs directory are one string; see RELEASE.md.
+              # No leading zeros: `b01` matches a naive pattern but normalizes
+              # to `b1`, so the tag and the version PyPI indexes would differ,
+              # and the docs deploy would reject it after both are unrecoverable.
+              if ! echo "$PRERELEASE_TAG" | grep -qE '^(a|b|rc)(0|[1-9][0-9]*)$'; then
+                echo "::error::prerelease_tag must be a canonical PEP 440 pre-release segment: a, b or rc followed by a number (e.g. b1, rc1)"
                 exit 1
               fi
               new_version="${new_version}${PRERELEASE_TAG}"
@@ -118,6 +126,27 @@ jobs:
 
           echo "new=$new_version" >> "$GITHUB_OUTPUT"
           echo "Bumping $current -> $new_version (mode: $MODE)"
+
+          # Docs-site parameters, decided here because this is where the mode is
+          # known rather than inferred from tag text. See RELEASE.md.
+          case "$MODE" in
+            release)
+              echo "docs_version=${major}.${minor}" >> "$GITHUB_OUTPUT"
+              echo "docs_aliases=latest" >> "$GITHUB_OUTPUT"
+              echo "docs_set_default=true" >> "$GITHUB_OUTPUT"
+              ;;
+            prerelease)
+              echo "docs_version=$new_version" >> "$GITHUB_OUTPUT"
+              echo "docs_aliases=" >> "$GITHUB_OUTPUT"
+              echo "docs_set_default=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              # `test` and `dry-run` never tag, so they never deploy docs.
+              echo "docs_version=" >> "$GITHUB_OUTPUT"
+              echo "docs_aliases=" >> "$GITHUB_OUTPUT"
+              echo "docs_set_default=false" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
 
       - name: Update version
         env:
@@ -302,3 +331,19 @@ jobs:
             --title "pika $TAG" \
             --generate-notes \
             $PRERELEASE_FLAG
+
+  # Last, so a release that fails partway never publishes its docs, and called
+  # with `uses:` so the deploy's conclusion is this run's. See RELEASE.md for the
+  # ordering, the `smoke-test` dependency and how to recover a skipped deploy.
+  deploy-docs:
+    needs: [release, publish-pypi, smoke-test, github-release]
+    if: ${{ inputs.mode == 'release' || inputs.mode == 'prerelease' }}
+    # Required: a called workflow cannot elevate the caller's token.
+    permissions:
+      contents: write
+    uses: ./.github/workflows/_deploy-docs.yaml
+    with:
+      ref: ${{ needs.release.outputs.version }}
+      version: ${{ needs.release.outputs.docs-version }}
+      aliases: ${{ needs.release.outputs.docs-aliases }}
+      set-default: ${{ needs.release.outputs.docs-set-default == 'true' }}

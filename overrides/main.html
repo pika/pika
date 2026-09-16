@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{# Fills the theme's empty `outdated` block; see RELEASE.md for why it is needed
+   and why the link is relative. #}
+{% block outdated %}
+  You're not viewing the latest version.
+  <a href="{{ '../' ~ base_url }}">
+    <strong>Click here to go to latest.</strong>
+  </a>
+{% endblock %}

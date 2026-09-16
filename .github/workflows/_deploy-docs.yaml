@@ -1,0 +1,320 @@
+name: pika docs deploy (reusable)
+
+# Build the MkDocs site and publish it to the `gh-pages` branch with `mike`,
+# which keeps every version in its own subdirectory. GitHub Pages must be
+# configured to serve from that branch.
+#
+# The caller passes the version name and aliases explicitly instead of having
+# this workflow infer them from a ref. The callers already know: `release.yaml`
+# knows its own `mode`, and a push to `main` always publishes `dev`. Inferring
+# them here would mean re-deriving "is this a pre-release" from tag text, which
+# gets the answer wrong for any tag whose pre-release segment happens to be all
+# digits.
+#
+# Invoked via `workflow_call`; never triggered directly. `deploy-docs.yaml` is
+# the entry point for a `main` push and for a manual deploy.
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Git ref to build the docs from'
+        required: true
+        type: string
+      version:
+        description: 'Version name to publish under, e.g. dev, 1.5, or 1.5.0rc1'
+        required: true
+        type: string
+      aliases:
+        description: 'A single alias to point at this version, e.g. latest. Empty for none'
+        required: false
+        type: string
+        default: ''
+      set-default:
+        description: 'Point the site-root redirect at the alias'
+        required: false
+        type: boolean
+        default: false
+      push:
+        description: 'Publish to gh-pages. False builds and deploys to a local branch only, which validates the mike path without touching the remote'
+        required: false
+        type: boolean
+        default: true
+
+# Deliberately no `permissions:` block here, at either level. A called workflow
+# may only maintain or reduce the caller's token, so declaring `contents: write`
+# unconditionally made GitHub reject any caller that granted less: `main.yaml`
+# pinning `contents: read` at the workflow level, with `validate-docs-deploy`
+# adding no grant of its own, produced a startup failure that ran no jobs at all.
+# Inheriting gives each caller what it needs, and keeps a write-capable token away
+# from the pull-request validation run, which pushes nothing but does run `mike`
+# and `hatch` over configuration the pull request supplies.
+
+# Serialize real deploys so two runs cannot interleave their read-modify-write
+# of `gh-pages`. A validation run touches no remote, so it gets a per-ref group
+# of its own rather than queueing behind, and delaying, the deploys that do.
+#
+# `queue: max` is as load-bearing as the group. Under the default
+# `queue: single` GitHub allows one pending run per group and "any existing
+# pending job or workflow run in the same group is canceled and replaced", which
+# `cancel-in-progress: false` does not prevent: a `main` push landing while a
+# release deploy waited its turn would evict the release's docs. `max` allows up
+# to 100 pending runs, processed first-in-first-out. It may not be combined with
+# `cancel-in-progress: true`, which is why that stays false.
+#
+# Note that actionlint 1.7.12 reports `queue` as an unknown key. Its schema lags;
+# the key is documented under `concurrency` in the workflow-syntax reference and
+# is present in schemastore's github-workflow schema.
+concurrency:
+  group: ${{ inputs.push && 'deploy-docs' || format('deploy-docs-validate-{0}', github.ref) }}
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  deploy:
+    name: Publish ${{ inputs.version }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          # `mike` rewrites the whole `gh-pages` branch and pushes it without
+          # --force, so it needs the `origin/gh-pages` ref to build on. It does
+          # not read git tags; the version name is an input. Shallowing this
+          # leaves `mike` with no remote ref to find, and it then builds
+          # `gh-pages` as a root commit whose version index holds only the new
+          # version, which fails at the push as a non-fast-forward.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install documentation dependencies
+        run: python -m pip install hatch
+
+      # Create the environment in one place. Two `hatch run` invocations that
+      # start concurrently, as the two halves of a shell pipeline do, both try to
+      # create it and collide, which fails the step. Doing it once up front also
+      # keeps the env-creation output from being mistaken for command output.
+      - name: Create the docs environment
+        run: hatch env create docs
+
+      - name: Validate inputs
+        env:
+          VERSION: ${{ inputs.version }}
+          ALIASES: ${{ inputs.aliases }}
+          SET_DEFAULT: ${{ inputs.set-default }}
+        run: |
+          set -euo pipefail
+
+          # Checked in the helper, where `packaging` can tell a post-release from
+          # a pre-release and a non-canonical spelling such as `1.05` from `1.5`.
+          # A shell regex admitted both, and a bad name reaches `gh-pages` as a
+          # directory only a manual `mike delete` removes.
+          hatch run docs:python .ci/docs_site.py check-version \
+            --version "$VERSION"
+
+          # At most one alias. The deploy moves every alias it is given but the
+          # decision below is made for one, so a second alias would ride along
+          # unchecked. Nothing needs more than `latest`; reject rather than
+          # half-check. This also rejects stray whitespace, which otherwise
+          # yields an empty first alias and skips the decision entirely.
+          case "$ALIASES" in
+            '') ;;
+            *[![:alnum:]-]*)
+              echo "::error::aliases must be a single lowercase alias with no whitespace; got '$ALIASES'"
+              exit 1
+              ;;
+            *)
+              if ! printf '%s' "$ALIASES" | grep -qE '^[a-z][a-z0-9-]*$'; then
+                echo "::error::alias must be lowercase alphanumeric with dashes; got '$ALIASES'"
+                exit 1
+              fi
+              ;;
+          esac
+
+          # The site-root redirect names an alias, so asking for one without an
+          # alias to point at cannot be satisfied. The two are separate fields on
+          # the manual form, so reject the combination here rather than deploying
+          # and then failing on a redirect that was never going to be written.
+          if [ "$SET_DEFAULT" = "true" ] && [ -z "$ALIASES" ]; then
+            echo "::error::set-default needs an alias to point the site root at"
+            exit 1
+          fi
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # Moving an alias is a site-wide change: `latest` also backs the site-root
+      # redirect and every `latest/` URL compiled into shipped wheels. `mike
+      # deploy --update-aliases` takes an alias from its current holder without
+      # complaint, so a deploy on an older tag would quietly roll the whole site
+      # backward. That is reachable by hand (RELEASE.md documents re-running a
+      # deploy on a tag) and automatically, once a maintenance branch carries
+      # this workflow.
+      - name: Decide whether this version may take the alias
+        id: alias
+        env:
+          VERSION: ${{ inputs.version }}
+          ALIASES: ${{ inputs.aliases }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$ALIASES" ]; then
+            echo "move=false" >> "$GITHUB_OUTPUT"
+            echo "No alias requested."
+            exit 0
+          fi
+
+          # No `2>/dev/null` and `pipefail` on purpose. `mike list --json` prints
+          # `[]` and exits 0 when `gh-pages` is absent, so silencing it hid only
+          # real errors, and the helper reads an unreadable payload as "nothing
+          # holds the alias" if allowed to, which hands the alias over on any
+          # failure. Both halves now fail the job instead.
+          # Written to a file rather than piped between two `hatch run` calls:
+          # the two halves of a pipeline run concurrently, and on a cold runner
+          # both would try to create the `docs` environment at once and collide.
+          listing="$RUNNER_TEMP/versions-local.json"
+          hatch run docs:mike list --json > "$listing"
+          reason="$RUNNER_TEMP/alias-reason.txt"
+          # Replay the captured stderr on the failure path: `set -e` aborts
+          # on the assignment, so nothing would ever read the file.
+          if ! move=$(hatch run docs:python .ci/docs_site.py alias-decision \
+                --version "$VERSION" --alias "$ALIASES" < "$listing" \
+                2> "$reason"); then
+            cat "$reason" >&2
+            exit 1
+          fi
+          echo "move=$move" >> "$GITHUB_OUTPUT"
+
+          # Declining is a site-wide outcome, so say so where it is visible. The
+          # reason goes to stderr, which is a collapsed log section, and the run
+          # is otherwise green: an operator repairing the site would be told
+          # nothing about the alias staying where it was.
+          if [ "$move" = "true" ]; then
+            cat "$reason"
+          else
+            echo "::warning::$ALIASES was not moved to $VERSION: $(cat "$reason")"
+            echo "\`$ALIASES\` was **not** moved to \`$VERSION\`: $(cat "$reason")" \
+              >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # Recorded before the deploy so the check afterwards can require the branch
+      # to have moved. Asserting only that a version is listed is satisfied by a
+      # previous deploy: a patch release publishes into the same MAJOR.MINOR
+      # directory, so a 1.5.1 whose push was lost still finds 1.5 carrying
+      # `latest` from 1.5.0 and reports success.
+      - name: Record the published tip
+        if: ${{ inputs.push }}
+        id: before
+        run: |
+          set -euo pipefail
+          git fetch --quiet origin gh-pages || true
+          echo "sha=$(git rev-parse --verify --quiet origin/gh-pages || true)" \
+            >> "$GITHUB_OUTPUT"
+
+      - name: Deploy
+        env:
+          VERSION: ${{ inputs.version }}
+          ALIASES: ${{ inputs.aliases }}
+          MOVE_ALIASES: ${{ steps.alias.outputs.move }}
+          SET_DEFAULT: ${{ inputs.set-default }}
+          PUSH: ${{ inputs.push }}
+        run: |
+          set -euo pipefail
+
+          # `--allow-empty` is what makes the push unconditional. `mike` puts its
+          # push inside the block that downgrades an empty commit to a warning,
+          # so a deploy whose output matches what is already published skips the
+          # push and still exits 0, which makes re-running a deploy to repair a
+          # partial publish look like it worked.
+          deploy_args=(deploy --allow-empty)
+          if [ "$PUSH" = "true" ]; then
+            deploy_args+=(--push)
+          fi
+          if [ "$MOVE_ALIASES" = "true" ]; then
+            deploy_args+=(--update-aliases "$VERSION" "$ALIASES")
+          else
+            deploy_args+=("$VERSION")
+          fi
+          hatch run docs:mike "${deploy_args[@]}"
+
+          # `set-default` writes the redirect at the site root, which no
+          # `deploy` creates. It names an alias, not a version, so it is
+          # independent of whether this run moved that alias: gating it on the
+          # move meant a repair run whose alias was already correct silently
+          # skipped the redirect and left the site root returning 404.
+          #
+          # `mike` refuses an alias no published version holds, and it does so
+          # after the deploy above has already pushed, so check first rather than
+          # aborting half way through.
+          if [ "$SET_DEFAULT" = "true" ] && [ -n "$ALIASES" ]; then
+            # stderr is kept: `mike list` also loads the mkdocs config and checks
+            # remote status, so a config error under `strict: true`, a broken
+            # environment or an unreadable `versions.json` all exit nonzero here
+            # and would otherwise be reported as an alias problem.
+            if ! hatch run docs:mike list "$ALIASES" > /dev/null; then
+              echo "::error::cannot point the site root at '$ALIASES'; see the error above"
+              exit 1
+            fi
+            set_default_args=(set-default --allow-empty)
+            if [ "$PUSH" = "true" ]; then
+              set_default_args+=(--push)
+            fi
+            hatch run docs:mike "${set_default_args[@]}" "$ALIASES"
+          fi
+
+      - name: Verify the deploy reached the remote
+        if: ${{ inputs.push }}
+        env:
+          VERSION: ${{ inputs.version }}
+          ALIASES: ${{ inputs.aliases }}
+          MOVE_ALIASES: ${{ steps.alias.outputs.move }}
+          SET_DEFAULT: ${{ inputs.set-default }}
+          BEFORE_SHA: ${{ steps.before.outputs.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --quiet origin gh-pages
+          after_sha=$(git rev-parse origin/gh-pages)
+
+          if [ "$after_sha" = "$BEFORE_SHA" ]; then
+            echo "::error::gh-pages is still at $after_sha, so nothing was published"
+            exit 1
+          fi
+
+          # Only assert the alias when this run was allowed to move it; a deploy
+          # that declined the move publishes the version alone.
+          expect_aliases=''
+          if [ "$MOVE_ALIASES" = "true" ]; then
+            expect_aliases="$ALIASES"
+          fi
+
+          git show "origin/gh-pages:versions.json" \
+            | hatch run docs:python .ci/docs_site.py verify \
+                --version "$VERSION" --aliases "$expect_aliases"
+
+          # The site-root redirect is a separate file that no `deploy` writes, so
+          # `versions.json` being correct says nothing about whether the site root
+          # resolves. Match the target, not merely the file's existence: any
+          # earlier deploy leaves an `index.html` behind, and mike renders it as
+          # `href="<identifier>/"`.
+          if [ "$SET_DEFAULT" = "true" ] && [ -n "$ALIASES" ]; then
+            if ! git cat-file -e "origin/gh-pages:index.html" 2>/dev/null; then
+              echo "::error::no index.html at the root of gh-pages, so the site root will 404"
+              exit 1
+            fi
+            # mike renders the redirect as href="<identifier>/", so match that
+            # exactly: an unanchored search for the alias would accept
+            # href="verylatest/" for an alias of `latest`.
+            if ! git show "origin/gh-pages:index.html" \
+                | grep -qF "href=\"$ALIASES/\""; then
+              echo "::error::the site-root redirect exists but does not point at '$ALIASES'"
+              exit 1
+            fi
+            echo "site-root redirect points at '$ALIASES'"
+          fi

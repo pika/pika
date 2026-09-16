@@ -85,10 +85,16 @@ To preview **multiple versions** locally:
 1. Install deps (includes `mike`).
 
 2. Deploy the current tree as one or more version labels on your **local**
-   `gh-pages` branch (omit `--push` to stay offline):
+   `gh-pages` branch. Always omit `--push`: the published site is deployed by CI
+   and a hand-pushed `gh-pages` fights the next automated deploy over the version
+   index. Use the same naming the deploy uses, so a local preview matches what
+   the real site will look like: a stable release is `MAJOR.MINOR`, a pre-release
+   is its full version, and `dev` is a version in its own right rather than an
+   alias.
 
-        hatch run docs:mike deploy 1.3.2
-        hatch run docs:mike deploy --update-aliases 1.4.0b0 dev latest
+        hatch run docs:mike deploy 1.5
+        hatch run docs:mike deploy 1.6.0rc1
+        hatch run docs:mike deploy --update-aliases dev latest
         hatch run docs:mike set-default latest
 
 3. Serve that branch:
@@ -98,6 +104,16 @@ To preview **multiple versions** locally:
 4. Open the URL it prints (default `http://127.0.0.1:8000`) and use the version
    selector. `mike list` shows what is installed; `mike delete VERSION` removes
    one version.
+
+5. Delete the local branch when you are done:
+
+        git branch -D gh-pages
+
+   Do this even though you never pushed. Once CI has published to `gh-pages` and
+   you fetch it, your local branch has diverged from the remote, and every `mike`
+   write command refuses to run against a diverged branch: `deploy`, `delete` and
+   `set-default` all fail with `gh-pages has diverged from origin/gh-pages`.
+   Deleting the local branch is the fix; the next preview recreates it.
    
 ## Code Formatting and Linting
 

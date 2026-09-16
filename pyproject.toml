@@ -127,6 +127,8 @@ force-one-line-summary = false
 [tool.hatch.envs.default]
 dependencies = [
     "coverage",
+    # tests/unit/docs_site_tests.py loads .ci/docs_site.py, which imports this.
+    "packaging",
     "docformatter",
     "gevent",
     "pytest>=7.0.0",
@@ -141,13 +143,13 @@ dependencies = [
 ]
 
 [tool.hatch.envs.default.scripts]
-fmt = "yapf --in-place --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/ utils/"
-fmt-check = "yapf --diff --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/ utils/"
-lint = "ruff check pika/ tests/ examples/ utils/ --fix"
-lint-check = "ruff check pika/ tests/ examples/ utils/"
-docfmt = "docformatter --in-place --recursive pika/ tests/ examples/ utils/ --exclude pika/spec.py"
-docfmt-check = "docformatter --check --diff --recursive pika/ tests/ examples/ utils/ --exclude pika/spec.py"
-typecheck = "python -m mypy pika/ tests/typing/"
+fmt = "yapf --in-place --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/ utils/ .ci/docs_site.py"
+fmt-check = "yapf --diff --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/ utils/ .ci/docs_site.py"
+lint = "ruff check pika/ tests/ examples/ utils/ .ci/docs_site.py --fix"
+lint-check = "ruff check pika/ tests/ examples/ utils/ .ci/docs_site.py"
+docfmt = "docformatter --in-place --recursive pika/ tests/ examples/ utils/ .ci/docs_site.py --exclude pika/spec.py"
+docfmt-check = "docformatter --check --diff --recursive pika/ tests/ examples/ utils/ .ci/docs_site.py --exclude pika/spec.py"
+typecheck = "python -m mypy pika/ tests/typing/ .ci/docs_site.py"
 spec-regen = "python utils/regen_spec.py"
 spec-check = "python utils/regen_spec.py --check"
 unit = "pytest -n auto --dist=loadscope tests/unit/ {args}"
@@ -168,6 +170,8 @@ run = "python examples/{args}"
 
 [tool.hatch.envs.docs]
 dependencies = [
+    # Used directly by .ci/docs_site.py, not only via mkdocs.
+    "packaging",
     "mkdocs",
     "mkdocs-material",
     "mkdocstrings[python]",
@@ -180,8 +184,8 @@ dependencies = [
 
 [tool.hatch.envs.docs.scripts]
 build = "mkdocs build --strict"
-serve = "mkdocs serve"
-serve-live = "mkdocs serve --livereload"
+serve = "mkdocs serve --no-strict"
+serve-live = "mkdocs serve --livereload --no-strict"
 
 [tool.pytest.ini_options]
 minversion = "7.0"

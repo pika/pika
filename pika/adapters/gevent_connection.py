@@ -80,7 +80,7 @@ class GeventConnection(BaseConnection):
             'GeventConnection is deprecated and will be removed in Pika 2.0. '
             'Use Connection instead, which works with any framework '
             'including Gevent. See '
-            'https://pika.github.io/pika/modules/adapters/thread_safe/',
+            'https://pika.github.io/pika/latest/modules/adapters/thread_safe/',
             DeprecationWarning,
             stacklevel=2,
         )

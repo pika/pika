@@ -1,0 +1,57 @@
+name: Deploy Docs
+
+# Manual entry point for publishing the documentation site. The work lives in
+# the reusable `_deploy-docs.yaml`.
+#
+# Nothing here is automatic. The two automated paths call the reusable workflow
+# themselves, so that each can gate the deploy on the right thing:
+#
+#   - `main.yaml` publishes `dev` after `tests-passed`, so `dev` docs never come
+#     from a commit whose test matrix failed.
+#   - `release.yaml` publishes the release version as its last job, after the
+#     wheel is on PyPI and the release is otherwise complete.
+#
+# This file exists for the cases neither covers: re-publishing after a failed
+# deploy, the one-time bootstrap described in RELEASE.md, or backfilling a
+# version. Because it takes the version and aliases as inputs, it cannot silently
+# do the wrong thing with a ref the way a tag trigger would.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to build from, e.g. main or 1.5.0'
+        required: true
+        type: string
+        default: main
+      version:
+        description: 'Version name to publish under: dev, MAJOR.MINOR, or a full pre-release version'
+        required: true
+        type: string
+        default: dev
+      aliases:
+        description: 'Alias to point at this version, e.g. latest. Empty for none'
+        required: false
+        type: string
+        default: latest
+      set-default:
+        description: 'Point the site-root redirect at the alias'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    # See the note in release.yaml: a called workflow cannot elevate the
+    # caller's token, so the caller has to grant the write the deploy needs.
+    permissions:
+      contents: write
+    uses: ./.github/workflows/_deploy-docs.yaml
+    with:
+      ref: ${{ inputs.ref }}
+      version: ${{ inputs.version }}
+      aliases: ${{ inputs.aliases }}
+      set-default: ${{ inputs.set-default }}

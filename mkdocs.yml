@@ -7,6 +7,9 @@ repo_url: https://github.com/pika/pika
 docs_dir: docs
 site_dir: site
 
+# `mike` reads this when it deploys, so the published build is strict too.
+strict: true
+
 # Snippets pull README.md and CONTRIBUTING.md from the repo root; MkDocs only
 # watches docs_dir by default, so add the project root for live reload on those.
 watch:
@@ -14,6 +17,7 @@ watch:
 
 theme:
   name: material
+  custom_dir: overrides
 
   # Added modern visuals
   favicon: assets/pika.jpg
@@ -64,6 +68,9 @@ theme:
     - toc.follow
 
 plugins:
+  # Declared so `canonical_version` can be set; see RELEASE.md.
+  - mike:
+      canonical_version: latest
   - search
   - mkdocstrings:
       handlers:
@@ -100,6 +107,8 @@ extra_css:
 extra:
   version:
     provider: mike
+    # Versions carrying this alias are current, so they skip the banner.
+    default: latest
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/pika/pika
