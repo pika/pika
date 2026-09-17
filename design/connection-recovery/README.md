@@ -8,7 +8,7 @@ These are settled facts about the target release, not open questions. They overr
 
 - **The target is pika 2.0.0.** Breaking changes to the public API are permitted where the design needs them. "This preserves backward compatibility with 1.x" is not a requirement to satisfy, and not a reason to prefer one shape over another.
 - **2.0 has exactly one connection type and one channel type.** `Connection` and `Channel`, currently in `pika/adapters/thread_safe_connection.py`, to be relocated by the 2.0 restructure. Every other public adapter - asyncio, blocking, gevent, tornado, twisted - is removed. `SelectConnection` survives only as internal machinery backing `Connection`, not as a public adapter. There is therefore no "which adapters does this apply to" question and no per-adapter recovery driver to design.
-- **The classes are already named `Connection` and `Channel`.** That rename shipped in 1.5.0, see #1617. `ThreadSafeConnection` and `ThreadSafeChannel` no longer exist. The new names collide with `pika.connection.Connection` and `pika.channel.Channel`, so always say which one is meant.
+- **The classes are already named `Connection` and `Channel`.** That rename is merged on `main` under the 1.5.0 milestone, see #1617; 1.5.0 itself is unreleased, so `pika.__version__` still reads 1.4.0. `ThreadSafeConnection` and `ThreadSafeChannel` no longer exist. The new names collide with `pika.connection.Connection` and `pika.channel.Channel`, so always say which one is meant.
 
 Documents:
 
