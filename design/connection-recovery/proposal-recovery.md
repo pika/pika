@@ -200,7 +200,7 @@ Five callback-registration methods (`add_on_close_callback`, `add_on_open_callba
 | `add_on_recovery_succeeded_callback(obj, skipped)` | `RECOVERING -> OPEN` |
 | `add_on_recovery_failed_callback(obj, error)` | `RECOVERING -> CLOSED` |
 
-**"Convenience wrapper over state transitions" is not quite literal for the last two rows.** `add_state_change_listener`'s callback shape is `(obj, old_state, new_state, reason=None)` - there is no `skipped` or `error` slot anywhere in that tuple. `add_on_close_callback(obj, reason)` and `add_on_recovery_started_callback(obj, reason)` really are pure filters over that signature (`reason` is already there). But `add_on_recovery_succeeded_callback(obj, skipped)` and `add_on_recovery_failed_callback(obj, error)` need a payload the generic transition event doesn't carry: which topology entities got skipped during replay, or which error ended the last redial attempt. Implementing these as "just a filtered listener" requires the recovery driver to stash that result somewhere readable at the moment it fires the `RECOVERING -> OPEN` / `RECOVERING -> CLOSED` transition (e.g. on `RecoveryCoordinator`, alongside `attempt`), and the two convenience methods read it from there rather than from anything `add_state_change_listener` itself provides. Deciding whether that extra state lives on `RecoveryCoordinator` or is threaded through as an enriched `reason` object on the transition itself is needed before implementation - the latter would make the sugar literal, at the cost of giving every listener a payload shape that varies by transition.
+**"Convenience wrapper over state transitions" is not quite literal for the last two rows.** `add_state_change_listener`'s callback shape is `(obj, old_state, new_state, reason=None)` - there is no `skipped` or `error` slot anywhere in that tuple. `add_on_close_callback(obj, reason)` and `add_on_recovery_started_callback(obj, reason)` really are pure filters over that signature (`reason` is already there). But `add_on_recovery_succeeded_callback(obj, skipped)` and `add_on_recovery_failed_callback(obj, error)` need a payload the generic transition event doesn't carry: which topology entities got skipped during replay, or which error ended the last redial attempt. Implementing these as "just a filtered listener" requires the recovery driver to stash that result somewhere readable at the moment it fires the `RECOVERING -> OPEN` / `RECOVERING -> CLOSED` transition, and the two convenience methods read it from there. That somewhere must be the pass, not the coordinator, for the reason given under "Every pass owns its retry budget" rather than from anything `add_state_change_listener` itself provides. Deciding whether that extra state lives on the pass object or is threaded through as an enriched `reason` object on the transition itself is needed before implementation - the latter would make the sugar literal, at the cost of giving every listener a payload shape that varies by transition.
 
 `add_on_recovery_*_callback` raise `ValueError` if called on a connection/channel not constructed with a `RecoveryConfig`, since those transitions cannot occur without one; `add_on_close_callback`, `add_on_open_callback`, and `add_state_change_listener` carry no such restriction. `add_on_close_callback`'s "any cause" behavior - explicit `close()`, a drop with no `RecoveryConfig`, or recovery exhausting its budget - falls out for free from being sugar over "any transition into `CLOSED`," rather than needing independent special-casing across separate teardown paths.
 
@@ -215,7 +215,7 @@ Connection-level and channel-level recovery notifications stay partitioned, and 
 `Connection._recovery: RecoveryCoordinator | None` is `None` when the caller doesn't opt in. Lifecycle state does not live on the coordinator: it is `Connection._state: ConnectionState` (and `Channel._state: ChannelState`) directly, always present whether or not recovery is configured - a connection without `RecoveryConfig` simply never transitions to `RECOVERING`, but it still has `_state`, since the `_check_not_closed` replacement needs somewhere to read from regardless. `RecoveryCoordinator` (in `pika/recovery.py`) holds only:
 
 - `config: RecoveryConfig`
-- `attempt: int`
+- no shared attempt counter; each recovery pass carries its own, see "Every pass owns its retry budget" below
 - `topology: dict[int, ChannelTopology]` - **the single, connection-wide topology store, keyed by channel number.** See "Topology ledger" below for why this must live here rather than on each `Channel`.
 
 Server-generated queue renames need a name-replacement map scoped locally to the single phased pass that produces the rename (`dict[str, str]` inside `_recover_topology(channels)`), not a `RecoveryCoordinator` field, since nothing outside that one pass ever needs it again.
@@ -289,15 +289,15 @@ Redial therefore does not need shared `_open_inner_connection`/ `_start_ioloop_t
 
 `Connection._recover_connection(reason)`, run as a sequence of loop-scheduled steps rather than a thread body:
 
-1. If `attempt >= config.max_attempts`: transition to `CLOSED` with the last error as `_closed_reason`, fire `on_recovery_failed`, run the usual pool-shutdown/close-callback teardown. Done.
-2. Otherwise, schedule `_try_reconnect_once` via `self._ioloop.call_later(config.next_interval(attempt), ...)`. There is no condition variable to wait on and no backoff to interrupt early: if `close()` runs before the timer fires, the terminal-state check inside the scheduled callback (or cancelling the timer handle at `close()` time) is sufficient, since both `close()` and the timer callback execute on the same loop and cannot race each other.
+1. If this pass's `attempt` has reached `config.max_attempts`: transition to `CLOSED` with the last error as `_closed_reason`, fire `on_recovery_failed`, run the usual pool-shutdown/close-callback teardown. Done.
+2. Otherwise, schedule `_try_reconnect_once` via `self._ioloop.call_later(config.next_interval(attempt), ...)`, where `attempt` is this pass's own counter and not shared state. There is no condition variable to wait on and no backoff to interrupt early: if `close()` runs before the timer fires, the terminal-state check inside the scheduled callback (or cancelling the timer handle at `close()` time) is sufficient, since both `close()` and the timer callback execute on the same loop and cannot race each other.
 3. `_try_reconnect_once()`:
    - Constructs a fresh `SelectConnection(self._parameters, ..., custom_ioloop=self._ioloop)`.
    - On success, swaps `self._connection` (still under `_channel_waiters_lock`, for the benefit of cross-thread readers of e.g. `is_open`), fires `add_on_open_callback` - before topology replay runs, so a listener sees "we have a live connection again" as distinct from and earlier than "topology is fully recovered." The app's existing adapter `Channel`/`Connection` references stay valid.
-   - Calls `_reopen_channels_and_recover_topology()` (below). On its completion: `attempt = 0`, transition to `OPEN`, fire `on_recovery_succeeded(connection, skipped)`.
-   - On failure: `attempt += 1`, go to step 1.
+   - Calls `_reopen_channels_and_recover_topology()` (below). On its completion: transition to `OPEN` and fire `on_recovery_succeeded(connection, skipped)`. The pass ends here and its counter goes with it; there is no counter to reset.
+   - On failure: increment this pass's `attempt` and go to step 1.
 
-`_reopen_channels_and_recover_topology()` reopens every `Channel` in `self._channels` the app hasn't explicitly closed (tracked via `Channel._closed`, since `self._channels` never removes entries), closing any still-open previous raw channel first rather than only overwriting the reference; if `topology_recovery_mode` is `DISABLED`, stop there; otherwise call `_recover_topology(channels)`.
+`_reopen_channels_and_recover_topology()` reopens every `Channel` the app hasn't explicitly closed (tracked via `Channel._closed`), reusing each wrapper's existing broker channel number via `Connection.channel(channel_number=N)` and closing any still-open previous raw channel first rather than only overwriting the reference; if `topology_recovery_mode` is `DISABLED`, stop there; otherwise call `_recover_topology(channels)`.
 
 ### What the persistent loop costs
 
@@ -367,6 +367,14 @@ A broker soft-error (e.g. 406 `PRECONDITION_FAILED`, 404 `NOT_FOUND`) can close 
 
 `_recover_channel(ch, reason)` mirrors `_recover_connection`'s shape but scoped to one channel and driven the same way - loop-scheduled steps, not a thread body: transition `ch._state` to `RECOVERING` (firing `ch`'s own `on_recovery_started`), reopen just this channel, call `_recover_topology([ch])`. On success, transition `ch._state` to `OPEN` (firing `ch.on_recovery_succeeded`); on exhaustion, transition to `CLOSED` (firing `ch.on_recovery_failed`) - **never** the connection-wide listeners, which stay reserved for `_recover_connection`, for the structural reason given under "Observability" above. Exhaustion does **not** tear down the whole connection - that one channel is simply left `CLOSED`. `_recover_topology([ch])` still recovers against the full connection-wide `coordinator.topology` (filtered to entries relevant to `ch`), not a store scoped to `ch` alone.
 
+### Every pass owns its retry budget
+
+`config.max_attempts` bounds a single recovery pass, and the counter belongs to that pass rather than to the coordinator. One shared counter would let unrelated passes corrupt each other's budget in three distinct ways. A channel that burned all five attempts on a permanent 406 would leave the counter exhausted, so the next real network drop would see the budget already spent and go straight to `CLOSED` without attempting one redial - converting a recoverable outage into a dead connection. Two channels recovering in interleaved chains would each increment the same slot and halve each other's budget. And a connection-level pass resetting the counter on success would rearm an in-flight channel pass, which would then retry indefinitely, defeating `max_attempts` entirely and producing exactly the unbounded episode chain the test plan sets out to prevent.
+
+Both reference clients that expose a retry limit scope it to the pass: Java's `recoverConnection` declares `int attempts = 0` as a method local, and `amqp091-go`'s `reconnectChannel` counts with a loop variable, `for i := 0; i < ch.connection.MaxRetryCount(); i++`. Neither keeps a counter on a shared object. `config` is shared because it is immutable; the counter is not.
+
+The same applies to the `skipped` and `error` payloads the recovery callbacks carry. Parking those on the coordinator alongside a shared counter would let a connection-level pass and a channel-level pass read each other's results, so each pass carries its own.
+
 ## Composing channel-level and connection-level recovery
 
 Channel-level and connection-level recovery passes can interact in ways that need explicit handling:
@@ -391,7 +399,15 @@ AMQP exchanges, queues, and bindings are scoped to the connection (vhost), not t
 1. **Ordering failure.** Channel A declares exchange `X` and queue `Q`; channel B declares a binding from `Q` to `X`. If entries were recovered channel-by-channel and B happened to be processed before A, B's `queue_bind` would 404 against an exchange and queue that don't exist yet.
 2. **Split-brain removal.** Channel A declares queue `X`; channel B later calls `queue_delete('X')`. If removal only searched the calling channel's own records, B's delete would find nothing, and `X` would get incorrectly redeclared on the next recovery as a queue the app had explicitly deleted.
 
-We propose the same shape as `amqp091-go`'s `Connection. topologyConfiguration map[uint16]*TopologyConfiguration`: `coordinator.topology: dict[int, ChannelTopology]`, keyed by `channel_number`, on `RecoveryCoordinator` - `Channel` itself holds no topology state. `ChannelTopology` holds:
+We propose the same shape as `amqp091-go`'s `Connection.topologyConfiguration map[uint16]*TopologyConfiguration`: `coordinator.topology: dict[int, ChannelTopology]`, keyed by `channel_number`, on `RecoveryCoordinator` - `Channel` itself holds no topology state.
+
+**The key only works if the number is preserved across the swap, so we preserve it.** A fresh inner connection allocates channel numbers from 1 (`Connection._next_channel_number` returns the lowest free number over an empty `_channels` dict), so if reopen let the number be reassigned, a wrapper that was channel 3 could come back as channel 2 and replay channel 2's bucket: the closed channel's queues, bindings and consumers, while its own bucket is never replayed and its consumer silently disappears. `_reopen_channels_and_recover_topology` therefore reopens each wrapper with its existing number via `Connection.channel(channel_number=N)`, which pika already supports.
+
+The reference clients satisfy the same invariant two different ways, and the invariant is what matters: the ledger key must survive the swap. Java preserves the number explicitly, calling `connDelegate.createChannel(this.getChannelNumber())`. `amqp091-go` preserves it structurally, since its `Channel` struct persists across a reconnect and only the broker-side session is reopened, so the `uint16` key never changes. .NET does the opposite and lets the replacement take a fresh number, which is safe there because its recorded entities are associated with the channel *object* rather than with a number. Keying by wrapper identity instead would be equally correct and slightly more robust, but the number has to be tracked regardless because `TopologyRecoveryEntity.channel_number` reports it, so preserving it serves both purposes.
+
+One caveat, unverified: `channel-max` is renegotiated on every connection, so a redial to a node proposing a smaller maximum could in principle leave a preserved number out of range. Java has the same exposure. The reopen path should fall back to a fresh number and re-key the bucket rather than failing, but we have not tested this.
+
+`ChannelTopology` holds:
 
 ```python
 @dataclass
@@ -458,7 +474,7 @@ A broker-side protocol error during topology recovery (e.g. a 404 on a binding r
 
 ## Proposed file-by-file changes
 
-- **`pika/recovery.py`** (new): `RecoveryConfig`, `TopologyRecoveryMode`, `RecoveryCoordinator` (holding `config`, `attempt`, and `topology: dict[int, ChannelTopology]`, plus the `record_*`/`remove_*` methods described in "Topology ledger" above), `ChannelTopology`, the `*Record` dataclasses, `TopologyRecoveryEntity`.
+- **`pika/recovery.py`** (new): `RecoveryConfig`, `TopologyRecoveryMode`, `RecoveryCoordinator` (holding `config` and `topology: dict[int, ChannelTopology]`, but no per-pass state such as an attempt counter, plus the `record_*`/`remove_*` methods described in "Topology ledger" above), `ChannelTopology`, the `*Record` dataclasses, `TopologyRecoveryEntity`.
 - **`pika/exceptions.py`**: `ConnectionRecovering(ConnectionWrongStateError)`, `ChannelRecovering(ChannelWrongStateError)`.
 - **`pika/adapters/thread_safe_connection.py`**:
   - `Connection.__init__` gains `recovery=`, `self._recovery`, `self._state: ConnectionState`, `self._ioloop` (constructed once, no longer tied to a single inner `SelectConnection`), `self._parameters`, `self._connect_timeout`.
