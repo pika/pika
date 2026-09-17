@@ -346,7 +346,9 @@ On any unexpected drop, pika performs an adapter-wide teardown before `_on_conne
 
 **Row 4 has only one safe option, and an earlier draft offered two.** Recording the close reason and reversing it on the `RECOVERING -> OPEN` transition looks equivalent to suppressing it, and is not. While it is set, `close()` takes its early return - `if self._closed_reason is not None: return` - so an application closing during recovery gets no state transition, no scheduled close, and no pool shutdown. Recovery then completes, reverses the field, transitions to `OPEN` and replays every consumer: the resurrection the terminal rule exists to forbid, reached without ever violating the terminal rule, because no transition to `CLOSING` ever happened. The same arm also makes every guarded call during recovery raise the recorded `StreamLostError` instead of `ConnectionRecovering`, since `_check_not_closed` tests `_closed_reason` before anything else - which defeats the dedicated-exception goal outright. Suppression is the requirement, not a preference.
 
-**Checked and not a problem: timers belonging to a superseded connection.** A persistent loop raises the obvious worry that a timer scheduled by an inner connection outlives it and fires against a dead object. The one such timer is `_blocked_conn_timer`, and it is cleaned up: `_on_stream_terminated` ends by calling `_init_connection_state`, which calls `_adapter_remove_timeout` on it and clears the field. The cancellation happens after the funnel has dispatched, so recovery is scheduled while the old timer is nominally still live, but both run on the same loop within the same callback, so nothing can interleave between them. Recorded here because it is a reasonable thing to suspect and a waste to re-derive.
+**Timers belonging to a superseded connection: safe when it died, leaked when it was abandoned.** A persistent loop raises the obvious worry that a timer scheduled by an inner connection outlives it. For a connection that *died*, the answer is that it is cleaned up: `_on_stream_terminated` calls `_remove_heartbeat()` and ends by calling `_init_connection_state`, which removes `_blocked_conn_timer`. The cancellation happens after the funnel has dispatched, so recovery is scheduled while the old timer is nominally still live, but both run on the same loop within the same callback and nothing can interleave.
+
+An inner connection **abandoned while still open** is a different case, and it is the one that leaks. `_remove_heartbeat()` is reached from exactly two places, `_terminate_stream` and `_on_stream_terminated`, and an abandoned-but-open connection reaches neither. Its `HeartbeatChecker` keeps rescheduling `_send_timer` and `_check_timer` through `_adapter_call_later` on the shared loop, so it goes on writing heartbeats and eventually decides its peer is unresponsive and calls `_terminate_stream` - on a connection nothing is listening to, while a healthy successor is running on the same loop. See "A failed replay must not abandon a live connection" for where that arises and how it is avoided.
 
 Item 9 is not reached by the drop that starts recovery; it is reached by every redial that fails to connect, which is the common case during an outage. It is in this table because it latches the same state, and because suppressing item 3 without also suppressing item 9 yields a recovery that works only when the first redial succeeds.
 
@@ -450,6 +452,31 @@ AMQP exchanges, queues, and bindings are scoped to the connection (vhost), not t
 2. **Split-brain removal.** Channel A declares queue `X`; channel B later calls `queue_delete('X')`. If removal only searched the calling channel's own records, B's delete would find nothing, and `X` would get incorrectly redeclared on the next recovery as a queue the app had explicitly deleted.
 
 We propose the same shape as `amqp091-go`'s `Connection.topologyConfiguration map[uint16]*TopologyConfiguration`: `coordinator.topology: dict[int, ChannelTopology]`, keyed by `channel_number`, on `RecoveryCoordinator` - `Channel` itself holds no topology state.
+
+### The redial is asynchronous, and the outcome needs a generation-aware landing point
+
+Step 3 above reads as a synchronous sequence, and it cannot be one. `SelectConnection.__init__` returns as soon as the connect has been *started*; the handshake resolves later, on the loop, into whichever callbacks were supplied. The adapter's existing pair, `_on_connection_open` and `_on_connection_open_error`, are one instance-level pair shared by every generation with no reference to any pass, and `_on_connection_open`'s entire body is `self._connected_event.set()` - which the redial path must not touch, since that event exists to hand the outcome of `__init__` back to the constructing thread. So if the redial reuses them, nothing increments the attempt counter, nothing reaches `_reopen_channels_and_recover_topology`, and nothing transitions to `OPEN`.
+
+`_try_reconnect_once` therefore supplies its own handlers, bound to the pass rather than to the instance, and each one begins with the same generation filter the funnel uses:
+
+```python
+conn = SelectConnection(self._parameters, custom_ioloop=self._ioloop,
+                        on_open_callback=partial(self._on_redial_open, pass_),
+                        on_open_error_callback=partial(self._on_redial_error, pass_),
+                        on_close_callback=self._on_connection_closed)
+```
+
+`_on_redial_open(pass_, conn)` ignores the callback unless `conn is self._connection`, then runs the reopen-and-replay sequence; `_on_redial_error(pass_, conn, error)` likewise, then increments `pass_.attempt` and returns to step 1. Neither touches `_connect_error` or `_connected_event`. The generation filter matters here for the same reason it does in the funnel: a redial that is superseded by `close()`, or by a later pass, must not resume against a connection that is no longer current.
+
+Note also that the redial nests inside `AMQPConnectionWorkflow`'s own `connection_attempts`/`retry_delay` cycle, which `SelectConnection` runs by default. With `connection_attempts=5` and `max_attempts=5` a single drop makes up to twenty-five TCP attempts under two independent backoff policies. Either the redial constructs its inner connections with `connection_attempts=1` and owns retrying itself, or `RecoveryConfig` documents that the effective attempt count is the product. The former is clearer; whichever is chosen, the Non-goals note that multi-host failover is "initial-connect only" is not true of the redial path unless the redial explicitly opts out.
+
+### A failed replay must not abandon a live connection
+
+When replay aborts - `on_topology_entity_error` returning False, or a fatal error mid-chain - the pass increments its counter and returns to step 1, which eventually constructs a fresh `SelectConnection`. At that moment `self._connection` is a fully **open** inner connection, and nothing closes it. This document requires exactly this care one level down, twice: `_reopen_channel` must close a still-open previous raw channel rather than only overwriting the reference. The connection-level equivalent was missing.
+
+Two consequences, beyond the leaked file descriptor. The abandoned connection keeps its heartbeat timers rescheduling on the shared loop, as described above, because nothing takes it through `_on_stream_terminated`. And it still holds every exclusive and auto-delete entity it declared, so replay on the *next* attempt draws 405 `RESOURCE_LOCKED` redeclaring the exclusive queue that the previous generation still owns - on that attempt and every remaining one, until the budget is spent. A design that retries five times would fail all five for a reason it created itself.
+
+So step 3 closes the outgoing inner connection before constructing its replacement, and waits for that close to complete rather than assuming it is synchronous.
 
 ### How a wrapper's raw channel is reopened
 
