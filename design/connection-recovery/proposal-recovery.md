@@ -4,6 +4,53 @@ Before reading: `README.md` in this directory records the pika 2.0.0 constraints
 
 > Status: proposal, for review before implementation begins. Recovery is a first-class `RECOVERING` state on the adapter `Connection`/`Channel` lifecycle, driven by the connection's own persistent IOLoop rather than a separate thread. This follows the state-machine framing explored in `design-state-machine.md`, grounded in the empirical client behavior recorded in `findings.md`.
 
+## Editing this document
+
+Guidance for anyone editing this file, AI or human. These are the rules from `~/genai/git/GIT.md` and the repository's own conventions that actually bite here; a change that breaks one is wrong even if the prose is good.
+
+- **Never hard-wrap.** Every paragraph, list item and table row is a single line, however long. This file was hard-wrapped for most of its life and has been unwrapped; do not reflow it back. The rendered output is identical either way, so the cost of wrapping is entirely to the tools that read the file as text: line-anchored citation, `grep -n`, and per-line diff review all become unreliable when one sentence spans several lines and a one-word edit reflows the paragraph.
+- **ASCII punctuation only.** No em-dashes and no arrow characters. Use `-` or `--` for a dash and `->` for a transition. This is measured repository convention, not preference: across the 58 tracked `.md` files outside `design/` there are five em-dashes in total.
+- **Bare commit SHAs, never in backticks.** GitHub auto-links a bare SHA and backticks suppress that.
+- **One H1, the title above.** Any section pasted into a pull request, issue, review or comment body must not carry an H1, because the forge renders those oversized and the title is already redundant there.
+- **No trailing whitespace, and blank lines are truly empty.**
+- **Commit messages are the one place hard-wrap is required**: 50-70 character subject in active voice and present tense, body wrapped at 72. Write them to a file and use `git commit -F <file>` rather than `-m`, because shell escaping of apostrophes and backticks silently corrupts text.
+- **Post forge bodies with `--body-file`, never an inline `--body`.** A double-quoted string containing backticks executes them as command substitution and the text simply disappears, exit code zero.
+- **Prose derived from this document and posted under a maintainer's account needs an AI-authorship disclosure** if an AI drafted it, placed at the top of the body, stating only what the human actually did. Ask before adding one rather than adding it unilaterally or omitting it silently.
+
+Two conventions specific to this document rather than to git. Claims about pika's current behavior carry the `file:line` they were checked against, so a reader can re-verify rather than trust; if you cannot cite it, say it is unverified. And where this design diverges from the RabbitMQ Java, .NET or Go clients, say so explicitly and give the reason, because a reviewer who knows those clients will otherwise assume the divergence was an oversight.
+
+## Glossary
+
+Terms this document uses in a specific sense. Where a term names something in the code, the reference is given so a reader can check it rather than infer it.
+
+**adapter `Connection` / `Channel`** - `pika.adapters.thread_safe_connection.Connection` and `.Channel`: the stable handles an application holds. Their identity survives a reconnect, which is what makes them the place recovery state can live. Renamed from `ThreadSafeConnection` / `ThreadSafeChannel` in 1.5.0 by #1617.
+
+**base `Connection` / `Channel`** - `pika.connection.Connection` and `pika.channel.Channel`: one transport session and the channels on it. A base `Connection` reaches CLOSED and never reopens, so recovery constructs a new one rather than reviving it. Unqualified, "the connection" in this document means the adapter `Connection`.
+
+**inner connection** - the base `SelectConnection` the adapter currently holds in `self._connection`. Replaced wholesale on every redial, which is why nothing durable may live on it.
+
+**persistent loop** - the `pika.adapters.select_connection.IOLoop` instance, owned by the adapter `Connection` and outliving every inner connection. Today it is not persistent: `SelectConnection.__init__` resolves `SelectorIOServicesAdapter(custom_ioloop or IOLoop())` (`select_connection.py:126-129`) and the adapter passes no `custom_ioloop`, so each inner connection constructs and owns a fresh loop whose lifetime is that one transport session's. Under this proposal the adapter constructs one `IOLoop` in `__init__`, the background thread runs `self._ioloop.start()` directly rather than `self._connection.ioloop.start()`, and every inner connection is built with `custom_ioloop=self._ioloop` and so borrows a loop it does not own. Only ownership and lifetime change: same class, same thread count, same polling. The consequence that matters throughout this document is that `get_native_ioloop()` returns the object it was handed (`selector_ioloop_adapter.py:176-177`), so `_connection.ioloop is self._ioloop` holds for every generation and there is no longer any such thing as "the reporting connection's own loop".
+
+**loop thread** - the single background thread running the persistent loop, named `pika-ioloop-N`. All protocol I/O and every callback run here, one at a time, which is what removes the need for most locking. Nothing on it may block; see "What the persistent loop costs".
+
+**caller thread** - any application thread that calls a public method. A blocking wrapper call blocks the caller thread on a `threading.Event` while the loop thread performs the work and sets it.
+
+**pool worker** - a `_BoundedWorkPool` thread: one per channel for consumer callbacks, one per connection for connection events. Distinct from the loop thread, which is precisely why a consumer callback can still be holding a delivery tag while a redial completes.
+
+**the funnel** - the adapter's `on_close_callback`, `_on_connection_closed`, through which an inner connection that had reached OPEN reports its death. It is not the only death path: an inner connection that never opened reports through `on_open_error_callback` instead, and that is the path every failed redial takes. See "The funnel is not the only death path".
+
+**redial** - one attempt to construct a new inner connection and bring it to OPEN. A recovery pass performs one or more, with backoff between them.
+
+**recovery pass** - one traversal from `RECOVERING` to either `OPEN` or `CLOSED`, comprising the redial attempts and the topology replay that follows a successful one. Connection-level and channel-level passes are distinct and can interleave; see "Composing channel-level and connection-level recovery".
+
+**guarded call** - a public method that consults `_state` before acting and raises `ConnectionRecovering` or `ChannelRecovering` when it is `RECOVERING`. Contrast the internal calls topology replay makes, which bypass the guard by design.
+
+**topology ledger** - `coordinator.topology`, the recorded declarations that replay reissues. "Recorded" means the ledger holds it, which happens only after the broker acknowledged the declaration; it does not mean the entity currently exists on the broker, and the two diverge whenever something is deleted out of band.
+
+**delivery-tag offset** - the per-channel value added to every wire delivery tag before the application sees it, and subtracted from every tag the application acknowledges. It gives the application one continuous tag space across any number of recoveries, and it is what makes a tag from a superseded generation detectable rather than ambiguous. See "Consumer delivery tags across recovery".
+
+**stale tag** - a delivery tag issued by a superseded channel generation, detectable as `delivery_tag - _delivery_tag_offset <= 0`. The message it referred to has already been requeued by the broker, so discarding the acknowledgement loses nothing.
+
 ## Problem statement
 
 pika has no built-in recovery today: an unexpected connection or channel loss wakes every blocked caller with an exception and tears the connection down (`ThreadSafeConnection._on_connection_closed`). Nothing redials, and nothing remembers what topology or consumers existed. Every pika user currently hand-rolls reconnect logic (see `examples/asynchronous_consumer_example.py`, `examples/blocking_consume_recover_multiple_hosts_retry.py`).
