@@ -444,8 +444,10 @@ introduce.
 
 ## Where recovery hooks in
 
-`ThreadSafeConnection._on_connection_closed` is the single funnel for all
-connection death:
+The adapter `Connection._on_connection_closed` is the funnel for the death
+of an inner connection that had reached OPEN. It is not the only death
+path - see "The funnel is not the only death path" below - but it is the
+one an established connection drops through:
 
 ```python
 def _on_connection_closed(self, _connection, reason):
@@ -476,6 +478,62 @@ What differs from today is only that *subsequent* calls made before
 reconnection completes now fail immediately and catchably
 (`ConnectionRecovering`/`ChannelRecovering`) instead of hanging until their
 own timeout against a stopped loop.
+
+### The funnel is not the only death path
+
+The adapter wires two death callbacks on every inner connection:
+
+```python
+on_open_error_callback=self._on_connection_open_error,
+on_close_callback=self._on_connection_closed,
+```
+
+and `pika.connection.Connection._on_stream_terminated` branches between
+them on `self._opened`: a connection that never reached OPEN reports
+through `ON_CONNECTION_ERROR`, one that did reports through
+`ON_CONNECTION_CLOSED`. They are mutually exclusive, and only together do
+they cover all connection death.
+
+This matters because **a redial that fails to connect has never opened**,
+so it arrives at `_on_connection_open_error`, not at the funnel. During an
+outage that is the common case: a redial typically fails several times
+before one succeeds, so the retry cycle spends most of its life on the
+path the funnel does not cover. Its body today does three things that are
+correct for a failed *initial* connect and wrong for a failed redial:
+
+1. `self._connection.ioloop.stop()` - the same call the funnel makes, with
+   the same consequence under a shared loop. Suppressing it in one place
+   and not the other leaves recovery working only when the first redial
+   succeeds.
+2. `self._user_on_open_error_callback(_connection, error)` fires. That is
+   a documented public constructor parameter, whose signature is
+   `on_open_error_callback(connection, exception)` and whose meaning today
+   is "the connection you asked me to open could not be opened". Invoking
+   it once per failed retry silently redefines it.
+3. `self._connect_error = error` and `self._connected_event.set()` - both
+   exist to hand the outcome of `__init__` back to the constructing
+   thread, and neither has a meaning once that thread has moved on.
+
+Item 1 is settled: recovery suppresses it, exactly as in the funnel.
+Item 3 is settled: the redial path must not touch either, since the
+constructing thread is long gone. **Item 2 is a fork this proposal does
+not resolve**, and it is a public-contract question rather than a
+mechanism one:
+
+- Leave `on_open_error_callback` meaning only "initial connect failed",
+  and report failed redials solely through the recovery listeners
+  (`on_recovery_failed` once attempts are exhausted). Existing
+  applications see no behavior change. The cost is that a caller watching
+  that callback gets no per-attempt signal.
+- Fire it per failed redial, so one callback covers "could not connect"
+  whenever it happens. The cost is that an application which logs an
+  alert or aborts startup from that callback now does so repeatedly, mid
+  session, for a connection that may well recover.
+
+Recommendation: the first. A per-attempt signal is worth having, but it
+belongs on a new recovery listener where its meaning is unambiguous, not
+bolted onto a constructor callback whose documented contract is about
+opening.
 
 ### Calling into the connection during recovery
 
@@ -566,6 +624,81 @@ entries), closing any still-open previous raw channel first rather than
 only overwriting the reference; if `topology_recovery_mode` is `DISABLED`,
 stop there; otherwise call `_recover_topology(channels)`.
 
+### What the persistent loop costs
+
+Driving recovery on the connection's own loop is a deliberate divergence
+from every reference client. All three drive recovery on a separate
+thread of control:
+
+- The RabbitMQ Java client tears its I/O loop down *first*
+  (`AMQConnection.closeMainLoopThreadIfNecessary`, called immediately
+  before `notifyRecoveryCanBeginListeners`), then recovers on another
+  thread. `AutorecoveringConnection.beginAutomaticRecovery` is
+  `synchronized` and blocks on `wait(delay)` and `Thread.sleep`, so it
+  could not run on an I/O thread even if it wanted to.
+- The .NET client runs an explicit recovery loop on its own task
+  (`AutorecoveringConnection.Recovery.cs`: `_recoveryTask =
+  Task.Run(RecoverConnectionAsync)`), with a matching
+  `StopRecoveryLoopAsync`.
+- `amqp091-go` recovers in a goroutine that blocks on
+  `time.After(RetryInterval() + jitter)`.
+
+We diverge because a second thread has to synchronize with the state
+machine it mutates, and that synchronization is the complexity this
+design exists to avoid: a re-entrancy flag, a cross-level race guard, and
+condition-variable backoff, all protecting invariants the loop already
+enforces for free by running one callback at a time.
+
+The divergence does not remove complexity. It relocates it, and the price
+is two obligations that simply do not arise when recovery owns a thread:
+
+1. **Nothing on the loop thread may block.** A blocking call there waits
+   on an event that only a future iteration of the same loop can set, and
+   the loop cannot reach that iteration while blocked. The next section
+   covers this for topology replay; the teardown table below covers it
+   for pool joins, which is the same hazard reached by a different path.
+2. **Recovery must undo the teardown the drop path already performed.**
+   pika's drop path assumes the loop is going away and latches state on
+   that assumption. Once the loop persists, every one of those latches is
+   a bug.
+
+Both are absolute rather than best-effort, and they fail in opposite
+directions. Violating the first hangs the connection with no exception to
+catch and no timer left running to notice. Violating the second leaves a
+connection that reports itself successfully recovered while refusing all
+work.
+
+### Teardown the drop path performs, and what recovery must undo
+
+On any unexpected drop, pika performs an adapter-wide teardown before
+`_on_connection_closed` returns. Every step below is reached today, in
+this order, and each assumes the connection is not coming back. Recovery
+must suppress or reverse each one; the reset paths for items 2, 4 and 6
+currently exist only in `__init__`.
+
+| # | Site | What it latches | What recovery must do |
+|---|---|---|---|
+| 1 | `pika.connection.Connection._on_stream_terminated` | Calls `_on_close_meta(self._error)` on every channel **before** dispatching `ON_CONNECTION_CLOSED` | Nothing directly, but note the ordering: step 2 has already run for every channel by the time the funnel sees the drop |
+| 2 | `Channel._on_broker_close` -> `_claim_pool_shutdown` | `_pool_shutdown = True`; removes the channel from `wrapper._channels`; shuts the consumer work pool (`_shutdown = True`) | Suppress. A `StreamLostError` is not a client close, and the wrapper has to survive in order to be recovered |
+| 3 | `Connection._on_connection_closed` | `self._connection.ioloop.stop()` | Suppress. Under `custom_ioloop` this *is* the shared loop, so stopping it ends the thread recovery runs on |
+| 4 | `Connection._on_connection_closed` | `_record_closed_reason(reason)`, read by roughly sixteen sites including `close()`'s early return | Suppress, or reverse on the `RECOVERING -> OPEN` transition |
+| 5 | `_run_ioloop` tail | `_shutdown_all_consumer_pools()` and `_shutdown_connection_pool()`, both unbounded thread joins | Nothing: it never runs while the loop persists, which is the point. The requirement is that it must not be relocated into a loop callback, which obligation 1 forbids |
+| 6 | `Channel._arm_seq_no` | Leaves `_next_publish_seq_no` armed on the surviving wrapper, guarded by "arm only once" | Reverse. See "Publisher confirms hook" |
+| 7 | `Connection._on_connection_open_error` | `ioloop.stop()`, plus `_connect_error`, `_connected_event` and the user's `on_open_error_callback` | Suppress the first three. The callback is a public-contract fork: see "The funnel is not the only death path" |
+
+Item 7 is not reached by the drop that starts recovery; it is reached by
+every redial that fails to connect, which is the common case during an
+outage. It is in this table because it latches the same state, and because
+suppressing item 3 without also suppressing item 7 yields a recovery that
+works only when the first redial succeeds.
+
+Item 2 is the one most easily missed, because its consequence is silent.
+A recovered channel whose pool stayed shut still accepts a
+`basic_consume`, and the broker still delivers to it; every delivery then
+fails `submit()` with `RuntimeError`, which `_submit_or_terminate`
+swallows at `debug`. The connection looks healthy, the consumer looks
+subscribed, and no message is ever handed to the application.
+
 ### Topology replay must not use the blocking wrapper API
 
 **This needs flagging before implementation starts.**
@@ -595,6 +728,65 @@ call on the loop thread would hang the connection the first time recovery
 has more than a trivial amount of topology to replay, silently, with no
 exception to catch it (the loop simply stops servicing everything,
 including the timers that would otherwise detect the stall).
+
+### Consumer delivery tags across recovery
+
+Delivery tags are channel-scoped and restart from 1 on a reopened
+channel, so every tag an application holds when the socket drops is
+invalid afterwards. This is not a narrow window: a consumer callback runs
+on a `_BoundedWorkPool` worker, not the loop thread, so a long-running
+callback can still be holding a tag while the redial completes.
+`basic_ack` resolves `self._channel` inside the closure it schedules, so
+an ack issued from that callback lands on the **replacement** channel.
+Either the new channel's counter has already reached that value, in which
+case a different message is acknowledged and the loss is silent and
+undetectable, or it has not, in which case the broker answers 406
+`unknown delivery tag` and closes the channel recovery just rebuilt -
+which re-enters channel recovery, driven by the application's own acks.
+
+The Java and .NET clients both solve this with a delivery-tag offset, and
+we adopt it. `amqp091-go` has no equivalent: `Channel.Ack` transmits the
+tag exactly as given, with no staleness check anywhere in the package.
+Since this proposal otherwise ports `amqp091-go`'s recovery shape, that
+absence is worth stating plainly - following our primary reference here
+would reproduce the bug.
+
+The mechanism. The `Channel` wrapper survives the swap, so it holds
+`_delivery_tag_offset` and `_max_seen_delivery_tag`, both starting at
+zero:
+
+- `_wrapped_callback` updates `_max_seen_delivery_tag` to
+  `max(tag, _max_seen_delivery_tag)`, then hands the user callback a
+  `Basic.Deliver` carrying `tag + _delivery_tag_offset`. The application
+  therefore sees one continuous, monotonically increasing tag space
+  across any number of recoveries. Whether the offset is applied by
+  mutating the decoded frame or by copying it is an implementation
+  detail to settle against how `Basic.Deliver` is decoded per delivery.
+- `basic_ack`, `basic_nack` and `basic_reject` compute
+  `real = delivery_tag - _delivery_tag_offset`. When `real <= 0` the tag
+  predates the current channel generation: return without transmitting,
+  logging at `debug`. Otherwise transmit `real`.
+- On reopen, `_delivery_tag_offset += _max_seen_delivery_tag` and
+  `_max_seen_delivery_tag = 0`.
+- `basic_ack(0, multiple=True)` and `basic_nack(0, multiple=True)` keep
+  their protocol meaning of "everything outstanding" and pass through
+  rather than being treated as stale. `basic_reject` takes no `multiple`
+  argument, so it needs only the `real <= 0` guard.
+
+Dropping a stale acknowledgement is correct rather than lossy. The broker
+requeues every unacknowledged delivery when it detects the connection
+loss, so the message a stale tag referred to has already been returned to
+its queue and will be redelivered; acknowledging it is meaningless and
+the only alternative is a guaranteed channel exception. The offset is
+what makes the drop *precise* rather than a guess: without it, a stale
+tag is indistinguishable from a legitimate tag on the new channel.
+
+The consequence for applications is the one `findings.md` already records:
+delivery is at-least-once and consumers must be idempotent. A message
+being processed when the connection dropped is redelivered whether or not
+that processing completed. This is the single place where the "no
+application code changes" goal does not hold, and it does not hold for
+any client - it is a property of the protocol, not of the design.
 
 ### Publisher confirms hook
 
