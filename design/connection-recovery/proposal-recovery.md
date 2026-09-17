@@ -412,7 +412,8 @@ class ChannelTopology:
     bindings: list[BindingRecord] = field(default_factory=list)
     exchange_bindings: list[ExchangeBindingRecord] = field(default_factory=list)
     consumers: dict[str, ConsumerRecord] = field(default_factory=dict)
-    qos: tuple[int, int, bool] | None = None
+    prefetch_consumer: tuple[int, int] | None = None   # (prefetch_size, prefetch_count) from a global_qos=False call
+    prefetch_global: tuple[int, int] | None = None      # (prefetch_size, prefetch_count) from a global_qos=True call
     confirm_select: bool = False
     confirm_ack_nack_callback: Callable[[Any], None] | None = None
 ```
@@ -421,9 +422,25 @@ We propose the field name `exchange_type` (matching pika's own parameter name th
 
 **Recording:** `Channel.exchange_declare`, `queue_declare`, `queue_bind`, `exchange_bind`, `basic_consume`, `basic_qos`, `confirm_delivery` each call a coordinator method - `self._connection._recovery.record_exchange(self.channel_number, record)` and so on - guarded by `if self._connection._recovery is not None:`, after the broker ack succeeds, under `_channel_waiters_lock` as described above.
 
+**A passive declare records nothing.** `queue_declare(queue=q, passive=True)` and `exchange_declare(exchange=e, passive=True)` are existence checks, and their remaining arguments carry pika's defaults rather than the entity's real properties. Recording one would overwrite a correct record with `durable=False, exclusive=False, auto_delete=False`, and since durable entities survive a drop, replay would then issue `Queue.Declare(durable=False)` against a durable queue: 406 `PRECONDITION_FAILED`, which closes the channel mid-replay. This is not hypothetical for pika - a passive declare is the idiom this repository's own acceptance tests use to assert a queue exists, and two of the tests proposed below use it. All three reference clients exclude passive declares for this reason: Java's `queueDeclarePassive` and `exchangeDeclarePassive` pass straight through to the delegate without recording, .NET guards its record call with `if (false == passive)`, and `amqp091-go`'s `QueueDeclarePassive` has no record call. So the recording guard is `if self._connection._recovery is not None and not passive:`.
+
 **Removal:** `exchange_delete`, `queue_delete`, `queue_unbind`, `exchange_unbind`, `basic_cancel` symmetrically call `remove_exchange(name)`, `remove_queue(name)`, etc. - no channel argument, scanning every bucket in `topology`. `remove_queue`/`remove_exchange` cascade: deleting a queue removes any binding referencing it from every bucket, returning the exchanges those bindings sourced from so an auto-delete exchange left with no remaining bindings can be forgotten too.
 
-**`TopologyRecoveryMode.ONLY_TRANSIENT`** narrows what `_recover_topology` redeclares, unioning transient queue/exchange names across every channel's bucket before the phased pass begins: a queue is transient if `exclusive` or `auto_delete` is set, an exchange is transient if `auto_delete` is set; consumers, QoS, and confirm mode are never filtered by this mode, since they're lost with the channel on every reconnect regardless of queue durability.
+**`TopologyRecoveryMode.ONLY_TRANSIENT`** narrows what `_recover_topology` redeclares, unioning transient queue/exchange names across every channel's bucket before the phased pass begins: a queue is transient if `exclusive` or `auto_delete` is set, an exchange is transient if `auto_delete` is set. Consumers are never filtered by this mode, since a subscription is lost with the channel on every reconnect regardless of queue durability, and QoS and confirm mode are outside the mode's reach entirely because they are not topology - see "Channel-session state is restored before topology" below.
+
+Note that "transient" here means **connection-scoped**, not non-durable. That is how `amqp091-go` uses the word for the same mode, and it is not how the AMQP specification uses it, where a non-durable queue is the transient one. The consequence is worth stating rather than leaving for a caller to discover: a non-durable queue that is neither exclusive nor auto-delete is skipped by this mode, and it does not survive a broker restart, so the unfiltered consumer phase can then 404 against it. That follows from what the mode is for - durable topology managed out of band - rather than being a defect, but a caller choosing the mode should know it.
+
+### Channel-session state is restored before topology
+
+`basic_qos` and `confirm_delivery` are not topology entities and have no place in the phased ordering. They are properties of the channel session, they are lost when the channel is reopened, and they must be back in force **before** the first `basic_consume` of the replay. All three reference clients do exactly this, and each restores them as part of reopening the channel rather than as part of replaying topology:
+
+- Java's `AutorecoveringChannel.automaticallyRecover` calls `recoverState()`, which issues `basicQos` and `confirmSelect`, and `AutorecoveringConnection` runs `recoverChannels` before `recoverTopology`.
+- .NET does the same in `AutorecoveringChannel`, restoring both prefetch values before it calls `RecoverConsumersAsync`.
+- `amqp091-go`'s `openChannelSession` is documented as "resets client-side state, opens a fresh broker channel, and restores QoS/Confirm configuration", and `Reconnect` calls it before `RecoverTopology`.
+
+The ordering is load-bearing rather than tidy. RabbitMQ applies a `global=false` prefetch to consumers created *after* the `basic.qos`, leaving existing ones unaffected, and the spec puts the start of message flow at `Consume-Ok`. A QoS issued after `basic.consume` therefore cannot bound a flow that has already started: the reopened channel would take delivery of the entire outage backlog with no prefetch limit, straight into the bounded consumer work queue, which is the `WorkQueueFullError` path. So `_recover_channel` restores QoS and confirm mode immediately after the channel reopens, and `_recover_topology` never sees them.
+
+Two prefetch values, not one. `basic_qos(prefetch_size, prefetch_count, global_qos)` sets two independent limits depending on `global_qos`, and a channel may have both in force. Java and .NET each track them separately (`prefetchCountConsumer` and `prefetchCountGlobal`) and replay both; `amqp091-go` keeps a single `QosConfig` that the next call overwrites, so a channel that set both loses one on recovery. We follow Java and .NET.
 
 `basic_consume`'s `_wrapped_callback` closes over the caller-supplied `on_message_callback` value directly, so recovering via `ch.basic_consume(queue, on_message_callback, consumer_tag=tag, ...)` re-creates an identical closure around the *same* Python callback object - the mechanism `TestConsumeContinuityAcrossRecovery` depends on.
 
