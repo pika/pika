@@ -221,8 +221,14 @@ def check_file_lines(path, text, problems):
     for m in re.finditer(r'`?([\w/\\.]+\.py):(\d+)', text):
         rel, lineno = m.group(1), int(m.group(2))
         target = ROOT / rel
+        if not target.exists() and '/' not in rel:
+            # A bare filename may be a proposed file or a real one cited
+            # without its directory; resolve it when exactly one match exists
+            # so the citation is checked rather than skipped.
+            matches = [q for q in ROOT.rglob(rel) if '.git' not in q.parts]
+            if len(matches) == 1:
+                target = matches[0]
         if not target.exists():
-            # A bare filename such as recovery.py is a proposed file.
             if '/' in rel:
                 line = text[:m.start()].count('\n') + 1
                 problems.append(f'{path.name}:{line}: cited file {rel} '
@@ -259,18 +265,22 @@ def check_crossrefs(path, text, problems, heads):
 
 
 def check_python_blocks(path, text, problems):
-    preamble = ('from __future__ import annotations\n'
-                'import enum\n'
-                'from dataclasses import dataclass, field\n'
-                'from typing import Any, Callable\n')
-    for i, m in enumerate(re.finditer(r'```python\n(.*?)```', text, re.DOTALL),
-                          1):
+    # `[ \t]*` after the language tag: one trailing space silently disabled
+    # this whole check. No preamble is injected - it broke any block carrying
+    # its own `from __future__` import, which is the import these documents
+    # tell the implementer to add, and bought nothing because undefined names
+    # are not syntax errors anyway.
+    pattern = r'```python[ \t]*\n(.*?)```'
+    for i, m in enumerate(re.finditer(pattern, text, re.DOTALL), 1):
+        block = m.group(1)
         try:
-            compile(preamble + m.group(1), f'<{path.name} block {i}>', 'exec')
+            compile(block, f'<{path.name} block {i}>', 'exec')
         except SyntaxError as exc:
-            line = text[:m.start()].count('\n') + 1
-            problems.append(f'{path.name}:{line}: python block {i} does not '
-                            f'compile: {exc.msg}')
+            fence_line = text[:m.start()].count('\n') + 1
+            inner = (exc.lineno or 1)
+            problems.append(
+                f'{path.name}:{fence_line + inner}: python block {i} does '
+                f'not compile: {exc.msg}')
 
 
 MARKER = re.compile(r'^\s*(?:[-*+]\s|\d+\.\s|\||#{1,6}\s|>)')
@@ -293,6 +303,13 @@ def check_markdown(path, text, problems):
         if ln.startswith('```'):
             inside = not inside
             prev_blank = True
+            # Fall through to the ASCII and whitespace checks: a trailing
+            # space on a fence line is exactly what disabled the compile
+            # check, so it must not be exempt from being reported.
+            if not ascii_ok(ln):
+                problems.append(f'{path.name}:{n}: non-ASCII character')
+            if re.search(r'[ \t]+\r?$', ln):
+                problems.append(f'{path.name}:{n}: trailing whitespace')
             continue
         if not ascii_ok(ln):
             problems.append(f'{path.name}:{n}: non-ASCII character')
@@ -323,14 +340,21 @@ def main():
     # Headings are pooled across the tree: referring to a section of a
     # sibling document is normal and must not be flagged.
     all_heads = set()
+    texts = {}
     for path in docs:
+        try:
+            texts[path] = path.read_text(encoding='utf-8')
+        except UnicodeDecodeError as exc:
+            problems.append(f'{path.name}: not valid UTF-8 ({exc})')
+            continue
         all_heads |= {
             m.group(1).strip().replace('`', '').lower()
-            for m in re.finditer(r'^#{2,6}\s+(.*)$',
-                                 path.read_text(encoding='utf-8'), re.MULTILINE)
+            for m in re.finditer(r'^#{2,6}\s+(.*)$', texts[path], re.MULTILINE)
         }
     for path in docs:
-        text = path.read_text(encoding='utf-8')
+        text = texts.get(path)
+        if text is None:
+            continue
         check_symbols(path, text, members, problems)
         check_file_lines(path, text, problems)
         check_crossrefs(path, text, problems, all_heads)
