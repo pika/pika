@@ -1,4 +1,5 @@
-"""Check the design documents against the invariants reviews keep catching.
+"""
+Check the design documents against the invariants reviews keep catching.
 
 Run from the repository root::
 
@@ -20,10 +21,25 @@ Checks, in order of how much they have caught:
 5. Markdown hygiene: ASCII only, no trailing whitespace, exactly one H1,
    and no hard-wrapped paragraphs.
 """
+
 import ast
 import pathlib
 import re
 import sys
+
+# Sentinel for a bare class name that two modules both define, so a
+# citation using it cannot be resolved and must be qualified.
+AMBIGUOUS = frozenset({'<ambiguous>'})
+
+# The documents' own convention, stated in the glossary: an unqualified
+# `Connection` or `Channel` means the adapter class. Encode that rather than
+# demanding qualification everywhere, which would fight the prose. Citing a
+# base class still requires the module prefix, and a base-qualified citation
+# of an adapter-only member therefore fails, which is the case worth catching.
+BARE_DEFAULTS = {
+    'Connection': 'pika.adapters.thread_safe_connection.Connection',
+    'Channel': 'pika.adapters.thread_safe_connection.Channel',
+}
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DESIGN = ROOT / 'design'
@@ -76,40 +92,83 @@ FOREIGN = re.compile(
     r'|functools|threading|collections|heapq)$')
 
 
-def load_members():
-    """Map each class name to the attributes and methods defined on it."""
-    members: dict[str, set[str]] = {}
+def load_members(problems):
+    """
+    Map each qualified class name to its attributes and methods.
+
+    Keys are ``module.Class`` *and* bare ``Class`` where the bare name is
+    unambiguous. Merging the two ``Connection`` classes into one namespace
+    would defeat the check entirely, since a member of either would satisfy
+    a citation of the other - the adapter-versus-base confusion these
+    documents exist to keep straight.
+    """
+    by_qualified: dict[str, set[str]] = {}
     for rel in SOURCES:
         path = ROOT / rel
         if not path.exists():
-            print(f'check_docs: missing source {rel}')
+            problems.append(f'check_docs: SOURCES entry {rel} does not exist')
             continue
         tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
         for node in ast.walk(tree):
             if not isinstance(node, ast.ClassDef):
                 continue
-            found = members.setdefault(node.name, set())
-            for sub in ast.walk(node):
-                if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    found.add(sub.name)
-                elif isinstance(sub, ast.Attribute) and isinstance(
-                        sub.value, ast.Name) and sub.value.id == 'self':
-                    found.add(sub.attr)
-                elif isinstance(sub, ast.AnnAssign) and isinstance(
-                        sub.target, ast.Name):
-                    found.add(sub.target.id)
-                elif isinstance(sub, ast.Assign):
-                    for t in sub.targets:
-                        if isinstance(t, ast.Name):
-                            found.add(t.id)
+            mod = rel[:-3].replace('/', '.')
+            found = by_qualified.setdefault(f'{mod}.{node.name}', set())
+            # Direct children only for class-level assignments: walking the
+            # whole subtree pulls method locals in as members, which made
+            # `Connection.offset` and `Connection.deadline` pass.
+            for stmt in node.body:
+                if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    found.add(stmt.name)
+                    for sub in ast.walk(stmt):
+                        if (isinstance(sub, ast.Attribute) and
+                                isinstance(sub.value, ast.Name) and
+                                sub.value.id == 'self'):
+                            found.add(sub.attr)
+                elif isinstance(stmt, ast.AnnAssign) and isinstance(
+                        stmt.target, ast.Name):
+                    found.add(stmt.target.id)
+                elif isinstance(stmt, ast.Assign):
+                    for tgt in stmt.targets:
+                        if isinstance(tgt, ast.Name):
+                            found.add(tgt.id)
+    # Add bare names only where they are unambiguous.
+    bare: dict[str, list[str]] = {}
+    for qual in by_qualified:
+        bare.setdefault(qual.rsplit('.', 1)[-1], []).append(qual)
+    members = dict(by_qualified)
+    for name, quals in bare.items():
+        if len(quals) == 1:
+            members[name] = by_qualified[quals[0]]
+        else:
+            members[name] = AMBIGUOUS
     return members
 
 
-def code_spans(text):
-    """Character ranges covered by fenced code blocks, which are not prose."""
+def code_spans(text, problems=None, name=''):
+    """
+    Character ranges covered by fenced code blocks.
+
+    Line-anchored deliberately: an unanchored ``r'```.*?```'`` also pairs
+    inline triple backticks, and one of those in prose desynchronises the
+    pairing so that most of the document is treated as code and silently
+    exempted from the symbol check.
+    """
     spans = []
-    for m in re.finditer(r'```.*?```', text, re.S):
-        spans.append((m.start(), m.end()))
+    start = None
+    pos = 0
+    fences = 0
+    for line in text.split('\n'):
+        if line.startswith('```'):
+            fences += 1
+            if start is None:
+                start = pos
+            else:
+                spans.append((start, pos + len(line)))
+                start = None
+        pos += len(line) + 1
+    if start is not None and problems is not None:
+        problems.append(f'{name}: unclosed code fence ({fences} fence lines)')
     return spans
 
 
@@ -118,28 +177,44 @@ def in_code(pos, spans):
 
 
 def check_symbols(path, text, members, problems):
-    spans = code_spans(text)
+    spans = code_spans(text, problems, path.name)
     for m in re.finditer(r'`([A-Za-z_][\w.]*)\.(\w+)`', text):
         if in_code(m.start(), spans):
             continue
         owner, member = m.group(1), m.group(2)
         if FOREIGN.match(owner) or owner.endswith('.py'):
             continue
-        cls = owner.split('.')[-1]
-        if cls not in members:
-            continue
         # `Channel.Close`, `Basic.Ack`, `Connection.Blocked` and friends are
         # AMQP method frames, not Python members; the protocol namespace
-        # collides with our class names.
+        # collides with our class names. Tested before resolution so a frame
+        # name never produces a spurious namespace complaint.
         if member[:1].isupper():
             continue
-        if f'{cls}.{member}' in PROPOSED:
+        # The stated convention wins over the ambiguity sentinel: a bare
+        # `Connection` is the adapter one by definition, not an unresolvable
+        # collision.
+        if owner in BARE_DEFAULTS:
+            key = BARE_DEFAULTS[owner]
+        elif owner in members:
+            key = owner
+        else:
+            key = owner.split('.')[-1]
+        if key not in members:
             continue
-        if member not in members[cls]:
+        if members[key] is AMBIGUOUS:
             line = text[:m.start()].count('\n') + 1
             problems.append(
-                f'{path.name}:{line}: `{cls}.{member}` does not exist on '
-                f'{cls} (members are read from the real source)')
+                f'{path.name}:{line}: `{owner}.{member}` uses a bare class '
+                f'name defined in more than one module; qualify it')
+            continue
+        cls = key.rsplit('.', 1)[-1]
+        if f'{cls}.{member}' in PROPOSED:
+            continue
+        if member not in members[key]:
+            line = text[:m.start()].count('\n') + 1
+            problems.append(
+                f'{path.name}:{line}: `{owner}.{member}` does not exist on '
+                f'{key} (members are read from the real source)')
 
 
 def check_file_lines(path, text, problems):
@@ -161,7 +236,15 @@ def check_file_lines(path, text, problems):
 
 
 def check_crossrefs(path, text, problems, heads):
-    for m in re.finditer(r'(?:see|under|per|in) "([^"]{8,110})"', text):
+    spans = code_spans(text)
+    # `re.I` matters: sentence-initial `See "..."` is the dominant form and
+    # a case-sensitive pattern missed ten of thirty-eight references here,
+    # two of which were genuinely dangling. `\b` stops `within "..."`
+    # matching through the `in`.
+    pattern = r'\b(?:see|under|per|in)\s+"([^"]{8,110})"'
+    for m in re.finditer(pattern, text, re.IGNORECASE):
+        if in_code(m.start(), spans):
+            continue
         raw = m.group(1).strip().rstrip('.').replace('`', '')
         ref = raw.lower()
         # Only treat it as a section reference when it reads like a title.
@@ -180,7 +263,8 @@ def check_python_blocks(path, text, problems):
                 'import enum\n'
                 'from dataclasses import dataclass, field\n'
                 'from typing import Any, Callable\n')
-    for i, m in enumerate(re.finditer(r'```python\n(.*?)```', text, re.S), 1):
+    for i, m in enumerate(re.finditer(r'```python\n(.*?)```', text, re.DOTALL),
+                          1):
         try:
             compile(preamble + m.group(1), f'<{path.name} block {i}>', 'exec')
         except SyntaxError as exc:
@@ -230,8 +314,8 @@ def ascii_ok(text):
 
 
 def main():
-    members = load_members()
     problems: list[str] = []
+    members = load_members(problems)
     docs = sorted(DESIGN.rglob('*.md'))
     if not docs:
         print('check_docs: no documents found')
@@ -241,8 +325,9 @@ def main():
     all_heads = set()
     for path in docs:
         all_heads |= {
-            m.group(1).strip().replace('`', '').lower() for m in re.finditer(
-                r'^#{2,6}\s+(.*)$', path.read_text(encoding='utf-8'), re.M)
+            m.group(1).strip().replace('`', '').lower()
+            for m in re.finditer(r'^#{2,6}\s+(.*)$',
+                                 path.read_text(encoding='utf-8'), re.MULTILINE)
         }
     for path in docs:
         text = path.read_text(encoding='utf-8')
