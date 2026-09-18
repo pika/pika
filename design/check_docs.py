@@ -34,6 +34,11 @@ What it does check, reliably:
 6. Manifest sections name and point rather than explain, so a correction
    made in the prose cannot go stale in the sections an implementer
    builds from.
+7. A sentence stating a count agrees with the list beneath it. Adding an
+   item and leaving the count alone is a defect a review pass found.
+8. No sentence begins with a conjunction after a full stop, which is the
+   seam left by inserting text into the middle of a paragraph and
+   orphaning the clause that followed.
 
 Every check has been proven to fail on planted defects, several per check.
 That matters more than it sounds: the cross-reference check was dead on
@@ -391,6 +396,135 @@ def check_manifest_sections(path, text, problems):
                 f'and point, not explain ("{hit.group(0)}")')
 
 
+NUMBER_WORDS = {
+    'one': 1,
+    'two': 2,
+    'three': 3,
+    'four': 4,
+    'five': 5,
+    'six': 6,
+    'seven': 7,
+    'eight': 8,
+    'nine': 9,
+    'ten': 10,
+    'eleven': 11,
+    'twelve': 12,
+}
+
+WORD = re.compile(r'\b(' + '|'.join(NUMBER_WORDS) + r')\b', re.IGNORECASE)
+ITEM = re.compile(r'^(?:\d+\.|[-*+])\s')
+
+# A number word only states a count when a plural noun follows it. Without
+# this, "a public-contract question rather than a mechanism one:" reads as
+# the count 1, which is the pronoun sense.
+PLURAL = re.compile(r'^[a-z-]{4,}s$')
+NOT_PLURAL = frozenset({
+    'across',
+    'always',
+    'others',
+    'takes',
+    'these',
+    'this',
+    'those',
+    'thus',
+    'unless',
+})
+
+
+def count_items(lines, start):
+    """
+    Count top-level list items in the block beginning at `start`.
+
+    Returns None when the block is not a list, so the caller can tell "no list here" from "a list of
+    zero items".
+    """
+    n = start
+    while n < len(lines) and lines[n].strip() == '':
+        n += 1
+    if n >= len(lines) or not ITEM.match(lines[n]):
+        return None
+    items = 0
+    while n < len(lines):
+        line = lines[n]
+        if line.strip() == '' or line.startswith((' ', '\t')):
+            n += 1  # blank or continuation of an item
+            continue
+        if not ITEM.match(line):
+            break  # heading, fence, table or prose
+        items += 1
+        n += 1
+    return items
+
+
+# A conjunction after a full stop is never a sentence start in this prose;
+# it is the seam left by inserting text into the middle of a paragraph.
+SPLICE = re.compile(
+    r'\.\s+(and|or|but|so|which|then|because|therefore|rather|returning)\b')
+
+
+def inline_spans(text):
+    """
+    Character ranges covered by single-backtick code spans.
+
+    `code_spans` covers fenced blocks only, and deliberately so: the symbol check reads the
+    backticked identifiers this skips.
+    """
+    return [m.span() for m in re.finditer(r'`[^`\n]+`', text)]
+
+
+def check_sentence_splices(path, text, problems):
+    """Fail on a sentence beginning with a conjunction after a full stop."""
+    spans = code_spans(text) + inline_spans(text)
+    for m in SPLICE.finditer(text):
+        if in_code(m.start(), spans):
+            continue
+        line = text.count('\n', 0, m.start()) + 1
+        problems.append(f'{path.name}:{line}: sentence starts with '
+                        f'"{m.group(1)}" after a full stop; a clause was '
+                        f'orphaned by an insertion')
+
+
+def counts_something(line, pos):
+    """Say whether a plural noun follows the number word ending at `pos`."""
+    for token in re.findall(r'[\w-]+', line[pos:])[:4]:
+        token = token.lower()
+        if PLURAL.match(token) and token not in NOT_PLURAL:
+            return True
+    return False
+
+
+def check_list_counts(path, text, problems):
+    """
+    Fail when a sentence states a count that its own list contradicts.
+
+    Adding an item to an enumerated list and leaving the count that
+    introduces it alone is the exact defect this catches: "Two details
+    matter here:" over three numbered items.
+    """
+    lines = text.split('\n')
+    fenced = False
+    for n, line in enumerate(lines):
+        if line.startswith('```'):
+            fenced = not fenced
+            continue
+        if fenced or not line.rstrip().endswith(':'):
+            continue
+        words = {
+            m.group(1).lower()
+            for m in WORD.finditer(line)
+            if counts_something(line, m.end())
+        }
+        if len(words) != 1:
+            # No count, or an ambiguous sentence naming several. Counting
+            # "two of the three paths" either way would be a guess.
+            continue
+        stated = NUMBER_WORDS[words.pop()]
+        found = count_items(lines, n + 1)
+        if found is not None and found != stated:
+            problems.append(f'{path.name}:{n + 1}: says {stated} but the list '
+                            f'below it has {found} items')
+
+
 MARKER = re.compile(r'^\s*(?:[-*+]\s|\d+\.\s|\||#{1,6}\s|>)')
 
 
@@ -470,6 +604,8 @@ def main():
         check_python_blocks(path, text, problems)
         check_markdown(path, text, problems)
         check_manifest_sections(path, text, problems)
+        check_list_counts(path, text, problems)
+        check_sentence_splices(path, text, problems)
     for p in problems:
         print(p)
     # Report coverage, not just problems. Two review passes over-trusted this
