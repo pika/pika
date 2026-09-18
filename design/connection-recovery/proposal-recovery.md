@@ -97,7 +97,7 @@ A call issued while the connection or channel is `RECOVERING` must fail **synchr
 **`pika/recovery.py`** (new module):
 
 ```python
-# These four lines are part of the proposal, not boilerplate elided from it.
+# This preamble is part of the proposal, not boilerplate elided from it.
 # `from __future__ import annotations` is what makes the `| None` union and
 # the forward reference to `TopologyRecoveryEntity` legal: without it both are
 # evaluated at class-creation time, and PEP 604 unions raise on the 3.7-3.9
@@ -106,8 +106,8 @@ A call issued while the connection or channel is `RECOVERING` must fail **synchr
 from __future__ import annotations
 
 import enum
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
     from pika.adapters.thread_safe_connection import Connection
@@ -203,7 +203,7 @@ One consequence to fix while here: `_check_not_closed`'s second arm is `if self.
 | Class | Guarded (raises during `RECOVERING`) | Admitted, and why |
 | --- | --- | --- |
 | `Connection` | `channel` | `close`, `abort`, `__exit__` - terminal, per "Calling into the connection during recovery"; `add_callback_threadsafe` - the documented way to react to recovery, so guarding it would break the thing it exists for; `add_on_connection_blocked_callback`, `add_on_connection_unblocked_callback` - registration, recorded and re-applied per "Re-registration is wider than user channel callbacks"; `__enter__`, `is_open`, `is_closed`, and the members this design adds - `state`, `is_recovering`, `add_state_change_listener`, `add_on_close_callback`, `add_on_open_callback`, `add_on_recovery_started_callback`, `add_on_recovery_succeeded_callback`, `add_on_recovery_failed_callback` - they answer state or register for it rather than using the connection |
-| `Channel` | `basic_publish`, `basic_get`, `basic_consume`, `basic_cancel`, `basic_qos`, `confirm_delivery`, `queue_declare`, `exchange_declare`, `queue_bind`, `queue_unbind`, `queue_delete`, `queue_purge`, `exchange_bind`, `exchange_unbind`, `exchange_delete` | `basic_ack`, `basic_nack`, `basic_reject` - per "Acknowledgements are exempt from the guard"; `close`, `abort` - terminal, and `close` additionally because its first executable statement is `self._register_waiter()`, so a guard in that helper would raise before it could schedule anything, under "Calling into the connection during recovery"; `add_on_cancel_callback`, `add_on_return_callback` - registration, as above; `next_publish_seq_no`, `channel_number`, `is_open`, `is_closed`, and the channel half of the observability API this design adds - `state`, `is_recovering`, `add_state_change_listener` and the three `add_on_recovery_*_callback` methods - they answer state or register for it |
+| `Channel` | `basic_publish`, `basic_get`, `basic_consume`, `basic_cancel`, `basic_qos`, `confirm_delivery`, `queue_declare`, `exchange_declare`, `queue_bind`, `queue_unbind`, `queue_delete`, `queue_purge`, `exchange_bind`, `exchange_unbind`, `exchange_delete` | `basic_ack`, `basic_nack`, `basic_reject` - per "Acknowledgements are exempt from the guard"; `close`, `abort` - terminal, and `close` additionally because its first executable statement is `self._register_waiter()`, so a guard in that helper would raise before it could schedule anything, under "Calling into the connection during recovery"; `add_on_cancel_callback`, `add_on_return_callback` - registration, as above; `next_publish_seq_no`, `channel_number`, `is_open`, `is_closed`, and the channel half of the observability API this design adds - `state`, `is_recovering`, `add_state_change_listener`, `add_on_close_callback`, `add_on_open_callback` and the three `add_on_recovery_*_callback` methods, all eight of them, since an earlier draft of this row listed six and integration test 15 registers the two it dropped - they answer state or register for it |
 
 Two rows rather than a single list because the receiver decides which exception type is raised, and because the channel's guard reads the *effective* state - see "Composing channel-level and connection-level recovery".
 
@@ -266,7 +266,12 @@ def _on_connection_closed(self, _connection, reason):
     if _connection is not self._connection:
         return                          # stale notification from a superseded generation
     if self._state is LifecycleState.RECOVERING:
-        return                          # a pass already owns this; do not start a second
+        # A pass already owns this: do not start a second, but do not swallow
+        # the drop either, or the pass in flight is stranded mid-replay with
+        # nothing left to resume it.  See "A second drop during replay must
+        # reach the pass, not be swallowed".
+        self._recovery_pass.mark_dropped(reason)
+        return
     if self._recovery is not None and not isinstance(
             reason, (ConnectionClosedByClient, WorkQueueFullError)):
         self._transition(LifecycleState.RECOVERING, reason)  # wakes blocking waiters, fires listeners
@@ -854,7 +859,7 @@ Three of these are raised in `design-state-machine.md` and remain open here: the
 
 Pending sign-off on the direction above, implementation proceeds in phases. Like the file-by-file manifest, this is an **ordering**, not a second description: each phase names the symbols it lands and the tests that close it out, and points at the section that defines the behaviour. Where an entry here and a prose section disagree, the prose section wins.
 
-Two constraints govern the ordering. No phase may ship in which `on_recovery_succeeded` silently implies that consumers survived, which phases 2 and 3 satisfy by rejecting every `topology_recovery_mode` except `DISABLED` at construction, as specified under "Smaller corrections the reviews surfaced". And a guard must land in the same commit as the mechanism it guards, since shipping retry logic first leaves a window for the unbounded episode chains described under "Composing channel-level and connection-level recovery".
+Two constraints govern the ordering. No phase may ship in which `on_recovery_succeeded` silently implies that consumers survived, which phases 2 and 3 satisfy by rejecting every `topology_recovery_mode` except `DISABLED` at construction, as specified under "Smaller corrections the reviews surfaced". And a guard must land in the same commit as the mechanism it guards, since shipping retry logic first leaves a window for the unbounded episode chains described under "Every pass owns its retry budget".
 
 1. **Core state machine.** Lands `LifecycleState`, the two exceptions, `state`/`is_recovering`, the listener methods, `_transition`, and the guard at each public method. Defined under "Lifecycle state", "Guard and exceptions", "Observability", "`_transition` is the only thing that changes state, and it must not hold the lock across dispatch", and "Listener dispatch belongs on the connection-event pool".
    - Unit: guard raises the dedicated exception per state; terminal-rule enforcement; listener ordering and dispatch off the loop thread; callback sugar fires on the correct transition.

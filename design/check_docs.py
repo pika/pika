@@ -69,6 +69,7 @@ where the check is supposed to look, and confirm the message names it.
 """
 
 import ast
+import difflib
 import pathlib
 import re
 import sys
@@ -121,7 +122,7 @@ EXTENSIONS = frozenset({
 # against - and two checks have already gone inert while printing 0 problems
 # and exiting 0. Raise it when coverage grows; lowering it is a deliberate act
 # that belongs in the same commit as whatever removed the citations.
-MIN_VERIFIED = 92
+MIN_VERIFIED = 107
 
 IGNORED_PARTS = frozenset({
     '.git', '.mypy_cache', '.pytest_cache', '.tox', '.venv', '__pycache__',
@@ -192,7 +193,33 @@ PROPOSED = {
     'Channel.add_on_recovery_started_callback',
     'Channel.add_on_recovery_succeeded_callback',
     'Channel.add_on_recovery_failed_callback',
+    # The document says the five registration methods are provided on both
+    # classes and integration test 15 registers these two on a channel, so
+    # listing only the connection's half made the channel's uncitable.
+    'Channel.add_on_close_callback',
+    'Channel.add_on_open_callback',
 }
+
+# Bases whose members are genuinely not ours and whose absence from the parsed
+# set is expected rather than a gap in coverage.
+EXTERNAL_BASES = frozenset({
+    'Exception', 'BaseException', 'object', 'ValueError', 'TypeError',
+    'IOError', 'OSError', 'RuntimeError', 'AttributeError', 'Enum', 'IntEnum',
+    'ABC', 'Generic', 'NamedTuple'
+})
+
+# Qualified class keys whose inherited member set could not be fully resolved,
+# so a missing member there means "cannot tell", not "does not exist".
+INCOMPLETE = set()  # type: ignore[var-annotated]
+
+# Classes these documents propose adding, as `module.Class`. The same
+# declaration `PROPOSED` makes for members: listing one says it does not exist
+# yet. Without this, citing the design's own new exception types the way its
+# conventions ask for was reported as a defect.
+PROPOSED_CLASSES = frozenset({
+    'pika.exceptions.ConnectionRecovering',
+    'pika.exceptions.ChannelRecovering',
+})
 
 # Names that look like Class.member but are not ours to check: reference
 # clients, other languages, and dotted prose.
@@ -235,28 +262,44 @@ def modpath(mod):
                                              '__init__.py').exists()
 
 
-def qualified_problem(owner, member, members):
+def module_prefix(owner):
     """
-    Describe why a `pika.`-rooted citation is wrong, or return None.
+    The leading all-lowercase run of a dotted owner: its module part.
 
-    Two shapes reach here and they mean different things. In `pika.connection.Connection` the
-    *member* is the class and the owner is the module; in `pika.connection.Connection.channel` the
-    owner carries the class. Reading only the first shape as the second asked whether
-    `pika.connection` contains a class named `connection`.
-
-    Two distinct defects, and an earlier version could see neither: a module not on disk, and a
-    class absent from a module that *is* in `SOURCES`. The second is what the tail fallback
-    accepted, resolving `pika.heartbeat.IOLoop` through its tail to the adapter's `IOLoop`.
+    Class segments start with a capital, so `pika.spec.Basic` gives
+    `pika.spec` and `pika.connection.Connection` gives `pika.connection`.
+    Splitting on the *last* segment instead treated `pika.spec.Basic.Ack` as a
+    citation of a module called `pika.spec.Basic`, and reported five correct
+    shapes as defects: nested AMQP frame classes, class constants such as
+    `Connection.DEFAULT_PORT`, module-level functions, and the design's own
+    proposed exception classes.
     """
-    if member[:1].isupper():
-        mod, cls, qual = owner, member, f'{owner}.{member}'
-    else:
-        mod, cls, qual = module_of(owner), owner.rsplit('.', 1)[-1], owner
-    if not modpath(mod):
-        return f'names the module {mod}, which does not exist'
-    if mod in SOURCE_MODULES and qual not in members:
-        return f'names no class {cls} in {mod}'
-    return None
+    keep = []
+    for part in owner.split('.'):
+        if part[:1].isupper():
+            break
+        keep.append(part)
+    return '.'.join(keep)
+
+
+def resolve_owner(owner, members):
+    """
+    Resolve a citation's owner to a qualified class key, or None.
+
+    Suffix matching is what makes a partially-qualified owner work:
+    `thread_safe_connection.Connection` reaches the adapter class, while
+    `heartbeat.IOLoop` reaches nothing, because no key ends that way. The tail
+    fallback it replaces took the last segment alone, so `heartbeat.IOLoop`
+    resolved through `IOLoop` to the adapter's and was counted as verified.
+    """
+    if owner in BARE_DEFAULTS:
+        return BARE_DEFAULTS[owner]
+    if owner in members:
+        return owner
+    if '.' not in owner:
+        return None
+    hits = [q for q in members if q.endswith('.' + owner)]
+    return hits[0] if len(hits) == 1 else None
 
 
 def dotted_name(node):
@@ -359,6 +402,15 @@ def load_members(problems):
         same = mod + '.' + target
         return same if same in by_qualified else None
 
+    # A base outside `SOURCES` - `SocketConnectionMixin`, or plain `Exception` -
+    # contributes members this cannot see, so its subclass's member set is
+    # *incomplete* and absence proves nothing there. Recording that is the
+    # difference between "this member does not exist" and "I cannot tell":
+    # `SelectorIOServicesAdapter.connect_socket` is real and inherited from a
+    # mixin in an unlisted module, and was being reported as nonexistent, with
+    # `PROPOSED` - which asserts a member does *not* exist yet - the only escape.
+    incomplete = set()
+
     def inherited(qual, seen):
         if qual in seen:
             return set()  # cyclic or repeated base; stop
@@ -366,11 +418,18 @@ def load_members(problems):
         out = set(by_qualified[qual])
         for base in bases.get(qual, []):
             cand = resolve_base(qual, base)
-            if cand is not None:
-                out |= inherited(cand, seen)
+            if cand is None:
+                if base not in EXTERNAL_BASES:
+                    incomplete.add(qual)
+                continue
+            out |= inherited(cand, seen)
+            if cand in incomplete:
+                incomplete.add(qual)
         return out
 
     by_qualified = {q: inherited(q, set()) for q in list(by_qualified)}
+    INCOMPLETE.clear()
+    INCOMPLETE.update(incomplete)
     # A stale BARE_DEFAULTS target silently disables the check for every bare
     # citation, which is most of them, so it is validated like SOURCES is.
     for bare_name, target in BARE_DEFAULTS.items():
@@ -385,6 +444,11 @@ def load_members(problems):
         bare.setdefault(qual.rsplit('.', 1)[-1], []).append(qual)
     members: dict[str, AbstractSet[str]] = dict(by_qualified)
     for name, quals in bare.items():
+        # The incompleteness mark has to reach the bare alias too: citations
+        # mostly use bare names, so marking only the qualified key left the
+        # false "does not exist" in place for exactly the spelling authors use.
+        if len(quals) == 1 and quals[0] in incomplete:
+            INCOMPLETE.add(name)
         if len(quals) == 1:
             members[name] = by_qualified[quals[0]]
         else:
@@ -472,40 +536,65 @@ def check_symbols(path, text, members, problems, tally=None):
         # name never produces a spurious namespace complaint.
         if tally is not None:
             tally['seen'] += 1
-        # All `pika.`-rooted resolution happens here, before the uppercase skip,
-        # because in a bare class reference such as `pika.chanel.Chanel` the
-        # class name *is* the member - so the skip ran first and swallowed the
-        # typo, leaving the branch written to catch a wrong module path dead for
-        # exactly the citations it was written for.
-        if owner.startswith('pika.'):
-            bad = qualified_problem(owner, member, members)
-            if bad:
-                line = text[:m.start()].count('\n') + 1
-                problems.append(f'{path.name}:{line}: `{owner}.{member}` {bad}')
-                if tally is not None:
-                    tally['unresolved'] += 1
-                continue
-            if owner not in members:
-                # A real module outside `SOURCES`: out of scope, not a defect.
-                if tally is not None:
-                    tally['unresolved'] += 1
-                continue
+        # A misspelled module is caught before the uppercase skip, because in a
+        # bare class reference such as `pika.chanel.Chanel` the class name *is*
+        # the member, so the skip would swallow the typo. The module part is the
+        # leading lowercase run, not everything but the last segment: reading it
+        # the other way made `pika.spec.Basic.Ack` a citation of a nonexistent
+        # module `pika.spec.Basic`.
+        mod = module_prefix(owner)
+        if owner.startswith('pika.') and not modpath(mod):
+            line = text[:m.start()].count('\n') + 1
+            problems.append(f'{path.name}:{line}: `{owner}.{member}` names the '
+                            f'module {mod}, which does not exist')
+            if tally is not None:
+                tally['unresolved'] += 1
+            continue
         if member[:1].isupper():
+            # A class or constant reference. When the owner is a module this
+            # corpus may cite, the class must exist there - that is the
+            # base-versus-adapter guard, and dropping it to fix the false
+            # positives below would have cost real coverage. Anywhere else,
+            # resolving it needs the nested-class and re-export handling the
+            # coverage note puts out of scope: `pika.spec.Basic.Ack` is a
+            # nested frame class and `Connection.DEFAULT_PORT` is a constant.
+            qual = f'{owner}.{member}'
+            if owner in SOURCE_MODULES and qual not in PROPOSED_CLASSES:
+                if qual in members:
+                    if tally is not None:
+                        tally['checked'] += 1
+                else:
+                    line = text[:m.start()].count('\n') + 1
+                    problems.append(f'{path.name}:{line}: `{qual}` names no '
+                                    f'class {member} in {owner}')
+                    if tally is not None:
+                        tally['failed'] += 1
+                continue
             if tally is not None:
                 tally['skipped_constant'] += 1
+            continue
+        if mod == owner:
+            # The owner is entirely a module, so this cites a module-level
+            # function such as `pika.callback.sanitize_prefix`. Real, and not a
+            # class member; reporting it claimed `pika.callback` had no class
+            # named `callback`.
+            if tally is not None:
+                tally['unresolved'] += 1
             continue
         # The stated convention wins over the ambiguity sentinel: a bare
         # `Connection` is the adapter one by definition, not an unresolvable
         # collision.
-        if owner in BARE_DEFAULTS:
-            key = BARE_DEFAULTS[owner]
-        elif owner in members:
-            key = owner
-        elif '.' in owner:
-            key = owner.split('.')[-1]
-        else:
-            key = owner
-        if key not in members:
+        key = resolve_owner(owner, members)
+        if key is None:
+            # A dotted owner that suffix-matches nothing. Reported when its
+            # module is one this corpus is allowed to cite, since then the class
+            # genuinely is not there; otherwise it is a receiver expression or a
+            # module outside `SOURCES`, both out of scope.
+            if mod in SOURCE_MODULES and mod != owner:
+                line = text[:m.start()].count('\n') + 1
+                problems.append(
+                    f'{path.name}:{line}: `{owner}.{member}` names no class '
+                    f'{owner[len(mod) + 1:]} in {mod}')
             if tally is not None:
                 tally['unresolved'] += 1
             continue
@@ -525,13 +614,24 @@ def check_symbols(path, text, members, problems, tally=None):
             if tally is not None:
                 tally['proposed'] += 1
             continue
-        if tally is not None:
-            tally['checked'] += 1
+        # `checked` counts citations that resolved *and* held. Incrementing it
+        # before the membership test counted failures as verified, so the
+        # coverage line could report 92 verified while printing a defect, and
+        # the `MIN_VERIFIED` floor built on it was measuring the wrong thing.
         if member not in members[key]:
+            if key in INCOMPLETE:
+                # Its member set is incomplete, so absence proves nothing.
+                if tally is not None:
+                    tally['unresolved'] += 1
+                continue
             line = text[:m.start()].count('\n') + 1
             problems.append(
                 f'{path.name}:{line}: `{owner}.{member}` does not exist on '
                 f'{key} (members are read from the real source)')
+            if tally is not None:
+                tally['failed'] += 1
+        elif tally is not None:
+            tally['checked'] += 1
 
 
 # `- **`path`**, on `Class`:` - the manifest's own bullet shape, which
@@ -579,12 +679,14 @@ def check_manifest_symbols(path, text, members, problems, tally=None):
                 if tally is not None:
                     tally['proposed'] += 1
                 continue
-            if tally is not None:
-                tally['checked'] += 1
             if name not in members[key]:
                 problems.append(
                     f'{path.name}:{n}: manifest names `{name}` on {cls}, '
                     f'which does not exist there and is not in PROPOSED')
+                if tally is not None:
+                    tally['failed'] += 1
+            elif tally is not None:
+                tally['checked'] += 1
 
 
 def check_file_lines(path, text, problems):
@@ -713,6 +815,17 @@ MANIFEST_SECTIONS = (
     'Next steps',
 )
 
+
+def is_manifest(title):
+    """
+    Exact match, not `startswith`.
+
+    `startswith` claimed unrelated headings: `### Next steps for the test plan` was judged as a
+    manifest and its ordinary prose reported as an explanation.
+    """
+    return title.strip() in MANIFEST_SECTIONS
+
+
 # A pointer phrase and the quoted section it points at. `\b` before the verb
 # matters: unanchored, the alternation matched inside ordinary words, so
 # `a proper "Guard and exceptions" note, because ...` split at `proper "` and
@@ -742,6 +855,7 @@ BEHAVIOUR_WORDS = re.compile(
 def check_manifest_sections(path, text, problems):
     """Fail if a manifest section explains behaviour instead of pointing."""
     section = ''
+    manifest_depth = 0
     fenced = False
     for n, line in enumerate(text.split('\n'), 1):
         if line.lstrip().startswith('```'):
@@ -752,14 +866,17 @@ def check_manifest_sections(path, text, problems):
         # H2-H6, and a deeper heading does not leave the section. Matching
         # `#{2,4}` and resetting on any hit meant one `###` inside a manifest
         # disabled the check for the rest of it, and demoting a manifest to H5
-        # stopped it being checked at all - both with no signal.
+        # stopped it being checked at all - both with no signal. A *sibling* H3
+        # does leave it, though: pinning `section` for every following sibling
+        # made the message name the wrong section.
         head = re.match(r'^(#{2,6})\s+(.*)$', line)
         if head:
-            if len(head.group(1)) == 2 or not any(
-                    section.startswith(s) for s in MANIFEST_SECTIONS):
-                section = head.group(2).strip()
+            depth, title = len(head.group(1)), head.group(2).strip()
+            if depth <= manifest_depth or manifest_depth == 0:
+                section = title
+                manifest_depth = depth if is_manifest(title) else 0
             continue
-        if not any(section.startswith(s) for s in MANIFEST_SECTIONS):
+        if not is_manifest(section):
             continue
         # A pointer earns immunity for the pointing *clause*, not for the whole
         # line. The never-hard-wrap rule makes every manifest bullet one long
@@ -831,11 +948,27 @@ def count_items(lines, start):
         n += 1
     if n >= len(lines) or not ITEM.match(lines[n]):
         return None
+    # The marker style of the first item decides where the list ends. Skipping
+    # blank lines unconditionally merged two adjacent lists, so a correct
+    # 3-item numbered list followed by an unrelated 2-item bullet list was
+    # reported as "says 3 but the list below it has 5 items" - the check calling
+    # correct markdown defective.
+    ordered = lines[n][:1].isdigit()
     items = 0
     while n < len(lines):
         line = lines[n]
-        if line.strip() == '' or line.startswith((' ', '\t')):
-            n += 1  # blank or continuation of an item
+        if line.startswith((' ', '\t')):
+            n += 1  # continuation, or a nested list under the current item
+            continue
+        if line.strip() == '':
+            nxt = n + 1
+            while nxt < len(lines) and lines[nxt].strip() == '':
+                nxt += 1
+            if nxt >= len(lines) or not ITEM.match(lines[nxt]):
+                break  # blank line then prose: the list is over
+            if lines[nxt][:1].isdigit() != ordered:
+                break  # a different marker style is a different list
+            n += 1
             continue
         if not ITEM.match(line):
             break  # heading, fence, table or prose
@@ -937,6 +1070,32 @@ def check_tests_are_phased(path, text, problems):
                         f'but scheduled in no phase')
 
 
+def check_near_miss_refs(path, text, problems, heads):
+    """
+    Report a quoted string that is nearly, but not exactly, a heading.
+
+    The verb-led check only reaches a quoted name after see/under/per/in/from,
+    which leaves 11 real pointers here unvalidated - they follow "Weigh", "the
+    premise of", "which is what", or a bold run. Validating every quoted string
+    instead would flag ordinary quoted prose, of which these documents have
+    plenty. A near-miss is the discriminating signal: close to a heading means
+    it was meant to be one, so a typo is caught wherever it sits, while
+    unrelated prose is nowhere near any heading and stays quiet.
+    """
+    spans = code_spans(text) + inline_spans(text)
+    for m in re.finditer(r'"([^"]{4,110})"', text):
+        if in_code(m.start(), spans):
+            continue
+        quoted = m.group(1).replace('`', '').strip().lower()
+        if quoted in heads:
+            continue
+        close = difflib.get_close_matches(quoted, heads, n=1, cutoff=0.9)
+        if close:
+            line = text[:m.start()].count('\n') + 1
+            problems.append(f'{path.name}:{line}: "{m.group(1)}" is not a '
+                            f'heading but is nearly "{close[0]}"')
+
+
 def check_markdown(path, text, problems):
     lines = text.split('\n')
     h1 = 0
@@ -990,6 +1149,7 @@ def main():
         'skipped_constant': 0,
         'ambiguous': 0,
         'proposed': 0,
+        'failed': 0,
     }
     members = load_members(problems)
     docs = sorted(DESIGN.rglob('*.md'))
@@ -1011,6 +1171,15 @@ def main():
         # valid cross-reference target, while a pointer at a real H1 was
         # reported dangling.
         all_heads |= headings(texts[path])
+    # A stale `MANIFEST_SECTIONS` entry disables the name-and-point rule in
+    # silence on a heading rename, which is why the sibling symbol check dropped
+    # its heading gate entirely. This one still needs the names, so validate
+    # them instead: every entry must match a real heading somewhere in the tree.
+    problems.extend(
+        f'check_docs: MANIFEST_SECTIONS names "{name}", which is not a heading '
+        f'in any document; the name-and-point rule for it is not running'
+        for name in MANIFEST_SECTIONS
+        if name.lower() not in all_heads)
     for path in docs:
         text = texts.get(path)
         if text is None:
@@ -1019,6 +1188,7 @@ def main():
         check_manifest_symbols(path, text, members, problems, tally)
         check_file_lines(path, text, problems)
         check_crossrefs(path, text, problems, all_heads)
+        check_near_miss_refs(path, text, problems, all_heads)
         check_python_blocks(path, text, problems)
         check_markdown(path, text, problems)
         check_manifest_sections(path, text, problems)
@@ -1036,12 +1206,13 @@ def main():
     # the line could not be read as a breakdown even though it looked like one.
     buckets = (tally['checked'] + tally['unresolved'] +
                tally['skipped_constant'] + tally['ambiguous'] +
-               tally['proposed'])
+               tally['proposed'] + tally['failed'])
     print(f'check_docs: symbol citations {tally["seen"]} seen, '
           f'{tally["checked"]} verified, {tally["unresolved"]} unresolvable, '
           f'{tally["skipped_constant"]} uppercase-skipped, '
           f'{tally["proposed"]} proposed-exempt, '
-          f'{tally["ambiguous"]} ambiguous')
+          f'{tally["ambiguous"]} ambiguous, '
+          f'{tally["failed"]} failed')
     if buckets != tally['seen']:
         print(f'check_docs: BUG: buckets sum to {buckets}, not '
               f'{tally["seen"]}; the coverage line is not a breakdown')

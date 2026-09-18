@@ -23,7 +23,7 @@ Give the adapter `Connection` and `Channel` a single authoritative lifecycle sta
 
 The RabbitMQ AMQP 1.0 Java client (`rabbitmq-amqp-java-client`) already implements this shape. Stripped of the 1.0-specific state contents, it is three ideas:
 
-- One authoritative state: `ResourceBase` holds an `AtomicReference<State>` with `RECOVERING` as a first-class member alongside `OPEN`, `CLOSING`, `CLOSED`.
+- One authoritative state: `ResourceBase` holds an `AtomicReference<State>` with `RECOVERING` as a first-class member alongside `OPENING`, `OPEN`, `CLOSING`, `CLOSED`. Five members, not the four an earlier version of this line listed, and the omitted one was `OPENING` - which matters because whether the adapter needs an `OPENING` value is exactly the open question below, and the precedent being cited for the rest of the enum had already answered it.
 - Every operation guards on it. `AmqpPublisher.publish()`'s first line is `checkOpen()`, and `checkOpen()` throws a state-specific, catchable exception when not open (`AmqpResourceInvalidStateException`, naming the current state), so a publish during `RECOVERING` fails with a precise, catchable error.
 - Transitions are driven on one loop, with the rule that once `CLOSING`/`CLOSED` is reached only `CLOSED` may follow, so a late recovery success cannot resurrect a closed resource. State changes are dispatched to listeners in order.
 
