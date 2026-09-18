@@ -373,6 +373,11 @@ class ParametersTests(ParametersTestsBase):
         with self.assertRaises(TypeError):
             params.port = []
 
+        # bool subclasses int; port=True must not silently become 1
+        for value in (True, False):
+            with self.assertRaises(TypeError):
+                params.port = value
+
     def test_retry_delay(self):
         params = connection.Parameters()
 
@@ -409,7 +414,22 @@ class ParametersTests(ParametersTestsBase):
         with self.assertRaises(ValueError):
             params.socket_timeout = 0
 
+        # bool subclasses numbers.Real; True must not silently become 1.0s
+        for value in (True, False):
+            with self.assertRaises(TypeError):
+                params.socket_timeout = value
+
+    def test_stack_timeout_rejects_bool(self):
+        params = connection.Parameters()
+        # bool subclasses numbers.Real; True must not silently become 1.0s
+        for value in (True, False):
+            with self.assertRaises(TypeError):
+                params.stack_timeout = value
+        params.stack_timeout = 5.0
+        self.assertEqual(params.stack_timeout, 5.0)
+
     def test_ssl_options(self):
+
         params = connection.Parameters()
 
         ssl_options = connection.SSLOptions(ssl.create_default_context())
