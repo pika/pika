@@ -26,9 +26,12 @@ utils/regen_spec.py     # regenerate/verify pika/spec.py (hatch run spec-regen)
 .ci/docs_site.py        # docs-site deploy helper (alias policy, verification)
 design/                 # design working areas (planning docs, not built into
                         #   the docs site). Run `python3 design/check_docs.py`
-                        #   by hand to check them; no CI job runs it, and it
-                        #   verifies well under half the citations it sees, so
-                        #   read its coverage line and not its exit code
+                        #   by hand to check them; no CI job runs it. Act on
+                        #   its exit code, which is the actual pass/fail, and
+                        #   read the coverage line too: it verifies under half
+                        #   the citations it sees, and a checked count that
+                        #   drops without any problem being reported means a
+                        #   check has gone silently inert, which has happened
 examples/               # usage examples
 ```
 

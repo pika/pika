@@ -5,7 +5,9 @@ Run from the repository root::
 
     python3 design/check_docs.py
 
-Exits non-zero and prints one line per problem, then a coverage line.
+Exits non-zero and prints one line per problem, then a coverage line. Act
+on the exit code: it is the pass/fail. Read the coverage line as well, for
+the reason below.
 
 **Read the coverage line.** This tool does not verify most of what the
 documents assert, and two review passes over-trusted it because "0
@@ -50,6 +52,13 @@ What it does check, reliably:
 9. No sentence begins with a conjunction after a full stop, which is the
    seam left by inserting text into the middle of a paragraph and
    orphaning the clause that followed.
+10. Every test the plan numbers is scheduled in some phase of "Next
+    steps". A test nothing schedules is a test nothing will build, and
+    this has drifted twice.
+
+It also fails when fewer than ``MIN_VERIFIED`` citations get verified,
+which is the one mechanical defence against a check going quietly inert:
+two have, each printing ``0 problems`` and exiting 0.
 
 Every check has been proven to fail on planted defects, several per check.
 That matters more than it sounds, and twice now the proof has been the
@@ -105,6 +114,14 @@ EXTENSIONS = frozenset({
     'py', 'md', 'toml', 'yaml', 'yml', 'cfg', 'ini', 'txt', 'json', 'cs', 'go',
     'java'
 })
+
+# A committed floor on how many citations actually get verified. The human
+# instruction to "read the coverage line" cannot catch a silent collapse,
+# because 92 and 56 are equally plausible readings with nothing to compare
+# against - and two checks have already gone inert while printing 0 problems
+# and exiting 0. Raise it when coverage grows; lowering it is a deliberate act
+# that belongs in the same commit as whatever removed the citations.
+MIN_VERIFIED = 92
 
 IGNORED_PARTS = frozenset({
     '.git', '.mypy_cache', '.pytest_cache', '.tox', '.venv', '__pycache__',
@@ -434,7 +451,10 @@ def check_symbols(path, text, members, problems, tally=None):
     # call-form citation, which is 47 of them here, before `seen` counted
     # them - so the coverage line reported a denominator that silently
     # omitted the citations the check could not see.
-    for m in re.finditer(r'`([A-Za-z_][\w.]*)\.(\w+)(?:\(\))?`', text):
+    # Arguments allowed inside the parentheses, not just `()`. Requiring empty
+    # parens left 14 citations of the form `ch.exchange_declare(exchange=...)`
+    # invisible to the check and absent from the `seen` denominator.
+    for m in re.finditer(r'`([A-Za-z_][\w.]*)\.(\w+)(?:\([^`]*?\))?`', text):
         if in_code(m.start(), spans):
             continue
         owner, member = m.group(1), m.group(2)
@@ -761,7 +781,11 @@ def check_manifest_sections(path, text, problems):
 
 
 NUMBER_WORDS = {
-    'one': 1,
+    # Deliberately no 'one'. The defect this catches is adding an item to a
+    # list of two or more and leaving the count, and admitting 'one' bought
+    # false positives on ordinary English instead: "One class of ordering
+    # constraint applies:" and "One thing remains:" both read as the count 1,
+    # because `class` and `remains` end in `s` and pass for plural nouns.
     'two': 2,
     'three': 3,
     'four': 4,
@@ -892,6 +916,27 @@ def check_list_counts(path, text, problems):
 MARKER = re.compile(r'^\s*(?:[-*+]\s|\d+\.\s|\||#{1,6}\s|>)')
 
 
+def check_tests_are_phased(path, text, problems):
+    """
+    Fail when a numbered test appears in no phase of "Next steps".
+
+    A test the plan numbers but no phase schedules is a test nothing will build. This has drifted
+    twice: two tests were orphaned, one of them added by the same review pass that wrote the section
+    it belongs to.
+    """
+    if '## Next steps' not in text:
+        return
+    numbered = {
+        m.group(1)
+        for m in re.finditer(r'^\d+\. `(Test\w+)`', text, re.MULTILINE)
+    }
+    phases = text[text.index('## Next steps'):]
+    scheduled = set(re.findall(r'`(Test\w+)`', phases))
+    for name in sorted(numbered - scheduled):
+        problems.append(f'{path.name}: `{name}` is numbered in the test plan '
+                        f'but scheduled in no phase')
+
+
 def check_markdown(path, text, problems):
     lines = text.split('\n')
     h1 = 0
@@ -978,6 +1023,7 @@ def main():
         check_markdown(path, text, problems)
         check_manifest_sections(path, text, problems)
         check_list_counts(path, text, problems)
+        check_tests_are_phased(path, text, problems)
         check_sentence_splices(path, text, problems)
     for p in problems:
         print(p)
@@ -999,6 +1045,12 @@ def main():
     if buckets != tally['seen']:
         print(f'check_docs: BUG: buckets sum to {buckets}, not '
               f'{tally["seen"]}; the coverage line is not a breakdown')
+        return 1
+    if tally['checked'] < MIN_VERIFIED:
+        print(f'check_docs: BUG: verified {tally["checked"]} citations, floor '
+              f'is {MIN_VERIFIED}. Either a check has gone inert or citations '
+              f'were removed; if the drop is intended, lower MIN_VERIFIED in '
+              f'the same commit and say why.')
         return 1
     return 1 if problems else 0
 
