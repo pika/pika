@@ -128,6 +128,8 @@ SOURCES = [
     'pika/callback.py',
 ]
 
+SOURCE_MODULES = frozenset(s[:-3].replace('/', '.') for s in SOURCES)
+
 # Members these documents propose adding. Listing one here is a deliberate
 # declaration that it does not exist yet; anything else missing is an error.
 # Keep it short - a long list means the design has drifted from the code.
@@ -162,6 +164,17 @@ PROPOSED = {
     'Channel._max_seen_delivery_tag',
     'Channel._make_delivery_callback',
     'Channel._register_recovery_close_listener',
+    # The channel half of the observability API. The proposal puts these "on
+    # both the adapter `Connection` and `Channel`", and listing only the
+    # connection half meant a correct citation of the channel half was reported
+    # as nonexistent - so the document could not cite its own API in the form
+    # its conventions require, and a typo in any of them could never be caught.
+    'Channel.state',
+    'Channel.is_recovering',
+    'Channel.add_state_change_listener',
+    'Channel.add_on_recovery_started_callback',
+    'Channel.add_on_recovery_succeeded_callback',
+    'Channel.add_on_recovery_failed_callback',
 }
 
 # Names that look like Class.member but are not ours to check: reference
@@ -171,6 +184,73 @@ FOREIGN = re.compile(
     r'|ChannelN|AMQConnection|Utility|RecordedConsumer|QosConfig|Connection\.'
     r'topologyConfiguration|amqp091|struct|copy|enum|dataclasses|typing'
     r'|functools|threading|collections|heapq)$')
+
+
+def module_of(owner):
+    """
+    The module part of a dotted owner, dropping class segments.
+
+    Class segments are the ones starting with a capital, so
+    `pika.heartbeat.IOLoop` gives `pika.heartbeat` and
+    `pika.adapters.utils.connection_workflow.AMQPConnectionWorkflow` gives the
+    four-segment module.
+    """
+    parts = owner.split('.')
+    while parts and parts[-1][:1].isupper():
+        parts.pop()
+    return '.'.join(parts)
+
+
+def modpath(mod):
+    """
+    Say whether a dotted module name is on disk.
+
+    This is what separates a typo from a real module outside `SOURCES`.
+    Reporting every unresolved `pika.` owner flagged `pika.frame.Method` and
+    `connection_workflow.AMQPConnectionWorkflow` - real classes, one of which
+    a whole section recommends reusing - so citing them correctly failed the
+    tool and the only escape was to de-qualify the citation.
+    """
+    if not mod:
+        return False
+    rel = mod.replace('.', '/')
+    return (ROOT / f'{rel}.py').exists() or (ROOT / rel /
+                                             '__init__.py').exists()
+
+
+def qualified_problem(owner, member, members):
+    """
+    Describe why a `pika.`-rooted citation is wrong, or return None.
+
+    Two shapes reach here and they mean different things. In `pika.connection.Connection` the
+    *member* is the class and the owner is the module; in `pika.connection.Connection.channel` the
+    owner carries the class. Reading only the first shape as the second asked whether
+    `pika.connection` contains a class named `connection`.
+
+    Two distinct defects, and an earlier version could see neither: a module not on disk, and a
+    class absent from a module that *is* in `SOURCES`. The second is what the tail fallback
+    accepted, resolving `pika.heartbeat.IOLoop` through its tail to the adapter's `IOLoop`.
+    """
+    if member[:1].isupper():
+        mod, cls, qual = owner, member, f'{owner}.{member}'
+    else:
+        mod, cls, qual = module_of(owner), owner.rsplit('.', 1)[-1], owner
+    if not modpath(mod):
+        return f'names the module {mod}, which does not exist'
+    if mod in SOURCE_MODULES and qual not in members:
+        return f'names no class {cls} in {mod}'
+    return None
+
+
+def dotted_name(node):
+    """Spell an `ast.Name`/`ast.Attribute` back out, dots included."""
+    parts = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if isinstance(node, ast.Name):
+        parts.append(node.id)
+    return '.'.join(reversed(parts))
 
 
 def load_members(problems):
@@ -185,19 +265,36 @@ def load_members(problems):
     """
     by_qualified: dict[str, set[str]] = {}
     bases: dict[str, list[str]] = {}
+    mod_imports: dict[str, dict[str, str]] = {}
     for rel in SOURCES:
         path = ROOT / rel
         if not path.exists():
             problems.append(f'check_docs: SOURCES entry {rel} does not exist')
             continue
         tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+        # `class SelectConnection(BaseConnection)` names its base bare, having
+        # imported it, so resolving a bare base inside the citing module alone
+        # finds nothing and loses every inherited member. Resolve through the
+        # module's imports instead, which is also what keeps a bare `Connection`
+        # from reaching whichever `Connection` happens to sort first.
+        imported = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                for alias in node.names:
+                    local = alias.asname or alias.name
+                    imported[local] = f'{node.module}.{alias.name}'
+        mod_imports[rel[:-3].replace('/', '.')] = imported
         for node in ast.walk(tree):
             if not isinstance(node, ast.ClassDef):
                 continue
             mod = rel[:-3].replace('/', '.')
             found = by_qualified.setdefault(f'{mod}.{node.name}', set())
+            # Keep the base's *dotted* spelling. Reducing `connection.Connection`
+            # to the bare tail `Connection` merged the adapter and base
+            # namespaces through inheritance, which is the outcome this
+            # function's docstring says would defeat the check entirely.
             bases[f'{mod}.{node.name}'] = [
-                b.attr if isinstance(b, ast.Attribute) else b.id
+                dotted_name(b)
                 for b in node.bases
                 if isinstance(b, (ast.Name, ast.Attribute))
             ]
@@ -226,9 +323,24 @@ def load_members(problems):
     # citation for documents about the persistent loop - failed. The only
     # escape was adding it to `PROPOSED`, which would record the false claim
     # that it does not exist yet.
-    tails: dict[str, list[str]] = {}
-    for qual in by_qualified:
-        tails.setdefault(qual.rsplit('.', 1)[-1], []).append(qual)
+    def resolve_base(qual, base):
+        """
+        Resolve one base's spelling to a qualified key, or None.
+
+        A dotted spelling must match the tail of a qualified name, so `connection.Connection`
+        reaches `pika.connection.Connection` and cannot reach the adapter's `Connection`. A bare
+        spelling resolves only within the citing class's own module: resolving it across modules is
+        what merged the two `Connection` namespaces.
+        """
+        mod = qual.rsplit('.', 1)[0]
+        target = mod_imports.get(mod, {}).get(base, base)
+        if '.' in target:
+            if target in by_qualified:
+                return target  # already fully qualified
+            hits = [q for q in by_qualified if q.endswith('.' + target)]
+            return hits[0] if len(hits) == 1 else None
+        same = mod + '.' + target
+        return same if same in by_qualified else None
 
     def inherited(qual, seen):
         if qual in seen:
@@ -236,7 +348,8 @@ def load_members(problems):
         seen.add(qual)
         out = set(by_qualified[qual])
         for base in bases.get(qual, []):
-            for cand in tails.get(base, []):
+            cand = resolve_base(qual, base)
+            if cand is not None:
                 out |= inherited(cand, seen)
         return out
 
@@ -339,6 +452,24 @@ def check_symbols(path, text, members, problems, tally=None):
         # name never produces a spurious namespace complaint.
         if tally is not None:
             tally['seen'] += 1
+        # All `pika.`-rooted resolution happens here, before the uppercase skip,
+        # because in a bare class reference such as `pika.chanel.Chanel` the
+        # class name *is* the member - so the skip ran first and swallowed the
+        # typo, leaving the branch written to catch a wrong module path dead for
+        # exactly the citations it was written for.
+        if owner.startswith('pika.'):
+            bad = qualified_problem(owner, member, members)
+            if bad:
+                line = text[:m.start()].count('\n') + 1
+                problems.append(f'{path.name}:{line}: `{owner}.{member}` {bad}')
+                if tally is not None:
+                    tally['unresolved'] += 1
+                continue
+            if owner not in members:
+                # A real module outside `SOURCES`: out of scope, not a defect.
+                if tally is not None:
+                    tally['unresolved'] += 1
+                continue
         if member[:1].isupper():
             if tally is not None:
                 tally['skipped_constant'] += 1
@@ -350,22 +481,6 @@ def check_symbols(path, text, members, problems, tally=None):
             key = BARE_DEFAULTS[owner]
         elif owner in members:
             key = owner
-        elif owner.startswith('pika.'):
-            # A `pika.`-rooted owner that does not resolve is a *wrong* module
-            # path, and falling back to its tail accepted it as verified:
-            # `pika.heartbeat.IOLoop.add_callback_threadsafe` resolved via the
-            # tail to the adapter's `IOLoop` and was counted as checked, which
-            # is the base-versus-adapter confusion the check exists to catch.
-            # Restricted to `pika.` deliberately: a receiver expression such as
-            # `self._ioloop.start` is also dotted and unresolvable, but it is
-            # out of scope per the coverage note, not a mis-qualification.
-            line = text[:m.start()].count('\n') + 1
-            problems.append(
-                f'{path.name}:{line}: `{owner}.{member}` names a module '
-                f'path that does not resolve to a class in SOURCES')
-            if tally is not None:
-                tally['unresolved'] += 1
-            continue
         elif '.' in owner:
             key = owner.split('.')[-1]
         else:
@@ -414,14 +529,17 @@ def check_manifest_symbols(path, text, members, problems, tally=None):
     the one section with no symbol checking at all. Five typos planted in it
     produced `0 problems`.
     """
-    spans = code_spans(text)
-    section = ''
+    # No section gate. `MANIFEST_OWNER` already matches only the manifest's own
+    # bullet shape, so gating on the heading text added nothing and made the
+    # check collapse silently on a heading rename, on one `###` inside the
+    # section, and on a `## ` line inside a fenced block. A per-line `fenced`
+    # toggle is the whole of what is needed.
+    fenced = False
     for n, line in enumerate(text.split('\n'), 1):
-        head = re.match(r'^#{2,6}\s+(.*)$', line)
-        if head:
-            section = head.group(1).strip()
+        if line.lstrip().startswith('```'):
+            fenced = not fenced
             continue
-        if not any(section.startswith(s) for s in MANIFEST_SECTIONS):
+        if fenced:
             continue
         owner_match = MANIFEST_OWNER.match(line)
         if not owner_match:
@@ -435,8 +553,6 @@ def check_manifest_symbols(path, text, members, problems, tally=None):
         cls = key.rsplit('.', 1)[-1]
         for tok in re.finditer(r'`([a-z_]\w*)`', line[owner_match.end():]):
             name = tok.group(1)
-            if in_code(tok.start(), spans):
-                continue
             if tally is not None:
                 tally['seen'] += 1
             if f'{cls}.{name}' in PROPOSED:
@@ -467,12 +583,23 @@ def check_file_lines(path, text, problems):
             # copy under `build/`, which made `len(matches) != 1` and silently
             # skipped the citation - so the same commit got opposite verdicts
             # depending on the developer's untracked directories.
+            # Relative to ROOT, not absolute. Testing the absolute path meant a
+            # checkout under a directory named `build`, `env` or `site`
+            # discarded its own only match, leaving `matches` empty so the
+            # citation fell through unchecked - reintroducing the very
+            # "opposite verdicts from untracked directories" failure this
+            # filter was added to fix, keyed on an ancestor instead.
             matches = [
-                q for q in ROOT.rglob(rel) if not IGNORED_PARTS & set(q.parts)
+                q for q in ROOT.rglob(rel)
+                if not IGNORED_PARTS & set(q.relative_to(ROOT).parts)
             ]
             if len(matches) == 1:
                 target = matches[0]
-            elif len(matches) > 1:
+            else:
+                # Zero is reported as well as many. Zero used to fall through
+                # in silence, which matters because both `file:line` citations
+                # in this corpus are bare file names, so the 2.0 module move
+                # would have stopped verifying both without a word.
                 line = text[:m.start()].count('\n') + 1
                 problems.append(
                     f'{path.name}:{line}: cited {rel} matches '
@@ -485,7 +612,7 @@ def check_file_lines(path, text, problems):
                                 f'does not exist')
             continue
         length = len(target.read_text(encoding='utf-8').splitlines())
-        if lineno > length:
+        if lineno < 1 or lineno > length:
             line = text[:m.start()].count('\n') + 1
             problems.append(f'{path.name}:{line}: cited {rel}:{lineno} but '
                             f'that file has {length} lines')
@@ -566,6 +693,21 @@ MANIFEST_SECTIONS = (
     'Next steps',
 )
 
+# A pointer phrase and the quoted section it points at. `\b` before the verb
+# matters: unanchored, the alternation matched inside ordinary words, so
+# `a proper "Guard and exceptions" note, because ...` split at `proper "` and
+# exempted the rest of the line - and `wrapper` occurs throughout. The verb
+# list is the same one `check_crossrefs` accepts, `in` and `from` included:
+# omitting them denied immunity to a legitimate pointer worded `specified in
+# "..."`, whose own section title then tripped the behaviour-word check.
+# It excises the whole run of quoted names, not just the first: these bullets
+# legitimately point at several sections after one `under`, and a section title
+# can itself contain a behaviour word - two of this document's do - so leaving
+# the later titles in place reported the pointer as an explanation.
+POINTER = re.compile(
+    r'\b(?:see|under|defined under|per|in|from)\s+'
+    r'(?:"[^"]{4,110}"(?:\s*,\s*and\s+|\s*,\s*|\s+and\s+)?)+', re.IGNORECASE)
+
 # Words that only appear when a sentence is explaining how something works.
 # Deliberately narrow: a manifest legitimately says "gains", "lands", "new".
 BEHAVIOUR_WORDS = re.compile(
@@ -582,7 +724,7 @@ def check_manifest_sections(path, text, problems):
     section = ''
     fenced = False
     for n, line in enumerate(text.split('\n'), 1):
-        if line.startswith('```'):
+        if line.lstrip().startswith('```'):
             fenced = not fenced
             continue
         if fenced:
@@ -605,10 +747,12 @@ def check_manifest_sections(path, text, problems):
         # which already contained the words this hunts - and granted immunity
         # to exactly the defect class it exists to catch: a bullet that both
         # points and restates mechanism.
-        checked = re.split(r'(?:see|under|defined under|per)\s+"',
-                           line,
-                           maxsplit=1,
-                           flags=re.IGNORECASE)[0]
+        # Excise each pointer phrase and keep everything else. Splitting and
+        # keeping only the prefix exempted the whole tail after the first
+        # pointer, so on these one-line bullets a bullet that points and *then*
+        # explains was fully immune - the blanket immunity the clause-level
+        # judgement was introduced to remove, just moved to the right.
+        checked = POINTER.sub(' ', line)
         hit = BEHAVIOUR_WORDS.search(checked)
         if hit:
             problems.append(
@@ -724,7 +868,7 @@ def check_list_counts(path, text, problems):
     lines = text.split('\n')
     fenced = False
     for n, line in enumerate(lines):
-        if line.startswith('```'):
+        if line.lstrip().startswith('```'):
             fenced = not fenced
             continue
         if fenced or not line.rstrip().endswith(':'):
@@ -753,7 +897,7 @@ def check_markdown(path, text, problems):
     h1 = 0
     fenced = False
     for ln in lines:
-        if ln.startswith('```'):
+        if ln.lstrip().startswith('```'):
             fenced = not fenced
         elif not fenced and ln.startswith('# '):
             h1 += 1
@@ -762,7 +906,7 @@ def check_markdown(path, text, problems):
     inside = False
     prev_blank = True
     for n, ln in enumerate(lines, 1):
-        if ln.startswith('```'):
+        if ln.lstrip().startswith('```'):
             inside = not inside
             prev_blank = True
             # Fall through to the ASCII and whitespace checks: a trailing
