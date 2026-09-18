@@ -493,15 +493,17 @@ def check_file_lines(path, text, problems):
 
 def check_crossrefs(path, text, problems, heads):
     spans = code_spans(text)
-    # `re.I` matters: sentence-initial `See "..."` is the dominant form and
-    # a case-sensitive pattern missed ten of thirty-eight references here,
-    # two of which were genuinely dangling. `\b` stops `within "..."`
-    # matching through the `in`.
+    # `re.I` matters: sentence-initial `See "..."` is the dominant form and a
+    # case-sensitive pattern misses 16 of the 103 references here. `\b` stops
+    # `within "..."` matching through the `in`.
     # Validate every quoted name in a run, not just the first: pointer lines
     # legitimately list several sections after one `under`, and checking only
-    # the first left 27 of 85 real references unverified.
+    # the first leaves 24 of those 103 unverified.
+    # The separator alternation includes `, and `, which is how four of the
+    # runs here are punctuated; without it the run ends at the comma and the
+    # name after `and` goes unchecked.
     pattern = (r'\b(?:see|under|per|in|from)\s+'
-               r'((?:"[^"]{4,110}"(?:\s*,\s*|\s+and\s+)?)+)')
+               r'((?:"[^"]{4,110}"(?:\s*,\s*and\s+|\s*,\s*|\s+and\s+)?)+)')
     for m in re.finditer(pattern, text, re.IGNORECASE):
         if in_code(m.start(), spans):
             continue

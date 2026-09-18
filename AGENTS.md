@@ -25,7 +25,10 @@ utils/codegen.py        # code generator for pika/spec.py
 utils/regen_spec.py     # regenerate/verify pika/spec.py (hatch run spec-regen)
 .ci/docs_site.py        # docs-site deploy helper (alias policy, verification)
 design/                 # design working areas (planning docs, not built into
-                        #   the docs site); check_docs.py validates them
+                        #   the docs site). Run `python3 design/check_docs.py`
+                        #   by hand to check them; no CI job runs it, and it
+                        #   verifies well under half the citations it sees, so
+                        #   read its coverage line and not its exit code
 examples/               # usage examples
 ```
 
