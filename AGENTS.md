@@ -24,6 +24,8 @@ tests/typing/           # type-checker fixtures (checked by hatch run typecheck)
 utils/codegen.py        # code generator for pika/spec.py
 utils/regen_spec.py     # regenerate/verify pika/spec.py (hatch run spec-regen)
 .ci/docs_site.py        # docs-site deploy helper (alias policy, verification)
+design/                 # design working areas (planning docs, not built into
+                        #   the docs site); check_docs.py validates them
 examples/               # usage examples
 ```
 
@@ -49,10 +51,13 @@ examples/               # usage examples
   failure go away.
 - **Type checking:** [mypy](https://mypy-lang.org/). Configuration is in
   `mypy.ini`. Run `hatch run typecheck`, which covers `pika/`, the
-  downstream-consumer fixtures in `tests/typing/`, and `.ci/docs_site.py`. The
-  fixtures exist because `mypy.ini` sets `packages = pika`, so a run without
-  them never observes code that consumes pika from the outside.
-  `.ci/docs_site.py` is also covered by `fmt`, `lint` and `docfmt`.
+  downstream-consumer fixtures in `tests/typing/`, `.ci/docs_site.py` and
+  `design/check_docs.py`. The fixtures exist because `mypy.ini` sets
+  `packages = pika`, so a run without them never observes code that consumes
+  pika from the outside. `.ci/docs_site.py` and `design/check_docs.py` are
+  also covered by `fmt`, `lint` and `docfmt`: both are standalone helpers
+  outside the package, and a helper nothing gates rots. `design/check_docs.py`
+  carried a mypy error unnoticed before it was added here.
 - Use single quotes for strings unless the string contains a single quote.
 - No trailing whitespace. Check before committing.
 
