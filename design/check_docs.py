@@ -283,6 +283,52 @@ def check_python_blocks(path, text, problems):
                 f'not compile: {exc.msg}')
 
 
+# Sections that are manifests or orderings rather than descriptions. They may
+# name symbols, files, tests and section references; they may not describe
+# behaviour. Four review passes found the same corrections landed in the prose
+# and left stale in these sections, so the separation is enforced rather than
+# merely intended. "One canonical location per fact" is the rule; this is the
+# only mechanical part of it that can be checked.
+MANIFEST_SECTIONS = (
+    'Proposed file-by-file changes',
+    'Next steps',
+)
+
+# Words that only appear when a sentence is explaining how something works.
+# Deliberately narrow: a manifest legitimately says "gains", "lands", "new".
+BEHAVIOUR_WORDS = re.compile(
+    r'\b(?:because|therefore|so that|otherwise|would|must not|cannot|'
+    r'instead of|rather than the|which means|the reason)\b', re.IGNORECASE)
+
+
+def check_manifest_sections(path, text, problems):
+    """Fail if a manifest section explains behaviour instead of pointing."""
+    section = ''
+    fenced = False
+    for n, line in enumerate(text.split('\n'), 1):
+        if line.startswith('```'):
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
+        head = re.match(r'^#{2,4}\s+(.*)$', line)
+        if head:
+            section = head.group(1).strip()
+            continue
+        if not any(section.startswith(s) for s in MANIFEST_SECTIONS):
+            continue
+        # A line carrying a section reference is a pointer, which is the
+        # whole point of these sections.
+        if re.search(r'(?:see|under|defined under|per)\s+"', line,
+                     re.IGNORECASE):
+            continue
+        hit = BEHAVIOUR_WORDS.search(line)
+        if hit:
+            problems.append(
+                f'{path.name}:{n}: "{section}" is a manifest; it should name '
+                f'and point, not explain ("{hit.group(0)}")')
+
+
 MARKER = re.compile(r'^\s*(?:[-*+]\s|\d+\.\s|\||#{1,6}\s|>)')
 
 
@@ -360,6 +406,7 @@ def main():
         check_crossrefs(path, text, problems, all_heads)
         check_python_blocks(path, text, problems)
         check_markdown(path, text, problems)
+        check_manifest_sections(path, text, problems)
     for p in problems:
         print(p)
     print(f'check_docs: {len(docs)} documents, {len(problems)} problems')
