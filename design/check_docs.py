@@ -5,21 +5,39 @@ Run from the repository root::
 
     python3 design/check_docs.py
 
-Exits non-zero and prints one line per problem. Every check here exists
-because a review found that class of defect in a hand-written design
-document at least once; the point is to make the invariant executable
-rather than to describe it again in prose.
+Exits non-zero and prints one line per problem, then a coverage line.
 
-Checks, in order of how much they have caught:
+**Read the coverage line.** This tool does not verify most of what the
+documents assert, and two review passes over-trusted it because "0
+problems" reads like "everything verified". It reports what it actually
+checked so that cannot happen again. Current coverage of symbol citations
+is roughly a fifth: resolving a receiver like ``self._channel._state`` or
+``ch.is_open`` needs type inference this does not attempt, and members
+whose names start with a capital are skipped because the AMQP frame
+namespace collides with pika's class names.
 
-1. Symbol citations. A backticked ``Class.member`` reference is verified
-   against the real class, so a citation of a method that does not exist
-   fails here rather than in review.
-2. ``file:line`` citations. The file must exist and be at least that long.
-3. Cross-references. A quoted section name must match a real heading.
-4. Fenced Python blocks must compile.
+What it does check, reliably:
+
+1. Backticked ``Class.member`` citations whose owner resolves to a class in
+   ``SOURCES``, against members parsed from the real source. Bare
+   ``Connection``/``Channel`` resolve to the adapter per the glossary; a
+   base-qualified citation of an adapter-only member fails, which is the
+   base-versus-adapter confusion these documents exist to keep straight.
+2. ``file:line`` citations, including both ends of a range, against real
+   file lengths.
+3. Every quoted section name after see/under/per/in/from, against headings
+   pooled across the whole tree.
+4. Fenced Python blocks parse. Syntax only - a block may still fail at
+   import on undefined names, which ``compile()`` cannot see.
 5. Markdown hygiene: ASCII only, no trailing whitespace, exactly one H1,
-   and no hard-wrapped paragraphs.
+   no hard-wrapped paragraphs, no unclosed fences.
+6. Manifest sections name and point rather than explain, so a correction
+   made in the prose cannot go stale in the sections an implementer
+   builds from.
+
+Every check has been proven to fail on planted defects, several per check.
+That matters more than it sounds: the cross-reference check was dead on
+arrival, and only planting a defect revealed it.
 """
 
 import ast
@@ -29,16 +47,17 @@ import sys
 
 # Sentinel for a bare class name that two modules both define, so a
 # citation using it cannot be resolved and must be qualified.
-AMBIGUOUS = frozenset({'<ambiguous>'})
+AMBIGUOUS = {'<ambiguous>'}
 
 # The documents' own convention, stated in the glossary: an unqualified
 # `Connection` or `Channel` means the adapter class. Encode that rather than
 # demanding qualification everywhere, which would fight the prose. Citing a
 # base class still requires the module prefix, and a base-qualified citation
 # of an adapter-only member therefore fails, which is the case worth catching.
+ADAPTER_MODULE = 'pika/adapters/thread_safe_connection.py'
 BARE_DEFAULTS = {
-    'Connection': 'pika.adapters.thread_safe_connection.Connection',
-    'Channel': 'pika.adapters.thread_safe_connection.Channel',
+    'Connection': ADAPTER_MODULE[:-3].replace('/', '.') + '.Connection',
+    'Channel': ADAPTER_MODULE[:-3].replace('/', '.') + '.Channel',
 }
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -132,6 +151,14 @@ def load_members(problems):
                     for tgt in stmt.targets:
                         if isinstance(tgt, ast.Name):
                             found.add(tgt.id)
+    # A stale BARE_DEFAULTS target silently disables the check for every bare
+    # citation, which is most of them, so it is validated like SOURCES is.
+    for bare_name, target in BARE_DEFAULTS.items():
+        if target not in by_qualified:
+            problems.append(
+                f'check_docs: BARE_DEFAULTS maps {bare_name} to {target}, '
+                f'which is not a class in SOURCES; bare citations would go '
+                f'unchecked')
     # Add bare names only where they are unambiguous.
     bare: dict[str, list[str]] = {}
     for qual in by_qualified:
@@ -176,7 +203,7 @@ def in_code(pos, spans):
     return any(a <= pos < b for a, b in spans)
 
 
-def check_symbols(path, text, members, problems):
+def check_symbols(path, text, members, problems, tally=None):
     spans = code_spans(text, problems, path.name)
     for m in re.finditer(r'`([A-Za-z_][\w.]*)\.(\w+)`', text):
         if in_code(m.start(), spans):
@@ -188,7 +215,11 @@ def check_symbols(path, text, members, problems):
         # AMQP method frames, not Python members; the protocol namespace
         # collides with our class names. Tested before resolution so a frame
         # name never produces a spurious namespace complaint.
+        if tally is not None:
+            tally['seen'] += 1
         if member[:1].isupper():
+            if tally is not None:
+                tally['skipped_constant'] += 1
             continue
         # The stated convention wins over the ambiguity sentinel: a bare
         # `Connection` is the adapter one by definition, not an unresolvable
@@ -200,6 +231,8 @@ def check_symbols(path, text, members, problems):
         else:
             key = owner.split('.')[-1]
         if key not in members:
+            if tally is not None:
+                tally['unresolved'] += 1
             continue
         if members[key] is AMBIGUOUS:
             line = text[:m.start()].count('\n') + 1
@@ -207,9 +240,15 @@ def check_symbols(path, text, members, problems):
                 f'{path.name}:{line}: `{owner}.{member}` uses a bare class '
                 f'name defined in more than one module; qualify it')
             continue
+        # Match PROPOSED on the *resolved* key, not the bare class name:
+        # matching bare re-merges the namespaces and exempts every proposed
+        # member on the base classes too, which is the case worth catching.
         cls = key.rsplit('.', 1)[-1]
-        if f'{cls}.{member}' in PROPOSED:
+        adapter = key.startswith('pika.adapters.thread_safe_connection.')
+        if adapter and f'{cls}.{member}' in PROPOSED:
             continue
+        if tally is not None:
+            tally['checked'] += 1
         if member not in members[key]:
             line = text[:m.start()].count('\n') + 1
             problems.append(
@@ -218,8 +257,11 @@ def check_symbols(path, text, members, problems):
 
 
 def check_file_lines(path, text, problems):
-    for m in re.finditer(r'`?([\w/\\.]+\.py):(\d+)', text):
-        rel, lineno = m.group(1), int(m.group(2))
+    # Capture an optional range end: citing `foo.py:176-177` and checking
+    # only 176 leaves the load-bearing half unverified.
+    for m in re.finditer(r'`?([\w/\\.]+\.py):(\d+)(?:-(\d+))?', text):
+        rel = m.group(1)
+        lineno = max(int(m.group(2)), int(m.group(3) or 0))
         target = ROOT / rel
         if not target.exists() and '/' not in rel:
             # A bare filename may be a proposed file or a real one cited
@@ -247,21 +289,41 @@ def check_crossrefs(path, text, problems, heads):
     # a case-sensitive pattern missed ten of thirty-eight references here,
     # two of which were genuinely dangling. `\b` stops `within "..."`
     # matching through the `in`.
-    pattern = r'\b(?:see|under|per|in)\s+"([^"]{8,110})"'
+    # Validate every quoted name in a run, not just the first: pointer lines
+    # legitimately list several sections after one `under`, and checking only
+    # the first left 27 of 85 real references unverified.
+    pattern = (r'\b(?:see|under|per|in|from)\s+'
+               r'((?:"[^"]{4,110}"(?:\s*,\s*|\s+and\s+)?)+)')
     for m in re.finditer(pattern, text, re.IGNORECASE):
         if in_code(m.start(), spans):
             continue
-        raw = m.group(1).strip().rstrip('.').replace('`', '')
-        ref = raw.lower()
-        # Only treat it as a section reference when it reads like a title.
-        # Test the case on the raw text: `ref` is already lowercased, so
-        # testing it here would make this branch unreachable.
-        if not raw[:1].isupper():
-            continue
-        if ref not in heads:
-            line = text[:m.start()].count('\n') + 1
-            problems.append(f'{path.name}:{line}: cross-reference "'
-                            f'{m.group(1)}" matches no heading')
+        for quoted in re.findall(r'"([^"]{4,110})"', m.group(1)):
+            check_one_ref(path, text, m.start(), quoted, heads, problems)
+
+
+def check_one_ref(path, text, pos, quoted, heads, problems):
+    """
+    Validate a single quoted section name against the pooled headings.
+
+    A quoted string only counts as a section reference when it reads like a
+    title, judged on the first *alphabetic* character rather than the first
+    character: two real headings begin with a backticked identifier, and
+    testing the raw first character skipped every reference to them.
+    """
+    raw = quoted.strip().rstrip('.')
+    ref = raw.replace('`', '').lower()
+    if ref in heads:
+        return
+    # A leading code span counts as title-like on its own: two real headings
+    # start with a lowercase backticked identifier, so neither the raw first
+    # character nor the first alphabetic one identifies them as titles.
+    if not raw.startswith('`'):
+        letters = [c for c in raw if c.isalpha()]
+        if not letters or not letters[0].isupper():
+            return
+    line = text[:pos].count('\n') + 1
+    problems.append(f'{path.name}:{line}: cross-reference "'
+                    f'{quoted}" matches no heading')
 
 
 def check_python_blocks(path, text, problems):
@@ -378,6 +440,7 @@ def ascii_ok(text):
 
 def main():
     problems: list[str] = []
+    tally = {'seen': 0, 'checked': 0, 'unresolved': 0, 'skipped_constant': 0}
     members = load_members(problems)
     docs = sorted(DESIGN.rglob('*.md'))
     if not docs:
@@ -401,7 +464,7 @@ def main():
         text = texts.get(path)
         if text is None:
             continue
-        check_symbols(path, text, members, problems)
+        check_symbols(path, text, members, problems, tally)
         check_file_lines(path, text, problems)
         check_crossrefs(path, text, problems, all_heads)
         check_python_blocks(path, text, problems)
@@ -409,7 +472,13 @@ def main():
         check_manifest_sections(path, text, problems)
     for p in problems:
         print(p)
+    # Report coverage, not just problems. Two review passes over-trusted this
+    # tool because "0 problems" reads like "everything verified" when it can
+    # also mean "nothing was checked".
     print(f'check_docs: {len(docs)} documents, {len(problems)} problems')
+    print(f'check_docs: symbol citations {tally["seen"]} seen, '
+          f'{tally["checked"]} verified, {tally["unresolved"]} unresolvable, '
+          f'{tally["skipped_constant"]} uppercase-skipped')
     return 1 if problems else 0
 
 
