@@ -63,9 +63,10 @@ What it does check, reliably:
     quoted name after see/under/per/in/from, and 11 real pointers here
     are introduced some other way.
 
-It also fails when fewer than ``MIN_VERIFIED`` citations get verified,
-which is the one mechanical defence against a check going quietly inert:
-two have, each printing ``0 problems`` and exiting 0.
+It also fails when fewer citations are judged than ``MIN_JUDGED``, or more
+are unresolved than ``MAX_UNRESOLVED``. Those bounds are the only
+mechanical defence against a check going quietly inert:
+three have, each printing ``0 problems`` and exiting 0.
 
 Every check has been proven to fail on planted defects, several per check.
 That matters more than it sounds, and twice now the proof has been the
@@ -124,13 +125,29 @@ EXTENSIONS = frozenset({
     'java'
 })
 
-# A committed floor on how many citations actually get verified. The human
-# instruction to "read the coverage line" cannot catch a silent collapse,
-# because 92 and 56 are equally plausible readings with nothing to compare
-# against - and two checks have already gone inert while printing 0 problems
-# and exiting 0. Raise it when coverage grows; lowering it is a deliberate act
-# that belongs in the same commit as whatever removed the citations.
-MIN_VERIFIED = 107
+# Committed bounds on coverage. The human instruction to "read the coverage
+# line" cannot catch a silent collapse, because 107 and 56 are equally
+# plausible readings with nothing to compare against, and three checks have now
+# gone inert while printing 0 problems and exiting 0.
+#
+# The floor counts citations *judged* - verified plus failed - not verified
+# alone. Watching `verified` meant an ordinary typo moved one citation from
+# verified to failed and tripped the floor, so the tool reported "a check has
+# gone inert or citations were removed" when neither was true and told the
+# author to lower it. A tripwire that fires on routine edits gets disarmed.
+#
+# The ceiling catches the other direction, where resolution regresses and
+# citations slide into `unresolved` without the judged count moving.
+#
+# Neither bound catches a whole class, and the limit is worth stating rather
+# than discovering later: a bug that suppresses *reports* while leaving
+# resolution intact moves no bucket at all. The `abc.ABC` regression was
+# exactly that - it poisoned 15 citations and every count stayed
+# byte-identical, so a ceiling would not have found it either (measured, not
+# assumed). Only a test that plants a defect and asserts the report can:
+# see `tests/unit/check_docs_tests.py`.
+MIN_JUDGED = 107
+MAX_UNRESOLVED = 145
 
 IGNORED_PARTS = frozenset({
     '.git', '.mypy_cache', '.pytest_cache', '.tox', '.venv', '__pycache__',
@@ -213,7 +230,7 @@ PROPOSED = {
 EXTERNAL_BASES = frozenset({
     'Exception', 'BaseException', 'object', 'ValueError', 'TypeError',
     'IOError', 'OSError', 'RuntimeError', 'AttributeError', 'Enum', 'IntEnum',
-    'ABC', 'Generic', 'NamedTuple'
+    'ABC', 'ABCMeta', 'Generic', 'NamedTuple', 'Protocol'
 })
 
 # Qualified class keys whose inherited member set could not be fully resolved,
@@ -462,7 +479,13 @@ def load_members(problems):
         for base in bases.get(qual, []):
             cand = resolve_base(qual, base)
             if cand is None:
-                if base not in EXTERNAL_BASES:
+                # Compare the *tail*. `bases` deliberately keeps the dotted
+                # spelling, so testing it whole missed `abc.ABC` against `ABC`
+                # and marked `pika.connection.Connection` incomplete - which
+                # cascaded to `BaseConnection` and `SelectConnection` and turned
+                # the base-versus-adapter report, the one the docstring calls
+                # the case worth catching, silently off for 15 citations.
+                if base.rsplit('.', 1)[-1] not in EXTERNAL_BASES:
                     incomplete.add(qual)
                 continue
             out |= inherited(cand, seen)
@@ -1313,11 +1336,18 @@ def main():
         print(f'check_docs: BUG: buckets sum to {buckets}, not '
               f'{tally["seen"]}; the coverage line is not a breakdown')
         return 1
-    if tally['checked'] < MIN_VERIFIED:
-        print(f'check_docs: BUG: verified {tally["checked"]} citations, floor '
-              f'is {MIN_VERIFIED}. Either a check has gone inert or citations '
-              f'were removed; if the drop is intended, lower MIN_VERIFIED in '
-              f'the same commit and say why.')
+    judged = tally['checked'] + tally['failed']
+    if judged < MIN_JUDGED:
+        print(f'check_docs: BUG: judged {judged} citations, floor is '
+              f'{MIN_JUDGED}. Either a check has gone inert or citations were '
+              f'removed; if the drop is intended, change MIN_JUDGED in the '
+              f'same commit and say why.')
+        return 1
+    if tally['unresolved'] > MAX_UNRESOLVED:
+        print(f'check_docs: BUG: {tally["unresolved"]} citations unresolved, '
+              f'ceiling is {MAX_UNRESOLVED}. Resolution has regressed, which '
+              f'the floor cannot see because unresolved citations are never '
+              f'judged either way.')
         return 1
     return 1 if problems else 0
 

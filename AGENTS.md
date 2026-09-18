@@ -64,6 +64,13 @@ examples/               # usage examples
   also covered by `fmt`, `lint` and `docfmt`: both are standalone helpers
   outside the package, and a helper nothing gates rots. `design/check_docs.py`
   carried a mypy error unnoticed before it was added here.
+- Both standalone helpers have unit tests, and for `design/check_docs.py` the
+  tests are the only thing that can catch its worst failure mode: a check that
+  goes inert still prints `0 problems` and exits 0, and three of them did.
+  `tests/unit/check_docs_tests.py` asserts each check twice, on an input it
+  must reject and a near-miss it must accept, because the fixes for two inert
+  checks introduced false positives on correct prose. Every assertion has been
+  negative-checked by reintroducing the defect it guards.
 - Use single quotes for strings unless the string contains a single quote.
 - No trailing whitespace. Check before committing.
 
