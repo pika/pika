@@ -10,49 +10,70 @@ Exits non-zero and prints one line per problem, then a coverage line.
 **Read the coverage line.** This tool does not verify most of what the
 documents assert, and two review passes over-trusted it because "0
 problems" reads like "everything verified". It reports what it actually
-checked so that cannot happen again. Current coverage of symbol citations
-is roughly a fifth: resolving a receiver like ``self._channel._state`` or
-``ch.is_open`` needs type inference this does not attempt, and members
-whose names start with a capital are skipped because the AMQP frame
-namespace collides with pika's class names.
+checked so that cannot happen again, and the buckets are asserted to sum
+to the number seen - they previously did not, which made a breakdown that
+could not be read as one. Symbol citations it cannot resolve are the
+majority: a receiver like ``self._channel._state`` or ``ch.is_open`` needs
+type inference this does not attempt, and members whose names start with a
+capital are skipped because the AMQP frame namespace collides with pika's
+class names.
 
 What it does check, reliably:
 
-1. Backticked ``Class.member`` citations whose owner resolves to a class in
-   ``SOURCES``, against members parsed from the real source. Bare
+1. Backticked ``Class.member`` citations, with or without a trailing
+   ``()``, whose owner resolves to a class in ``SOURCES``, against members
+   parsed from the real source and its bases. Bare
    ``Connection``/``Channel`` resolve to the adapter per the glossary; a
    base-qualified citation of an adapter-only member fails, which is the
-   base-versus-adapter confusion these documents exist to keep straight.
-2. ``file:line`` citations, including both ends of a range, against real
-   file lengths.
-3. Every quoted section name after see/under/per/in/from, against headings
-   pooled across the whole tree.
-4. Fenced Python blocks parse. Syntax only - a block may still fail at
+   base-versus-adapter confusion these documents exist to keep straight,
+   and a ``pika.``-rooted owner that does not resolve is reported rather
+   than silently retried by its tail.
+2. The manifest's *bare* backticked names, against the class its bullet
+   names in ``, on `Class`:``. ``check_symbols`` cannot see these, so the
+   one section declared authoritative for implementers had no symbol
+   checking at all: five typos planted in it produced ``0 problems``.
+3. ``file:line`` citations, including both ends of a range, against real
+   file lengths. A bare file name matching more than one path is reported,
+   not skipped.
+4. Every quoted section name after see/under/per/in/from, against headings
+   pooled across the whole tree, H1 included and fences excluded.
+5. Fenced Python blocks parse. Syntax only - a block may still fail at
    import on undefined names, which ``compile()`` cannot see.
-5. Markdown hygiene: ASCII only, no trailing whitespace, exactly one H1,
+6. Markdown hygiene: ASCII only, no trailing whitespace, exactly one H1,
    no hard-wrapped paragraphs, no unclosed fences.
-6. Manifest sections name and point rather than explain, so a correction
+7. Manifest sections name and point rather than explain, so a correction
    made in the prose cannot go stale in the sections an implementer
-   builds from.
-7. A sentence stating a count agrees with the list beneath it. Adding an
+   builds from. Judged per clause: a pointer exempts the clause that
+   points, not the whole line, or one long bullet buys blanket immunity.
+8. A sentence stating a count agrees with the list beneath it. Adding an
    item and leaving the count alone is a defect a review pass found.
-8. No sentence begins with a conjunction after a full stop, which is the
+9. No sentence begins with a conjunction after a full stop, which is the
    seam left by inserting text into the middle of a paragraph and
    orphaning the clause that followed.
 
 Every check has been proven to fail on planted defects, several per check.
-That matters more than it sounds: the cross-reference check was dead on
-arrival, and only planting a defect revealed it.
+That matters more than it sounds, and twice now the proof has been the
+thing at fault rather than the check: the cross-reference check was dead
+on arrival, and a re-test of the manifest check passed only because the
+planted typo landed in the prose instead of the manifest. Plant the defect
+where the check is supposed to look, and confirm the message names it.
 """
 
 import ast
 import pathlib
 import re
 import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Set as AbstractSet
 
 # Sentinel for a bare class name that two modules both define, so a
 # citation using it cannot be resolved and must be qualified.
-AMBIGUOUS = {'<ambiguous>'}
+# Frozen deliberately. This was weakened to a mutable `set` to clear a mypy
+# error, which made a shared sentinel writable by anything holding it; the
+# annotation on `members` is the right fix for that error.
+AMBIGUOUS = frozenset({'<ambiguous>'})
 
 # The documents' own convention, stated in the glossary: an unqualified
 # `Connection` or `Channel` means the adapter class. Encode that rather than
@@ -60,10 +81,35 @@ AMBIGUOUS = {'<ambiguous>'}
 # base class still requires the module prefix, and a base-qualified citation
 # of an adapter-only member therefore fails, which is the case worth catching.
 ADAPTER_MODULE = 'pika/adapters/thread_safe_connection.py'
+ADAPTER_DOTTED = ADAPTER_MODULE[:-3].replace('/', '.')
 BARE_DEFAULTS = {
-    'Connection': ADAPTER_MODULE[:-3].replace('/', '.') + '.Connection',
-    'Channel': ADAPTER_MODULE[:-3].replace('/', '.') + '.Channel',
+    'Connection': ADAPTER_DOTTED + '.Connection',
+    'Channel': ADAPTER_DOTTED + '.Channel',
 }
+
+
+def is_adapter(key):
+    """
+    Say whether a resolved key names a class in the adapter module.
+
+    Derived from `ADAPTER_MODULE` rather than spelled out again: a third hand-written copy of that
+    path would fail the whole corpus closed after the 2.0 module move `README.md` announces, and
+    silently.
+    """
+    return key.startswith(ADAPTER_DOTTED + '.')
+
+
+# Reference-client extensions are here too: these documents cite Java, .NET
+# and Go source files by name, and a file name is not a symbol citation.
+EXTENSIONS = frozenset({
+    'py', 'md', 'toml', 'yaml', 'yml', 'cfg', 'ini', 'txt', 'json', 'cs', 'go',
+    'java'
+})
+
+IGNORED_PARTS = frozenset({
+    '.git', '.mypy_cache', '.pytest_cache', '.tox', '.venv', '__pycache__',
+    'build', 'dist', 'env', 'node_modules', 'site', 'venv'
+})
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DESIGN = ROOT / 'design'
@@ -99,6 +145,17 @@ PROPOSED = {
     'Connection._on_redial_open',
     'Connection._on_redial_error',
     'Connection._transition',
+    'Connection._parameters',
+    'Connection._connect_timeout',
+    'Connection._skip_or_abort',
+    'Connection.state',
+    'Connection.is_recovering',
+    'Connection.add_state_change_listener',
+    'Connection.add_on_close_callback',
+    'Connection.add_on_open_callback',
+    'Connection.add_on_recovery_started_callback',
+    'Connection.add_on_recovery_succeeded_callback',
+    'Connection.add_on_recovery_failed_callback',
     'Channel._state',
     'Channel._closed',
     'Channel._delivery_tag_offset',
@@ -127,6 +184,7 @@ def load_members(problems):
     documents exist to keep straight.
     """
     by_qualified: dict[str, set[str]] = {}
+    bases: dict[str, list[str]] = {}
     for rel in SOURCES:
         path = ROOT / rel
         if not path.exists():
@@ -138,6 +196,11 @@ def load_members(problems):
                 continue
             mod = rel[:-3].replace('/', '.')
             found = by_qualified.setdefault(f'{mod}.{node.name}', set())
+            bases[f'{mod}.{node.name}'] = [
+                b.attr if isinstance(b, ast.Attribute) else b.id
+                for b in node.bases
+                if isinstance(b, (ast.Name, ast.Attribute))
+            ]
             # Direct children only for class-level assignments: walking the
             # whole subtree pulls method locals in as members, which made
             # `Connection.offset` and `Connection.deadline` pass.
@@ -156,6 +219,28 @@ def load_members(problems):
                     for tgt in stmt.targets:
                         if isinstance(tgt, ast.Name):
                             found.add(tgt.id)
+    # Fold in inherited members. Without this, a *correct* citation of an
+    # inherited member is reported as nonexistent: `SelectConnection` declares
+    # four members of its own against 31 on `BaseConnection` and 89 on
+    # `pika.connection.Connection`, so `SelectConnection.ioloop` - an obvious
+    # citation for documents about the persistent loop - failed. The only
+    # escape was adding it to `PROPOSED`, which would record the false claim
+    # that it does not exist yet.
+    tails: dict[str, list[str]] = {}
+    for qual in by_qualified:
+        tails.setdefault(qual.rsplit('.', 1)[-1], []).append(qual)
+
+    def inherited(qual, seen):
+        if qual in seen:
+            return set()  # cyclic or repeated base; stop
+        seen.add(qual)
+        out = set(by_qualified[qual])
+        for base in bases.get(qual, []):
+            for cand in tails.get(base, []):
+                out |= inherited(cand, seen)
+        return out
+
+    by_qualified = {q: inherited(q, set()) for q in list(by_qualified)}
     # A stale BARE_DEFAULTS target silently disables the check for every bare
     # citation, which is most of them, so it is validated like SOURCES is.
     for bare_name, target in BARE_DEFAULTS.items():
@@ -168,13 +253,29 @@ def load_members(problems):
     bare: dict[str, list[str]] = {}
     for qual in by_qualified:
         bare.setdefault(qual.rsplit('.', 1)[-1], []).append(qual)
-    members = dict(by_qualified)
+    members: dict[str, AbstractSet[str]] = dict(by_qualified)
     for name, quals in bare.items():
         if len(quals) == 1:
             members[name] = by_qualified[quals[0]]
         else:
             members[name] = AMBIGUOUS
     return members
+
+
+def headings(text):
+    """Normalised heading text, skipping anything inside a code fence."""
+    out = set()
+    fenced = False
+    for line in text.split('\n'):
+        if line.lstrip().startswith('```'):
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
+        head = re.match(r'^#{1,6}\s+(.*)$', line)
+        if head:
+            out.add(head.group(1).strip().replace('`', '').lower())
+    return out
 
 
 def code_spans(text, problems=None, name=''):
@@ -191,7 +292,13 @@ def code_spans(text, problems=None, name=''):
     pos = 0
     fences = 0
     for line in text.split('\n'):
-        if line.startswith('```'):
+        # `lstrip` matters and the anchoring still does too. An indented
+        # closing fence is invisible to `startswith`, so the block stays open
+        # until the next block's opening fence closes it - inverting the
+        # pairing, so prose between two blocks becomes a code span and is
+        # exempted from the symbol, cross-reference and hard-wrap checks while
+        # the fence count stays even and the unclosed-fence report never fires.
+        if line.lstrip().startswith('```'):
             fences += 1
             if start is None:
                 start = pos
@@ -210,11 +317,21 @@ def in_code(pos, spans):
 
 def check_symbols(path, text, members, problems, tally=None):
     spans = code_spans(text, problems, path.name)
-    for m in re.finditer(r'`([A-Za-z_][\w.]*)\.(\w+)`', text):
+    # The trailing `()` is optional: requiring a bare backtick dropped every
+    # call-form citation, which is 47 of them here, before `seen` counted
+    # them - so the coverage line reported a denominator that silently
+    # omitted the citations the check could not see.
+    for m in re.finditer(r'`([A-Za-z_][\w.]*)\.(\w+)(?:\(\))?`', text):
         if in_code(m.start(), spans):
             continue
         owner, member = m.group(1), m.group(2)
-        if FOREIGN.match(owner) or owner.endswith('.py'):
+        # A file name is not a symbol citation. The test used to read
+        # `owner.endswith('.py')`, which can never fire: in `foo.py` the
+        # extension is the *member*, so 24 file names were being counted as
+        # symbol citations and reported as unresolvable.
+        if member in EXTENSIONS:
+            continue
+        if FOREIGN.match(owner):
             continue
         # `Channel.Close`, `Basic.Ack`, `Connection.Blocked` and friends are
         # AMQP method frames, not Python members; the protocol namespace
@@ -233,8 +350,26 @@ def check_symbols(path, text, members, problems, tally=None):
             key = BARE_DEFAULTS[owner]
         elif owner in members:
             key = owner
-        else:
+        elif owner.startswith('pika.'):
+            # A `pika.`-rooted owner that does not resolve is a *wrong* module
+            # path, and falling back to its tail accepted it as verified:
+            # `pika.heartbeat.IOLoop.add_callback_threadsafe` resolved via the
+            # tail to the adapter's `IOLoop` and was counted as checked, which
+            # is the base-versus-adapter confusion the check exists to catch.
+            # Restricted to `pika.` deliberately: a receiver expression such as
+            # `self._ioloop.start` is also dotted and unresolvable, but it is
+            # out of scope per the coverage note, not a mis-qualification.
+            line = text[:m.start()].count('\n') + 1
+            problems.append(
+                f'{path.name}:{line}: `{owner}.{member}` names a module '
+                f'path that does not resolve to a class in SOURCES')
+            if tally is not None:
+                tally['unresolved'] += 1
+            continue
+        elif '.' in owner:
             key = owner.split('.')[-1]
+        else:
+            key = owner
         if key not in members:
             if tally is not None:
                 tally['unresolved'] += 1
@@ -244,13 +379,16 @@ def check_symbols(path, text, members, problems, tally=None):
             problems.append(
                 f'{path.name}:{line}: `{owner}.{member}` uses a bare class '
                 f'name defined in more than one module; qualify it')
+            if tally is not None:
+                tally['ambiguous'] += 1
             continue
         # Match PROPOSED on the *resolved* key, not the bare class name:
         # matching bare re-merges the namespaces and exempts every proposed
         # member on the base classes too, which is the case worth catching.
         cls = key.rsplit('.', 1)[-1]
-        adapter = key.startswith('pika.adapters.thread_safe_connection.')
-        if adapter and f'{cls}.{member}' in PROPOSED:
+        if is_adapter(key) and f'{cls}.{member}' in PROPOSED:
+            if tally is not None:
+                tally['proposed'] += 1
             continue
         if tally is not None:
             tally['checked'] += 1
@@ -259,6 +397,58 @@ def check_symbols(path, text, members, problems, tally=None):
             problems.append(
                 f'{path.name}:{line}: `{owner}.{member}` does not exist on '
                 f'{key} (members are read from the real source)')
+
+
+# `- **`path`**, on `Class`:` - the manifest's own bullet shape, which
+# establishes an owner for every bare backticked name after it.
+MANIFEST_OWNER = re.compile(r'^-\s+\*\*`[^`]+`\*\*,\s+on\s+`(\w+)`:')
+
+
+def check_manifest_symbols(path, text, members, problems, tally=None):
+    """
+    Check the manifest's bare backticked names against the owner it names.
+
+    `check_symbols` only sees `Owner.member`, and the manifest deliberately
+    writes `` `_reopen_channel` `` with the owner hoisted into the bullet
+    prefix - so the one section declared authoritative for implementers was
+    the one section with no symbol checking at all. Five typos planted in it
+    produced `0 problems`.
+    """
+    spans = code_spans(text)
+    section = ''
+    for n, line in enumerate(text.split('\n'), 1):
+        head = re.match(r'^#{2,6}\s+(.*)$', line)
+        if head:
+            section = head.group(1).strip()
+            continue
+        if not any(section.startswith(s) for s in MANIFEST_SECTIONS):
+            continue
+        owner_match = MANIFEST_OWNER.match(line)
+        if not owner_match:
+            continue
+        owner = owner_match.group(1)
+        key = BARE_DEFAULTS.get(owner, owner)
+        if key not in members or members[key] is AMBIGUOUS:
+            problems.append(f'{path.name}:{n}: manifest bullet names owner '
+                            f'`{owner}`, which does not resolve to one class')
+            continue
+        cls = key.rsplit('.', 1)[-1]
+        for tok in re.finditer(r'`([a-z_]\w*)`', line[owner_match.end():]):
+            name = tok.group(1)
+            if in_code(tok.start(), spans):
+                continue
+            if tally is not None:
+                tally['seen'] += 1
+            if f'{cls}.{name}' in PROPOSED:
+                if tally is not None:
+                    tally['proposed'] += 1
+                continue
+            if tally is not None:
+                tally['checked'] += 1
+            if name not in members[key]:
+                problems.append(
+                    f'{path.name}:{n}: manifest names `{name}` on {cls}, '
+                    f'which does not exist there and is not in PROPOSED')
 
 
 def check_file_lines(path, text, problems):
@@ -271,10 +461,23 @@ def check_file_lines(path, text, problems):
         if not target.exists() and '/' not in rel:
             # A bare filename may be a proposed file or a real one cited
             # without its directory; resolve it when exactly one match exists
-            # so the citation is checked rather than skipped.
-            matches = [q for q in ROOT.rglob(rel) if '.git' not in q.parts]
+            # so the citation is checked rather than skipped. Build and
+            # environment directories must be excluded, not just `.git`: an
+            # in-tree `pip install -e .` or `python -m build` produces a second
+            # copy under `build/`, which made `len(matches) != 1` and silently
+            # skipped the citation - so the same commit got opposite verdicts
+            # depending on the developer's untracked directories.
+            matches = [
+                q for q in ROOT.rglob(rel) if not IGNORED_PARTS & set(q.parts)
+            ]
             if len(matches) == 1:
                 target = matches[0]
+            elif len(matches) > 1:
+                line = text[:m.start()].count('\n') + 1
+                problems.append(
+                    f'{path.name}:{line}: cited {rel} matches '
+                    f'{len(matches)} files; cite it with its directory')
+                continue
         if not target.exists():
             if '/' in rel:
                 line = text[:m.start()].count('\n') + 1
@@ -365,7 +568,11 @@ MANIFEST_SECTIONS = (
 # Deliberately narrow: a manifest legitimately says "gains", "lands", "new".
 BEHAVIOUR_WORDS = re.compile(
     r'\b(?:because|therefore|so that|otherwise|would|must not|cannot|'
-    r'instead of|rather than the|which means|the reason)\b', re.IGNORECASE)
+    r'instead of|rather than the|which means|'
+    # Not a bare "the reason": "the reason for them under X" is a pointer,
+    # which these sections are supposed to contain.
+    r'the reason (?:is|was|being|that|why))\b',
+    re.IGNORECASE)
 
 
 def check_manifest_sections(path, text, problems):
@@ -378,18 +585,29 @@ def check_manifest_sections(path, text, problems):
             continue
         if fenced:
             continue
-        head = re.match(r'^#{2,4}\s+(.*)$', line)
+        # H2-H6, and a deeper heading does not leave the section. Matching
+        # `#{2,4}` and resetting on any hit meant one `###` inside a manifest
+        # disabled the check for the rest of it, and demoting a manifest to H5
+        # stopped it being checked at all - both with no signal.
+        head = re.match(r'^(#{2,6})\s+(.*)$', line)
         if head:
-            section = head.group(1).strip()
+            if len(head.group(1)) == 2 or not any(
+                    section.startswith(s) for s in MANIFEST_SECTIONS):
+                section = head.group(2).strip()
             continue
         if not any(section.startswith(s) for s in MANIFEST_SECTIONS):
             continue
-        # A line carrying a section reference is a pointer, which is the
-        # whole point of these sections.
-        if re.search(r'(?:see|under|defined under|per)\s+"', line,
-                     re.IGNORECASE):
-            continue
-        hit = BEHAVIOUR_WORDS.search(line)
+        # A pointer earns immunity for the pointing *clause*, not for the whole
+        # line. The never-hard-wrap rule makes every manifest bullet one long
+        # line, so a line-level escape exempted 14 of 33 lines here - five of
+        # which already contained the words this hunts - and granted immunity
+        # to exactly the defect class it exists to catch: a bullet that both
+        # points and restates mechanism.
+        checked = re.split(r'(?:see|under|defined under|per)\s+"',
+                           line,
+                           maxsplit=1,
+                           flags=re.IGNORECASE)[0]
+        hit = BEHAVIOUR_WORDS.search(checked)
         if hit:
             problems.append(
                 f'{path.name}:{n}: "{section}" is a manifest; it should name '
@@ -574,7 +792,14 @@ def ascii_ok(text):
 
 def main():
     problems: list[str] = []
-    tally = {'seen': 0, 'checked': 0, 'unresolved': 0, 'skipped_constant': 0}
+    tally = {
+        'seen': 0,
+        'checked': 0,
+        'unresolved': 0,
+        'skipped_constant': 0,
+        'ambiguous': 0,
+        'proposed': 0,
+    }
     members = load_members(problems)
     docs = sorted(DESIGN.rglob('*.md'))
     if not docs:
@@ -590,15 +815,17 @@ def main():
         except UnicodeDecodeError as exc:
             problems.append(f'{path.name}: not valid UTF-8 ({exc})')
             continue
-        all_heads |= {
-            m.group(1).strip().replace('`', '').lower()
-            for m in re.finditer(r'^#{2,6}\s+(.*)$', texts[path], re.MULTILINE)
-        }
+        # Fence-aware, and H1 included. This was the only heading scan that
+        # toggled on nothing, so a `## ` line inside a Python block became a
+        # valid cross-reference target, while a pointer at a real H1 was
+        # reported dangling.
+        all_heads |= headings(texts[path])
     for path in docs:
         text = texts.get(path)
         if text is None:
             continue
         check_symbols(path, text, members, problems, tally)
+        check_manifest_symbols(path, text, members, problems, tally)
         check_file_lines(path, text, problems)
         check_crossrefs(path, text, problems, all_heads)
         check_python_blocks(path, text, problems)
@@ -612,9 +839,21 @@ def main():
     # tool because "0 problems" reads like "everything verified" when it can
     # also mean "nothing was checked".
     print(f'check_docs: {len(docs)} documents, {len(problems)} problems')
+    # The buckets must account for every citation seen. They previously summed
+    # to 180 of 184, because `PROPOSED` and ambiguity skips were untallied, so
+    # the line could not be read as a breakdown even though it looked like one.
+    buckets = (tally['checked'] + tally['unresolved'] +
+               tally['skipped_constant'] + tally['ambiguous'] +
+               tally['proposed'])
     print(f'check_docs: symbol citations {tally["seen"]} seen, '
           f'{tally["checked"]} verified, {tally["unresolved"]} unresolvable, '
-          f'{tally["skipped_constant"]} uppercase-skipped')
+          f'{tally["skipped_constant"]} uppercase-skipped, '
+          f'{tally["proposed"]} proposed-exempt, '
+          f'{tally["ambiguous"]} ambiguous')
+    if buckets != tally['seen']:
+        print(f'check_docs: BUG: buckets sum to {buckets}, not '
+              f'{tally["seen"]}; the coverage line is not a breakdown')
+        return 1
     return 1 if problems else 0
 
 
