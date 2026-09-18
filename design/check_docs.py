@@ -55,6 +55,13 @@ What it does check, reliably:
 10. Every test the plan numbers is scheduled in some phase of "Next
     steps". A test nothing schedules is a test nothing will build, and
     this has drifted twice.
+11. Every file a manifest bullet names exists, or is declared in
+    ``PROPOSED_FILES``. The symbol check reads the owner out of those
+    bullets and ignores the path, so a typo in one passed unnoticed.
+12. A quoted string that is *nearly* a heading, which is what a typo in a
+    pointer looks like. The verb-led check in item 4 only reaches a
+    quoted name after see/under/per/in/from, and 11 real pointers here
+    are introduced some other way.
 
 It also fails when fewer than ``MIN_VERIFIED`` citations get verified,
 which is the one mechanical defence against a check going quietly inert:
@@ -72,6 +79,7 @@ import ast
 import difflib
 import pathlib
 import re
+import subprocess
 import sys
 from typing import TYPE_CHECKING
 
@@ -212,6 +220,16 @@ EXTERNAL_BASES = frozenset({
 # so a missing member there means "cannot tell", not "does not exist".
 INCOMPLETE = set()  # type: ignore[var-annotated]
 
+# Files these documents propose creating. Same declaration as `PROPOSED`: an
+# entry says the path does not exist yet, so a typo in any *other* manifest path
+# is a failure instead of passing unnoticed.
+PROPOSED_FILES = frozenset({
+    'pika/recovery.py',
+    'examples/thread_safe_recovery_example.py',
+    'tests/acceptance/thread_safe_recovery_test.py',
+    'tests/unit/recovery_tests.py',
+})
+
 # Classes these documents propose adding, as `module.Class`. The same
 # declaration `PROPOSED` makes for members: listing one says it does not exist
 # yet. Without this, citing the design's own new exception types the way its
@@ -243,6 +261,31 @@ def module_of(owner):
     while parts and parts[-1][:1].isupper():
         parts.pop()
     return '.'.join(parts)
+
+
+def tracked_files():
+    """
+    Paths git knows about, as a set of `ROOT`-relative strings.
+
+    Resolving a bare file name by globbing the tree made verdicts depend on
+    whatever untracked directories a developer happened to have: first `build/`
+    from `pip install -e .`, then `typings/` from pyright. Patching the ignore
+    list each time loses that race, because the list is a guess about other
+    people's working copies. Git already knows, so ask it. Falls back to the
+    ignore list when git is unavailable, which is the tarball case.
+    """
+    try:
+        out = subprocess.run(
+            ['git', '-C', str(ROOT), 'ls-files', '-z'],
+            capture_output=True,
+            check=True,
+            text=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return {p for p in out.split('\0') if p}
+
+
+TRACKED = tracked_files()
 
 
 def modpath(mod):
@@ -430,6 +473,23 @@ def load_members(problems):
     by_qualified = {q: inherited(q, set()) for q in list(by_qualified)}
     INCOMPLETE.clear()
     INCOMPLETE.update(incomplete)
+    # `PROPOSED` and `PROPOSED_CLASSES` assert that something does *not* exist
+    # yet, so an entry that has since landed is a false claim in the one list
+    # the proposal tells reviewers to read as its drift signal - and it silently
+    # buys a permanent exemption from the membership check. `SOURCES` and
+    # `BARE_DEFAULTS` are both validated against reality; these were not.
+    for entry in sorted(PROPOSED):
+        cls, _, member = entry.partition('.')
+        key = BARE_DEFAULTS.get(cls, cls)
+        if member in by_qualified.get(key, ()):
+            problems.append(
+                f'check_docs: PROPOSED lists {entry}, which now exists; '
+                f'remove it so the member is checked rather than exempted')
+    for entry in sorted(PROPOSED_CLASSES):
+        if entry in by_qualified:
+            problems.append(
+                f'check_docs: PROPOSED_CLASSES lists {entry}, which now '
+                f'exists; remove it so the class is checked')
     # A stale BARE_DEFAULTS target silently disables the check for every bare
     # citation, which is most of them, so it is validated like SOURCES is.
     for bare_name, target in BARE_DEFAULTS.items():
@@ -638,6 +698,34 @@ def check_symbols(path, text, members, problems, tally=None):
 # establishes an owner for every bare backticked name after it.
 MANIFEST_OWNER = re.compile(r'^-\s+\*\*`[^`]+`\*\*,\s+on\s+`(\w+)`:')
 
+MANIFEST_PATH = re.compile(r'^-\s+\*\*`([\w./-]+\.\w+)`\*\*')
+
+
+def check_manifest_paths(path, text, problems):
+    """
+    Check that every file a manifest bullet names exists or is proposed.
+
+    The symbol check reads the owner class out of these bullets and ignores the
+    path, and `check_file_lines` only looks at paths followed by `:digits` - so
+    `pika/recoverry.py` and `thread_safe_connnection.py` both passed unnoticed
+    in the section an implementer builds from.
+    """
+    fenced = False
+    for n, line in enumerate(text.split('\n'), 1):
+        if line.lstrip().startswith('```'):
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
+        m = MANIFEST_PATH.match(line)
+        if not m:
+            continue
+        rel = m.group(1)
+        if rel in PROPOSED_FILES or (ROOT / rel).exists():
+            continue
+        problems.append(f'{path.name}:{n}: manifest names the file {rel}, '
+                        f'which does not exist and is not in PROPOSED_FILES')
+
 
 def check_manifest_symbols(path, text, members, problems, tally=None):
     """
@@ -711,10 +799,17 @@ def check_file_lines(path, text, problems):
             # citation fell through unchecked - reintroducing the very
             # "opposite verdicts from untracked directories" failure this
             # filter was added to fix, keyed on an ancestor instead.
-            matches = [
-                q for q in ROOT.rglob(rel)
-                if not IGNORED_PARTS & set(q.relative_to(ROOT).parts)
-            ]
+            if TRACKED is not None:
+                matches = [
+                    ROOT / p
+                    for p in TRACKED
+                    if p == rel or p.endswith('/' + rel)
+                ]
+            else:
+                matches = [
+                    q for q in ROOT.rglob(rel)
+                    if not IGNORED_PARTS & set(q.relative_to(ROOT).parts)
+                ]
             if len(matches) == 1:
                 target = matches[0]
             else:
@@ -1186,6 +1281,7 @@ def main():
             continue
         check_symbols(path, text, members, problems, tally)
         check_manifest_symbols(path, text, members, problems, tally)
+        check_manifest_paths(path, text, problems)
         check_file_lines(path, text, problems)
         check_crossrefs(path, text, problems, all_heads)
         check_near_miss_refs(path, text, problems, all_heads)
