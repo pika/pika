@@ -504,5 +504,47 @@ class CoverageAccountingTests(unittest.TestCase):
         self.assertEqual(buckets, tally['seen'])
 
 
+class HeadingUniquenessTests(unittest.TestCase):
+    """No two documents may share a heading."""
+
+    def _run(self, docs):
+        texts = {pathlib.Path(n): b for n, b in docs.items()}
+        problems: list[str] = []
+        check_docs.check_headings_unique(list(texts), texts, problems)
+        return problems
+
+    def test_shared_heading_is_reported(self):
+        # How two copies of "Open questions" drifted apart twice: nothing said
+        # they were the same list.
+        self.assertTrue(
+            self._run({
+                'a.md': '# A\n\n## Open questions\n',
+                'b.md': '# B\n\n## Open questions\n',
+            }))
+
+    def test_distinct_headings_are_accepted(self):
+        self.assertEqual(
+            self._run({
+                'a.md': '# A\n\n## Alpha\n',
+                'b.md': '# B\n\n## Beta\n',
+            }), [])
+
+    def test_heading_inside_a_fence_does_not_collide(self):
+        self.assertEqual(
+            self._run({
+                'a.md': '# A\n\n## Alpha\n',
+                'b.md': '# B\n\n```\n## Alpha\n```\n',
+            }), [])
+
+    def test_the_real_documents_have_no_collisions(self):
+        design = pathlib.Path(_MODULE_PATH).parent / 'connection-recovery'
+        docs = {
+            p: p.read_text(encoding='utf-8') for p in sorted(design.glob('*.md'))
+        }
+        problems: list[str] = []
+        check_docs.check_headings_unique(list(docs), docs, problems)
+        self.assertEqual(problems, [])
+
+
 if __name__ == '__main__':
     unittest.main()

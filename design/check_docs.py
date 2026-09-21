@@ -65,6 +65,9 @@ What it does check, reliably:
 13. "Open questions", where a document has one, is its first section.
     Those are the decisions a reader owes an answer to, and a section
     drifts back to the bottom one insertion at a time.
+14. No heading appears in two documents. Pointers resolve against
+    headings pooled across the tree, so a duplicate makes every pointer
+    to it ambiguous - and is how two copies of one list drifted apart.
 
 It also fails when fewer citations are judged than ``MIN_JUDGED``, or more
 are unresolved than ``MAX_UNRESOLVED``. Those bounds are the only
@@ -1178,6 +1181,27 @@ def check_list_counts(path, text, problems):
 MARKER = re.compile(r'^\s*(?:[-*+]\s|\d+\.\s|\||#{1,6}\s|>)')
 
 
+def check_headings_unique(docs, texts, problems):
+    """
+    Fail when two documents in the tree share a heading.
+
+    Cross-references are resolved against headings pooled across the tree, so two documents with the
+    same heading make every pointer to it ambiguous - and a pointer at a renamed section is
+    satisfied by the other document's copy, which is the failure the pooling was meant to avoid. It
+    is also how two copies of "Open questions" drifted apart twice: nothing said they were the same
+    list.
+    """
+    owners: dict[str, list[str]] = {}
+    for path in docs:
+        for head in headings(texts[path]):
+            owners.setdefault(head, []).append(path.name)
+    for head, files in sorted(owners.items()):
+        if len(files) > 1:
+            problems.append(f'check_docs: heading "{head}" appears in '
+                            f'{", ".join(files)}; a pointer to it cannot say '
+                            f'which is meant')
+
+
 def check_open_questions_first(path, text, problems):
     """
     Fail if a document has "Open questions" anywhere but its first section.
@@ -1337,6 +1361,7 @@ def main():
         f'in any document; the name-and-point rule for it is not running'
         for name in MANIFEST_SECTIONS
         if name.lower() not in all_heads)
+    check_headings_unique([d for d in docs if d in texts], texts, problems)
     for path in docs:
         text = texts.get(path)
         if text is None:

@@ -6,7 +6,7 @@ Before reading: `README.md` in this directory records the pika 2.0.0 constraints
 
 ## Open questions
 
-Three of these are raised in `design-state-machine.md` and remain open here: the exact adapter state set, opt-in block-until-open, and the exception hierarchy. Two are raised here for the first time - the "socket back, replay pending" signal, and the bound on channel-level episodes. An earlier version of this line attributed all of them to that document, which mentions neither.
+This is the only list of open decisions in this design area. `design-state-machine.md` kept a second copy and the two drifted twice, so it now carries none and points here instead. Three of these were first raised while the direction was being evaluated - the exact adapter state set, opt-in block-until-open, and the exception hierarchy - and two came out of reviewing this document: the "socket back, replay pending" signal, and the bound on channel-level episodes.
 
 - **Exact adapter state set.** This proposal uses `{OPEN, RECOVERING, CLOSING, CLOSED}` for `LifecycleState`. Whether an `OPENING` value is also needed on the adapter (mirroring the base classes) for the initial-connect path, distinct from a post-drop `RECOVERING`, is open.
 - **A separate "socket back, replay pending" signal.** `add_on_open_callback` fires on the `RECOVERING -> OPEN` transition, which is after topology replay, so nothing currently observes the moment the redial succeeded while replay is still running. Java exposes the equivalent as its own pair of recovery-listener callbacks rather than as an open notification. Whether pika should add one, and what it should be called, is open; overloading `add_on_open_callback` for it is not an option, for the reason given under the redial sequence.
