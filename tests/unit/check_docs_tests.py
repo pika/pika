@@ -590,5 +590,32 @@ class SelfCorrectionTests(unittest.TestCase):
                 self.assertEqual(self._run(doc.read_text(encoding='utf-8')), [])
 
 
+class SubjectAreaScopingTests(unittest.TestCase):
+    """Heading rules scope to a subject area, not to the whole tree."""
+
+    def _unique(self, docs):
+        texts = {pathlib.Path(n): b for n, b in docs.items()}
+        problems: list[str] = []
+        check_docs.check_headings_unique(list(texts), texts, problems)
+        return problems
+
+    def test_same_heading_in_one_area_is_reported(self):
+        self.assertTrue(
+            self._unique({
+                'a/one.md': '# A\n\n## Open questions\n',
+                'a/two.md': '# B\n\n## Open questions\n',
+            }))
+
+    def test_each_subject_may_have_its_own_open_questions(self):
+        # Two unrelated design subjects must each be allowed the section the
+        # hard rules require them to lead with.
+        area_a = {pathlib.Path('a/one.md'): '# A\n\n## Open questions\n'}
+        area_b = {pathlib.Path('b/one.md'): '# B\n\n## Open questions\n'}
+        problems: list[str] = []
+        for area in (area_a, area_b):
+            check_docs.check_headings_unique(list(area), area, problems)
+        self.assertEqual(problems, [])
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -25,7 +25,11 @@ utils/codegen.py        # code generator for pika/spec.py
 utils/regen_spec.py     # regenerate/verify pika/spec.py (hatch run spec-regen)
 .ci/docs_site.py        # docs-site deploy helper (alias policy, verification)
 design/                 # design working areas (planning docs, not built into
-                        #   the docs site). Run `python3 design/check_docs.py`
+                        #   the docs site). `design/README.md` states the
+                        #   hard rules every document there follows, the first
+                        #   being that a design doc states the design and never
+                        #   narrates its own revision history.
+                        #   Run `python3 design/check_docs.py`
                         #   by hand to check them; no CI job runs it. Act on
                         #   its exit code, which is the actual pass/fail, and
                         #   read the coverage line too: it verifies under half

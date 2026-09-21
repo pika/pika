@@ -1210,12 +1210,20 @@ def check_headings_unique(docs, texts, problems):
 # that these documents read as correct on their own terms: the reason a rule
 # holds is the engineering reason, never that a previous draft got it wrong.
 SELF_CORRECTION = re.compile(
-    r'\ban earlier (?:draft|version)\b'
+    r'\ban earlier (?:draft|version|statement|claim)\b'
+    r'|\bthe earlier (?:draft|version|statement|claim)\b'
+    r'|\ba previous (?:draft|version|statement)\b'
+    r'|\bin a previous (?:revision|draft|version)\b'
     r'|\bthis document (?:previously|keeps making)\b'
-    r'|\bpreviously (?:said|named|listed|wrote|written)\b'
+    r'|\bpreviously (?:said|named|listed|wrote|written|treated|specified)\b'
+    r'|\boriginally (?:said|argued|claimed|specified|treated|had)\b'
+    r'|\bwe (?:previously|originally) (?:said|wrote|had|specified)\b'
+    r'|\bused to (?:say|read|specify|require)\b'
+    r'|\bas (?:first|originally) (?:written|drafted)\b'
+    r'|\bhad it backwards\b'
+    r'|\b(?:this|that) (?:was|is) (?:now )?(?:corrected|retracted)\b'
     r'|\bwas wrong in a way\b'
-    r'|\bgot (?:it|this|both) wrong\b'
-    r'|\ban earlier statement\b', re.IGNORECASE)
+    r'|\bgot (?:it|this|both) wrong\b', re.IGNORECASE)
 
 
 def check_no_self_correction(path, text, problems):
@@ -1372,21 +1380,24 @@ def main():
     if not docs:
         print('check_docs: no documents found')
         return 1
-    # Headings are pooled across the tree: referring to a section of a
-    # sibling document is normal and must not be flagged.
-    all_heads = set()
+    # Headings pool per subject area, not across the whole tree. Pointing at a
+    # section of a sibling document within one subject is normal; resolving a
+    # pointer against an unrelated subject's heading is the ambiguity this
+    # guards against, and it would also forbid two subjects from each having an
+    # "Open questions" section, which every subject needs.
     texts = {}
+    heads_by_area: dict[pathlib.Path, set[str]] = {}
     for path in docs:
         try:
             texts[path] = path.read_text(encoding='utf-8')
         except UnicodeDecodeError as exc:
             problems.append(f'{path.name}: not valid UTF-8 ({exc})')
             continue
-        # Fence-aware, and H1 included. This was the only heading scan that
-        # toggled on nothing, so a `## ` line inside a Python block became a
-        # valid cross-reference target, while a pointer at a real H1 was
-        # reported dangling.
-        all_heads |= headings(texts[path])
+        # Fence-aware, and H1 included, so a `## ` line inside a Python block is
+        # not a valid cross-reference target and a pointer at a real H1 resolves.
+        heads_by_area.setdefault(path.parent,
+                                 set()).update(headings(texts[path]))
+    all_heads = set().union(*heads_by_area.values()) if heads_by_area else set()
     # A stale `MANIFEST_SECTIONS` entry disables the name-and-point rule in
     # silence on a heading rename, which is why the sibling symbol check dropped
     # its heading gate entirely. This one still needs the names, so validate
@@ -1396,7 +1407,10 @@ def main():
         f'in any document; the name-and-point rule for it is not running'
         for name in MANIFEST_SECTIONS
         if name.lower() not in all_heads)
-    check_headings_unique([d for d in docs if d in texts], texts, problems)
+    for area in sorted(heads_by_area):
+        check_headings_unique(
+            [d for d in docs if d in texts and d.parent == area], texts,
+            problems)
     for path in docs:
         text = texts.get(path)
         if text is None:
@@ -1405,8 +1419,9 @@ def main():
         check_manifest_symbols(path, text, members, problems, tally)
         check_manifest_paths(path, text, problems)
         check_file_lines(path, text, problems)
-        check_crossrefs(path, text, problems, all_heads)
-        check_near_miss_refs(path, text, problems, all_heads)
+        area_heads = heads_by_area.get(path.parent, set())
+        check_crossrefs(path, text, problems, area_heads)
+        check_near_miss_refs(path, text, problems, area_heads)
         check_python_blocks(path, text, problems)
         check_markdown(path, text, problems)
         check_manifest_sections(path, text, problems)
