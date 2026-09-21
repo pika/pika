@@ -6,6 +6,15 @@ Status: adopted, and kept as the derivation rather than as a specification. `pro
 
 Terminology note: pika now has two classes named `Connection` and two named `Channel`. "Base `Connection`/`Channel`" means `pika.connection.Connection` / `pika.channel.Channel` (one transport session; dies and stays dead). "Adapter `Connection`/`Channel`" means `pika.adapters.thread_safe_connection.Connection` / `.Channel` (the stable handle an application holds, which can swap its inner connection across reconnects). Unless qualified, "the connection" below means the adapter `Connection`.
 
+## Open questions
+
+Three of these remain open in `proposal-recovery.md`, which reproduces them: the exact adapter state set, opt-in block-until-open, and the exception hierarchy. The proposal answers the fourth: channel-level recovery has its own sections there.
+
+- The exact 0.9.1 state set for the adapter handles (do we mirror base `OPENING/OPEN/CLOSING/CLOSED` plus `RECOVERING`, or a smaller set?).
+- Whether channel-level recovery (broker soft-error closing one channel while the connection stays up) is a `RECOVERING` state on just that `Channel`, and how it composes with a connection-level `RECOVERING`.
+- Whether any operation should block-until-open with a timeout as an opt-in, or whether fail-fast is the only mode.
+- What the new exceptions should subclass, now that the compatibility argument for the wrong-state bases has been retracted and 2.0 leaves the choice free.
+
 ## What this proposes, in one paragraph
 
 Give the adapter `Connection` and `Channel` a single authoritative lifecycle state that includes a `RECOVERING` state. Every public operation guards on that state, and an operation attempted while `RECOVERING` raises a dedicated, catchable exception (`ConnectionRecovering` / `ChannelRecovering`, each subclassing the existing wrong-state error). Recovery is driven on a persistent event loop rather than a separate recovery thread. The state is observable (listeners) and reactive (the guard), so an application can both ask "am I recovering?" and catch the fact that it is.
@@ -23,7 +32,7 @@ Give the adapter `Connection` and `Channel` a single authoritative lifecycle sta
 
 The RabbitMQ AMQP 1.0 Java client (`rabbitmq-amqp-java-client`) already implements this shape. Stripped of the 1.0-specific state contents, it is three ideas:
 
-- One authoritative state: `ResourceBase` holds an `AtomicReference<State>` with `RECOVERING` as a first-class member alongside `OPENING`, `OPEN`, `CLOSING`, `CLOSED`. Five members, not the four an earlier version of this line listed, and the omitted one was `OPENING` - which matters because whether the adapter needs an `OPENING` value is exactly the open question below, and the precedent being cited for the rest of the enum had already answered it.
+- One authoritative state: `ResourceBase` holds an `AtomicReference<State>` with `RECOVERING` as a first-class member alongside `OPENING`, `OPEN`, `CLOSING`, `CLOSED`. Five members, not the four an earlier version of this line listed, and the omitted one was `OPENING` - which matters because whether the adapter needs an `OPENING` value is exactly the open question at the top of this document, and the precedent being cited for the rest of the enum had already answered it.
 - Every operation guards on it. `AmqpPublisher.publish()`'s first line is `checkOpen()`, and `checkOpen()` throws a state-specific, catchable exception when not open (`AmqpResourceInvalidStateException`, naming the current state), so a publish during `RECOVERING` fails with a precise, catchable error.
 - Transitions are driven on one loop, with the rule that once `CLOSING`/`CLOSED` is reached only `CLOSED` may follow, so a late recovery success cannot resurrect a closed resource. State changes are dispatched to listeners in order.
 
@@ -46,7 +55,7 @@ Not on the base `Connection`: a base `Connection` is 1:1 with a transport sessio
 
 ### States
 
-Add a `RECOVERING` state to the adapter `Connection`/`Channel` lifecycle, distinct from `OPEN`, `CLOSING`, and `CLOSED`. Adopt the 1.0 client's terminal rule: once `CLOSING`/`CLOSED`, only `CLOSED` may follow, so a recovery attempt that succeeds after the app has called `close()` cannot resurrect the handle. The exact set of states for 0.9.1 is an open question (see below), but at minimum recovery must be representable as its own state, not folded into "closed."
+Add a `RECOVERING` state to the adapter `Connection`/`Channel` lifecycle, distinct from `OPEN`, `CLOSING`, and `CLOSED`. Adopt the 1.0 client's terminal rule: once `CLOSING`/`CLOSED`, only `CLOSED` may follow, so a recovery attempt that succeeds after the app has called `close()` cannot resurrect the handle. The exact set of states for 0.9.1 is an open question (see "Open questions" above), but at minimum recovery must be representable as its own state, not folded into "closed."
 
 ### The guard and the exceptions
 
@@ -72,15 +81,6 @@ The `RECOVERING -> OPEN` transition is the single, natural place to signal "the 
 ## What this does not remove
 
 A state machine makes the lifecycle explicit and the failures catchable. It does not remove the genuinely necessary parts of the proposal: the connection-wide topology ledger, consumer re-subscription, server-named-queue rename handling, and at-least-once/idempotency. Those are still required. This design changes the contract around recovery, not the need to redeclare topology.
-
-## Open questions
-
-Three of these remain open in `proposal-recovery.md`, which reproduces them: the exact adapter state set, opt-in block-until-open, and the exception hierarchy. The proposal answers the fourth: channel-level recovery has its own sections there.
-
-- The exact 0.9.1 state set for the adapter handles (do we mirror base `OPENING/OPEN/CLOSING/CLOSED` plus `RECOVERING`, or a smaller set?).
-- Whether channel-level recovery (broker soft-error closing one channel while the connection stays up) is a `RECOVERING` state on just that `Channel`, and how it composes with a connection-level `RECOVERING`.
-- Whether any operation should block-until-open with a timeout as an opt-in, or whether fail-fast is the only mode.
-- What the new exceptions should subclass, now that the compatibility argument for the wrong-state bases has been retracted and 2.0 leaves the choice free.
 
 ## Honest unknowns
 

@@ -405,6 +405,42 @@ class TestPlanTests(unittest.TestCase):
         self.assertEqual(self._run(self.PLAN), [])
 
 
+class OpenQuestionsPlacementTests(unittest.TestCase):
+    """The decisions a reader owes an answer to go first, always."""
+
+    def _run(self, text):
+        problems: list[str] = []
+        check_docs.check_open_questions_first(_DOC, text, problems)
+        return problems
+
+    def test_first_section_is_accepted(self):
+        self.assertEqual(
+            self._run('# T\n\n## Open questions\n\n- a\n\n## Other\n'), [])
+
+    def test_second_section_is_reported(self):
+        self.assertTrue(
+            self._run('# T\n\n## Intro\n\n## Open questions\n\n- a\n'))
+
+    def test_last_section_is_reported(self):
+        # Where it sat before, and where it drifts back to one insertion at a
+        # time if nothing enforces this.
+        self.assertTrue(
+            self._run('# T\n\n## A\n\n## B\n\n## Open questions\n\n- a\n'))
+
+    def test_document_without_the_section_is_accepted(self):
+        self.assertEqual(self._run('# T\n\n## A\n\n## B\n'), [])
+
+    def test_heading_inside_a_fence_is_ignored(self):
+        self.assertEqual(
+            self._run('# T\n\n## A\n\n```\n## Open questions\n```\n'), [])
+
+    def test_the_real_documents_comply(self):
+        design = pathlib.Path(_MODULE_PATH).parent / 'connection-recovery'
+        for doc in sorted(design.glob('*.md')):
+            with self.subTest(doc=doc.name):
+                self.assertEqual(self._run(doc.read_text(encoding='utf-8')), [])
+
+
 class StaleDeclarationTests(unittest.TestCase):
     """`PROPOSED` entries assert absence, so a landed one must be reported."""
 

@@ -62,6 +62,9 @@ What it does check, reliably:
     pointer looks like. The verb-led check in item 4 only reaches a
     quoted name after see/under/per/in/from, and 11 real pointers here
     are introduced some other way.
+13. "Open questions", where a document has one, is its first section.
+    Those are the decisions a reader owes an answer to, and a section
+    drifts back to the bottom one insertion at a time.
 
 It also fails when fewer citations are judged than ``MIN_JUDGED``, or more
 are unresolved than ``MAX_UNRESOLVED``. Those bounds are the only
@@ -1175,6 +1178,34 @@ def check_list_counts(path, text, problems):
 MARKER = re.compile(r'^\s*(?:[-*+]\s|\d+\.\s|\||#{1,6}\s|>)')
 
 
+def check_open_questions_first(path, text, problems):
+    """
+    Fail if a document has "Open questions" anywhere but its first section.
+
+    These are the decisions a human reader owes an answer to, so they go where that reader lands
+    rather than eight hundred lines down past the mechanism. Enforced rather than intended because
+    "always" is the requirement, and a section that drifts back to the bottom does so one insertion
+    at a time.
+    """
+    fenced = False
+    first = None
+    has_it = False
+    for line in text.split('\n'):
+        if line.lstrip().startswith('```'):
+            fenced = not fenced
+            continue
+        if fenced or not line.startswith('## '):
+            continue
+        title = line[3:].strip()
+        if first is None:
+            first = title
+        if title == 'Open questions':
+            has_it = True
+    if has_it and first != 'Open questions':
+        problems.append(f'{path.name}: "Open questions" must be the first '
+                        f'section; the first is "{first}"')
+
+
 def check_tests_are_phased(path, text, problems):
     """
     Fail when a numbered test appears in no phase of "Next steps".
@@ -1321,6 +1352,7 @@ def main():
         check_manifest_sections(path, text, problems)
         check_list_counts(path, text, problems)
         check_tests_are_phased(path, text, problems)
+        check_open_questions_first(path, text, problems)
         check_sentence_splices(path, text, problems)
     for p in problems:
         print(p)
