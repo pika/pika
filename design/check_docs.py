@@ -200,7 +200,6 @@ PROPOSED = {
     'Connection._reopen_channels_and_recover_topology',
     'Connection._reopen_channel',
     'Connection._recover_topology',
-    'Connection._recover_channel',
     'Connection._on_channel_closed_for_recovery',
     'Connection._on_redial_open',
     'Connection._on_redial_error',
@@ -217,7 +216,6 @@ PROPOSED = {
     'Connection.add_on_recovery_succeeded_callback',
     'Connection.add_on_recovery_failed_callback',
     'Channel._state',
-    'Channel._recovery_pass',
     'Channel._closed',
     'Channel._delivery_tag_offset',
     'Channel._max_seen_delivery_tag',
@@ -231,9 +229,6 @@ PROPOSED = {
     'Channel.state',
     'Channel.is_recovering',
     'Channel.add_state_change_listener',
-    'Channel.add_on_recovery_started_callback',
-    'Channel.add_on_recovery_succeeded_callback',
-    'Channel.add_on_recovery_failed_callback',
     # The document says the five registration methods are provided on both
     # classes and integration test 15 registers these two on a channel, so
     # listing only the connection's half made the channel's uncitable.
