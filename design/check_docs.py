@@ -137,7 +137,12 @@ EXTENSIONS = frozenset({
 # author to lower it. A tripwire that fires on routine edits gets disarmed.
 #
 # The ceiling catches the other direction, where resolution regresses and
-# citations slide into `unresolved` without the judged count moving.
+# citations slide into `unresolved` without the judged count moving. It carries
+# deliberate headroom, because unresolved citations grow whenever prose is
+# added - most receiver expressions land there - and a bound pinned to the
+# exact current number fires on ordinary edits. That is the mistake the floor
+# made first: a tripwire that cries wolf on routine work gets disarmed. This
+# one is watching for a step change, not tracking the count.
 #
 # Neither bound catches a whole class, and the limit is worth stating rather
 # than discovering later: a bug that suppresses *reports* while leaving
@@ -147,7 +152,7 @@ EXTENSIONS = frozenset({
 # assumed). Only a test that plants a defect and asserts the report can:
 # see `tests/unit/check_docs_tests.py`.
 MIN_JUDGED = 107
-MAX_UNRESOLVED = 145
+MAX_UNRESOLVED = 175
 
 IGNORED_PARTS = frozenset({
     '.git', '.mypy_cache', '.pytest_cache', '.tox', '.venv', '__pycache__',
@@ -179,6 +184,7 @@ SOURCE_MODULES = frozenset(s[:-3].replace('/', '.') for s in SOURCES)
 PROPOSED = {
     'Connection._state',
     'Connection._recovery',
+    'Connection._recovery_pass',
     'Connection._ioloop',
     'Connection._recover_connection',
     'Connection._try_reconnect_once',
@@ -202,6 +208,7 @@ PROPOSED = {
     'Connection.add_on_recovery_succeeded_callback',
     'Connection.add_on_recovery_failed_callback',
     'Channel._state',
+    'Channel._recovery_pass',
     'Channel._closed',
     'Channel._delivery_tag_offset',
     'Channel._max_seen_delivery_tag',
@@ -254,6 +261,7 @@ PROPOSED_FILES = frozenset({
 PROPOSED_CLASSES = frozenset({
     'pika.exceptions.ConnectionRecovering',
     'pika.exceptions.ChannelRecovering',
+    'pika.recovery.RecoveryPass',
 })
 
 # Names that look like Class.member but are not ours to check: reference
