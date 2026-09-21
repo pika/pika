@@ -546,5 +546,49 @@ class HeadingUniquenessTests(unittest.TestCase):
         self.assertEqual(problems, [])
 
 
+class SelfCorrectionTests(unittest.TestCase):
+    """A specification must not explain itself by citing its own past."""
+
+    def _run(self, text):
+        problems: list[str] = []
+        check_docs.check_no_self_correction(_DOC, text, problems)
+        return problems
+
+    def test_earlier_draft_is_reported(self):
+        self.assertTrue(
+            self._run('The guard goes here. An earlier draft put it in the '
+                      'shared helper, which was wrong.\n'))
+
+    def test_earlier_version_is_reported(self):
+        self.assertTrue(
+            self._run('An earlier version of this rule asked for '
+                      'a line number.\n'))
+
+    def test_previously_said_is_reported(self):
+        self.assertTrue(
+            self._run('This document previously said to use the wrapper.\n'))
+
+    def test_the_rule_stated_positively_is_accepted(self):
+        self.assertEqual(
+            self._run('The guard goes at each public method, because the '
+                      'shared helper is also called by `close()`.\n'), [])
+
+    def test_ordinary_use_of_earlier_is_accepted(self):
+        # "earlier" about the code or the protocol is fine; only the document's
+        # own history is banned.
+        self.assertEqual(
+            self._run('The reopen sweep runs earlier than replay, and an '
+                      'earlier frame may still be queued.\n'), [])
+
+    def test_inline_code_is_skipped(self):
+        self.assertEqual(self._run('Use `an earlier draft` as the key.\n'), [])
+
+    def test_the_real_documents_are_clean(self):
+        design = pathlib.Path(_MODULE_PATH).parent / 'connection-recovery'
+        for doc in sorted(design.glob('*.md')):
+            with self.subTest(doc=doc.name):
+                self.assertEqual(self._run(doc.read_text(encoding='utf-8')), [])
+
+
 if __name__ == '__main__':
     unittest.main()

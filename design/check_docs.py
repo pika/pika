@@ -68,6 +68,9 @@ What it does check, reliably:
 14. No heading appears in two documents. Pointers resolve against
     headings pooled across the tree, so a duplicate makes every pointer
     to it ambiguous - and is how two copies of one list drifted apart.
+15. No prose narrates the document's own revision history. A rule is
+    justified by its engineering reason, not by what a previous draft
+    said, so these read as specifications rather than as errata.
 
 It also fails when fewer citations are judged than ``MIN_JUDGED``, or more
 are unresolved than ``MAX_UNRESOLVED``. Those bounds are the only
@@ -1202,6 +1205,38 @@ def check_headings_unique(docs, texts, problems):
                             f'which is meant')
 
 
+# Prose that narrates the document's own history rather than stating the design.
+# These read as an addendum bolted onto a specification, and the requirement is
+# that these documents read as correct on their own terms: the reason a rule
+# holds is the engineering reason, never that a previous draft got it wrong.
+SELF_CORRECTION = re.compile(
+    r'\ban earlier (?:draft|version)\b'
+    r'|\bthis document (?:previously|keeps making)\b'
+    r'|\bpreviously (?:said|named|listed|wrote|written)\b'
+    r'|\bwas wrong in a way\b'
+    r'|\bgot (?:it|this|both) wrong\b'
+    r'|\ban earlier statement\b', re.IGNORECASE)
+
+
+def check_no_self_correction(path, text, problems):
+    """
+    Fail on prose that narrates the document's own revision history.
+
+    A specification that explains itself by citing its own past mistakes reads as a pile of errata.
+    Keep the engineering reason for a rule and drop the archaeology; where a rejected alternative is
+    genuinely worth recording, it belongs in the derivation document, which says up front that it is
+    history.
+    """
+    spans = code_spans(text) + inline_spans(text)
+    for m in SELF_CORRECTION.finditer(text):
+        if in_code(m.start(), spans):
+            continue
+        line = text[:m.start()].count('\n') + 1
+        problems.append(f'{path.name}:{line}: "{m.group(0)}" narrates this '
+                        f"document's history; state the rule and its reason "
+                        f'instead')
+
+
 def check_open_questions_first(path, text, problems):
     """
     Fail if a document has "Open questions" anywhere but its first section.
@@ -1378,6 +1413,7 @@ def main():
         check_list_counts(path, text, problems)
         check_tests_are_phased(path, text, problems)
         check_open_questions_first(path, text, problems)
+        check_no_self_correction(path, text, problems)
         check_sentence_splices(path, text, problems)
     for p in problems:
         print(p)
