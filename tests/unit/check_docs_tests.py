@@ -646,6 +646,46 @@ class SelfCorrectionTests(unittest.TestCase):
                 self.assertEqual(self._run(doc.read_text(encoding='utf-8')), [])
 
 
+class HeadingSpacingTests(unittest.TestCase):
+    """A heading needs a blank line above it, or a deleted section left a seam."""
+
+    def _run(self, text):
+        problems: list[str] = []
+        check_docs.check_heading_spacing(_DOC, text, problems)
+        return problems
+
+    def test_heading_against_a_paragraph_is_reported(self):
+        # How the real defect was written: a section was removed and took the
+        # blank line with it, leaving the paragraph running into the heading.
+        self.assertTrue(
+            self._run('# A\n\nThat path is handled under "Topology '
+                      'ledger".\n### Re-registration\n'))
+
+    def test_heading_against_a_list_item_is_reported(self):
+        self.assertTrue(self._run('# A\n\n- one\n- two\n## Next\n'))
+
+    def test_a_blank_line_above_is_accepted(self):
+        self.assertEqual(
+            self._run('# A\n\nSome prose.\n\n### Re-registration\n\nMore.\n'),
+            [])
+
+    def test_consecutive_headings_are_accepted(self):
+        # A section heading immediately followed by its first subheading has no
+        # paragraph between them and is correct.
+        self.assertEqual(self._run('# A\n\n## Outer\n\n### Inner\n'), [])
+
+    def test_a_hash_inside_a_fence_is_skipped(self):
+        self.assertEqual(
+            self._run('# A\n\nprose\n```\ncomment\n## not a heading\n```\n'),
+            [])
+
+    def test_the_real_documents_are_clean(self):
+        design = pathlib.Path(_MODULE_PATH).parent / 'connection-recovery'
+        for doc in sorted(design.glob('*.md')):
+            with self.subTest(doc=doc.name):
+                self.assertEqual(self._run(doc.read_text(encoding='utf-8')), [])
+
+
 class SubjectAreaScopingTests(unittest.TestCase):
     """Heading rules scope to a subject area, not to the whole tree."""
 

@@ -70,7 +70,16 @@ What it does check, reliably:
     to it ambiguous - and is how two copies of one list drifted apart.
 15. No prose narrates the document's own revision history. A rule is
     justified by its engineering reason, not by what a previous draft
-    said, so these read as specifications rather than as errata.
+    said, so these read as specifications rather than as errata. Every
+    pattern is anchored on a word that only appears when the prose is
+    discussing the document. The rule ran but was too narrow when first
+    written, matching ``an earlier draft`` and missing ``earlier
+    drafts``, which left six violations in a document this reported
+    clean.
+16. A heading has a blank line above it. CommonMark lets an ATX heading
+    interrupt a paragraph, so the defect renders correctly and reads
+    correctly; it is worth failing on because the way it gets written is
+    a section being deleted and taking the blank line with it.
 
 It also fails when fewer citations are judged than ``MIN_JUDGED``, or more
 are unresolved than ``MAX_UNRESOLVED``. Those bounds are the only
@@ -1256,6 +1265,30 @@ def check_no_self_correction(path, text, problems):
                         f'instead')
 
 
+def check_heading_spacing(path, text, problems):
+    """
+    Fail on a heading that no blank line separates from the paragraph above it.
+
+    CommonMark lets an ATX heading interrupt a paragraph, so this renders correctly and reads
+    correctly, which is why it survives review. It is worth failing on anyway, because the way it
+    gets written is a section being deleted and taking the blank line with it - and the seam is
+    exactly where the next reader has to work out whether a paragraph lost its ending.
+    """
+    fenced = False
+    previous = ''
+    for number, line in enumerate(text.split('\n'), start=1):
+        if line.lstrip().startswith('```'):
+            fenced = not fenced
+            previous = line
+            continue
+        if (not fenced and re.match(r'^#{1,6}\s+', line) and previous.strip()):
+            problems.append(
+                f'{path.name}:{number}: heading "{line.strip()}" '
+                f'needs a blank line above it; the paragraph before '
+                f'it runs straight into the heading')
+        previous = line
+
+
 def check_open_questions_first(path, text, problems):
     """
     Fail if a document has "Open questions" anywhere but its first section.
@@ -1441,6 +1474,7 @@ def main():
         check_open_questions_first(path, text, problems)
         check_no_self_correction(path, text, problems)
         check_sentence_splices(path, text, problems)
+        check_heading_spacing(path, text, problems)
     for p in problems:
         print(p)
     # Report coverage, not just problems. Two review passes over-trusted this
