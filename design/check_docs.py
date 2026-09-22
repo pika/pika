@@ -38,7 +38,7 @@ What it does check, reliably:
    file lengths. A bare file name matching more than one path is reported,
    not skipped.
 4. Every quoted section name after see/under/per/in/from, against headings
-   pooled across the whole tree, H1 included and fences excluded.
+   pooled across its own subject area, H1 included and fences excluded.
 5. Fenced Python blocks parse. Syntax only - a block may still fail at
    import on undefined names, which ``compile()`` cannot see.
 6. Markdown hygiene: ASCII only, no trailing whitespace, exactly one H1,
@@ -66,8 +66,10 @@ What it does check, reliably:
     Those are the decisions a reader owes an answer to, and a section
     drifts back to the bottom one insertion at a time.
 14. No heading appears in two documents. Pointers resolve against
-    headings pooled across the tree, so a duplicate makes every pointer
-    to it ambiguous - and is how two copies of one list drifted apart.
+    headings pooled across a subject area, so a duplicate makes every
+    pointer to it ambiguous - and is how two copies of one list drifted
+    apart. A subject is a top-level directory under ``design/``, not the
+    immediate parent, so a document nested deeper still belongs to it.
 15. No prose narrates the document's own revision history. A rule is
     justified by its engineering reason, not by what a previous draft
     said, so these read as specifications rather than as errata. Every
@@ -1192,7 +1194,7 @@ def check_headings_unique(docs, texts, problems):
     """
     Fail when two documents in the tree share a heading.
 
-    Cross-references are resolved against headings pooled across the tree, so two documents with the
+    Cross-references are resolved against headings pooled across a subject area, so two documents with the
     same heading make every pointer to it ambiguous - and a pointer at a renamed section is
     satisfied by the other document's copy, which is the failure the pooling was meant to avoid. It
     is also how two copies of "Open questions" drifted apart twice: nothing said they were the same
@@ -1463,6 +1465,20 @@ def ascii_ok(text):
     return all(ord(c) < 128 for c in text)
 
 
+def subject_area(path):
+    """
+    Return the subject a document belongs to, per `design/README.md`'s "one subdirectory per
+    subject".
+
+    The immediate parent directory is not the same thing, and the difference is not theoretical: the
+    document set is collected with `rglob`, so a document one level deeper than its subject - notes,
+    drafts, anything - became its own area. A correct pointer into its own subject was then reported
+    as matching no heading, and a heading it duplicated from a sibling went unreported.
+    """
+    parts = path.relative_to(DESIGN).parts
+    return parts[0] if len(parts) > 1 else ''
+
+
 def main():
     problems: list[str] = []
     tally = {
@@ -1494,7 +1510,7 @@ def main():
             continue
         # Fence-aware, and H1 included, so a `## ` line inside a Python block is
         # not a valid cross-reference target and a pointer at a real H1 resolves.
-        heads_by_area.setdefault(path.parent,
+        heads_by_area.setdefault(subject_area(path),
                                  set()).update(headings(texts[path]))
     all_heads = set().union(*heads_by_area.values()) if heads_by_area else set()
     # A stale `MANIFEST_SECTIONS` entry disables the name-and-point rule in
@@ -1508,7 +1524,7 @@ def main():
         if name.lower() not in all_heads)
     for area in sorted(heads_by_area):
         check_headings_unique(
-            [d for d in docs if d in texts and d.parent == area], texts,
+            [d for d in docs if d in texts and subject_area(d) == area], texts,
             problems)
     for path in docs:
         text = texts.get(path)
@@ -1518,7 +1534,7 @@ def main():
         check_manifest_symbols(path, text, members, problems, tally)
         check_manifest_paths(path, text, problems)
         check_file_lines(path, text, problems)
-        area_heads = heads_by_area.get(path.parent, set())
+        area_heads = heads_by_area.get(subject_area(path), set())
         check_crossrefs(path, text, problems, area_heads)
         check_near_miss_refs(path, text, problems, area_heads)
         check_python_blocks(path, text, problems)

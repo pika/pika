@@ -12,7 +12,7 @@ These apply to every subject area, present and future, and the checker enforces 
 
 **"Open questions" is the first section.** Those are the decisions a human reader owes an answer to, so they go where that reader lands rather than past the mechanism. Each entry says what is already decided and what remains, so a settled choice is distinguishable from a pending one without reading further.
 
-**One canonical location per fact.** Restating a mechanism in two places guarantees the copies drift; cross-reference instead. This extends across documents: no heading may appear in two of them, because pointers resolve against headings pooled over the whole tree, and a duplicate makes every pointer to it ambiguous.
+**One canonical location per fact.** Restating a mechanism in two places guarantees the copies drift; cross-reference instead. This extends across documents: no heading may appear in two documents of the same subject area, because pointers resolve against headings pooled across that subject, and a duplicate makes every pointer to it ambiguous. A subject is a top-level directory here, so a document filed one level deeper still resolves against, and must not collide with, its subject.
 
 **Never hard-wrap.** Every paragraph and list item is one line, however long. The renderer reflows it anyway, and wrapping breaks line-anchored citation, `grep -n`, and per-line diff review.
 

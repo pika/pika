@@ -412,8 +412,7 @@ class TestPlanTests(unittest.TestCase):
         self.assertTrue(self._run(text))
 
     def test_the_real_document_agrees_in_both_directions(self):
-        design = pathlib.Path(_MODULE_PATH).parent / 'connection-recovery'
-        doc = design / 'proposal-recovery.md'
+        doc = check_docs.DESIGN / 'connection-recovery' / 'proposal-recovery.md'
         self.assertEqual(self._run(doc.read_text(encoding='utf-8')), [])
 
 
@@ -447,8 +446,7 @@ class OpenQuestionsPlacementTests(unittest.TestCase):
             self._run('# T\n\n## A\n\n```\n## Open questions\n```\n'), [])
 
     def test_the_real_documents_comply(self):
-        design = pathlib.Path(_MODULE_PATH).parent / 'connection-recovery'
-        for doc in sorted(design.glob('*.md')):
+        for doc in sorted(check_docs.DESIGN.rglob('*.md')):
             with self.subTest(doc=doc.name):
                 self.assertEqual(self._run(doc.read_text(encoding='utf-8')), [])
 
@@ -549,9 +547,9 @@ class HeadingUniquenessTests(unittest.TestCase):
             }), [])
 
     def test_the_real_documents_have_no_collisions(self):
-        design = pathlib.Path(_MODULE_PATH).parent / 'connection-recovery'
         docs = {
-            p: p.read_text(encoding='utf-8') for p in sorted(design.glob('*.md'))
+            p: p.read_text(encoding='utf-8')
+            for p in sorted(check_docs.DESIGN.rglob('*.md'))
         }
         problems: list[str] = []
         check_docs.check_headings_unique(list(docs), docs, problems)
@@ -652,8 +650,7 @@ class SelfCorrectionTests(unittest.TestCase):
                       'records.\n'), [])
 
     def test_the_real_documents_are_clean(self):
-        design = pathlib.Path(_MODULE_PATH).parent / 'connection-recovery'
-        for doc in sorted(design.glob('*.md')):
+        for doc in sorted(check_docs.DESIGN.rglob('*.md')):
             with self.subTest(doc=doc.name):
                 self.assertEqual(self._run(doc.read_text(encoding='utf-8')), [])
 
@@ -724,37 +721,45 @@ class HeadingSpacingTests(unittest.TestCase):
             [])
 
     def test_the_real_documents_are_clean(self):
-        design = pathlib.Path(_MODULE_PATH).parent / 'connection-recovery'
-        for doc in sorted(design.glob('*.md')):
+        for doc in sorted(check_docs.DESIGN.rglob('*.md')):
             with self.subTest(doc=doc.name):
                 self.assertEqual(self._run(doc.read_text(encoding='utf-8')), [])
 
 
 class SubjectAreaScopingTests(unittest.TestCase):
-    """Heading rules scope to a subject area, not to the whole tree."""
+    """
+    A subject is a top-level directory under `design/`, not the immediate parent.
 
-    def _unique(self, docs):
-        texts = {pathlib.Path(n): b for n, b in docs.items()}
-        problems: list[str] = []
-        check_docs.check_headings_unique(list(texts), texts, problems)
-        return problems
+    These assert `subject_area` directly, because it is the production function that decides the
+    grouping. Driving `check_headings_unique` per area instead asserts a property of the test's own
+    loop: that function keys on `path.name` and never inspects a directory, so passing it one area at
+    a time proves only that the test partitioned its own fixtures.
+    """
 
-    def test_same_heading_in_one_area_is_reported(self):
-        self.assertTrue(
-            self._unique({
-                'a/one.md': '# A\n\n## Open questions\n',
-                'a/two.md': '# B\n\n## Open questions\n',
-            }))
+    def _area(self, rel):
+        return check_docs.subject_area(check_docs.DESIGN / rel)
 
-    def test_each_subject_may_have_its_own_open_questions(self):
-        # Two unrelated design subjects must each be allowed the section the
-        # hard rules require them to lead with.
-        area_a = {pathlib.Path('a/one.md'): '# A\n\n## Open questions\n'}
-        area_b = {pathlib.Path('b/one.md'): '# B\n\n## Open questions\n'}
-        problems: list[str] = []
-        for area in (area_a, area_b):
-            check_docs.check_headings_unique(list(area), area, problems)
-        self.assertEqual(problems, [])
+    def test_a_document_in_a_subject_belongs_to_it(self):
+        self.assertEqual(self._area('connection-recovery/proposal.md'),
+                         'connection-recovery')
+
+    def test_a_document_nested_deeper_still_belongs_to_the_subject(self):
+        # The defect this replaced: `rglob` collects it, `path.parent` made it
+        # its own area, and a correct pointer into its own subject was then
+        # reported as matching no heading.
+        self.assertEqual(self._area('connection-recovery/notes/scratch.md'),
+                         'connection-recovery')
+
+    def test_two_subjects_are_distinct(self):
+        self.assertNotEqual(self._area('connection-recovery/a.md'),
+                            self._area('other-subject/a.md'))
+
+    def test_a_document_at_the_tree_root_is_its_own_area(self):
+        # `design/README.md` states the rules for every subject and belongs to
+        # none of them.
+        self.assertEqual(self._area('README.md'), '')
+        self.assertNotEqual(self._area('README.md'),
+                            self._area('connection-recovery/README.md'))
 
 
 if __name__ == '__main__':
