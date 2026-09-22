@@ -646,6 +646,38 @@ class SelfCorrectionTests(unittest.TestCase):
                 self.assertEqual(self._run(doc.read_text(encoding='utf-8')), [])
 
 
+class BacktickBalanceTests(unittest.TestCase):
+    """An unpaired backtick hides the rest of its paragraph from the prose checks."""
+
+    def _run(self, text):
+        problems: list[str] = []
+        check_docs.check_markdown(_DOC, text, problems)
+        return [p for p in problems if 'backtick' in p]
+
+    def test_odd_backticks_are_reported(self):
+        self.assertTrue(
+            self._run(
+                '# A\n\nWrite it as ` then the name, like `state` here.\n'))
+
+    def test_paired_backticks_are_accepted(self):
+        self.assertEqual(
+            self._run('# A\n\nBoth `state` and `_closed` are fields.\n'), [])
+
+    def test_odd_backticks_inside_a_fence_are_accepted(self):
+        # A fence may legitimately contain one backtick, and the prose checks
+        # already skip fenced content, so there is nothing to hide there.
+        self.assertEqual(self._run('# A\n\n```\na ` b\n```\n'), [])
+
+    def test_the_exemption_it_guards_is_real(self):
+        # The reason this rule exists: with the stray backtick, the violation
+        # after it is invisible to check_no_self_correction.
+        hidden = 'Write it as ` then the name. An earlier draft said `state`.\n'
+        problems: list[str] = []
+        check_docs.check_no_self_correction(_DOC, hidden, problems)
+        self.assertEqual(problems, [])
+        self.assertTrue(self._run('# A\n\n' + hidden))
+
+
 class HeadingSpacingTests(unittest.TestCase):
     """A heading needs a blank line above it, or a deleted section left a seam."""
 

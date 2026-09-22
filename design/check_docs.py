@@ -1228,6 +1228,7 @@ SELF_CORRECTION = re.compile(
     r'|\ba previous (?:draft|version|statement)\b'
     r'|\bin a previous (?:revision|draft|version)\b'
     r'|\bthis document (?:previously|keeps making|has had to|once)\b'
+    r"|\bthis document's (?:history|own past)\b"
     r'|\b(?:second|third|fourth|fifth) time this document\b'
     r'|\bthe reviews? (?:surfaced|found|caught|flagged)\b'
     r'|\bcorrections? the reviews?\b'
@@ -1235,15 +1236,34 @@ SELF_CORRECTION = re.compile(
     r'|\bwould have been introduced by\b'
     r'|\band not carried across\b'
     r'|\ba (?:looser|tighter|earlier|previous) wording\b'
-    r'|\bpreviously (?:said|named|listed|wrote|written|treated|specified)\b'
-    r'|\boriginally (?:said|argued|claimed|specified|treated|had)\b'
     r'|\bwe (?:previously|originally) (?:said|wrote|had|specified)\b'
-    r'|\bused to (?:say|read|specify|require)\b'
     r'|\bas (?:first|originally) (?:written|drafted)\b'
-    r'|\bhad it backwards\b'
     r'|\b(?:this|that) (?:was|is) (?:now )?(?:corrected|retracted)\b'
-    r'|\bwas wrong in a way\b'
-    r'|\bgot (?:it|this|both) wrong\b', re.IGNORECASE)
+    r'|\bwas wrong in a way\b', re.IGNORECASE)
+
+# The other half of the rule, and the half that cannot be a flat pattern list.
+# A bare past-tense marker is not evidence of self-narration, because these
+# documents are largely *about* other software's history: "amqp091-go
+# previously named this channel `NotifyClose`" and "the .NET client had it
+# backwards until 6.0" are exactly the prose `findings.md` exists to hold, and
+# a rule that rejects them pushes authors into vaguer writing. What makes a
+# marker a violation is the subject being the document itself, so these are
+# reported only when a self-reference appears in the same sentence. Enumerating
+# verbs instead was tried and is what let "previously omitted", "originally
+# justified" and "used to describe" through.
+HISTORY_MARKER = re.compile(
+    r'\bpreviously\b|\boriginally\b|\bused to\b|\bhad it backwards\b'
+    r'|\bgot (?:it|this|both) wrong\b|\bmade earlier\b|\bleft unfixed\b'
+    r'|\bno longer says\b|\bwere given\b', re.IGNORECASE)
+
+SELF_REFERENCE = re.compile(
+    r"\bthis document(?:'s)?\b"
+    r'|\bthis (?:entry|paragraph|section|bullet|list|table|plan|proposal'
+    r'|rule|caveat|warning|test|sentence|heading|table row)\b', re.IGNORECASE)
+
+# One line per paragraph is the house style, so a sentence rather than a line is
+# the unit that decides whether a marker and a self-reference belong together.
+SENTENCE = re.compile(r'[^.!?\n]*[.!?\n]')
 
 
 def check_no_self_correction(path, text, problems):
@@ -1254,6 +1274,11 @@ def check_no_self_correction(path, text, problems):
     Keep the engineering reason for a rule and drop the archaeology; where a rejected alternative is
     genuinely worth recording, it belongs in the derivation document, which says up front that it is
     history.
+
+    Two rules, because one pattern list cannot express both. Phrasings that can only be about this
+    document are rejected outright; a bare past-tense marker is rejected only when the sentence also
+    refers to the document itself, since these documents legitimately describe other clients'
+    history.
     """
     spans = code_spans(text) + inline_spans(text)
     for m in SELF_CORRECTION.finditer(text):
@@ -1263,6 +1288,16 @@ def check_no_self_correction(path, text, problems):
         problems.append(f'{path.name}:{line}: "{m.group(0)}" narrates this '
                         f"document's history; state the rule and its reason "
                         f'instead')
+    for s in SENTENCE.finditer(text):
+        marker = HISTORY_MARKER.search(s.group(0))
+        if marker is None or not SELF_REFERENCE.search(s.group(0)):
+            continue
+        if in_code(s.start() + marker.start(), spans):
+            continue
+        line = text[:s.start() + marker.start()].count('\n') + 1
+        problems.append(f'{path.name}:{line}: "{marker.group(0)}" describes '
+                        f"this document's own past; state what is true now and "
+                        f'why')
 
 
 def check_heading_spacing(path, text, problems):
@@ -1395,6 +1430,17 @@ def check_markdown(path, text, problems):
             problems.append(f'{path.name}:{n}: trailing whitespace')
         if inside:
             continue
+        # An odd backtick is not a typo that stays local. CommonMark pairs
+        # backticks left to right, so the stray one swallows the prose up to the
+        # next real code span - and because a paragraph here is one line, that
+        # silently exempts the rest of the paragraph from every check built on
+        # `inline_spans`, this file's self-correction and splice rules included.
+        # The renderer shows it as monospace prose, which is easy to miss in a
+        # 4000-character line.
+        if ln.count('`') % 2:
+            problems.append(f'{path.name}:{n}: odd number of backticks; the '
+                            f'unpaired one opens a code span over the rest of '
+                            f'the paragraph and hides it from the prose checks')
         if ln.strip() == '':
             prev_blank = True
         else:
