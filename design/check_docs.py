@@ -1359,6 +1359,11 @@ def check_tests_are_phased(path, text, problems):
     A test the plan numbers but no phase schedules is a test nothing will build. This has drifted
     twice: two tests were orphaned, one of them added by the same review pass that wrote the section
     it belongs to.
+
+    Both directions are checked. The reverse is what happens when a test is deleted from the plan and
+    left behind in a phase, which is how a phase came to schedule a per-channel recovery budget test
+    for a mechanism the same commit removed: an implementer working that phase finds a name with no
+    specification and either drops it or rebuilds it from the name.
     """
     if '## Next steps' not in text:
         return
@@ -1371,6 +1376,10 @@ def check_tests_are_phased(path, text, problems):
     for name in sorted(numbered - scheduled):
         problems.append(f'{path.name}: `{name}` is numbered in the test plan '
                         f'but scheduled in no phase')
+    for name in sorted(scheduled - numbered):
+        problems.append(f'{path.name}: `{name}` is scheduled in a phase but '
+                        f'numbered nowhere in the test plan, so nothing says '
+                        f'what it asserts')
 
 
 def check_near_miss_refs(path, text, problems, heads):

@@ -404,6 +404,18 @@ class TestPlanTests(unittest.TestCase):
     def test_no_phase_section_is_accepted(self):
         self.assertEqual(self._run(self.PLAN), [])
 
+    def test_scheduled_but_unnumbered_test_is_reported(self):
+        # The direction that had no guard: a test deleted from the plan and left
+        # behind in a phase, which is a name an implementer cannot build from.
+        text = self.PLAN + ('## Next steps\n\n- `TestAlpha`, `TestBeta`, '
+                            '`TestDeletedFromThePlan`.\n')
+        self.assertTrue(self._run(text))
+
+    def test_the_real_document_agrees_in_both_directions(self):
+        design = pathlib.Path(_MODULE_PATH).parent / 'connection-recovery'
+        doc = design / 'proposal-recovery.md'
+        self.assertEqual(self._run(doc.read_text(encoding='utf-8')), [])
+
 
 class OpenQuestionsPlacementTests(unittest.TestCase):
     """The decisions a reader owes an answer to go first, always."""
