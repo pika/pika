@@ -34,13 +34,12 @@ design/                 # design working areas (planning docs, not built into
                         #   matters: a document that declares itself history in
                         #   its opening lines may record rejected alternatives,
                         #   which is what `design-state-machine.md` is for.
-                        #   Run `python3 design/check_docs.py`
-                        #   by hand to check them; no CI job runs it. Act on
-                        #   its exit code, which is the actual pass/fail, and
-                        #   read the coverage line too: it verifies under half
-                        #   the citations it sees, and a checked count that
-                        #   drops without any problem being reported means a
-                        #   check has gone silently inert, which has happened
+                        #   The rules are conventions a reader applies, not
+                        #   something a tool enforces: a checker for them was
+                        #   tried and removed, because it grew to two and a half
+                        #   times the size of the documents it checked and its
+                        #   symbol verification inverts once 2.0 starts moving
+                        #   the API the documents cite.
 examples/               # usage examples
 ```
 
@@ -66,20 +65,12 @@ examples/               # usage examples
   failure go away.
 - **Type checking:** [mypy](https://mypy-lang.org/). Configuration is in
   `mypy.ini`. Run `hatch run typecheck`, which covers `pika/`, the
-  downstream-consumer fixtures in `tests/typing/`, `.ci/docs_site.py` and
-  `design/check_docs.py`. The fixtures exist because `mypy.ini` sets
-  `packages = pika`, so a run without them never observes code that consumes
-  pika from the outside. `.ci/docs_site.py` and `design/check_docs.py` are
-  also covered by `fmt`, `lint` and `docfmt`: both are standalone helpers
-  outside the package, and a helper nothing gates rots. `design/check_docs.py`
-  carried a mypy error unnoticed before it was added here.
-- Both standalone helpers have unit tests, and for `design/check_docs.py` the
-  tests are the only thing that can catch its worst failure mode: a check that
-  goes inert still prints `0 problems` and exits 0, and three of them did.
-  `tests/unit/check_docs_tests.py` asserts each check twice, on an input it
-  must reject and a near-miss it must accept, because the fixes for two inert
-  checks introduced false positives on correct prose. Every assertion has been
-  negative-checked by reintroducing the defect it guards.
+  downstream-consumer fixtures in `tests/typing/` and `.ci/docs_site.py`. The
+  fixtures exist because `mypy.ini` sets `packages = pika`, so a run without
+  them never observes code that consumes pika from the outside.
+  `.ci/docs_site.py` is also covered by `fmt`, `lint` and `docfmt`: it is a
+  standalone helper outside the package, and a helper nothing gates rots. It
+  has unit tests in `tests/unit/docs_site_tests.py` for the same reason.
 - Use single quotes for strings unless the string contains a single quote.
 - No trailing whitespace. Check before committing.
 
