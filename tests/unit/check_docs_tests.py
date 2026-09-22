@@ -583,6 +583,62 @@ class SelfCorrectionTests(unittest.TestCase):
     def test_inline_code_is_skipped(self):
         self.assertEqual(self._run('Use `an earlier draft` as the key.\n'), [])
 
+    # The singular-article forms above all matched from the start. Everything
+    # below is a phrasing that reached a shipped document and was reported
+    # clean, so each one is a regression test for a specific evasion rather
+    # than another variation on a covered pattern.
+
+    def test_plural_earlier_drafts_is_reported(self):
+        # "an earlier draft" matched; dropping the article and pluralising the
+        # noun defeated the whole rule.
+        self.assertTrue(
+            self._run('Earlier drafts said four, then five, and the teardown '
+                      'table listed a different five.\n'))
+
+    def test_counting_the_documents_own_revisions_is_reported(self):
+        self.assertTrue(
+            self._run('This is the third time this document has had to fix '
+                      '"put the test in the shared helper".\n'))
+
+    def test_crediting_a_review_is_reported(self):
+        self.assertTrue(
+            self._run('### Smaller corrections the reviews '
+                      'surfaced\n'))
+
+    def test_narrating_a_near_miss_is_reported(self):
+        self.assertTrue(
+            self._run('That is the obligation-1 violation, and it would have '
+                      'been introduced by a bullet in this very list.\n'))
+
+    def test_a_dropped_carry_across_is_reported(self):
+        self.assertTrue(
+            self._run('The identical hazard was worked out for '
+                      '`_channel_waiters_lock` and not carried across.\n'))
+
+    def test_citing_a_previous_wording_is_reported(self):
+        self.assertTrue(
+            self._run('Note the precise form, because a looser wording of it '
+                      'forbade every phase.\n'))
+
+    def test_a_review_mentioned_without_crediting_it_is_accepted(self):
+        # The test plan names reviews and review passes as ordinary nouns; only
+        # crediting one with having found something is banned.
+        self.assertEqual(
+            self._run('The reviews are listed in the test plan, and the '
+                      'review pass covers two consecutive drops.\n'), [])
+
+    def test_earlier_generations_are_accepted(self):
+        # A previous *connection generation* is the subject matter, not the
+        # document's history, and it is discussed throughout.
+        self.assertEqual(
+            self._run('Earlier generations are abandoned outright, and an '
+                      'earlier reopen attempt may still hold the lock.\n'), [])
+
+    def test_a_corrected_delivery_tag_is_accepted(self):
+        self.assertEqual(
+            self._run('The delivery tag is corrected by the offset the pass '
+                      'records.\n'), [])
+
     def test_the_real_documents_are_clean(self):
         design = pathlib.Path(_MODULE_PATH).parent / 'connection-recovery'
         for doc in sorted(design.glob('*.md')):

@@ -1204,12 +1204,28 @@ def check_headings_unique(docs, texts, problems):
 # These read as an addendum bolted onto a specification, and the requirement is
 # that these documents read as correct on their own terms: the reason a rule
 # holds is the engineering reason, never that a previous draft got it wrong.
+#
+# Every alternative here is anchored on a word that only appears when prose is
+# talking about the document rather than about the design, because the looser
+# forms ("earlier", "corrected") are ordinary engineering vocabulary: a queue
+# declared by an earlier generation, a tag corrected by an offset. Articles are
+# optional and the nouns pluralise, since requiring "an earlier draft" lets
+# "earlier drafts" through, which is how six violations of this rule survived in
+# a document the check reported clean.
 SELF_CORRECTION = re.compile(
-    r'\ban earlier (?:draft|version|statement|claim)\b'
-    r'|\bthe earlier (?:draft|version|statement|claim)\b'
+    r'\b(?:an?|the) earlier (?:draft|version|statement|claim)s?\b'
+    r'|\bearlier (?:drafts|versions|statements|claims) '
+    r'(?:said|listed|had|named|specified|treated|put|called)\b'
     r'|\ba previous (?:draft|version|statement)\b'
     r'|\bin a previous (?:revision|draft|version)\b'
-    r'|\bthis document (?:previously|keeps making)\b'
+    r'|\bthis document (?:previously|keeps making|has had to|once)\b'
+    r'|\b(?:second|third|fourth|fifth) time this document\b'
+    r'|\bthe reviews? (?:surfaced|found|caught|flagged)\b'
+    r'|\bcorrections? the reviews?\b'
+    r'|\bin this very (?:list|section|table|document|bullet)\b'
+    r'|\bwould have been introduced by\b'
+    r'|\band not carried across\b'
+    r'|\ba (?:looser|tighter|earlier|previous) wording\b'
     r'|\bpreviously (?:said|named|listed|wrote|written|treated|specified)\b'
     r'|\boriginally (?:said|argued|claimed|specified|treated|had)\b'
     r'|\bwe (?:previously|originally) (?:said|wrote|had|specified)\b'
