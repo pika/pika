@@ -240,9 +240,13 @@ PROPOSED = {
     'Channel.state',
     'Channel.is_recovering',
     'Channel.add_state_change_listener',
-    # The document says the five registration methods are provided on both
-    # classes and integration test 15 registers these two on a channel, so
-    # listing only the connection's half made the channel's uncitable.
+    # These two, and only these two: the three recovery-callback registrations
+    # are on the adapter `Connection` alone, because there is one kind of
+    # recovery pass and it is the connection's. Listing only the connection's
+    # half made the channel's uncitable. Both are currently cited in bare form
+    # from the `Channel` row rather than as `Channel.<name>`, so these entries
+    # are a standing allowance for the qualified spelling rather than something
+    # every run consults.
     'Channel.add_on_close_callback',
     'Channel.add_on_open_callback',
 }
@@ -651,8 +655,9 @@ def check_symbols(path, text, members, problems, tally=None):
         mod = module_prefix(owner)
         if owner.startswith('pika.') and not modpath(mod):
             line = text[:m.start()].count('\n') + 1
-            problems.append(f'{path.name}:{line}: `{owner}.{member}` names the '
-                            f'module {mod}, which does not exist')
+            problems.append(
+                f'{label(path)}:{line}: `{owner}.{member}` names the '
+                f'module {mod}, which does not exist')
             if tally is not None:
                 tally['unresolved'] += 1
             continue
@@ -671,7 +676,7 @@ def check_symbols(path, text, members, problems, tally=None):
                         tally['checked'] += 1
                 else:
                     line = text[:m.start()].count('\n') + 1
-                    problems.append(f'{path.name}:{line}: `{qual}` names no '
+                    problems.append(f'{label(path)}:{line}: `{qual}` names no '
                                     f'class {member} in {owner}')
                     if tally is not None:
                         tally['failed'] += 1
@@ -699,7 +704,7 @@ def check_symbols(path, text, members, problems, tally=None):
             if mod in SOURCE_MODULES and mod != owner:
                 line = text[:m.start()].count('\n') + 1
                 problems.append(
-                    f'{path.name}:{line}: `{owner}.{member}` names no class '
+                    f'{label(path)}:{line}: `{owner}.{member}` names no class '
                     f'{owner[len(mod) + 1:]} in {mod}')
             if tally is not None:
                 tally['unresolved'] += 1
@@ -707,7 +712,7 @@ def check_symbols(path, text, members, problems, tally=None):
         if members[key] is AMBIGUOUS:
             line = text[:m.start()].count('\n') + 1
             problems.append(
-                f'{path.name}:{line}: `{owner}.{member}` uses a bare class '
+                f'{label(path)}:{line}: `{owner}.{member}` uses a bare class '
                 f'name defined in more than one module; qualify it')
             if tally is not None:
                 tally['ambiguous'] += 1
@@ -732,7 +737,7 @@ def check_symbols(path, text, members, problems, tally=None):
                 continue
             line = text[:m.start()].count('\n') + 1
             problems.append(
-                f'{path.name}:{line}: `{owner}.{member}` does not exist on '
+                f'{label(path)}:{line}: `{owner}.{member}` does not exist on '
                 f'{key} (members are read from the real source)')
             if tally is not None:
                 tally['failed'] += 1
@@ -769,7 +774,7 @@ def check_manifest_paths(path, text, problems):
         rel = m.group(1)
         if rel in PROPOSED_FILES or (ROOT / rel).exists():
             continue
-        problems.append(f'{path.name}:{n}: manifest names the file {rel}, '
+        problems.append(f'{label(path)}:{n}: manifest names the file {rel}, '
                         f'which does not exist and is not in PROPOSED_FILES')
 
 
@@ -801,7 +806,7 @@ def check_manifest_symbols(path, text, members, problems, tally=None):
         owner = owner_match.group(1)
         key = BARE_DEFAULTS.get(owner, owner)
         if key not in members or members[key] is AMBIGUOUS:
-            problems.append(f'{path.name}:{n}: manifest bullet names owner '
+            problems.append(f'{label(path)}:{n}: manifest bullet names owner '
                             f'`{owner}`, which does not resolve to one class')
             continue
         cls = key.rsplit('.', 1)[-1]
@@ -815,7 +820,7 @@ def check_manifest_symbols(path, text, members, problems, tally=None):
                 continue
             if name not in members[key]:
                 problems.append(
-                    f'{path.name}:{n}: manifest names `{name}` on {cls}, '
+                    f'{label(path)}:{n}: manifest names `{name}` on {cls}, '
                     f'which does not exist there and is not in PROPOSED')
                 if tally is not None:
                     tally['failed'] += 1
@@ -865,19 +870,19 @@ def check_file_lines(path, text, problems):
                 # would have stopped verifying both without a word.
                 line = text[:m.start()].count('\n') + 1
                 problems.append(
-                    f'{path.name}:{line}: cited {rel} matches '
+                    f'{label(path)}:{line}: cited {rel} matches '
                     f'{len(matches)} files; cite it with its directory')
                 continue
         if not target.exists():
             if '/' in rel:
                 line = text[:m.start()].count('\n') + 1
-                problems.append(f'{path.name}:{line}: cited file {rel} '
+                problems.append(f'{label(path)}:{line}: cited file {rel} '
                                 f'does not exist')
             continue
         length = len(target.read_text(encoding='utf-8').splitlines())
         if lineno < 1 or lineno > length:
             line = text[:m.start()].count('\n') + 1
-            problems.append(f'{path.name}:{line}: cited {rel}:{lineno} but '
+            problems.append(f'{label(path)}:{line}: cited {rel}:{lineno} but '
                             f'that file has {length} lines')
 
 
@@ -922,7 +927,7 @@ def check_one_ref(path, text, pos, quoted, heads, problems):
         if not letters or not letters[0].isupper():
             return
     line = text[:pos].count('\n') + 1
-    problems.append(f'{path.name}:{line}: cross-reference "'
+    problems.append(f'{label(path)}:{line}: cross-reference "'
                     f'{quoted}" matches no heading')
 
 
@@ -936,12 +941,12 @@ def check_python_blocks(path, text, problems):
     for i, m in enumerate(re.finditer(pattern, text, re.DOTALL), 1):
         block = m.group(1)
         try:
-            compile(block, f'<{path.name} block {i}>', 'exec')
+            compile(block, f'<{label(path)} block {i}>', 'exec')
         except SyntaxError as exc:
             fence_line = text[:m.start()].count('\n') + 1
             inner = (exc.lineno or 1)
             problems.append(
-                f'{path.name}:{fence_line + inner}: python block {i} does '
+                f'{label(path)}:{fence_line + inner}: python block {i} does '
                 f'not compile: {exc.msg}')
 
 
@@ -1034,7 +1039,7 @@ def check_manifest_sections(path, text, problems):
         hit = BEHAVIOUR_WORDS.search(checked)
         if hit:
             problems.append(
-                f'{path.name}:{n}: "{section}" is a manifest; it should name '
+                f'{label(path)}:{n}: "{section}" is a manifest; it should name '
                 f'and point, not explain ("{hit.group(0)}")')
 
 
@@ -1141,7 +1146,7 @@ def check_sentence_splices(path, text, problems):
         if in_code(m.start(), spans):
             continue
         line = text.count('\n', 0, m.start()) + 1
-        problems.append(f'{path.name}:{line}: sentence starts with '
+        problems.append(f'{label(path)}:{line}: sentence starts with '
                         f'"{m.group(1)}" after a full stop; a clause was '
                         f'orphaned by an insertion')
 
@@ -1183,8 +1188,9 @@ def check_list_counts(path, text, problems):
         stated = NUMBER_WORDS[words.pop()]
         found = count_items(lines, n + 1)
         if found is not None and found != stated:
-            problems.append(f'{path.name}:{n + 1}: says {stated} but the list '
-                            f'below it has {found} items')
+            problems.append(
+                f'{label(path)}:{n + 1}: says {stated} but the list '
+                f'below it has {found} items')
 
 
 MARKER = re.compile(r'^\s*(?:[-*+]\s|\d+\.\s|\||#{1,6}\s|>)')
@@ -1203,7 +1209,7 @@ def check_headings_unique(docs, texts, problems):
     owners: dict[str, list[str]] = {}
     for path in docs:
         for head in headings(texts[path]):
-            owners.setdefault(head, []).append(path.name)
+            owners.setdefault(head, []).append(label(path))
     for head, files in sorted(owners.items()):
         if len(files) > 1:
             problems.append(f'check_docs: heading "{head}" appears in '
@@ -1287,7 +1293,7 @@ def check_no_self_correction(path, text, problems):
         if in_code(m.start(), spans):
             continue
         line = text[:m.start()].count('\n') + 1
-        problems.append(f'{path.name}:{line}: "{m.group(0)}" narrates this '
+        problems.append(f'{label(path)}:{line}: "{m.group(0)}" narrates this '
                         f"document's history; state the rule and its reason "
                         f'instead')
     for s in SENTENCE.finditer(text):
@@ -1297,7 +1303,7 @@ def check_no_self_correction(path, text, problems):
         if in_code(s.start() + marker.start(), spans):
             continue
         line = text[:s.start() + marker.start()].count('\n') + 1
-        problems.append(f'{path.name}:{line}: "{marker.group(0)}" describes '
+        problems.append(f'{label(path)}:{line}: "{marker.group(0)}" describes '
                         f"this document's own past; state what is true now and "
                         f'why')
 
@@ -1320,7 +1326,7 @@ def check_heading_spacing(path, text, problems):
             continue
         if (not fenced and re.match(r'^#{1,6}\s+', line) and previous.strip()):
             problems.append(
-                f'{path.name}:{number}: heading "{line.strip()}" '
+                f'{label(path)}:{number}: heading "{line.strip()}" '
                 f'needs a blank line above it; the paragraph before '
                 f'it runs straight into the heading')
         previous = line
@@ -1350,7 +1356,7 @@ def check_open_questions_first(path, text, problems):
         if title == 'Open questions':
             has_it = True
     if has_it and first != 'Open questions':
-        problems.append(f'{path.name}: "Open questions" must be the first '
+        problems.append(f'{label(path)}: "Open questions" must be the first '
                         f'section; the first is "{first}"')
 
 
@@ -1376,10 +1382,10 @@ def check_tests_are_phased(path, text, problems):
     phases = text[text.index('## Next steps'):]
     scheduled = set(re.findall(r'`(Test\w+)`', phases))
     for name in sorted(numbered - scheduled):
-        problems.append(f'{path.name}: `{name}` is numbered in the test plan '
+        problems.append(f'{label(path)}: `{name}` is numbered in the test plan '
                         f'but scheduled in no phase')
     for name in sorted(scheduled - numbered):
-        problems.append(f'{path.name}: `{name}` is scheduled in a phase but '
+        problems.append(f'{label(path)}: `{name}` is scheduled in a phase but '
                         f'numbered nowhere in the test plan, so nothing says '
                         f'what it asserts')
 
@@ -1406,7 +1412,7 @@ def check_near_miss_refs(path, text, problems, heads):
         close = difflib.get_close_matches(quoted, heads, n=1, cutoff=0.9)
         if close:
             line = text[:m.start()].count('\n') + 1
-            problems.append(f'{path.name}:{line}: "{m.group(1)}" is not a '
+            problems.append(f'{label(path)}:{line}: "{m.group(1)}" is not a '
                             f'heading but is nearly "{close[0]}"')
 
 
@@ -1420,7 +1426,7 @@ def check_markdown(path, text, problems):
         elif not fenced and ln.startswith('# '):
             h1 += 1
     if h1 != 1:
-        problems.append(f'{path.name}: expected exactly one H1, found {h1}')
+        problems.append(f'{label(path)}: expected exactly one H1, found {h1}')
     inside = False
     prev_blank = True
     for n, ln in enumerate(lines, 1):
@@ -1431,14 +1437,14 @@ def check_markdown(path, text, problems):
             # space on a fence line is exactly what disabled the compile
             # check, so it must not be exempt from being reported.
             if not ascii_ok(ln):
-                problems.append(f'{path.name}:{n}: non-ASCII character')
+                problems.append(f'{label(path)}:{n}: non-ASCII character')
             if re.search(r'[ \t]+\r?$', ln):
-                problems.append(f'{path.name}:{n}: trailing whitespace')
+                problems.append(f'{label(path)}:{n}: trailing whitespace')
             continue
         if not ascii_ok(ln):
-            problems.append(f'{path.name}:{n}: non-ASCII character')
+            problems.append(f'{label(path)}:{n}: non-ASCII character')
         if re.search(r'[ \t]+\r?$', ln):
-            problems.append(f'{path.name}:{n}: trailing whitespace')
+            problems.append(f'{label(path)}:{n}: trailing whitespace')
         if inside:
             continue
         # An odd backtick is not a typo that stays local. CommonMark pairs
@@ -1449,20 +1455,34 @@ def check_markdown(path, text, problems):
         # The renderer shows it as monospace prose, which is easy to miss in a
         # 4000-character line.
         if ln.count('`') % 2:
-            problems.append(f'{path.name}:{n}: odd number of backticks; the '
+            problems.append(f'{label(path)}:{n}: odd number of backticks; the '
                             f'unpaired one opens a code span over the rest of '
                             f'the paragraph and hides it from the prose checks')
         if ln.strip() == '':
             prev_blank = True
         else:
             if not prev_blank and not MARKER.match(ln):
-                problems.append(f'{path.name}:{n}: hard-wrapped paragraph '
+                problems.append(f'{label(path)}:{n}: hard-wrapped paragraph '
                                 f'(join it onto the previous line)')
             prev_blank = False
 
 
 def ascii_ok(text):
     return all(ord(c) < 128 for c in text)
+
+
+def label(path):
+    """
+    Name a document in a diagnostic unambiguously, relative to `design/`.
+
+    `path.name` alone stopped being enough the moment the tree gained a second `README.md`: a
+    problem reported against `README.md:13` names two real files. Falls back to the bare name for a
+    path outside the tree, which is what the unit tests' planted fixtures are.
+    """
+    try:
+        return str(path.relative_to(DESIGN))
+    except ValueError:
+        return path.name
 
 
 def subject_area(path):
@@ -1506,7 +1526,7 @@ def main():
         try:
             texts[path] = path.read_text(encoding='utf-8')
         except UnicodeDecodeError as exc:
-            problems.append(f'{path.name}: not valid UTF-8 ({exc})')
+            problems.append(f'{label(path)}: not valid UTF-8 ({exc})')
             continue
         # Fence-aware, and H1 included, so a `## ` line inside a Python block is
         # not a valid cross-reference target and a pointer at a real H1 resolves.

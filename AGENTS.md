@@ -26,9 +26,14 @@ utils/regen_spec.py     # regenerate/verify pika/spec.py (hatch run spec-regen)
 .ci/docs_site.py        # docs-site deploy helper (alias policy, verification)
 design/                 # design working areas (planning docs, not built into
                         #   the docs site). `design/README.md` states the
-                        #   hard rules every document there follows, the first
-                        #   being that a design doc states the design and never
-                        #   narrates its own revision history.
+                        #   hard rules every document there follows and is the
+                        #   canonical statement of them; read it before editing
+                        #   anything here rather than working from a summary.
+                        #   The first rule bans a document narrating its own
+                        #   revision history, and it has an exception that
+                        #   matters: a document that declares itself history in
+                        #   its opening lines may record rejected alternatives,
+                        #   which is what `design-state-machine.md` is for.
                         #   Run `python3 design/check_docs.py`
                         #   by hand to check them; no CI job runs it. Act on
                         #   its exit code, which is the actual pass/fail, and
