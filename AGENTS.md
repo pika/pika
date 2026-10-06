@@ -24,6 +24,22 @@ tests/typing/           # type-checker fixtures (checked by hatch run typecheck)
 utils/codegen.py        # code generator for pika/spec.py
 utils/regen_spec.py     # regenerate/verify pika/spec.py (hatch run spec-regen)
 .ci/docs_site.py        # docs-site deploy helper (alias policy, verification)
+design/                 # design working areas (planning docs, not built into
+                        #   the docs site). `design/README.md` states the
+                        #   hard rules every document there follows and is the
+                        #   canonical statement of them; read it before editing
+                        #   anything here rather than working from a summary.
+                        #   The first rule bans a document narrating its own
+                        #   revision history, and it has an exception that
+                        #   matters: a document that declares itself history in
+                        #   its opening lines may record rejected alternatives,
+                        #   which is what `design-state-machine.md` is for.
+                        #   The rules are conventions a reader applies, not
+                        #   something a tool enforces: a checker for them was
+                        #   tried and removed, because it grew to two and a half
+                        #   times the size of the documents it checked and its
+                        #   symbol verification inverts once 2.0 starts moving
+                        #   the API the documents cite.
 examples/               # usage examples
 ```
 
@@ -49,10 +65,12 @@ examples/               # usage examples
   failure go away.
 - **Type checking:** [mypy](https://mypy-lang.org/). Configuration is in
   `mypy.ini`. Run `hatch run typecheck`, which covers `pika/`, the
-  downstream-consumer fixtures in `tests/typing/`, and `.ci/docs_site.py`. The
+  downstream-consumer fixtures in `tests/typing/` and `.ci/docs_site.py`. The
   fixtures exist because `mypy.ini` sets `packages = pika`, so a run without
   them never observes code that consumes pika from the outside.
-  `.ci/docs_site.py` is also covered by `fmt`, `lint` and `docfmt`.
+  `.ci/docs_site.py` is also covered by `fmt`, `lint` and `docfmt`: it is a
+  standalone helper outside the package, and a helper nothing gates rots. It
+  has unit tests in `tests/unit/docs_site_tests.py` for the same reason.
 - Use single quotes for strings unless the string contains a single quote.
 - No trailing whitespace. Check before committing.
 

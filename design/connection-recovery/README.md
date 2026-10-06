@@ -1,0 +1,19 @@
+# Connection recovery design
+
+Working area for pika's built-in connection and topology recovery, tracking the discussion in [pika #1654](https://github.com/pika/pika/discussions/1654). These are planning documents, not user-facing docs; they live outside `docs/` deliberately so they are not built into the published documentation site.
+
+## Constraints for this design (read first)
+
+These are settled facts about the target release, not open questions. They override anything below that assumes otherwise, including text written before they were recorded here.
+
+- **The target is pika 2.0.0.** Breaking changes to the public API are permitted where the design needs them. "This preserves backward compatibility with 1.x" is not a requirement to satisfy, and not a reason to prefer one shape over another.
+- **2.0 has exactly one connection type and one channel type.** `Connection` and `Channel`, currently in `pika/adapters/thread_safe_connection.py`, to be relocated by the 2.0 restructure. Every other public adapter - asyncio, blocking, gevent, tornado, twisted - is removed. `SelectConnection` survives only as internal machinery backing `Connection`, not as a public adapter. There is therefore no "which adapters does this apply to" question and no per-adapter recovery driver to design.
+- **The classes are already named `Connection` and `Channel`.** That rename is merged on `main` under the 1.5.0 milestone, see #1617; 1.5.0 itself is unreleased, so `pika.__version__` still reads 1.4.0. `ThreadSafeConnection` and `ThreadSafeChannel` no longer exist. The new names collide with `pika.connection.Connection` and `pika.channel.Channel`, so always say which one is meant.
+
+Documents:
+
+- `proposal-recovery.md` - the design proposal, and the authoritative document here: recovery as a first-class `RECOVERING` state on the adapter connection and channel handles, driven on the connection's own persistent IOLoop. It started as a verbatim import of the [gist](https://gist.github.com/suchitd/dd6c22163186f19a2ab07569315b6ac1) so it would be versioned and diffable here, and was subsequently rewritten to follow the state-machine framing below.
+- `design-state-machine.md` - the framing the proposal now follows, written up while the direction was still being evaluated: recovery as a first-class state on the connection/channel handles, with a dedicated catchable exception when an operation is attempted during recovery, driven on a persistent loop rather than a separate thread. **Nothing in it is normative** - it was cut back to the derivation once the proposal became authoritative, because two prescriptive documents contradicted each other on a decision and their two open-question lists drifted twice. Read it for one thing the proposal does not record: the approaches that were tried and rejected, namely recovery state kept separate from connection state, and recovery on its own dedicated thread. Both are the obvious design from a standing start, so knowing they were already tried saves proposing them again. It also carries the AMQP 1.0 Java client precedent and the one assumption the whole design rests on that nobody has demonstrated.
+- `findings.md` - what we measured about how the RabbitMQ Java client and amqp091-go actually behave when publishing during recovery. The harnesses that produced these results are at https://github.com/lukebakken/amqp091-misc.
+
+The documents are living drafts meant for collaborative editing, and nothing in them is settled. The constraints above are the exception: they are settled, and a draft that contradicts one is wrong rather than alternative.
