@@ -159,7 +159,15 @@ jobs:
   # is idempotent: the alias guard declines it once a release holds the alias.
   deploy-dev-docs:
     needs: tests-passed
-    if: ${{ github.event_name == 'push' }}
+    # `!cancelled()` rather than a bare event test. `tests-passed` depends on
+    # `validate-docs-deploy`, which is skipped on a push, and a skip propagates
+    # to anything that needs it unless the dependent opts out. Without this the
+    # job was skipped on every push to `main` while reporting a skipped check
+    # and no error, so `dev` docs never published. The coverage job above opts
+    # out the same way.
+    if: >-
+      ${{ !cancelled() && github.event_name == 'push' &&
+          needs.tests-passed.result == 'success' }}
     # `mike` pushes `gh-pages`.
     permissions:
       contents: write

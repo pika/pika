@@ -337,7 +337,14 @@ jobs:
   # ordering, the `smoke-test` dependency and how to recover a skipped deploy.
   deploy-docs:
     needs: [release, publish-pypi, smoke-test, github-release]
-    if: ${{ inputs.mode == 'release' || inputs.mode == 'prerelease' }}
+    # Same skip propagation as `deploy-dev-docs` in main.yaml: `smoke-test`
+    # depends on `publish-test-pypi`, which is skipped in every mode except
+    # `test`, so without opting out this is skipped on a real release and the
+    # docs never publish - silently, because a skip is not a failure.
+    if: >-
+      ${{ !cancelled() &&
+          (inputs.mode == 'release' || inputs.mode == 'prerelease') &&
+          needs.smoke-test.result == 'success' }}
     # Required: a called workflow cannot elevate the caller's token.
     permissions:
       contents: write
