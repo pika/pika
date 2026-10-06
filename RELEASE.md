@@ -191,6 +191,58 @@ What does need doing by hand, once, is the repository configuration:
    folder `/ (root)`. The branch has to exist first, so do this after the first
    deploy.
 
+### ReadTheDocs redirects
+
+The Sphinx docs on `pika.readthedocs.io` are retired, and years of indexed links
+and third-party references point at them. RTD redirects forward those to the
+MkDocs site. This is a one-time setup, recorded here because the next person to
+touch it will not be the one who did it.
+
+`utils/rtd_redirects.json` holds the mapping and `utils/push_rtd_redirects.py`
+pushes it. There is no maintained Python client for the RTD API - the
+`readthedocs` and `readthedocs-client` names on PyPI are reservations with no
+uploaded files - so the script talks to API v3 over stdlib `urllib`.
+
+```bash
+# No token needed: prints every request it would send.
+python3 utils/push_rtd_redirects.py
+
+# What RTD holds now, and the diff against the mapping.
+python3 utils/push_rtd_redirects.py --list
+python3 utils/push_rtd_redirects.py            # with a token: shows the plan
+
+# Send it, then confirm the old URLs land on the new site.
+python3 utils/push_rtd_redirects.py --apply
+python3 utils/push_rtd_redirects.py --verify
+```
+
+The token comes from an RTD account's API tokens page. The script reads
+`~/.config/rtd-token` or `RTD_TOKEN`; prefer the file, so the value stays out of
+shell history and process listings. Nothing is committed and nothing
+authenticated happens without `--apply`.
+
+Four things about the mapping are deliberate and easy to get wrong:
+
+- **The rules are `page` redirects and `from_url` carries no version prefix.**
+  RTD applies a page redirect across every version, so `/intro.html` covers
+  `/en/stable/intro.html`, `/en/latest/intro.html` and `/en/1.3.2/intro.html` in
+  one rule. Writing `/en/stable/intro.html` instead would need an `exact` rule
+  per version and would miss the older versions search engines still hold.
+- **`to_url` carries `latest/`.** The new site is versioned by `mike` and has no
+  unversioned page paths: `/pika/intro/` is a 404 and `/pika/latest/intro/` is
+  not. The site root is the one exception, because `/pika/` serves a redirect
+  that follows the `latest` alias and so survives an alias change.
+- **`force: true`**, so a rule fires even where the old page still builds, and
+  **`http_status: 301`**, so search engines move their index rather than
+  treating it as temporary.
+- **Verify against the deployed site, never `mkdocs serve`.** A local server has
+  no version directories, so every one of these paths resolves locally whether
+  or not it is right in production.
+
+Re-running is safe: matching rules are left alone, differing ones are updated in
+place, and rules on RTD that the mapping does not describe are reported but never
+deleted, so anything set by hand in the dashboard survives.
+
 ### Rebuilding `gh-pages` from scratch
 
 `gh-pages` holds built output only, so it can be deleted and regenerated. The

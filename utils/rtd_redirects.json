@@ -1,0 +1,45 @@
+{
+  "comment": [
+    "Redirects from the retired Sphinx docs on pika.readthedocs.io to the MkDocs",
+    "site on pika.github.io/pika. Pushed by utils/push_rtd_redirects.py; see",
+    "RELEASE.md for the procedure. Tracked by gh-1620.",
+    "",
+    "`from_url` carries no version prefix because these are page redirects,",
+    "which RTD applies across every version of the project: one rule covers",
+    "/en/stable/intro.html, /en/latest/intro.html and /en/1.3.2/intro.html.",
+    "Enumerating /en/stable/ paths instead would need one exact rule per",
+    "version and would miss the older versions search engines still index.",
+    "",
+    "`to_url` carries `latest/` because the new site is versioned by mike and",
+    "has no unversioned page paths: /pika/intro/ is a 404, /pika/latest/intro/",
+    "is not. The site root is the deliberate exception, since /pika/ serves a",
+    "redirect that follows the `latest` alias and so survives an alias change."
+  ],
+  "project": "pika",
+  "defaults": {
+    "type": "page",
+    "http_status": 301,
+    "force": true,
+    "enabled": true
+  },
+  "redirects": [
+    {"from_url": "/index.html", "to_url": "https://pika.github.io/pika/"},
+    {"from_url": "/intro.html", "to_url": "https://pika.github.io/pika/latest/intro/"},
+    {"from_url": "/examples.html", "to_url": "https://pika.github.io/pika/latest/examples/"},
+    {"from_url": "/faq.html", "to_url": "https://pika.github.io/pika/latest/faq/"},
+    {"from_url": "/contributors.html", "to_url": "https://pika.github.io/pika/latest/contributors/"},
+    {"from_url": "/modules/index.html", "to_url": "https://pika.github.io/pika/latest/modules/"},
+    {"from_url": "/modules/connection.html", "to_url": "https://pika.github.io/pika/latest/modules/connection/"},
+    {"from_url": "/modules/channel.html", "to_url": "https://pika.github.io/pika/latest/modules/channel/"},
+    {"from_url": "/modules/credentials.html", "to_url": "https://pika.github.io/pika/latest/modules/credentials/"},
+    {"from_url": "/modules/parameters.html", "to_url": "https://pika.github.io/pika/latest/modules/parameters/"},
+    {"from_url": "/modules/exceptions.html", "to_url": "https://pika.github.io/pika/latest/modules/exceptions/"},
+    {"from_url": "/modules/adapters/index.html", "to_url": "https://pika.github.io/pika/latest/modules/adapters/"},
+    {"from_url": "/modules/adapters/blocking.html", "to_url": "https://pika.github.io/pika/latest/modules/adapters/blocking/"},
+    {"from_url": "/modules/adapters/select.html", "to_url": "https://pika.github.io/pika/latest/modules/adapters/select/"},
+    {"from_url": "/modules/adapters/asyncio.html", "to_url": "https://pika.github.io/pika/latest/modules/adapters/asyncio/"},
+    {"from_url": "/modules/adapters/tornado.html", "to_url": "https://pika.github.io/pika/latest/modules/adapters/tornado/"},
+    {"from_url": "/modules/adapters/twisted.html", "to_url": "https://pika.github.io/pika/latest/modules/adapters/twisted/"},
+    {"from_url": "/modules/adapters/gevent.html", "to_url": "https://pika.github.io/pika/latest/modules/adapters/gevent/"}
+  ]
+}
