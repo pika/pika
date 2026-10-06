@@ -429,7 +429,6 @@ class ParametersTests(ParametersTestsBase):
         self.assertEqual(params.stack_timeout, 5.0)
 
     def test_ssl_options(self):
-
         params = connection.Parameters()
 
         ssl_options = connection.SSLOptions(ssl.create_default_context())
