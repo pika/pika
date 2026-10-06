@@ -393,6 +393,9 @@ class Parameters:
         :param value: port number of broker's listening socket
 
         """
+        # bool subclasses int; port=True would silently become 1
+        if isinstance(value, bool):
+            raise TypeError(f'port must be an int, not bool, but got {value!r}')
         try:
             self._port = int(value)
         except (TypeError, ValueError):
@@ -436,7 +439,8 @@ class Parameters:
 
         """
         if value is not None:
-            if not isinstance(value, numbers.Real):
+            # bool subclasses numbers.Real; True would silently become 1.0s
+            if isinstance(value, bool) or not isinstance(value, numbers.Real):
                 raise TypeError('socket_timeout must be a float or int, '
                                 f'but got {value!r}')
             if value <= 0:
@@ -466,7 +470,8 @@ class Parameters:
 
         """
         if value is not None:
-            if not isinstance(value, numbers.Real):
+            # bool subclasses numbers.Real; True would silently become 1.0s
+            if isinstance(value, bool) or not isinstance(value, numbers.Real):
                 raise TypeError('stack_timeout must be a float or int, '
                                 f'but got {value!r}')
             if value <= 0:
