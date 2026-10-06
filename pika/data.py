@@ -161,6 +161,11 @@ def encode_value(pieces: list[bytes], value: Any) -> int:
             pieces.append(packed)
             return 5
         except struct.error:
+            # Too wide for a long ('I'), so fall back to a long-long ('l'). A
+            # Python int outside signed 64-bit has no wider AMQP field-table
+            # integer type, so reject it rather than let struct.error escape.
+            if not -2**63 <= value < 2**63:
+                raise exceptions.UnencodableLongError(value) from None
             pieces.append(_PACK_TAG_LONG_LONG.pack(b'l', value))
             return 9
     elif isinstance(value, float):
@@ -199,9 +204,13 @@ def encode_value(pieces: list[bytes], value: Any) -> int:
         pieces.append(_PACK_TAG_BYTE_INT.pack(b'D', decimals, raw))
         return 6
     elif isinstance(value, datetime):
-        pieces.append(
-            _PACK_TAG_UNSIGNED_LONG_LONG.pack(
-                b'T', calendar.timegm(value.utctimetuple())))
+        seconds = calendar.timegm(value.utctimetuple())
+        # 'T' is an unsigned 64-bit POSIX time (see decode_value), so a
+        # datetime before the Unix epoch is negative and has no AMQP timestamp
+        # representation. Reject it rather than let struct.error escape.
+        if seconds < 0:
+            raise exceptions.UnencodableTimestampError(value)
+        pieces.append(_PACK_TAG_UNSIGNED_LONG_LONG.pack(b'T', seconds))
         return 9
     elif isinstance(value, dict):
         pieces.append(b'F')

@@ -118,6 +118,38 @@ class DataTests(unittest.TestCase):
         self.assertRaises(exceptions.UnsupportedAMQPFieldException,
                           data.encode_table, [], {'foo': {1, 2, 3}})
 
+    def test_encode_long_long_boundaries_roundtrip(self):
+        """The widest integers that still fit a long-long round-trip."""
+        for value in (2**63 - 1, -2**63):
+            pieces = []
+            data.encode_value(pieces, value)
+            decoded, offset = data.decode_value(b''.join(pieces), 0)
+            self.assertEqual(decoded, value)
+            self.assertEqual(offset, 9)
+
+    def test_encode_long_out_of_range(self):
+        # An int wider than signed 64-bit has no AMQP field-table integer
+        # type, so it is rejected instead of raising a raw struct.error.
+        self.assertRaises(exceptions.UnencodableLongError, data.encode_value,
+                          [], 2**63)
+        self.assertRaises(exceptions.UnencodableLongError, data.encode_value,
+                          [], -2**63 - 1)
+
+    def test_encode_timestamp_epoch_roundtrip(self):
+        value = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
+        pieces = []
+        data.encode_value(pieces, value)
+        decoded, offset = data.decode_value(b''.join(pieces), 0)
+        self.assertEqual(decoded, value)
+        self.assertEqual(offset, 9)
+
+    def test_encode_timestamp_before_epoch(self):
+        # 'T' is an unsigned 64-bit POSIX time, so a pre-1970 datetime has no
+        # representation and is rejected instead of raising a struct.error.
+        value = datetime.datetime(1969, 12, 31, tzinfo=datetime.timezone.utc)
+        self.assertRaises(exceptions.UnencodableTimestampError,
+                          data.encode_value, [], value)
+
     def test_decode_raises(self):
         self.assertRaises(exceptions.InvalidFieldTypeException,
                           data.decode_table,
