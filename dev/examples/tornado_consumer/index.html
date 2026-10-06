@@ -1,0 +1,2579 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Pika Python AMQP 0-9-1 Client Library">
+      
+      
+      
+        <link rel="canonical" href="https://pika.github.io/pika/latest/examples/tornado_consumer/">
+      
+      
+        <link rel="prev" href="../twisted_example/">
+      
+      
+        <link rel="next" href="../tls_mutual_authentication/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/pika.jpg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Tornado Consumer - Pika</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../css/mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#tornado-consumer-example" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+          <aside class="md-banner md-banner--warning">
+            <div class="md-banner__inner md-grid md-typeset">
+              
+  You're not viewing the latest version.
+  <a href="../../..">
+    <strong>Click here to go to latest.</strong>
+  </a>
+
+            </div>
+            <script>var el=document.querySelector("[data-md-component=outdated]"),base=new URL("../.."),outdated=__md_get("__outdated",sessionStorage,base);!0===outdated&&el&&(el.hidden=!1)</script>
+          </aside>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Pika" class="md-header__button md-logo" aria-label="Pika" data-md-component="logo">
+      
+  <img src="../../assets/pika.jpg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Pika
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Tornado Consumer
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 2C5.13 2 2 5.13 2 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7M6 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H6zm13-8h-2l-3.2 9h1.9l.7-2h3.2l.7 2h1.9zm-2.15 5.65L18 15l1.15 3.65z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7M9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="amber"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7M9 21v-1h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1m3-17a5 5 0 0 0-5 5c0 2.05 1.23 3.81 3 4.58V16h4v-2.42c1.77-.77 3-2.53 3-4.58a5 5 0 0 0-5-5"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/pika/pika" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    pika/pika
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../intro/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Introduction
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../modules/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../faq/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Misc
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Pika" class="md-nav__button md-logo" aria-label="Pika" data-md-component="logo">
+      
+  <img src="../../assets/pika.jpg" alt="logo">
+
+    </a>
+    Pika
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/pika/pika" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    pika/pika
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../intro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../modules/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../modules/adapters/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Connection Adapters
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Connection Adapters
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/adapters/blocking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blocking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/adapters/select/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Select
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/adapters/asyncio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Asyncio
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/adapters/tornado/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tornado
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/adapters/twisted/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Twisted
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/adapters/gevent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gevent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/adapters/thread_safe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Thread-Safe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/channel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Channel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/connection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Connection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/credentials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Credentials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/delivery_mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DeliveryMode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/exceptions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exceptions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/parameters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parameters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/spec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Specification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../using_urlparameters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    URLParameters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../connecting_async/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Connecting Asynchronously
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../blocking_basic_get/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blocking Basic Get
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../blocking_consume/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blocking Consume
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../blocking_consume_recover_multiple_hosts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blocking Consume With Multiple Hosts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../blocking_consumer_generator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blocking Consumer Generator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../comparing_publishing_sync_async/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Publishing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../blocking_delivery_confirmations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Delivery Confirmations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../blocking_publish_mandatory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mandatory Publishing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../asynchronous_consumer_example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Asynchronous Consumer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../asynchronous_publisher_example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Asynchronous Publisher
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../asyncio_consumer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Asyncio Consumer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../twisted_example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Twisted Consumer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tornado Consumer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tls_mutual_authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TLS Mutual Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tls_server_authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TLS Server Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../threaded_consumer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Thread-Safe Consumer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../threaded_publisher/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Thread-Safe Publisher
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../publisher_confirms_threaded/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Thread-Safe Publisher Confirms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../long_running_publisher_threaded/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Thread-Safe Long-Running Publisher
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../heartbeat_and_blocked_timeouts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Heartbeat and Blocked Timeouts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../direct_reply_to/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Direct Reply-To
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Misc
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Misc
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    History
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Examples
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="tornado-consumer-example">Tornado consumer example<a class="headerlink" href="#tornado-consumer-example" title="Permanent link">&para;</a></h1>
+<p>The following example implements a consumer using the <code>Tornado adapter</code> for the <a href="https://tornadoweb.org">Tornado framework</a> that will respond to RPC commands sent from RabbitMQ. For example, it will reconnect if RabbitMQ closes the connection and will shutdown if RabbitMQ cancels the consumer or closes the channel. While it may look intimidating, each method is very short and represents a individual actions that a consumer can do.</p>
+<p><code>examples/tornado_consumer.py</code>:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+</span><span id="__span-0-2">
+</span><span id="__span-0-3"><span class="kn">import</span><span class="w"> </span><span class="nn">pika</span>
+</span><span id="__span-0-4"><span class="kn">from</span><span class="w"> </span><span class="nn">pika.adapters.tornado_connection</span><span class="w"> </span><span class="kn">import</span> <span class="n">TornadoConnection</span>
+</span><span id="__span-0-5"><span class="kn">from</span><span class="w"> </span><span class="nn">pika.exchange_type</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExchangeType</span>
+</span><span id="__span-0-6">
+</span><span id="__span-0-7"><span class="n">LOG_FORMAT</span> <span class="o">=</span> <span class="p">(</span><span class="s1">'</span><span class="si">%(levelname) -10s</span><span class="s1"> </span><span class="si">%(asctime)s</span><span class="s1"> </span><span class="si">%(name) -30s</span><span class="s1"> %(funcName) '</span>
+</span><span id="__span-0-8">              <span class="s1">'-35s </span><span class="si">%(lineno) -5d</span><span class="s1">: </span><span class="si">%(message)s</span><span class="s1">'</span><span class="p">)</span>
+</span><span id="__span-0-9"><span class="n">LOGGER</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+</span><span id="__span-0-10">
+</span><span id="__span-0-11">
+</span><span id="__span-0-12"><span class="k">class</span><span class="w"> </span><span class="nc">ExampleConsumer</span><span class="p">:</span>
+</span><span id="__span-0-13"><span class="w">    </span><span class="sd">"""</span>
+</span><span id="__span-0-14"><span class="sd">    This is an example consumer that will handle unexpected interactions with RabbitMQ such as</span>
+</span><span id="__span-0-15"><span class="sd">    channel and connection closures.</span>
+</span><span id="__span-0-16">
+</span><span id="__span-0-17"><span class="sd">    If RabbitMQ closes the connection, it will reopen it. You should look at the output, as there</span>
+</span><span id="__span-0-18"><span class="sd">    are limited reasons why the connection may be closed, which usually are tied to permission</span>
+</span><span id="__span-0-19"><span class="sd">    related issues or socket timeouts.</span>
+</span><span id="__span-0-20">
+</span><span id="__span-0-21"><span class="sd">    If the channel is closed, it will indicate a problem with one of the commands that were issued</span>
+</span><span id="__span-0-22"><span class="sd">    and that should surface in the output as well.</span>
+</span><span id="__span-0-23"><span class="sd">    """</span>
+</span><span id="__span-0-24">
+</span><span id="__span-0-25">    <span class="n">EXCHANGE</span> <span class="o">=</span> <span class="s1">'message'</span>
+</span><span id="__span-0-26">    <span class="n">EXCHANGE_TYPE</span> <span class="o">=</span> <span class="n">ExchangeType</span><span class="o">.</span><span class="n">topic</span>
+</span><span id="__span-0-27">    <span class="n">QUEUE</span> <span class="o">=</span> <span class="s1">'text'</span>
+</span><span id="__span-0-28">    <span class="n">ROUTING_KEY</span> <span class="o">=</span> <span class="s1">'example.text'</span>
+</span><span id="__span-0-29">
+</span><span id="__span-0-30">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">amqp_url</span><span class="p">):</span>
+</span><span id="__span-0-31"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-32"><span class="sd">        Create a new instance of the consumer class, passing in the AMQP URL used to connect to</span>
+</span><span id="__span-0-33"><span class="sd">        RabbitMQ.</span>
+</span><span id="__span-0-34">
+</span><span id="__span-0-35"><span class="sd">        :param str amqp_url: The AMQP url to connect with</span>
+</span><span id="__span-0-36"><span class="sd">        """</span>
+</span><span id="__span-0-37">        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-0-38">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-0-39">        <span class="bp">self</span><span class="o">.</span><span class="n">_closing</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span id="__span-0-40">        <span class="bp">self</span><span class="o">.</span><span class="n">_consumer_tag</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-0-41">        <span class="bp">self</span><span class="o">.</span><span class="n">_url</span> <span class="o">=</span> <span class="n">amqp_url</span>
+</span><span id="__span-0-42">
+</span><span id="__span-0-43">    <span class="k">def</span><span class="w"> </span><span class="nf">connect</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TornadoConnection</span><span class="p">:</span>
+</span><span id="__span-0-44"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-45"><span class="sd">        This method connects to RabbitMQ, returning the connection handle.</span>
+</span><span id="__span-0-46">
+</span><span id="__span-0-47"><span class="sd">        When the connection is established, the on_connection_open method will be invoked by pika.</span>
+</span><span id="__span-0-48"><span class="sd">        """</span>
+</span><span id="__span-0-49">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Connecting to </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_url</span><span class="p">)</span>
+</span><span id="__span-0-50">        <span class="k">return</span> <span class="n">TornadoConnection</span><span class="p">(</span>
+</span><span id="__span-0-51">            <span class="n">pika</span><span class="o">.</span><span class="n">URLParameters</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_url</span><span class="p">),</span>
+</span><span id="__span-0-52">            <span class="bp">self</span><span class="o">.</span><span class="n">on_connection_open</span><span class="p">,</span>
+</span><span id="__span-0-53">        <span class="p">)</span>
+</span><span id="__span-0-54">
+</span><span id="__span-0-55">    <span class="k">def</span><span class="w"> </span><span class="nf">close_connection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-56"><span class="w">        </span><span class="sd">"""This method closes the connection to RabbitMQ."""</span>
+</span><span id="__span-0-57">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Closing connection'</span><span class="p">)</span>
+</span><span id="__span-0-58">        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span id="__span-0-59">
+</span><span id="__span-0-60">    <span class="k">def</span><span class="w"> </span><span class="nf">add_on_connection_close_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-61"><span class="w">        </span><span class="sd">"""This method adds an on close callback that will be invoked by pika when RabbitMQ closes</span>
+</span><span id="__span-0-62"><span class="sd">        the connection to the publisher unexpectedly.</span>
+</span><span id="__span-0-63"><span class="sd">        """</span>
+</span><span id="__span-0-64">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Adding connection close callback'</span><span class="p">)</span>
+</span><span id="__span-0-65">        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">add_on_close_callback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">on_connection_closed</span><span class="p">)</span>
+</span><span id="__span-0-66">
+</span><span id="__span-0-67">    <span class="k">def</span><span class="w"> </span><span class="nf">on_connection_closed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">reason</span><span class="p">):</span>
+</span><span id="__span-0-68"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-69"><span class="sd">        This method is invoked by pika when the connection to RabbitMQ is closed unexpectedly.</span>
+</span><span id="__span-0-70">
+</span><span id="__span-0-71"><span class="sd">        Since it is unexpected, we will reconnect to RabbitMQ if it disconnects.</span>
+</span><span id="__span-0-72">
+</span><span id="__span-0-73"><span class="sd">        :param pika.connection.Connection connection: The closed connection obj</span>
+</span><span id="__span-0-74"><span class="sd">        :param Exception reason: exception representing reason for loss of connection.</span>
+</span><span id="__span-0-75"><span class="sd">        """</span>
+</span><span id="__span-0-76">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-0-77">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_closing</span><span class="p">:</span>
+</span><span id="__span-0-78">            <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">ioloop</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</span><span id="__span-0-79">        <span class="k">else</span><span class="p">:</span>
+</span><span id="__span-0-80">            <span class="n">LOGGER</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">'Connection closed, reopening in 5 seconds: </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span>
+</span><span id="__span-0-81">                           <span class="n">reason</span><span class="p">)</span>
+</span><span id="__span-0-82">            <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">ioloop</span><span class="o">.</span><span class="n">call_later</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">reconnect</span><span class="p">)</span>
+</span><span id="__span-0-83">
+</span><span id="__span-0-84">    <span class="k">def</span><span class="w"> </span><span class="nf">on_connection_open</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unused_connection</span><span class="p">):</span>
+</span><span id="__span-0-85"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-86"><span class="sd">        This method is called by pika once the connection to RabbitMQ has been established.</span>
+</span><span id="__span-0-87">
+</span><span id="__span-0-88"><span class="sd">        It passes the handle to the connection object in case we need it, but in this case, we'll</span>
+</span><span id="__span-0-89"><span class="sd">        just mark it unused.</span>
+</span><span id="__span-0-90">
+</span><span id="__span-0-91"><span class="sd">        :param pika.SelectConnection _unused_connection: The connection</span>
+</span><span id="__span-0-92"><span class="sd">        """</span>
+</span><span id="__span-0-93">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Connection opened'</span><span class="p">)</span>
+</span><span id="__span-0-94">        <span class="bp">self</span><span class="o">.</span><span class="n">add_on_connection_close_callback</span><span class="p">()</span>
+</span><span id="__span-0-95">        <span class="bp">self</span><span class="o">.</span><span class="n">open_channel</span><span class="p">()</span>
+</span><span id="__span-0-96">
+</span><span id="__span-0-97">    <span class="k">def</span><span class="w"> </span><span class="nf">reconnect</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-98"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-99"><span class="sd">        Will be invoked by the IOLoop timer if the connection is closed.</span>
+</span><span id="__span-0-100">
+</span><span id="__span-0-101"><span class="sd">        See the on_connection_closed method.</span>
+</span><span id="__span-0-102"><span class="sd">        """</span>
+</span><span id="__span-0-103">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_closing</span><span class="p">:</span>
+</span><span id="__span-0-104">
+</span><span id="__span-0-105">            <span class="c1"># Create a new connection</span>
+</span><span id="__span-0-106">            <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
+</span><span id="__span-0-107">
+</span><span id="__span-0-108">    <span class="k">def</span><span class="w"> </span><span class="nf">add_on_channel_close_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-109"><span class="w">        </span><span class="sd">"""This method tells pika to call the on_channel_closed method if RabbitMQ unexpectedly</span>
+</span><span id="__span-0-110"><span class="sd">        closes the channel.</span>
+</span><span id="__span-0-111"><span class="sd">        """</span>
+</span><span id="__span-0-112">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Adding channel close callback'</span><span class="p">)</span>
+</span><span id="__span-0-113">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">add_on_close_callback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">on_channel_closed</span><span class="p">)</span>
+</span><span id="__span-0-114">
+</span><span id="__span-0-115">    <span class="k">def</span><span class="w"> </span><span class="nf">on_channel_closed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">reason</span><span class="p">):</span>
+</span><span id="__span-0-116"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-117"><span class="sd">        Invoked by pika when RabbitMQ unexpectedly closes the channel.</span>
+</span><span id="__span-0-118">
+</span><span id="__span-0-119"><span class="sd">        Channels are usually closed if you attempt to do something that violates the protocol, such</span>
+</span><span id="__span-0-120"><span class="sd">        as re-declare an exchange or queue with different parameters. In this case, we'll close the</span>
+</span><span id="__span-0-121"><span class="sd">        connection to shutdown the object.</span>
+</span><span id="__span-0-122">
+</span><span id="__span-0-123"><span class="sd">        :param pika.channel.Channel: The closed channel</span>
+</span><span id="__span-0-124"><span class="sd">        :param Exception reason: why the channel was closed</span>
+</span><span id="__span-0-125"><span class="sd">        """</span>
+</span><span id="__span-0-126">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">'Channel </span><span class="si">%i</span><span class="s1"> was closed: </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">reason</span><span class="p">)</span>
+</span><span id="__span-0-127">        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span id="__span-0-128">
+</span><span id="__span-0-129">    <span class="k">def</span><span class="w"> </span><span class="nf">on_channel_open</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">):</span>
+</span><span id="__span-0-130"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-131"><span class="sd">        This method is invoked by pika when the channel has been opened.</span>
+</span><span id="__span-0-132">
+</span><span id="__span-0-133"><span class="sd">        The channel object is passed in so we can make use of it.</span>
+</span><span id="__span-0-134">
+</span><span id="__span-0-135"><span class="sd">        Since the channel is now open, we'll declare the exchange to use.</span>
+</span><span id="__span-0-136">
+</span><span id="__span-0-137"><span class="sd">        :param pika.channel.Channel channel: The channel object</span>
+</span><span id="__span-0-138"><span class="sd">        """</span>
+</span><span id="__span-0-139">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Channel opened'</span><span class="p">)</span>
+</span><span id="__span-0-140">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span> <span class="o">=</span> <span class="n">channel</span>
+</span><span id="__span-0-141">        <span class="bp">self</span><span class="o">.</span><span class="n">add_on_channel_close_callback</span><span class="p">()</span>
+</span><span id="__span-0-142">        <span class="bp">self</span><span class="o">.</span><span class="n">setup_exchange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">EXCHANGE</span><span class="p">)</span>
+</span><span id="__span-0-143">
+</span><span id="__span-0-144">    <span class="k">def</span><span class="w"> </span><span class="nf">setup_exchange</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exchange_name</span><span class="p">):</span>
+</span><span id="__span-0-145"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-146"><span class="sd">        Setup the exchange on RabbitMQ by invoking the Exchange.Declare RPC command.</span>
+</span><span id="__span-0-147">
+</span><span id="__span-0-148"><span class="sd">        When it is complete, the on_exchange_declareok method will be invoked by pika.</span>
+</span><span id="__span-0-149">
+</span><span id="__span-0-150"><span class="sd">        :param str|unicode exchange_name: The name of the exchange to declare</span>
+</span><span id="__span-0-151"><span class="sd">        """</span>
+</span><span id="__span-0-152">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Declaring exchange </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span> <span class="n">exchange_name</span><span class="p">)</span>
+</span><span id="__span-0-153">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">exchange_declare</span><span class="p">(</span>
+</span><span id="__span-0-154">            <span class="n">callback</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">on_exchange_declareok</span><span class="p">,</span>
+</span><span id="__span-0-155">            <span class="n">exchange</span><span class="o">=</span><span class="n">exchange_name</span><span class="p">,</span>
+</span><span id="__span-0-156">            <span class="n">exchange_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">EXCHANGE_TYPE</span><span class="p">,</span>
+</span><span id="__span-0-157">        <span class="p">)</span>
+</span><span id="__span-0-158">
+</span><span id="__span-0-159">    <span class="k">def</span><span class="w"> </span><span class="nf">on_exchange_declareok</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unused_frame</span><span class="p">):</span>
+</span><span id="__span-0-160"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-161"><span class="sd">        Invoked by pika when RabbitMQ has finished the Exchange.Declare RPC command.</span>
+</span><span id="__span-0-162">
+</span><span id="__span-0-163"><span class="sd">        :param pika.Frame.Method unused_frame: Exchange.DeclareOk response frame</span>
+</span><span id="__span-0-164"><span class="sd">        """</span>
+</span><span id="__span-0-165">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Exchange declared'</span><span class="p">)</span>
+</span><span id="__span-0-166">        <span class="bp">self</span><span class="o">.</span><span class="n">setup_queue</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">QUEUE</span><span class="p">)</span>
+</span><span id="__span-0-167">
+</span><span id="__span-0-168">    <span class="k">def</span><span class="w"> </span><span class="nf">setup_queue</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">queue_name</span><span class="p">):</span>
+</span><span id="__span-0-169"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-170"><span class="sd">        Setup the queue on RabbitMQ by invoking the Queue.Declare RPC command.</span>
+</span><span id="__span-0-171">
+</span><span id="__span-0-172"><span class="sd">        When it is complete, the on_queue_declareok method will be invoked by pika.</span>
+</span><span id="__span-0-173">
+</span><span id="__span-0-174"><span class="sd">        :param str|unicode queue_name: The name of the queue to declare.</span>
+</span><span id="__span-0-175"><span class="sd">        """</span>
+</span><span id="__span-0-176">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Declaring queue </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span> <span class="n">queue_name</span><span class="p">)</span>
+</span><span id="__span-0-177">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span>
+</span><span id="__span-0-178">            <span class="n">queue</span><span class="o">=</span><span class="n">queue_name</span><span class="p">,</span>
+</span><span id="__span-0-179">            <span class="n">callback</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">on_queue_declareok</span><span class="p">,</span>
+</span><span id="__span-0-180">        <span class="p">)</span>
+</span><span id="__span-0-181">
+</span><span id="__span-0-182">    <span class="k">def</span><span class="w"> </span><span class="nf">on_queue_declareok</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">method_frame</span><span class="p">):</span>
+</span><span id="__span-0-183"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-184"><span class="sd">        Method invoked by pika when the Queue.Declare RPC call made in setup_queue has completed.</span>
+</span><span id="__span-0-185">
+</span><span id="__span-0-186"><span class="sd">        In this method we will bind the queue and exchange together with the routing key by issuing</span>
+</span><span id="__span-0-187"><span class="sd">        the Queue.Bind RPC command. When this command is complete, the on_bindok method will be</span>
+</span><span id="__span-0-188"><span class="sd">        invoked by pika.</span>
+</span><span id="__span-0-189">
+</span><span id="__span-0-190"><span class="sd">        :param pika.frame.Method method_frame: The Queue.DeclareOk frame</span>
+</span><span id="__span-0-191"><span class="sd">        """</span>
+</span><span id="__span-0-192">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Binding </span><span class="si">%s</span><span class="s1"> to </span><span class="si">%s</span><span class="s1"> with </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">EXCHANGE</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">QUEUE</span><span class="p">,</span>
+</span><span id="__span-0-193">                    <span class="bp">self</span><span class="o">.</span><span class="n">ROUTING_KEY</span><span class="p">)</span>
+</span><span id="__span-0-194">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">queue_bind</span><span class="p">(</span>
+</span><span id="__span-0-195">            <span class="n">queue</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">QUEUE</span><span class="p">,</span>
+</span><span id="__span-0-196">            <span class="n">exchange</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">EXCHANGE</span><span class="p">,</span>
+</span><span id="__span-0-197">            <span class="n">routing_key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ROUTING_KEY</span><span class="p">,</span>
+</span><span id="__span-0-198">            <span class="n">callback</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">on_bindok</span><span class="p">,</span>
+</span><span id="__span-0-199">        <span class="p">)</span>
+</span><span id="__span-0-200">
+</span><span id="__span-0-201">    <span class="k">def</span><span class="w"> </span><span class="nf">add_on_cancel_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-202"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-203"><span class="sd">        Add a callback that will be invoked if RabbitMQ cancels the consumer for some reason.</span>
+</span><span id="__span-0-204">
+</span><span id="__span-0-205"><span class="sd">        If RabbitMQ does cancel the consumer, on_consumer_cancelled will be invoked by pika.</span>
+</span><span id="__span-0-206"><span class="sd">        """</span>
+</span><span id="__span-0-207">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Adding consumer cancellation callback'</span><span class="p">)</span>
+</span><span id="__span-0-208">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">add_on_cancel_callback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">on_consumer_cancelled</span><span class="p">)</span>
+</span><span id="__span-0-209">
+</span><span id="__span-0-210">    <span class="k">def</span><span class="w"> </span><span class="nf">on_consumer_cancelled</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">method_frame</span><span class="p">):</span>
+</span><span id="__span-0-211"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-212"><span class="sd">        Invoked by pika when RabbitMQ sends a Basic.Cancel for a consumer receiving messages.</span>
+</span><span id="__span-0-213">
+</span><span id="__span-0-214"><span class="sd">        :param pika.frame.Method method_frame: The Basic.Cancel frame</span>
+</span><span id="__span-0-215"><span class="sd">        """</span>
+</span><span id="__span-0-216">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Consumer was cancelled remotely, shutting down: </span><span class="si">%r</span><span class="s1">'</span><span class="p">,</span>
+</span><span id="__span-0-217">                    <span class="n">method_frame</span><span class="p">)</span>
+</span><span id="__span-0-218">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="p">:</span>
+</span><span id="__span-0-219">            <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span id="__span-0-220">
+</span><span id="__span-0-221">    <span class="k">def</span><span class="w"> </span><span class="nf">acknowledge_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">delivery_tag</span><span class="p">):</span>
+</span><span id="__span-0-222"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-223"><span class="sd">        Acknowledge the message delivery from RabbitMQ by sending a Basic.Ack RPC method for the</span>
+</span><span id="__span-0-224"><span class="sd">        delivery tag.</span>
+</span><span id="__span-0-225">
+</span><span id="__span-0-226"><span class="sd">        :param int delivery_tag: The delivery tag from the Basic.Deliver frame</span>
+</span><span id="__span-0-227"><span class="sd">        """</span>
+</span><span id="__span-0-228">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Acknowledging message </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span> <span class="n">delivery_tag</span><span class="p">)</span>
+</span><span id="__span-0-229">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">basic_ack</span><span class="p">(</span><span class="n">delivery_tag</span><span class="p">)</span>
+</span><span id="__span-0-230">
+</span><span id="__span-0-231">    <span class="k">def</span><span class="w"> </span><span class="nf">on_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unused_channel</span><span class="p">,</span> <span class="n">basic_deliver</span><span class="p">,</span> <span class="n">properties</span><span class="p">,</span> <span class="n">body</span><span class="p">):</span>
+</span><span id="__span-0-232"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-233"><span class="sd">        Invoked by pika when a message is delivered from RabbitMQ.</span>
+</span><span id="__span-0-234">
+</span><span id="__span-0-235"><span class="sd">        The channel is passed for your convenience. The basic_deliver object that is passed in</span>
+</span><span id="__span-0-236"><span class="sd">        carries the exchange, routing key, delivery tag and a redelivered flag for the message. The</span>
+</span><span id="__span-0-237"><span class="sd">        properties passed in is an instance of BasicProperties with the message properties and the</span>
+</span><span id="__span-0-238"><span class="sd">        body is the message that was sent.</span>
+</span><span id="__span-0-239">
+</span><span id="__span-0-240"><span class="sd">        :param pika.channel.Channel unused_channel: The channel object</span>
+</span><span id="__span-0-241"><span class="sd">        :param pika.Spec.Basic.Deliver: basic_deliver method</span>
+</span><span id="__span-0-242"><span class="sd">        :param pika.Spec.BasicProperties: properties</span>
+</span><span id="__span-0-243"><span class="sd">        :param bytes body: The message body</span>
+</span><span id="__span-0-244"><span class="sd">        """</span>
+</span><span id="__span-0-245">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Received message # </span><span class="si">%s</span><span class="s1"> from </span><span class="si">%s</span><span class="s1">: </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span>
+</span><span id="__span-0-246">                    <span class="n">basic_deliver</span><span class="o">.</span><span class="n">delivery_tag</span><span class="p">,</span> <span class="n">properties</span><span class="o">.</span><span class="n">app_id</span><span class="p">,</span> <span class="n">body</span><span class="p">)</span>
+</span><span id="__span-0-247">        <span class="bp">self</span><span class="o">.</span><span class="n">acknowledge_message</span><span class="p">(</span><span class="n">basic_deliver</span><span class="o">.</span><span class="n">delivery_tag</span><span class="p">)</span>
+</span><span id="__span-0-248">
+</span><span id="__span-0-249">    <span class="k">def</span><span class="w"> </span><span class="nf">on_cancelok</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unused_frame</span><span class="p">):</span>
+</span><span id="__span-0-250"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-251"><span class="sd">        This method is invoked by pika when RabbitMQ acknowledges the cancellation of a consumer.</span>
+</span><span id="__span-0-252">
+</span><span id="__span-0-253"><span class="sd">        At this point we will close the channel. This will invoke the on_channel_closed method once</span>
+</span><span id="__span-0-254"><span class="sd">        the channel has been closed, which will in-turn close the connection.</span>
+</span><span id="__span-0-255">
+</span><span id="__span-0-256"><span class="sd">        :param pika.frame.Method unused_frame: The Basic.CancelOk frame</span>
+</span><span id="__span-0-257"><span class="sd">        """</span>
+</span><span id="__span-0-258">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'RabbitMQ acknowledged the cancellation of the consumer'</span><span class="p">)</span>
+</span><span id="__span-0-259">        <span class="bp">self</span><span class="o">.</span><span class="n">close_channel</span><span class="p">()</span>
+</span><span id="__span-0-260">
+</span><span id="__span-0-261">    <span class="k">def</span><span class="w"> </span><span class="nf">stop_consuming</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-262"><span class="w">        </span><span class="sd">"""Tell RabbitMQ that you would like to stop consuming by sending the Basic.Cancel RPC</span>
+</span><span id="__span-0-263"><span class="sd">        command.</span>
+</span><span id="__span-0-264"><span class="sd">        """</span>
+</span><span id="__span-0-265">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="p">:</span>
+</span><span id="__span-0-266">            <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Sending a Basic.Cancel RPC command to RabbitMQ'</span><span class="p">)</span>
+</span><span id="__span-0-267">            <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">basic_cancel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">on_cancelok</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consumer_tag</span><span class="p">)</span>
+</span><span id="__span-0-268">
+</span><span id="__span-0-269">    <span class="k">def</span><span class="w"> </span><span class="nf">start_consuming</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-270"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-271"><span class="sd">        This method sets up the consumer by first calling add_on_cancel_callback so that the object</span>
+</span><span id="__span-0-272"><span class="sd">        is notified if RabbitMQ cancels the consumer.</span>
+</span><span id="__span-0-273">
+</span><span id="__span-0-274"><span class="sd">        It then issues the Basic.Consume RPC command which returns the consumer tag that is used to</span>
+</span><span id="__span-0-275"><span class="sd">        uniquely identify the consumer with RabbitMQ. We keep the value to use it when we want to</span>
+</span><span id="__span-0-276"><span class="sd">        cancel consuming. The on_message method is passed in as a callback pika will invoke when a</span>
+</span><span id="__span-0-277"><span class="sd">        message is fully received.</span>
+</span><span id="__span-0-278"><span class="sd">        """</span>
+</span><span id="__span-0-279">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Issuing consumer related RPC commands'</span><span class="p">)</span>
+</span><span id="__span-0-280">        <span class="bp">self</span><span class="o">.</span><span class="n">add_on_cancel_callback</span><span class="p">()</span>
+</span><span id="__span-0-281">        <span class="bp">self</span><span class="o">.</span><span class="n">_consumer_tag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">basic_consume</span><span class="p">(</span>
+</span><span id="__span-0-282">            <span class="n">on_message_callback</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">on_message</span><span class="p">,</span>
+</span><span id="__span-0-283">            <span class="n">queue</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">QUEUE</span><span class="p">,</span>
+</span><span id="__span-0-284">        <span class="p">)</span>
+</span><span id="__span-0-285">
+</span><span id="__span-0-286">    <span class="k">def</span><span class="w"> </span><span class="nf">on_bindok</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unused_frame</span><span class="p">):</span>
+</span><span id="__span-0-287"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-288"><span class="sd">        Invoked by pika when the Queue.Bind method has completed.</span>
+</span><span id="__span-0-289">
+</span><span id="__span-0-290"><span class="sd">        At this point we will start consuming messages by calling start_consuming which will invoke</span>
+</span><span id="__span-0-291"><span class="sd">        the needed RPC commands to start the process.</span>
+</span><span id="__span-0-292">
+</span><span id="__span-0-293"><span class="sd">        :param pika.frame.Method unused_frame: The Queue.BindOk response frame</span>
+</span><span id="__span-0-294"><span class="sd">        """</span>
+</span><span id="__span-0-295">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Queue bound'</span><span class="p">)</span>
+</span><span id="__span-0-296">        <span class="bp">self</span><span class="o">.</span><span class="n">start_consuming</span><span class="p">()</span>
+</span><span id="__span-0-297">
+</span><span id="__span-0-298">    <span class="k">def</span><span class="w"> </span><span class="nf">close_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-299"><span class="w">        </span><span class="sd">"""Call to close the channel with RabbitMQ cleanly by issuing the Channel.Close RPC</span>
+</span><span id="__span-0-300"><span class="sd">        command.</span>
+</span><span id="__span-0-301"><span class="sd">        """</span>
+</span><span id="__span-0-302">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Closing the channel'</span><span class="p">)</span>
+</span><span id="__span-0-303">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span id="__span-0-304">
+</span><span id="__span-0-305">    <span class="k">def</span><span class="w"> </span><span class="nf">open_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-306"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-307"><span class="sd">        Open a new channel with RabbitMQ by issuing the Channel.Open RPC command.</span>
+</span><span id="__span-0-308">
+</span><span id="__span-0-309"><span class="sd">        When RabbitMQ responds that the channel is open, the on_channel_open callback will be</span>
+</span><span id="__span-0-310"><span class="sd">        invoked by pika.</span>
+</span><span id="__span-0-311"><span class="sd">        """</span>
+</span><span id="__span-0-312">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Creating a new channel'</span><span class="p">)</span>
+</span><span id="__span-0-313">        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">channel</span><span class="p">(</span><span class="n">on_open_callback</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">on_channel_open</span><span class="p">)</span>
+</span><span id="__span-0-314">
+</span><span id="__span-0-315">    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-316"><span class="w">        </span><span class="sd">"""Run the example consumer by connecting to RabbitMQ and then starting the IOLoop to block</span>
+</span><span id="__span-0-317"><span class="sd">        and allow the SelectConnection to operate.</span>
+</span><span id="__span-0-318"><span class="sd">        """</span>
+</span><span id="__span-0-319">        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
+</span><span id="__span-0-320">        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">ioloop</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span id="__span-0-321">
+</span><span id="__span-0-322">    <span class="k">def</span><span class="w"> </span><span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-323"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-324"><span class="sd">        Cleanly shutdown the connection to RabbitMQ by stopping the consumer with RabbitMQ.</span>
+</span><span id="__span-0-325">
+</span><span id="__span-0-326"><span class="sd">        When RabbitMQ confirms the cancellation, on_cancelok will be invoked by pika, which will</span>
+</span><span id="__span-0-327"><span class="sd">        then closing the channel and connection. The IOLoop is started again because this method is</span>
+</span><span id="__span-0-328"><span class="sd">        invoked when CTRL-C is pressed raising a KeyboardInterrupt exception. This exception stops</span>
+</span><span id="__span-0-329"><span class="sd">        the IOLoop which needs to be running for pika to communicate with RabbitMQ. All of the</span>
+</span><span id="__span-0-330"><span class="sd">        commands issued prior to starting the IOLoop will be buffered but not processed.</span>
+</span><span id="__span-0-331"><span class="sd">        """</span>
+</span><span id="__span-0-332">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Stopping'</span><span class="p">)</span>
+</span><span id="__span-0-333">        <span class="bp">self</span><span class="o">.</span><span class="n">_closing</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span id="__span-0-334">        <span class="bp">self</span><span class="o">.</span><span class="n">stop_consuming</span><span class="p">()</span>
+</span><span id="__span-0-335">        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">ioloop</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span id="__span-0-336">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Stopped'</span><span class="p">)</span>
+</span><span id="__span-0-337">
+</span><span id="__span-0-338">
+</span><span id="__span-0-339"><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+</span><span id="__span-0-340">    <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="n">LOG_FORMAT</span><span class="p">)</span>
+</span><span id="__span-0-341">    <span class="n">example</span> <span class="o">=</span> <span class="n">ExampleConsumer</span><span class="p">(</span><span class="s1">'amqp://guest:guest@localhost:5672/</span><span class="si">%2F</span><span class="s1">'</span><span class="p">)</span>
+</span><span id="__span-0-342">    <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-0-343">        <span class="n">example</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</span><span id="__span-0-344">    <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+</span><span id="__span-0-345">        <span class="n">example</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</span><span id="__span-0-346">
+</span><span id="__span-0-347">
+</span><span id="__span-0-348"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">'__main__'</span><span class="p">:</span>
+</span><span id="__span-0-349">    <span class="n">main</span><span class="p">()</span>
+</span></code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../twisted_example/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Twisted Consumer">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Twisted Consumer
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../tls_mutual_authentication/" class="md-footer__link md-footer__link--next" aria-label="Next: TLS Mutual Authentication">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                TLS Mutual Authentication
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/pika/pika" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "content.code.annotate", "content.footnote.tooltips", "content.tabs.link", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.instant", "navigation.instant.prefetch", "navigation.instant.progress", "navigation.path", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
