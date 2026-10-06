@@ -24,9 +24,19 @@ on:
         required: true
         type: choice
         options:
+          # none: keep the current version, dropping any pre-release suffix.
+          #       Needed twice over while a pre-release is in flight, because
+          #       every other value increments the base version:
+          #         1.5.0a1 + none + release          -> 1.5.0  (promote)
+          #         1.5.0a1 + none + prerelease b1    -> 1.5.0b1 (progress)
+          #       Using `minor` for either would produce 1.6.0. Re-tagging the
+          #       same version is caught by the pre-flight tag check rather
+          #       than by banning an input combination, since what matters is
+          #       that the version moves, not which inputs were used.
           - patch
           - minor
           - major
+          - none
       prerelease_tag:
         description: 'Pre-release suffix (e.g. b1, rc1). Required when mode is prerelease.'
         required: false
@@ -100,6 +110,9 @@ jobs:
             major) major=$((major + 1)); minor=0; patch=0 ;;
             minor) minor=$((minor + 1)); patch=0 ;;
             patch) patch=$((patch + 1)) ;;
+            # Deliberately nothing: the suffix strip above has already produced
+            # the base version, which is what promoting a pre-release wants.
+            none) ;;
           esac
 
           new_version="${major}.${minor}.${patch}"
@@ -147,6 +160,24 @@ jobs:
               echo "docs_set_default=false" >> "$GITHUB_OUTPUT"
               ;;
           esac
+
+      # Before anything is written, so a version that already exists fails with
+      # the tree untouched. The push would catch a duplicate tag on its own, but
+      # only after `main` carried the bump commit, leaving the branch claiming a
+      # version that was never tagged or published. `bump=none` makes this
+      # easier to trigger by accident, since running it twice recomputes the
+      # same version rather than a new one.
+      - name: Refuse a version that already exists
+        if: ${{ inputs.mode == 'release' || inputs.mode == 'prerelease' }}
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.new }}
+        run: |
+          if git ls-remote --exit-code --tags origin \
+               "refs/tags/$NEW_VERSION" >/dev/null 2>&1; then
+            echo "::error::Tag $NEW_VERSION already exists on origin. For a release, pick a bump that moves past it; for a pre-release, use the next pre-release number."
+            exit 1
+          fi
+          echo "::notice::$NEW_VERSION is not yet tagged; proceeding"
 
       - name: Update version
         env:
