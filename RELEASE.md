@@ -221,7 +221,7 @@ The token comes from an RTD account's API tokens page. The script reads
 shell history and process listings. Nothing is committed and nothing
 authenticated happens without `--apply`.
 
-Four things about the mapping are deliberate and easy to get wrong:
+Five things about the mapping are deliberate and easy to get wrong:
 
 - **The rules are `page` redirects and `from_url` carries no version prefix.**
   RTD applies a page redirect across every version, so `/intro.html` covers
@@ -238,10 +238,37 @@ Four things about the mapping are deliberate and easy to get wrong:
 - **Verify against the deployed site, never `mkdocs serve`.** A local server has
   no version directories, so every one of these paths resolves locally whether
   or not it is right in production.
+- **Directory roots need rules of their own.** Sphinx writes `index.html` but
+  serves `/en/stable/` and `/en/stable/modules/` as directory indexes, and a rule
+  on `/index.html` does not match `/`. Three such paths existed, and they were
+  still serving the retired docs at 200 after every explicit `.html` path
+  already redirected. That is the shape that hides this: the links a mapping is
+  derived from all work, while the URL a person actually types does not, and
+  `/en/stable/` is where the bare `readthedocs.io` domain sends its visitors.
 
 Re-running is safe: matching rules are left alone, differing ones are updated in
 place, and rules on RTD that the mapping does not describe are reported but never
 deleted, so anything set by hand in the dashboard survives.
+
+Two things confirmed against the live API in October 2026, so they need not be
+re-derived:
+
+- A `page` redirect accepts an absolute off-site `to_url`. That is the whole
+  basis for one version-agnostic rule per page rather than an `exact` rule per
+  version, and RTD's published documentation does not say so either way. Proven
+  by creating a single rule, confirming the 301, and checking it also covered
+  `/en/latest/` and `/en/1.3.2/` without per-version rules.
+- RTD normalises `from_url` by stripping a trailing slash: `/modules/` is stored
+  as `/modules`, while `/` is kept. The script compares normalised paths for that
+  reason. Without it an existing rule reads as missing and `--apply` creates a
+  duplicate on every run, which a dry run shows as "2 to create, 2 on RTD not in
+  the mapping".
+- The API does not enumerate the valid `type` values when it rejects one. Posting
+  a bad type returns only `{"type": ["\"x\" is not a valid choice."]}`, so the
+  choices have to come from the dashboard's own dropdown. This is why the
+  catch-all fallback is still open: a greedy rule that swallowed specific paths
+  into the site root would lose exactly the specificity these rules establish,
+  so it is better left unconfigured than guessed at.
 
 ### Rebuilding `gh-pages` from scratch
 

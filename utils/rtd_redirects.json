@@ -13,7 +13,13 @@
     "`to_url` carries `latest/` because the new site is versioned by mike and",
     "has no unversioned page paths: /pika/intro/ is a 404, /pika/latest/intro/",
     "is not. The site root is the deliberate exception, since /pika/ serves a",
-    "redirect that follows the `latest` alias and so survives an alias change."
+    "redirect that follows the `latest` alias and so survives an alias change.",
+    "",
+    "Directory roots need their own rules. Sphinx serves /en/stable/ and",
+    "/en/stable/modules/ as directory indexes, and a rule on /index.html does",
+    "not match /. Those three were serving the retired docs at 200 while every",
+    "explicit .html path already redirected, and /en/stable/ is where the bare",
+    "readthedocs.io domain sends its visitors."
   ],
   "project": "pika",
   "defaults": {
@@ -23,7 +29,10 @@
     "enabled": true
   },
   "redirects": [
+    {"from_url": "/", "to_url": "https://pika.github.io/pika/"},
     {"from_url": "/index.html", "to_url": "https://pika.github.io/pika/"},
+    {"from_url": "/modules/", "to_url": "https://pika.github.io/pika/latest/modules/"},
+    {"from_url": "/modules/adapters/", "to_url": "https://pika.github.io/pika/latest/modules/adapters/"},
     {"from_url": "/intro.html", "to_url": "https://pika.github.io/pika/latest/intro/"},
     {"from_url": "/examples.html", "to_url": "https://pika.github.io/pika/latest/examples/"},
     {"from_url": "/faq.html", "to_url": "https://pika.github.io/pika/latest/faq/"},

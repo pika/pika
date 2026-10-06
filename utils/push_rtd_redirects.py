@@ -53,6 +53,17 @@ USER_AGENT = 'pika-rtd-redirects (+https://github.com/pika/pika)'
 COMPARED = ('from_url', 'to_url', 'type', 'http_status', 'force', 'enabled')
 
 
+def normalise(from_url):
+    """
+    Return `from_url` as RTD stores it, so a rule is recognised on a re-run.
+
+    RTD strips a trailing slash: `/modules/` is stored as `/modules`. Comparing literally therefore
+    reported an existing rule as missing, and `--apply` would have created a duplicate every run. The
+    site root is left alone, since stripping it would leave an empty string.
+    """
+    return from_url if from_url == '/' else from_url.rstrip('/')
+
+
 def read_token(token_file):
     """
     Return the API token, or None when no source is configured.
@@ -121,27 +132,32 @@ def fetch_existing(project, token):
 
 def differences(wanted, actual):
     """Return the compared fields where `actual` does not match `wanted`."""
-    return {
-        field: (actual.get(field), wanted[field])
-        for field in COMPARED
-        if field in wanted and actual.get(field) != wanted[field]
-    }
+    delta = {}
+    for field in COMPARED:
+        if field not in wanted:
+            continue
+        have, want = actual.get(field), wanted[field]
+        if field == 'from_url':
+            have, want = normalise(have or ''), normalise(want)
+        if have != want:
+            delta[field] = (actual.get(field), wanted[field])
+    return delta
 
 
 def plan(rules, existing):
     """Return `(to_create, to_update, extra)` without contacting RTD."""
-    by_from = {r['from_url']: r for r in existing}
+    by_from = {normalise(r['from_url']): r for r in existing}
     to_create, to_update = [], []
     for rule in rules:
-        match = by_from.get(rule['from_url'])
+        match = by_from.get(normalise(rule['from_url']))
         if match is None:
             to_create.append(rule)
         else:
             delta = differences(rule, match)
             if delta:
                 to_update.append((match, rule, delta))
-    described = {r['from_url'] for r in rules}
-    extra = [r for r in existing if r['from_url'] not in described]
+    described = {normalise(r['from_url']) for r in rules}
+    extra = [r for r in existing if normalise(r['from_url']) not in described]
     return to_create, to_update, extra
 
 
