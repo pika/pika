@@ -1,5 +1,7 @@
 # Changelog
 
+Notes for each release are also published on the [GitHub releases page](https://github.com/pika/pika/releases), generated from the pull requests and issues the release contains.
+
 ## [1.4.3](https://github.com/pika/pika/tree/1.4.2) (2026-08-06)
 
 [Full Changelog](https://github.com/pika/pika/compare/1.4.2...1.4.3)
@@ -168,9 +170,9 @@
 - Add async callback examples [\#1383](https://github.com/pika/pika/pull/1383) ([lukebakken](https://github.com/lukebakken))
 - Add requries-python to pyproject.toml [\#1376](https://github.com/pika/pika/pull/1376) ([gopackgo90](https://github.com/gopackgo90))
 
-# Version History
+## Version History
 
-[pika]{.title-ref} uses \[Semantic Versioning\](<https://semver.org>)
+`pika` uses \[Semantic Versioning\](<https://semver.org>)
 
 ## 1.3.0 2022-06-29
 
@@ -213,11 +215,11 @@
 -   `global_` parameter of the `Basic.Qos` spec class renamed to
     `global_qos`
 -   **NOTE:** `heartbeat_interval` is removed, use `heartbeat` instead.
--   **NOTE:** The [backpressure_detection]{.title-ref} option of
-    [ConnectionParameters]{.title-ref} and [URLParameters]{.title-ref}
-    property is REMOVED in favor of [Connection.Blocked]{.title-ref} and
-    [Connection.Unblocked]{.title-ref}. See
-    [Connection.add_on_connection_blocked_callback]{.title-ref}.
+-   **NOTE:** The `backpressure_detection` option of
+    `ConnectionParameters` and `URLParameters`
+    property is REMOVED in favor of `Connection.Blocked` and
+    `Connection.Unblocked`. See
+    `Connection.add_on_connection_blocked_callback`.
 -   **NOTE:** The legacy `basic_publish` method is removed, and
     `publish` renamed to `basic_publish`
 -   **NOTE**: The signature of the following methods has changed from
@@ -264,9 +266,9 @@ must be used, and a `dict` is no longer supported.
 
 [GitHub milestone](https://github.com/pika/pika/milestone/12)
 
-This is an interim release prior to version [1.0.0]{.title-ref}. It
+This is an interim release prior to version `1.0.0`. It
 includes the following backported pull requests and commits from the
-[master]{.title-ref} branch:
+`master` branch:
 
 -   [PR #901](https://github.com/pika/pika/pull/901)
 -   [PR #908](https://github.com/pika/pika/pull/908)
@@ -334,7 +336,7 @@ This results in an interval of 65 seconds by default.
 
 [0.11.2](https://github.com/pika/pika/compare/0.11.1...0.11.2)
 
--   Remove [+]{.title-ref} character from platform releases string
+-   Remove `+` character from platform releases string
     ([PR](https://github.com/pika/pika/pull/895))
 
 ## 0.11.1 2017-11-27
@@ -343,7 +345,7 @@ This results in an interval of 65 seconds by default.
 
 [0.11.1](https://github.com/pika/pika/compare/0.11.0...0.11.1)
 
--   Fix [BlockingConnection]{.title-ref} to ensure event loop exits
+-   Fix `BlockingConnection` to ensure event loop exits
     ([PR](https://github.com/pika/pika/pull/887))
 -   Heartbeat timeouts will use the client value if specified
     ([PR](https://github.com/pika/pika/pull/874))
@@ -361,7 +363,7 @@ This results in an interval of 65 seconds by default.
 [0.11.0](https://github.com/pika/pika/compare/0.10.0...0.11.0)
 
 > -   Simplify Travis CI configuration for OS X.
-> -   Add [asyncio]{.title-ref} connection adapter for Python 3.4 and
+> -   Add `asyncio` connection adapter for Python 3.4 and
 >     newer.
 > -   Connection failures that occur after the socket is opened and
 >     before the AMQP connection is ready to go are now reported by
@@ -378,57 +380,57 @@ This results in an interval of 65 seconds by default.
 >     error to pass a non-None completion callback with an asynchronous
 >     request, because this callback can never be serviced in the
 >     asynchronous scenario.
-> -   [Channel.basic_reject]{.title-ref} fixed to allow
->     [delivery_tag]{.title-ref} to be of type [long]{.title-ref} as
->     well as [int]{.title-ref}. (by quantum5)
+> -   `Channel.basic_reject` fixed to allow
+>     `delivery_tag` to be of type `long` as
+>     well as `int`. (by quantum5)
 > -   Implemented support for blocked connection timeouts in
->     [pika.connection.Connection]{.title-ref}. This feature is
+>     `pika.connection.Connection`. This feature is
 >     available to all pika adapters. See
->     [pika.connection.ConnectionParameters]{.title-ref} docstring to
->     learn more about [blocked_connection_timeout]{.title-ref}
+>     `pika.connection.ConnectionParameters` docstring to
+>     learn more about `blocked_connection_timeout`
 >     configuration.
-> -   Deprecated the [heartbeat_interval]{.title-ref} arg in
->     [pika.ConnectionParameters]{.title-ref} in favor of the
->     [heartbeat]{.title-ref} arg for consistency with the other
+> -   Deprecated the `heartbeat_interval` arg in
+>     `pika.ConnectionParameters` in favor of the
+>     `heartbeat` arg for consistency with the other
 >     connection parameters classes
->     [pika.connection.Parameters]{.title-ref} and
->     [pika.URLParameters]{.title-ref}.
-> -   When the [port]{.title-ref} arg is not set explicitly in
->     [ConnectionParameters]{.title-ref} constructor, but the
->     [ssl]{.title-ref} arg is set explicitly, then set the port value
+>     `pika.connection.Parameters` and
+>     `pika.URLParameters`.
+> -   When the `port` arg is not set explicitly in
+>     `ConnectionParameters` constructor, but the
+>     `ssl` arg is set explicitly, then set the port value
 >     to to the default AMQP SSL port if SSL is enabled, otherwise to
 >     the default AMQP plaintext port.
-> -   [URLParameters]{.title-ref} will raise ValueError if a non-empty
+> -   `URLParameters` will raise ValueError if a non-empty
 >     URL scheme other than {amqp \| amqps \| http \| https} is
 >     specified.
-> -   [InvalidMinimumFrameSize]{.title-ref} and
->     [InvalidMaximumFrameSize]{.title-ref} exceptions are deprecated.
+> -   `InvalidMinimumFrameSize` and
+>     `InvalidMaximumFrameSize` exceptions are deprecated.
 >     pika.connection.Parameters.frame_max property setter now raises
->     the standard [ValueError]{.title-ref} exception when the value is
+>     the standard `ValueError` exception when the value is
 >     out of bounds.
-> -   Removed deprecated parameter [type]{.title-ref} in
->     [Channel.exchange_declare]{.title-ref} and
->     [BlockingChannel.exchange_declare]{.title-ref} in favor of the
->     [exchange_type]{.title-ref} arg that doesn\'t overshadow the
->     builtin [type]{.title-ref} keyword.
+> -   Removed deprecated parameter `type` in
+>     `Channel.exchange_declare` and
+>     `BlockingChannel.exchange_declare` in favor of the
+>     `exchange_type` arg that doesn\'t overshadow the
+>     builtin `type` keyword.
 > -   Channel.close() on OPENING channel transitions it to CLOSING
 >     instead of raising ChannelClosed.
 > -   Channel.close() on CLOSING channel raises
->     [ChannelAlreadyClosing]{.title-ref}; used to raise
->     [ChannelClosed]{.title-ref}.
-> -   Connection.channel() raises [ConnectionClosed]{.title-ref} if
+>     `ChannelAlreadyClosing`; used to raise
+>     `ChannelClosed`.
+> -   Connection.channel() raises `ConnectionClosed` if
 >     connection is not in OPEN state.
 > -   When performing graceful close on a channel and
->     [Channel.Close]{.title-ref} from broker arrives while waiting for
+>     `Channel.Close` from broker arrives while waiting for
 >     CloseOk, don\'t release the channel number until CloseOk arrives
 >     to avoid race condition that may lead to a new channel receiving
 >     the CloseOk that was destined for the closing channel.
-> -   The [backpressure_detection]{.title-ref} option of
->     [ConnectionParameters]{.title-ref} and [URLParameters]{.title-ref}
+> -   The `backpressure_detection` option of
+>     `ConnectionParameters` and `URLParameters`
 >     property is DEPRECATED in favor of
->     [Connection.Blocked]{.title-ref} and
->     [Connection.Unblocked]{.title-ref}. See
->     [Connection.add_on_connection_blocked_callback]{.title-ref}.
+>     `Connection.Blocked` and
+>     `Connection.Unblocked`. See
+>     `Connection.add_on_connection_blocked_callback`.
 
 ## 0.10.0 2015-09-02
 
@@ -457,10 +459,10 @@ High-level summary of notable changes:
 -   Refactoring of SelectConnection ioloop
 -   This major release contains certain non-backward-compatible API
     changes as well as significant performance improvements in the
-    [BlockingConnection]{.title-ref} adapter.
+    `BlockingConnection` adapter.
 -   Non-backward-compatible changes in
-    [Channel.add_on_return_callback]{.title-ref} callback\'s signature.
--   The [AsyncoreConnection]{.title-ref} adapter was retired
+    `Channel.add_on_return_callback` callback\'s signature.
+-   The `AsyncoreConnection` adapter was retired
 
 **Details**
 
@@ -469,7 +471,7 @@ Python 3.x: this release introduces python 3.x support. Tested on Python
 
 \`AsyncoreConnection\`: Retired this legacy adapter to reduce
 maintenance burden; the recommended replacement is the
-[SelectConnection]{.title-ref} adapter.
+`SelectConnection` adapter.
 
 \`SelectConnection\`: ioloop was refactored for compatibility with other
 ioloops.
@@ -481,21 +483,21 @@ tuple of those values for congruence with other similar callbacks.
 \`BlockingConnection\`: This adapter underwent a makeover under the hood
 and gained significant performance improvements as well as enhanced
 timer resolution. It is now implemented as a client of the
-[SelectConnection]{.title-ref} adapter.
+`SelectConnection` adapter.
 
-Below is an overview of the [BlockingConnection]{.title-ref} and
-[BlockingChannel]{.title-ref} API changes:
+Below is an overview of the `BlockingConnection` and
+`BlockingChannel` API changes:
 
 > -   Recursion: the new implementation eliminates callback recursion
 >     that sometimes blew out the stack in the legacy implementation
 >     (e.g., publish -\> consumer_callback -\> publish -\>
 >     consumer_callback, etc.). While
->     [BlockingConnection.process_data_events]{.title-ref} and
->     [BlockingConnection.sleep]{.title-ref} may still be called from
+>     `BlockingConnection.process_data_events` and
+>     `BlockingConnection.sleep` may still be called from
 >     the scope of the blocking adapter\'s callbacks in order to process
 >     pending I/O, additional callbacks will be suppressed whenever
->     [BlockingConnection.process_data_events]{.title-ref} and
->     [BlockingConnection.sleep]{.title-ref} are nested in any
+>     `BlockingConnection.process_data_events` and
+>     `BlockingConnection.sleep` are nested in any
 >     combination; in that case, the callback information will be
 >     bufferred and dispatched once nesting unwinds and control returns
 >     to the level-zero dispatcher.
@@ -506,16 +508,16 @@ Below is an overview of the [BlockingConnection]{.title-ref} and
 >     adapter.
 >
 > -   \`BlockingConnection.process_data_events\`: added the optional
->     parameter [time_limit]{.title-ref}.
+>     parameter `time_limit`.
 >
 > -   \`BlockingConnection.add_on_close_callback\`: removed; legacy
->     raised [NotImplementedError]{.title-ref}.
+>     raised `NotImplementedError`.
 >
 > -   \`BlockingConnection.add_on_open_callback\`: removed; legacy
->     raised [NotImplementedError]{.title-ref}.
+>     raised `NotImplementedError`.
 >
 > -   \`BlockingConnection.add_on_open_error_callback\`: removed; legacy
->     raised [NotImplementedError]{.title-ref}.
+>     raised `NotImplementedError`.
 >
 > -   \`BlockingConnection.add_backpressure_callback\`: not supported
 >
@@ -530,34 +532,34 @@ Below is an overview of the [BlockingConnection]{.title-ref} and
 > -   \`BlockingChannel.force_data_events\`: removed as it is no longer
 >     necessary following redesign of the adapter.
 >
-> -   Removed the [nowait]{.title-ref} parameter from
->     [BlockingChannel]{.title-ref} methods, forcing
->     [nowait=False]{.title-ref} (former API default) in the
+> -   Removed the `nowait` parameter from
+>     `BlockingChannel` methods, forcing
+>     `nowait=False` (former API default) in the
 >     implementation; this is more suitable for the blocking nature of
 >     the adapter and its error-reporting strategy; this concerns the
->     following methods: [basic_cancel]{.title-ref},
->     [confirm_delivery]{.title-ref}, [exchange_bind]{.title-ref},
->     [exchange_declare]{.title-ref}, [exchange_delete]{.title-ref},
->     [exchange_unbind]{.title-ref}, [queue_bind]{.title-ref},
->     [queue_declare]{.title-ref}, [queue_delete]{.title-ref}, and
->     [queue_purge]{.title-ref}.
+>     following methods: `basic_cancel`,
+>     `confirm_delivery`, `exchange_bind`,
+>     `exchange_declare`, `exchange_delete`,
+>     `exchange_unbind`, `queue_bind`,
+>     `queue_declare`, `queue_delete`, and
+>     `queue_purge`.
 >
 > -   \`BlockingChannel.basic_cancel\`: returns a sequence instead of
->     None; for a [no_ack=True]{.title-ref} consumer,
->     [basic_cancel]{.title-ref} returns a sequence of pending messages
+>     None; for a `no_ack=True` consumer,
+>     `basic_cancel` returns a sequence of pending messages
 >     that arrived before broker confirmed the cancellation.
 >
 > -   \`BlockingChannel.consume\`: added new optional kwargs
->     [arguments]{.title-ref} and [inactivity_timeout]{.title-ref}.
+>     `arguments` and `inactivity_timeout`.
 >     Also, raises ValueError if the consumer creation parameters don\'t
 >     match those used to create the existing queue consumer generator,
 >     if any; this happens when you break out of the consume loop, then
->     call [BlockingChannel.consume]{.title-ref} again with different
+>     call `BlockingChannel.consume` again with different
 >     consumer-creation args without first cancelling the previous queue
->     consumer generator via [BlockingChannel.cancel]{.title-ref}. The
+>     consumer generator via `BlockingChannel.cancel`. The
 >     legacy implementation would silently resume consuming from the
 >     existing queue consumer generator even if the subsequent
->     [BlockingChannel.consume]{.title-ref} was invoked with a different
+>     `BlockingChannel.consume` was invoked with a different
 >     queue name, etc.
 >
 > -   \`BlockingChannel.cancel\`: returns 0; the legacy implementation
@@ -568,39 +570,39 @@ Below is an overview of the [BlockingConnection]{.title-ref} and
 >
 > -   \`BlockingChannel.open\`: removed in favor of having a single
 >     mechanism for creating a channel
->     ([BlockingConnection.channel]{.title-ref}); this reduces
+>     (`BlockingConnection.channel`); this reduces
 >     maintenance burden, while improving reliability of the adapter.
 >
 > -   \`BlockingChannel.confirm_delivery\`: raises UnroutableError when
 >     unroutable messages that were sent prior to this call are returned
 >     before we receive Confirm.Select-ok.
 >
-> -   [BlockingChannel.basic_publish: always returns True when delivery
+> -   `BlockingChannel.basic_publish`: always returns True when delivery
 >     confirmation is not enabled (publisher-acks = off); the legacy
 >     implementation returned a bool in this case if
->     \`mandatory=True]{.title-ref} to indicate whether the message was
+>     `mandatory=True` to indicate whether the message was
 >     delivered; however, this was non-deterministic, because
 >     Basic.Return is asynchronous and there is no way to know how long
 >     to wait for it or its absence. The legacy implementation returned
 >     None when publishing with publisher-acks = off and
->     [mandatory=False]{.title-ref}. The new implementation always
+>     `mandatory=False`. The new implementation always
 >     returns True when publishing while publisher-acks = off.
 >
 > -   
 >
->     \`BlockingChannel.publish\`: a new alternate method (vs. [basic_publish]{.title-ref}) for
+>     \`BlockingChannel.publish\`: a new alternate method (vs. `basic_publish`) for
 >
 >     :   publishing a message with more detailed error reporting via
 >         UnroutableError and NackError exceptions.
 >
 > -   \`BlockingChannel.start_consuming\`: raises
 >     pika.exceptions.RecursionError if called from the scope of a
->     [BlockingConnection]{.title-ref} or [BlockingChannel]{.title-ref}
+>     `BlockingConnection` or `BlockingChannel`
 >     callback.
 >
 > -   \`BlockingChannel.get_waiting_message_count\`: new method; returns
 >     the number of messages that may be retrieved from the current
->     queue consumer generator via [BasicChannel.consume]{.title-ref}
+>     queue consumer generator via `BasicChannel.consume`
 >     without blocking.
 
 **Commits**
@@ -664,7 +666,7 @@ Below is an overview of the [BlockingConnection]{.title-ref} and
 >     NackError exception. These expose more information about the
 >     failure than legacy basic_publich API. Removed set_timeout and
 >     backpressure callback methods Restored legacy
->     [is_open]{.title-ref}, etc. property names (Vitaly Kruglikov)
+>     `is_open`, etc. property names (Vitaly Kruglikov)
 > -   6226dc0 - Remove deprecated \--use-mirrors (Gavin M. Roy)
 > -   1a7112f - Raise ConnectionClosed when sending a frame with no
 >     connection (#439) (Gavin M. Roy)
@@ -697,9 +699,9 @@ Below is an overview of the [BlockingConnection]{.title-ref} and
 >     test file. (Will)
 > -   287be36 - Set up \_kqueue member of KQueuePoller before calling
 >     super constructor to avoid exception due to missing \_kqueue
->     member. Call [self.\_map_event(event)]{.title-ref} instead of
->     [self.\_map_event(event.filter)]{.title-ref}, because
->     [KQueuePoller.\_map_event()]{.title-ref} assumes it\'s getting an
+>     member. Call `self._map_event(event)` instead of
+>     `self._map_event(event.filter)`, because
+>     `KQueuePoller._map_event()` assumes it\'s getting an
 >     event, not an event filter. (Vitaly Kruglikov)
 > -   62810fb - Fix issue #412: reset BlockingConnection.\_read_poller
 >     in BlockingConnection.\_adapter_disconnect() to guard against

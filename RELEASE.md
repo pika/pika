@@ -1,5 +1,26 @@
 # Release process
 
+## Before the release: update `HISTORY.md`
+
+`HISTORY.md` is the changelog, and it is the only part of a release that is not
+automated. The release workflow does not touch it, and `gh release create
+--generate-notes` writes the GitHub release body rather than this file, so
+without this step the documentation site's Changelog page stops at the previous
+release while PyPI carries the new one.
+
+Generate the entry with
+[`github_changelog_generator`](https://github.com/github-changelog-generator/github-changelog-generator)
+and **prepend** it. Do not overwrite the file: everything from `## Version
+History` down is hand-written history for 1.3.0 and earlier that the generator
+does not reproduce, and the generated section is expected to stop at 1.3.1.
+
+Keep the file to a single `# ` heading. It is included verbatim into
+`docs/changelog.md`, so a second top-level heading becomes a second H1 on that
+page.
+
+Commit it before triggering the release, so the tag the workflow creates carries
+the changelog for the version it is tagging.
+
 ## Automated release
 
 Trigger the release workflow from GitHub Actions UI or CLI:
