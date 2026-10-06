@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Push the ReadTheDocs redirect rules in `utils/rtd_redirects.json` to RTD.
 
