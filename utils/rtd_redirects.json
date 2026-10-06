@@ -19,7 +19,18 @@
     "/en/stable/modules/ as directory indexes, and a rule on /index.html does",
     "not match /. Those three were serving the retired docs at 200 while every",
     "explicit .html path already redirected, and /en/stable/ is where the bare",
-    "readthedocs.io domain sends its visitors."
+    "readthedocs.io domain sends its visitors.",
+    "",
+    "The last rule is the catch-all, and it is an `exact` redirect with a `*`",
+    "wildcard rather than a page redirect. RTD removed its `prefix` type and",
+    "says so in the API error: \"Prefix redirects have been removed. Please use",
+    "an exact redirect /prefix/* instead.\" Its target is fixed rather than a",
+    ":splat passthrough, because the two sites do not share a URL shape: the",
+    "old paths end in .html and the new ones are directories, so passing the",
+    "tail through would 404 on every page. RTD appends new rules to the end of",
+    "the list, so the catch-all sits at the highest position and the specific",
+    "rules above it win; verified by checking that faq.html still reaches",
+    "latest/faq/ while an unmapped path reaches the docs home."
   ],
   "project": "pika",
   "defaults": {
@@ -49,6 +60,7 @@
     {"from_url": "/modules/adapters/asyncio.html", "to_url": "https://pika.github.io/pika/latest/modules/adapters/asyncio/"},
     {"from_url": "/modules/adapters/tornado.html", "to_url": "https://pika.github.io/pika/latest/modules/adapters/tornado/"},
     {"from_url": "/modules/adapters/twisted.html", "to_url": "https://pika.github.io/pika/latest/modules/adapters/twisted/"},
-    {"from_url": "/modules/adapters/gevent.html", "to_url": "https://pika.github.io/pika/latest/modules/adapters/gevent/"}
+    {"from_url": "/modules/adapters/gevent.html", "to_url": "https://pika.github.io/pika/latest/modules/adapters/gevent/"},
+    {"from_url": "/en/*", "to_url": "https://pika.github.io/pika/latest/", "type": "exact"}
   ]
 }

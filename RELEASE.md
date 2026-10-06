@@ -250,6 +250,11 @@ Re-running is safe: matching rules are left alone, differing ones are updated in
 place, and rules on RTD that the mapping does not describe are reported but never
 deleted, so anything set by hand in the dashboard survives.
 
+`--verify` probes a wildcard rule with a deliberately unmapped path rather than
+with its own `from_url`. Substituting `/en/*` builds
+`https://pika.readthedocs.io/en/stable/en/*`, which the catch-all then answers,
+so the check would report success having tested nothing.
+
 Two things confirmed against the live API in October 2026, so they need not be
 re-derived:
 
@@ -263,12 +268,23 @@ re-derived:
   reason. Without it an existing rule reads as missing and `--apply` creates a
   duplicate on every run, which a dry run shows as "2 to create, 2 on RTD not in
   the mapping".
-- The API does not enumerate the valid `type` values when it rejects one. Posting
-  a bad type returns only `{"type": ["\"x\" is not a valid choice."]}`, so the
-  choices have to come from the dashboard's own dropdown. This is why the
-  catch-all fallback is still open: a greedy rule that swallowed specific paths
-  into the site root would lose exactly the specificity these rules establish,
-  so it is better left unconfigured than guessed at.
+- The valid `type` values are `page`, `exact`, `clean_url_to_html` and
+  `html_to_clean_url`, established by posting each candidate and keeping the ones
+  that returned 201. The API does not list the choices when it rejects one, but
+  its rejection messages are informative: `sphinx_html` and `sphinx_htmldir` name
+  their replacements, and `prefix` says "Prefix redirects have been removed.
+  Please use an exact redirect `/prefix/*` instead", which is where the wildcard
+  syntax comes from.
+- **The catch-all is the last rule and is an `exact` redirect on `/en/*`.** Its
+  target is fixed rather than a `:splat` passthrough, because the two sites do not
+  share a URL shape: the old paths end in `.html` and the new ones are
+  directories, so passing the tail through would 404 on every page. The API
+  accepts `:splat`, `$rest` and a fixed target alike, so acceptance proves nothing
+  here and only behaviour does.
+- **RTD appends a new rule to the end of the list, and lower positions win.**
+  Posting the catch-all with `position: 100` stored it as `position: 21`, after the
+  21 specific rules, which is what makes `faq.html` still reach `latest/faq/`
+  while an unmapped path reaches the docs home. Verified both ways round.
 
 ### Rebuilding `gh-pages` from scratch
 

@@ -160,6 +160,26 @@ def plan(rules, existing):
     return to_create, to_update, extra
 
 
+# A path no rule names, used to prove the catch-all catches. It has to be absent
+# from the mapping or a specific rule would answer instead and the check would
+# pass without testing anything.
+UNMAPPED_PROBE = '/en/stable/__no_such_page__.html'
+
+
+def probe_url(from_url):
+    """
+    Return the old URL to request for a rule, and whether it tests a wildcard.
+
+    A wildcard rule cannot be probed by substituting its own `from_url`: appending `/en/*` to
+    `/en/stable` builds `/en/stable/en/*`, which the catch-all then answers, so the check reports
+    success having tested nothing. Probing a deliberately unmapped path instead proves the rule both
+    fires and loses to the specific rules above it.
+    """
+    if '*' in from_url:
+        return f'https://pika.readthedocs.io{UNMAPPED_PROBE}', True
+    return f'https://pika.readthedocs.io/en/stable{from_url}', False
+
+
 def verify(rules):
     """
     Follow each old URL and report where it lands.
@@ -169,7 +189,7 @@ def verify(rules):
     """
     failures = 0
     for rule in rules:
-        old = f"https://pika.readthedocs.io/en/stable{rule['from_url']}"
+        old, wildcard = probe_url(rule['from_url'])
         req = urllib.request.Request(old, method='HEAD')
         req.add_header('User-Agent', USER_AGENT)
         try:
@@ -180,7 +200,9 @@ def verify(rules):
             failures += 1
             continue
         ok = landed.rstrip('/') == rule['to_url'].rstrip('/')
-        print(f"  {'ok  ' if ok else 'WRONG'} {old}\n        -> {landed}")
+        label = 'ok  ' if ok else 'WRONG'
+        note = '  (unmapped probe for the catch-all)' if wildcard else ''
+        print(f'  {label} {old}{note}\n        -> {landed}')
         failures += not ok
     return failures
 
