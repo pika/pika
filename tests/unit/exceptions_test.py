@@ -1,5 +1,6 @@
 """Tests for pika.exceptions."""
 
+import datetime
 import decimal
 import unittest
 from unittest.mock import MagicMock
@@ -366,6 +367,20 @@ class ExceptionTests(unittest.TestCase):
             repr(exceptions.UnencodableDecimalError(decimal.Decimal('NaN'))),
             'UnencodableDecimalError: decimal.Decimal value has no AMQP decimal '
             'representation: NaN')
+
+    def test_unencodable_long_error_repr(self):
+        self.assertEqual(
+            repr(exceptions.UnencodableLongError(2**63)),
+            'UnencodableLongError: integer value has no AMQP field-table '
+            'representation (outside signed 64-bit): 9223372036854775808')
+
+    def test_unencodable_timestamp_error_repr(self):
+        value = datetime.datetime(1969, 12, 31, tzinfo=datetime.timezone.utc)
+        self.assertEqual(
+            repr(exceptions.UnencodableTimestampError(value)),
+            'UnencodableTimestampError: datetime value has no AMQP timestamp '
+            'representation (before the Unix epoch): '
+            '1969-12-31 00:00:00+00:00')
 
     def test_duplicate_get_ok_callback_repr(self):
         self.assertEqual(

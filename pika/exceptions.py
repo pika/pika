@@ -431,6 +431,24 @@ class UnencodableDecimalError(AMQPError):
             f'representation: {self.args[0]!s:.300}')
 
 
+class UnencodableLongError(AMQPError):
+
+    @override
+    def __repr__(self) -> str:
+        return (
+            f'{self.__class__.__name__}: integer value has no AMQP field-table '
+            f'representation (outside signed 64-bit): {self.args[0]!s:.300}')
+
+
+class UnencodableTimestampError(AMQPError):
+
+    @override
+    def __repr__(self) -> str:
+        return (
+            f'{self.__class__.__name__}: datetime value has no AMQP timestamp '
+            f'representation (before the Unix epoch): {self.args[0]!s:.300}')
+
+
 class DuplicateGetOkCallback(ChannelError):
 
     @override
