@@ -1979,6 +1979,56 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#upgrading-to-150" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading to 1.5.0
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading to 1.5.0">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pikaconnection-is-new-and-is-the-connection-to-use" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pika.Connection is new, and is the connection to use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-other-adapters-now-emit-a-deprecationwarning-which-may-fail-your-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The other adapters now emit a DeprecationWarning, which may fail your tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pikaspec-is-now-annotated-which-may-fail-your-type-checker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pika.spec is now annotated, which may fail your type checker
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#143-2026-08-06" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2410,6 +2460,56 @@
       Table of contents
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#upgrading-to-150" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading to 1.5.0
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrading to 1.5.0">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pikaconnection-is-new-and-is-the-connection-to-use" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pika.Connection is new, and is the connection to use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-other-adapters-now-emit-a-deprecationwarning-which-may-fail-your-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The other adapters now emit a DeprecationWarning, which may fail your tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pikaspec-is-now-annotated-which-may-fail-your-type-checker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pika.spec is now annotated, which may fail your type checker
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
   <a href="#143-2026-08-06" class="md-nav__link">
@@ -2844,6 +2944,36 @@
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <p>Notes for each release are also published on the <a href="https://github.com/pika/pika/releases">GitHub releases page</a>, generated from the pull requests and issues the release contains.</p>
+<h2 id="upgrading-to-150">Upgrading to 1.5.0<a class="headerlink" href="#upgrading-to-150" title="Permanent link">&para;</a></h2>
+<p>Three changes are worth reading before you upgrade. None is a behaviour change to a working application, but two can turn a passing build red.</p>
+<h3 id="pikaconnection-is-new-and-is-the-connection-to-use"><code>pika.Connection</code> is new, and is the connection to use<a class="headerlink" href="#pikaconnection-is-new-and-is-the-connection-to-use" title="Permanent link">&para;</a></h3>
+<p>1.5.0 introduces <code>pika.Connection</code> and its <code>Channel</code>, a connection that runs its own IOLoop on a background thread and offers a thread-safe blocking API that does not stall heartbeats while your code processes a message. There is nothing to migrate <em>from</em>: these classes are new in this release, and <code>pika.Connection</code> is the documented import.</p>
+<p><code>from pika.adapters.thread_safe_connection import Connection</code> also works, though the module moves in 2.0 (see #1681). <code>Channel</code> is deliberately not exported from <code>pika</code>, because channels come from <code>Connection.channel()</code>.</p>
+<p>If you are starting new code, use <code>pika.Connection</code>. If you have existing code on one of the adapters below, it keeps working in 1.5.0 and the deprecation notice tells you where it is going.</p>
+<h3 id="the-other-adapters-now-emit-a-deprecationwarning-which-may-fail-your-tests">The other adapters now emit a <code>DeprecationWarning</code>, which may fail your tests<a class="headerlink" href="#the-other-adapters-now-emit-a-deprecationwarning-which-may-fail-your-tests" title="Permanent link">&para;</a></h3>
+<p><code>BlockingConnection</code>, <code>TornadoConnection</code>, <code>TwistedProtocolConnection</code> and <code>GeventConnection</code> each warn from their constructor that they will be removed in Pika 2.0. They all still work.</p>
+<p>The upgrade risk is that <strong>a <code>DeprecationWarning</code> raised from a constructor is a hard error for anyone running with warnings-as-errors</strong>, which is a common test configuration. It fires at construction, before any I/O, so it does not depend on reaching a broker:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-0-1">E       DeprecationWarning: BlockingConnection is deprecated and will be removed in Pika 2.0. ...
+</span><span id="__span-0-2">pika/adapters/blocking_connection.py:367: DeprecationWarning
+</span></code></pre></div>
+<p>The same happens under <code>python -W error</code> and <code>warnings.simplefilter('error')</code>. <code>BlockingConnection</code> is pika's most widely used entry point, so this is both likely and likely to be misread as pika being broken rather than as an intentional notice. Outside a test runner it is usually invisible, because Python's default filters hide <code>DeprecationWarning</code> unless it is triggered from <code>__main__</code>; pytest is what turns it back on.</p>
+<p>Either filter it or migrate. The warning uses <code>stacklevel=2</code>, so it is reported against the line that constructs the connection rather than against pika, and a filter scoped to the pika module does not match. Match on the message instead:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-1-1"><span class="c1"># pyproject.toml, for pytest</span>
+</span><span id="__span-1-2"><span class="n">filterwarnings</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-1-3"><span class="w">    </span><span class="s2">"ignore:.*will be removed in Pika 2</span><span class="se">\\</span><span class="s2">.0:DeprecationWarning"</span><span class="p">,</span>
+</span><span id="__span-1-4"><span class="p">]</span>
+</span></code></pre></div>
+<div class="highlight"><pre><span></span><code><span id="__span-2-1">python<span class="w"> </span>-W<span class="w"> </span><span class="s1">'ignore:BlockingConnection is deprecated'</span><span class="w"> </span>your_app.py
+</span></code></pre></div>
+<p>or migrate to <code>Connection</code>, which runs its own IOLoop on a background thread and provides a thread-safe blocking API that does not stall heartbeats on slow message processing.</p>
+<h3 id="pikaspec-is-now-annotated-which-may-fail-your-type-checker"><code>pika.spec</code> is now annotated, which may fail your type checker<a class="headerlink" href="#pikaspec-is-now-annotated-which-may-fail-your-type-checker" title="Permanent link">&para;</a></h3>
+<p>Pika ships a <code>py.typed</code> marker, so a type checker reads pika's own annotations. <code>pika.spec</code> is generated code and was previously excluded from pika's <code>mypy</code> configuration, which left every field of a decoded frame typed as <code>Any</code>. <code>Any</code> silences all checking, so a downstream <code>mypy</code> run that was clean can go red on upgrade without any change on your end. The most common line in every pika tutorial is affected:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-3-1">error: Argument "delivery_tag" to "basic_ack" of "BlockingChannel" has incompatible type "int | None"; expected "int"  [arg-type]
+</span><span id="__span-3-2">error: Argument "routing_key" to "basic_publish" of "BlockingChannel" has incompatible type "str | bytes | None"; expected "str"  [arg-type]
+</span></code></pre></div>
+<p>Two properties of the generated code account for it. Every generated constructor defaults its arguments to <code>None</code>, so fields are optional even though a frame off the wire always carries them. And AMQP <code>shortstr</code> has no declared encoding, so pika falls back to raw <code>bytes</code> on invalid UTF-8, making <code>routing_key</code>, <code>exchange</code> and <code>consumer_tag</code> all <code>str | bytes | None</code>.</p>
+<p>The errors are accurate and the annotations are an improvement, so nothing here should be reverted. The FAQ covers the narrowing idioms: https://pika.github.io/pika/latest/faq/</p>
+<p><code>pyright</code> users see little change, since it reported most of these already.</p>
 <h2 id="143-2026-08-06"><a href="https://github.com/pika/pika/tree/1.4.2">1.4.3</a> (2026-08-06)<a class="headerlink" href="#143-2026-08-06" title="Permanent link">&para;</a></h2>
 <p><a href="https://github.com/pika/pika/compare/1.4.2...1.4.3">Full Changelog</a></p>
 <p><strong>Merged pull requests:</strong></p>
