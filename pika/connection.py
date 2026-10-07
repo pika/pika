@@ -1494,6 +1494,15 @@ class Connection(abc.ABC):
     #
 
     @property
+    def accept_consumer_cancel_ok(self) -> bool:
+        """Specifies if the server accepts a client-sent basic.cancel-ok in reply to a broker-sent
+        basic.cancel on the active connection.
+        """
+        if self.server_capabilities is None:
+            return False
+        return self.server_capabilities.get('accept_consumer_cancel_ok', False)
+
+    @property
     def basic_nack(self) -> bool:
         """Specifies if the server supports basic.nack on the active connection."""
         if self.server_capabilities is None:

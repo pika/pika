@@ -476,6 +476,16 @@ class BlockingConnectionTests(unittest.TestCase):
     @patch.object(blocking_connection.select_connection,
                   'SelectConnection',
                   spec_set=SelectConnectionTemplate)
+    def test_accept_consumer_cancel_ok_supported_delegates_to_impl(
+            self, select_connection_class_mock):
+        connection, impl_mock = self._make_open_connection(
+            select_connection_class_mock)
+        impl_mock.accept_consumer_cancel_ok = True
+        self.assertIs(connection.accept_consumer_cancel_ok_supported, True)
+
+    @patch.object(blocking_connection.select_connection,
+                  'SelectConnection',
+                  spec_set=SelectConnectionTemplate)
     def test_basic_nack_supported_delegates_to_impl(
             self, select_connection_class_mock):
         connection, impl_mock = self._make_open_connection(

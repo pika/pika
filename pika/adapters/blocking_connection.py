@@ -1005,6 +1005,13 @@ class BlockingConnection:
     #
 
     @property
+    def accept_consumer_cancel_ok_supported(self) -> bool:
+        """Specifies if the server accepts a client-sent basic.cancel-ok in reply to a broker-sent
+        basic.cancel on the active connection.
+        """
+        return self._impl.accept_consumer_cancel_ok
+
+    @property
     def basic_nack_supported(self) -> bool:
         """Specifies if the server supports basic.nack on the active connection."""
         return self._impl.basic_nack

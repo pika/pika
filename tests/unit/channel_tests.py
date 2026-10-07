@@ -40,6 +40,12 @@ class ChannelTests(unittest.TestCase):
 
     def setUp(self):
         self.connection = self._create_connection()
+        # The connection is autospec'd, so every capability property is a truthy
+        # Mock unless told otherwise. That inverts the production default and
+        # would hand `_on_cancel` the reply branch by accident in any test that
+        # happens to leave the channel open, so pin it to what a broker without
+        # the capability reports. Tests that want the reply set it to True.
+        self.connection.accept_consumer_cancel_ok = False
         self._on_openok_callback = mock.Mock()
         self.obj = channel.Channel(self.connection, 1, self._on_openok_callback)
         # self.obj.callbacks is the autospec'd connection mock at runtime; expose it as a
@@ -1432,6 +1438,46 @@ class ChannelTests(unittest.TestCase):
         frame_value = frame.Method(1, spec.Basic.Cancel(consumer_tag))
         self.obj._on_cancel(frame_value)
         self.assertNotIn(consumer_tag, self.obj._consumers)
+
+    def test_on_cancel_replies_cancelok_when_broker_accepts_it(self):
+        consumer_tag = 'ctag0'
+        self.obj._set_state(self.obj.OPEN)
+        self.connection.accept_consumer_cancel_ok = True
+        self.obj._send_method = mock.Mock()
+        frame_value = frame.Method(1, spec.Basic.Cancel(consumer_tag))
+        self.obj._on_cancel(frame_value)
+        self.obj._send_method.assert_called_once_with(
+            spec.Basic.CancelOk(consumer_tag=consumer_tag))
+
+    def test_on_cancel_no_cancelok_when_broker_does_not_accept_it(self):
+        self.obj._set_state(self.obj.OPEN)
+        self.connection.accept_consumer_cancel_ok = False
+        self.obj._send_method = mock.Mock()
+        frame_value = frame.Method(1, spec.Basic.Cancel('ctag0'))
+        self.obj._on_cancel(frame_value)
+        self.obj._send_method.assert_not_called()
+
+    def test_on_cancel_no_cancelok_when_channel_closing(self):
+        self.obj._set_state(self.obj.CLOSING)
+        self.connection.accept_consumer_cancel_ok = True
+        self.obj._send_method = mock.Mock()
+        frame_value = frame.Method(1, spec.Basic.Cancel('ctag0'))
+        self.obj._on_cancel(frame_value)
+        self.obj._send_method.assert_not_called()
+
+    def test_on_cancel_replies_cancelok_with_user_cancel_in_flight(self):
+        consumer_tag = 'ctag0'
+        self.obj._set_state(self.obj.OPEN)
+        self.connection.accept_consumer_cancel_ok = True
+        self.obj._consumers[consumer_tag] = logging.debug
+        self.obj._cancelled.add(consumer_tag)
+        self.obj._send_method = mock.Mock()
+        frame_value = frame.Method(1, spec.Basic.Cancel(consumer_tag))
+        self.obj._on_cancel(frame_value)
+        self.obj._send_method.assert_called_once_with(
+            spec.Basic.CancelOk(consumer_tag=consumer_tag))
+        # The user-initiated cancel still owns the cleanup on its Cancel-ok
+        self.assertIn(consumer_tag, self.obj._consumers)
 
     def test_on_cancelok_removed_consumer(self):
         consumer_tag = 'ctag0'

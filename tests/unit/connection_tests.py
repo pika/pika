@@ -623,6 +623,24 @@ class ConnectionTests(unittest.TestCase):
         self.assertIs(self.connection.server_capabilities,
                       self.connection.server_properties['capabilities'])
 
+    def test_accept_consumer_cancel_ok_true_from_capabilities(self):
+        capabilities = {'accept_consumer_cancel_ok': True}
+        self.connection.server_capabilities = capabilities
+        self.assertIs(self.connection.accept_consumer_cancel_ok, True)
+
+    def test_accept_consumer_cancel_ok_false_from_capabilities(self):
+        capabilities = {'accept_consumer_cancel_ok': False}
+        self.connection.server_capabilities = capabilities
+        self.assertIs(self.connection.accept_consumer_cancel_ok, False)
+
+    def test_accept_consumer_cancel_ok_false_when_not_advertised(self):
+        self.connection.server_capabilities = {'consumer_cancel_notify': True}
+        self.assertIs(self.connection.accept_consumer_cancel_ok, False)
+
+    def test_accept_consumer_cancel_ok_false_before_connection_start(self):
+        self.connection.server_capabilities = None
+        self.assertIs(self.connection.accept_consumer_cancel_ok, False)
+
     @mock.patch('pika.heartbeat.HeartbeatChecker')
     @mock.patch('pika.frame.Method')
     @mock.patch.object(ConstructibleConnection,
