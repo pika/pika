@@ -25,9 +25,9 @@ E       DeprecationWarning: BlockingConnection is deprecated and will be removed
 pika/adapters/blocking_connection.py:367: DeprecationWarning
 ```
 
-The same happens under `python -W error` and `warnings.simplefilter('error')`. `BlockingConnection` is pika's most widely used entry point, so this is both likely and likely to be misread as pika being broken rather than as an intentional notice.
+The same happens under `python -W error` and `warnings.simplefilter('error')`. `BlockingConnection` is pika's most widely used entry point, so this is both likely and likely to be misread as pika being broken rather than as an intentional notice. Outside a test runner it is usually invisible, because Python's default filters hide `DeprecationWarning` unless it is triggered from `__main__`; pytest is what turns it back on.
 
-Either filter it:
+Either filter it or migrate. The warning uses `stacklevel=2`, so it is reported against the line that constructs the connection rather than against pika, and a filter scoped to the pika module does not match. Match on the message instead:
 
 ```toml
 # pyproject.toml, for pytest
@@ -37,7 +37,7 @@ filterwarnings = [
 ```
 
 ```bash
-python -W 'ignore::DeprecationWarning:pika.adapters.blocking_connection' your_app.py
+python -W 'ignore:BlockingConnection is deprecated' your_app.py
 ```
 
 or migrate to `Connection`, which runs its own IOLoop on a background thread and provides a thread-safe blocking API that does not stall heartbeats on slow message processing.
