@@ -46,8 +46,26 @@ def create_run_in_thread_decorator(test_timeout=None):
             :raises AssertionError: if wrapped function exits with exception or
                 times out
             """
+            # Prefer the test case's own `TIMEOUT` over the value captured
+            # when the decorator was created. There are two timeouts on an
+            # async acceptance test: the in-test I/O loop budget, which a
+            # subclass can override with `TIMEOUT`, and this outer thread join.
+            # Baking the join in at decoration time meant a subclass that
+            # raised `TIMEOUT` still got joined at the module-level budget, so
+            # the override could not work and the failure read as
+            # "The test timed out" from here rather than from the loop.
+            #
+            # `getattr` rather than an `isinstance` check because the decorator
+            # is also applied to plain functions in its own self-tests, where
+            # `args` is empty or holds something that is not a test case.
+            timeout = test_timeout
+            case_timeout = getattr(args[0], 'TIMEOUT', None) if args else None
+            if case_timeout is not None:
+                # Same 1.1 margin the module-level default uses, so the loop's
+                # own timeout still fires first and reports the real cause.
+                timeout = case_timeout * 1.1
             runner = _ThreadedTestWrapper(
-                functools.partial(fun, *args, **kwargs), test_timeout)
+                functools.partial(fun, *args, **kwargs), timeout)
             return runner.kick_off()
 
         return run_in_thread_with_timeout_wrapper
