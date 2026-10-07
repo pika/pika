@@ -4,13 +4,15 @@ Notes for each release are also published on the [GitHub releases page](https://
 
 ## Upgrading to 1.5.0
 
-Four changes are worth reading before you upgrade. None of them is a behaviour change to a working application, but three can turn a passing build red.
+Three changes are worth reading before you upgrade. None is a behaviour change to a working application, but two can turn a passing build red.
 
-### `ThreadSafeConnection` is now `Connection`
+### `pika.Connection` is new, and is the connection to use
 
-`ThreadSafeConnection` and `ThreadSafeChannel` are renamed to `Connection` and `Channel`, and `pika.Connection` is the documented import. The old names no longer exist. The module path is unchanged, so `from pika.adapters.thread_safe_connection import Connection` also works; the module itself moves in 2.0 (see #1681).
+1.5.0 introduces `pika.Connection` and its `Channel`, a connection that runs its own IOLoop on a background thread and offers a thread-safe blocking API that does not stall heartbeats while your code processes a message. There is nothing to migrate *from*: these classes are new in this release, and `pika.Connection` is the documented import.
 
-`Channel` is deliberately not exported from `pika`, because channels come from `Connection.channel()`.
+`from pika.adapters.thread_safe_connection import Connection` also works, though the module moves in 2.0 (see #1681). `Channel` is deliberately not exported from `pika`, because channels come from `Connection.channel()`.
+
+If you are starting new code, use `pika.Connection`. If you have existing code on one of the adapters below, it keeps working in 1.5.0 and the deprecation notice tells you where it is going.
 
 ### The other adapters now emit a `DeprecationWarning`, which may fail your tests
 
@@ -54,12 +56,6 @@ Two properties of the generated code account for it. Every generated constructor
 The errors are accurate and the annotations are an improvement, so nothing here should be reverted. The FAQ covers the narrowing idioms: https://pika.github.io/pika/latest/faq/
 
 `pyright` users see little change, since it reported most of these already.
-
-### On Windows, `AsyncioConnection` now rejects a non-selector event loop
-
-`asyncio.new_event_loop()` returns a `ProactorEventLoop` on Windows, which does not implement `add_reader`/`add_writer`. Pika's asyncio adapter requires them, so passing such a loop could never work; it previously surfaced as `AMQPConnectorSocketConnectError: NotImplementedError()` from inside the connection workflow.
-
-It is now a `TypeError` at construction, naming the loop type and the remedy. If you pass your own loop on Windows, either pass an `asyncio.SelectorEventLoop` or use `asyncio.run(main(), loop_factory=asyncio.SelectorEventLoop)`. With no loop supplied, pika constructs a selector loop for you. See #1296.
 
 ## [1.4.3](https://github.com/pika/pika/tree/1.4.2) (2026-08-06)
 
