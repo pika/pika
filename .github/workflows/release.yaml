@@ -329,9 +329,25 @@ jobs:
             PRERELEASE_FLAG="--prerelease"
           fi
 
+          # `--notes` prepends to the generated notes rather than replacing
+          # them, so upgrade guidance a reader needs before installing comes
+          # first and the per-pull-request list still follows. The file is
+          # committed so the guidance is reviewed with the code it describes
+          # rather than typed into the GitHub UI at release time, which is how
+          # it gets forgotten. Empty or absent means generated notes only.
+          NOTES_FILE=.github/release-notes-preamble.md
+          PREAMBLE_FLAG=()
+          if [ -s "$NOTES_FILE" ]; then
+            PREAMBLE_FLAG=(--notes "$(cat "$NOTES_FILE")")
+            echo "::notice::Prepending $(wc -l < "$NOTES_FILE") lines from $NOTES_FILE"
+          else
+            echo "::notice::$NOTES_FILE is absent or empty; generated notes only"
+          fi
+
           gh release create "$TAG" \
             --title "pika $TAG" \
             --generate-notes \
+            "${PREAMBLE_FLAG[@]}" \
             $PRERELEASE_FLAG
 
   # Last, so a release that fails partway never publishes its docs, and called

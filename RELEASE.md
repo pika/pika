@@ -21,6 +21,27 @@ page.
 Commit it before triggering the release, so the tag the workflow creates carries
 the changelog for the version it is tagging.
 
+## Before the release: upgrade notes
+
+Guidance a reader needs *before* installing goes in two places, and they are a
+pair rather than two independent documents:
+
+- `HISTORY.md`, under an `## Upgrading to X.Y.Z` section above the version
+  entries, which is what the documentation site's Changelog page renders.
+- `.github/release-notes-preamble.md`, which `release.yaml` prepends to the
+  generated GitHub release notes with `gh release create --notes`. `--notes`
+  prepends rather than replacing, so the per-pull-request list still follows.
+
+Keep the two in sync, or delete the preamble file when a release needs no
+guidance: the workflow treats an absent or empty file as "generated notes only"
+and says which it did in a notice annotation.
+
+The preamble is committed rather than typed into the GitHub UI at release time
+for two reasons. It is reviewed alongside the code it describes, and a draft
+release created by hand does not become the release: `release.yaml` runs
+`gh release create` for the tag itself, so a hand-made draft would linger
+untagged beside the real one.
+
 ## Automated release
 
 Trigger the release workflow from GitHub Actions UI or CLI:
