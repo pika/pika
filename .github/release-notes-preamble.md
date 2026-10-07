@@ -1,3 +1,5 @@
+[GitHub Milestone](https://github.com/pika/pika/milestone/24?closed=1)
+
 ## Upgrading to 1.5.0
 
 Three changes are worth reading before you upgrade. None is a behaviour change to a working application, but two can turn a passing build red.
