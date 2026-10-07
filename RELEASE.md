@@ -55,6 +55,23 @@ pre-release is published, `main` carries `1.5.0a1` and `minor` would compute
 `1.6.0`. `none` keeps the stripped base version, which is what both promoting
 and progressing a pre-release need.
 
+The arithmetic lives in `.ci/release_version.py`, with unit tests in
+`tests/unit/release_version_tests.py`, alongside `docs_site.py` and for the same
+reason: a release version becomes a git tag, a PyPI release and a documentation
+directory, none of which can be taken back, and parsing plus a state transition
+is what shell expresses worst. Run it directly to see what a dispatch would
+compute, without dispatching anything:
+
+```bash
+hatch run docs:python .ci/release_version.py compute \
+  --current 1.5.0a1 --bump none --mode prerelease --prerelease-tag b1   # -> 1.5.0b1
+```
+
+It also owns the input rules, so they are stated once: a pre-release needs a
+canonical `a`/`b`/`rc` segment with no leading zero, a pre-release tag is
+rejected in any other mode, and a computation that does not move the version is
+refused.
+
 A full 1.5.0 cycle, from `main` at 1.4.x:
 
 ```bash
@@ -75,7 +92,8 @@ gh workflow run release.yaml -f bump=patch                                      
 Only step 1 uses a bump that moves the version; everything inside the cycle uses
 `none`. Using `minor` at step 2 or 3 would publish 1.6.0 instead.
 
-Nothing stops you running the same step twice, but the result is caught: the
+Nothing stops you running the same step twice, but the result is caught twice
+over: the helper refuses a computation that leaves the version unchanged, and the
 workflow refuses a version that is already tagged on `origin`, before it writes
 anything. That check exists because the push would otherwise catch the duplicate
 tag only after the bump commit had landed on `main`, leaving the branch claiming

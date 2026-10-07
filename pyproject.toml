@@ -127,7 +127,7 @@ force-one-line-summary = false
 [tool.hatch.envs.default]
 dependencies = [
     "coverage",
-    # tests/unit/docs_site_tests.py loads .ci/docs_site.py, which imports this.
+    # tests/unit/docs_site_tests.py loads .ci/, which imports this.
     "packaging",
     "docformatter",
     "gevent",
@@ -143,13 +143,13 @@ dependencies = [
 ]
 
 [tool.hatch.envs.default.scripts]
-fmt = "yapf --in-place --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/ utils/ .ci/docs_site.py"
-fmt-check = "yapf --diff --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/ utils/ .ci/docs_site.py"
-lint = "ruff check pika/ tests/ examples/ utils/ .ci/docs_site.py --fix"
-lint-check = "ruff check pika/ tests/ examples/ utils/ .ci/docs_site.py"
-docfmt = "docformatter --in-place --recursive pika/ tests/ examples/ utils/ .ci/docs_site.py --exclude pika/spec.py"
-docfmt-check = "docformatter --check --diff --recursive pika/ tests/ examples/ utils/ .ci/docs_site.py --exclude pika/spec.py"
-typecheck = "python -m mypy pika/ tests/typing/ .ci/docs_site.py"
+fmt = "yapf --in-place --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/ utils/ .ci/"
+fmt-check = "yapf --diff --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/ utils/ .ci/"
+lint = "ruff check pika/ tests/ examples/ utils/ .ci/ --fix"
+lint-check = "ruff check pika/ tests/ examples/ utils/ .ci/"
+docfmt = "docformatter --in-place --recursive pika/ tests/ examples/ utils/ .ci/ --exclude pika/spec.py"
+docfmt-check = "docformatter --check --diff --recursive pika/ tests/ examples/ utils/ .ci/ --exclude pika/spec.py"
+typecheck = "python -m mypy pika/ tests/typing/ .ci/"
 spec-regen = "python utils/regen_spec.py"
 spec-check = "python utils/regen_spec.py --check"
 unit = "pytest -n auto --dist=loadscope tests/unit/ {args}"
@@ -170,7 +170,7 @@ run = "python examples/{args}"
 
 [tool.hatch.envs.docs]
 dependencies = [
-    # Used directly by .ci/docs_site.py, not only via mkdocs.
+    # Used directly by .ci/, not only via mkdocs.
     "packaging",
     "mkdocs",
     "mkdocs-material",
