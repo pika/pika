@@ -873,6 +873,16 @@ class TestZ_PublishAndConsume(BoundQueueTestCase, AsyncAdapters):
 class TestZ_PublishAndConsumeBig(BoundQueueTestCase, AsyncAdapters):
     DESCRIPTION = 'Publish a big message and consume it'
 
+    # This test moves a single ~15.7 MB message, so it is the one case where
+    # the shared 15s budget has no margin left on a slow runner. Seen on
+    # `macos-15-intel`, where exactly one leg of 60 failed with this class
+    # taking 13.8s and 14.4s against the 15s limit while the sibling leg ran
+    # the same two tests in 3.5s and 2.6s. Landing just under and just over a
+    # fixed limit is a runner-speed problem rather than anything in the code
+    # under test, so the budget is raised here instead of for the whole suite,
+    # which would slow every timeout failure in it.
+    TIMEOUT = 45
+
     @staticmethod
     def _get_msg_body():
         return '\n'.join([f'{i}' for i in range(2097152)])
