@@ -1205,13 +1205,20 @@ class Channel:
         """
         When the broker cancels a consumer, delete it from our internal dictionary.
 
+        Reply with `Basic.CancelOk` if the broker advertises the `accept_consumer_cancel_ok`
+        capability.
+
         :param method_frame: The method frame received
         """
-        if method_frame.method.consumer_tag in self._cancelled:
+        consumer_tag = method_frame.method.consumer_tag
+        if self.is_open and self.connection.accept_consumer_cancel_ok:
+            self._send_method(spec.Basic.CancelOk(consumer_tag=consumer_tag))
+
+        if consumer_tag in self._cancelled:
             # User-initiated cancel is waiting for Cancel-ok
             return
 
-        self._cleanup_consumer_ref(method_frame.method.consumer_tag)
+        self._cleanup_consumer_ref(consumer_tag)
 
     def _on_cancelok(self, method_frame: frame.Method) -> None:
         """
