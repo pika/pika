@@ -24,9 +24,19 @@ on:
         required: true
         type: choice
         options:
+          # none: keep the current version, dropping any pre-release suffix.
+          #       Needed twice over while a pre-release is in flight, because
+          #       every other value increments the base version:
+          #         1.5.0a1 + none + release          -> 1.5.0  (promote)
+          #         1.5.0a1 + none + prerelease b1    -> 1.5.0b1 (progress)
+          #       Using `minor` for either would produce 1.6.0. Re-tagging the
+          #       same version is caught by the pre-flight tag check rather
+          #       than by banning an input combination, since what matters is
+          #       that the version moves, not which inputs were used.
           - patch
           - minor
           - major
+          - none
       prerelease_tag:
         description: 'Pre-release suffix (e.g. b1, rc1). Required when mode is prerelease.'
         required: false
@@ -69,20 +79,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Validate inputs
-        env:
-          MODE: ${{ inputs.mode }}
-          PRERELEASE_TAG: ${{ inputs.prerelease_tag }}
-        run: |
-          if [ "$MODE" = "prerelease" ] && [ -z "$PRERELEASE_TAG" ]; then
-            echo "::error::prerelease_tag is required when mode is prerelease (e.g. b1, rc1)"
-            exit 1
-          fi
-          if [ "$MODE" != "prerelease" ] && [ -n "$PRERELEASE_TAG" ]; then
-            echo "::error::prerelease_tag is only valid when mode is prerelease"
-            exit 1
-          fi
-
       - name: Compute new version
         id: version
         env:
@@ -91,38 +87,26 @@ jobs:
           PRERELEASE_TAG: ${{ inputs.prerelease_tag }}
           RUN_NUMBER: ${{ github.run_number }}
         run: |
+          # Nothing else in this job has installed anything yet, and the helper
+          # parses with `packaging` rather than hand-rolled string work.
+          python -m pip install --quiet --upgrade packaging
+
           current=$(sed -nE 's/^version = "([^"]+)".*/\1/p' pyproject.toml)
           echo "current=$current" >> "$GITHUB_OUTPUT"
 
-          IFS='.' read -r major minor patch <<< "${current%%[a-zA-Z]*}"
-
-          case "$BUMP" in
-            major) major=$((major + 1)); minor=0; patch=0 ;;
-            minor) minor=$((minor + 1)); patch=0 ;;
-            patch) patch=$((patch + 1)) ;;
-          esac
-
-          new_version="${major}.${minor}.${patch}"
-          case "$MODE" in
-            prerelease)
-              # Canonical spellings only, so the tag, the PyPI version and the
-              # docs directory are one string; see RELEASE.md.
-              # No leading zeros: `b01` matches a naive pattern but normalizes
-              # to `b1`, so the tag and the version PyPI indexes would differ,
-              # and the docs deploy would reject it after both are unrecoverable.
-              if ! echo "$PRERELEASE_TAG" | grep -qE '^(a|b|rc)(0|[1-9][0-9]*)$'; then
-                echo "::error::prerelease_tag must be a canonical PEP 440 pre-release segment: a, b or rc followed by a number (e.g. b1, rc1)"
-                exit 1
-              fi
-              new_version="${new_version}${PRERELEASE_TAG}"
-              ;;
-            # A throwaway .devN build keyed on the run number: valid PEP 440,
-            # sorts below the real X.Y.Z, and unique per run so TestPyPI's
-            # immutable-version rule never bites on repeated test publishes.
-            test)
-              new_version="${new_version}.dev${RUN_NUMBER}"
-              ;;
-          esac
+          # The arithmetic lives in `.ci/release_version.py`, with unit tests in
+          # `tests/unit/release_version_tests.py`, for the same reason the alias
+          # decision lives in `docs_site.py`: it is parsing plus a state
+          # transition, and the version it produces becomes a tag, a PyPI
+          # release and a docs directory that none of us can take back. As
+          # shell it was untestable and wrong - every bump incremented, so a
+          # published pre-release could not be promoted to its final version.
+          new_version=$(python .ci/release_version.py compute \
+            --current "$current" \
+            --bump "$BUMP" \
+            --mode "$MODE" \
+            --prerelease-tag "$PRERELEASE_TAG" \
+            --run-number "$RUN_NUMBER")
 
           echo "new=$new_version" >> "$GITHUB_OUTPUT"
           echo "Bumping $current -> $new_version (mode: $MODE)"
@@ -147,6 +131,24 @@ jobs:
               echo "docs_set_default=false" >> "$GITHUB_OUTPUT"
               ;;
           esac
+
+      # Before anything is written, so a version that already exists fails with
+      # the tree untouched. The push would catch a duplicate tag on its own, but
+      # only after `main` carried the bump commit, leaving the branch claiming a
+      # version that was never tagged or published. `bump=none` makes this
+      # easier to trigger by accident, since running it twice recomputes the
+      # same version rather than a new one.
+      - name: Refuse a version that already exists
+        if: ${{ inputs.mode == 'release' || inputs.mode == 'prerelease' }}
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.new }}
+        run: |
+          if git ls-remote --exit-code --tags origin \
+               "refs/tags/$NEW_VERSION" >/dev/null 2>&1; then
+            echo "::error::Tag $NEW_VERSION already exists on origin. For a release, pick a bump that moves past it; for a pre-release, use the next pre-release number."
+            exit 1
+          fi
+          echo "::notice::$NEW_VERSION is not yet tagged; proceeding"
 
       - name: Update version
         env:

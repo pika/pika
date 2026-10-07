@@ -1,4 +1,5 @@
-"""Post-release smoke test for the published pika wheel.
+"""
+Post-release smoke test for the published pika wheel.
 
 Run against a live broker after installing pika from PyPI to prove the
 distributed package can open a connection, declare a queue, publish a
@@ -26,8 +27,8 @@ BODY = b'pika smoke test'
 
 
 def main() -> int:
-    url = (sys.argv[1] if len(sys.argv) > 1 else
-           os.environ.get('PIKA_SMOKE_AMQP_URL', DEFAULT_URL))
+    url = (sys.argv[1] if len(sys.argv) > 1 else os.environ.get(
+        'PIKA_SMOKE_AMQP_URL', DEFAULT_URL))
     print(f'pika {pika.__version__}: connecting to {url}')
 
     connection = pika.BlockingConnection(pika.URLParameters(url))
@@ -41,7 +42,7 @@ def main() -> int:
         channel.basic_publish(exchange='', routing_key=QUEUE, body=BODY)
 
         method, _properties, body = channel.basic_get(queue=QUEUE,
-                                                       auto_ack=True)
+                                                      auto_ack=True)
         if method is None:
             print('smoke test FAILED: no message returned by basic_get')
             return 1

@@ -47,6 +47,63 @@ gh workflow run release.yaml -f mode=test -f bump=minor
 gh workflow run release.yaml -f mode=dry-run -f bump=patch
 ```
 
+### Pre-releases, and what `bump=none` is for
+
+`bump` is applied to the version in `pyproject.toml`, with any pre-release
+suffix stripped first. Every value except `none` increments, so once a
+pre-release is published, `main` carries `1.5.0a1` and `minor` would compute
+`1.6.0`. `none` keeps the stripped base version, which is what both promoting
+and progressing a pre-release need.
+
+The arithmetic lives in `.ci/release_version.py`, with unit tests in
+`tests/unit/release_version_tests.py`, alongside `docs_site.py` and for the same
+reason: a release version becomes a git tag, a PyPI release and a documentation
+directory, none of which can be taken back, and parsing plus a state transition
+is what shell expresses worst. Run it directly to see what a dispatch would
+compute, without dispatching anything:
+
+```bash
+hatch run docs:python .ci/release_version.py compute \
+  --current 1.5.0a1 --bump none --mode prerelease --prerelease-tag b1   # -> 1.5.0b1
+```
+
+It also owns the input rules, so they are stated once: a pre-release needs a
+canonical `a`/`b`/`rc` segment with no leading zero, a pre-release tag is
+rejected in any other mode, and a computation that does not move the version is
+refused.
+
+A full 1.5.0 cycle, from `main` at 1.4.x:
+
+```bash
+# 1. alpha: bump the base version and attach the suffix
+gh workflow run release.yaml -f mode=prerelease -f bump=minor -f prerelease_tag=a1   # -> 1.5.0a1
+
+# 2. beta, then rc: hold the base version, change the suffix
+gh workflow run release.yaml -f mode=prerelease -f bump=none -f prerelease_tag=b1    # -> 1.5.0b1
+gh workflow run release.yaml -f mode=prerelease -f bump=none -f prerelease_tag=rc1   # -> 1.5.0rc1
+
+# 3. the release: hold the base version, drop the suffix
+gh workflow run release.yaml -f bump=none                                            # -> 1.5.0
+
+# 4. the next cycle bumps normally again
+gh workflow run release.yaml -f bump=patch                                           # -> 1.5.1
+```
+
+Only step 1 uses a bump that moves the version; everything inside the cycle uses
+`none`. Using `minor` at step 2 or 3 would publish 1.6.0 instead.
+
+Nothing stops you running the same step twice, but the result is caught twice
+over: the helper refuses a computation that leaves the version unchanged, and the
+workflow refuses a version that is already tagged on `origin`, before it writes
+anything. That check exists because the push would otherwise catch the duplicate
+tag only after the bump commit had landed on `main`, leaving the branch claiming
+a version that was never tagged or published.
+
+**Run a dry run first.** `-f mode=dry-run` computes the version and builds
+without publishing, and prints the version it would use. It is the cheapest way
+to confirm a bump produces what you expect, and it would have caught the
+promotion gap this section exists to describe.
+
 ### Modes
 
 | `mode`       | Version         | Commit + tag | Publishes to | GitHub Release |
@@ -65,7 +122,7 @@ run and never collides with TestPyPI's immutable-version rule.
 
 The entire flow lives in a single `release.yaml` workflow:
 
-1. The `release` job bumps the version in `pyproject.toml` and `pika/__init__.py`, builds the distribution once (`twine check` included), and uploads it as an artifact. For `release`/`prerelease` it also commits, tags, and pushes. The build runs before any commit, so a broken build aborts the release before `main` is mutated
+1. The `release` job computes the new version, refuses it if that tag already exists on `origin`, then bumps the version in `pyproject.toml` and `pika/__init__.py`, builds the distribution once (`twine check` included), and uploads it as an artifact. For `release`/`prerelease` it also commits, tags, and pushes. The build runs before any commit, so a broken build aborts the release before `main` is mutated
 2. The `publish-pypi` / `publish-test-pypi` job downloads that artifact and publishes it, authenticating with the `PYPI_API_TOKEN` / `TEST_PYPI_API_TOKEN` repository secrets. Downstream jobs never rebuild, so the bytes tested are the bytes shipped
 3. The `smoke-test` job installs the just-published wheel from the matching index and runs `.ci/smoke_test.py` against a live broker (see Post-release verification)
 4. The `github-release` job creates a GitHub Release with notes auto-generated from merged PRs (`--generate-notes`, grouped per `.github/release.yml`)

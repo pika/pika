@@ -49,10 +49,22 @@ examples/               # usage examples
   failure go away.
 - **Type checking:** [mypy](https://mypy-lang.org/). Configuration is in
   `mypy.ini`. Run `hatch run typecheck`, which covers `pika/`, the
-  downstream-consumer fixtures in `tests/typing/`, and `.ci/docs_site.py`. The
-  fixtures exist because `mypy.ini` sets `packages = pika`, so a run without
-  them never observes code that consumes pika from the outside.
-  `.ci/docs_site.py` is also covered by `fmt`, `lint` and `docfmt`.
+  downstream-consumer fixtures in `tests/typing/`, and `.ci/`. The fixtures
+  exist because `mypy.ini` sets `packages = pika`, so a run without them never
+  observes code that consumes pika from the outside.
+- **The gates name `.ci/` as a directory, not the files in it.** `fmt`, `lint`,
+  `docfmt` and `typecheck` all cover `.ci/`, because a helper nothing gates rots
+  and naming files individually leaves the next helper ungated until somebody
+  notices. `.ci/release_version.py` was added with an unused import and bad
+  spacing and all three gates passed, which is how this was found.
+- Logic that decides something irreversible belongs in `.ci/` with unit tests,
+  not in a workflow. `.ci/docs_site.py` owns the documentation alias policy and
+  `.ci/release_version.py` owns the release version arithmetic, each with tests
+  in `tests/unit/`. Both were shell first and both were wrong: the alias
+  comparison used `sort -V`, which ranks `1.5.0rc1` above `1.5`, and the version
+  arithmetic incremented on every bump, so a published pre-release could not be
+  promoted to its final version. A git tag, a PyPI release and a documentation
+  directory cannot be taken back.
 - Use single quotes for strings unless the string contains a single quote.
 - No trailing whitespace. Check before committing.
 
