@@ -33,14 +33,27 @@ on:
         default: true
 
 jobs:
+  # `linux-only` empties the matrix rather than skipping the job with an `if`.
+  # A skipped job is skipped before its matrix expands, so GitHub registers the
+  # check-run under the unexpanded name template and the pull request shows a
+  # literal `py${{ matrix.python-version }} tls=${{ matrix.test-tls }}`, which
+  # reads like a matrix that failed to configure. An empty matrix produces no
+  # jobs and therefore no check-run, which is what "linux only" should mean.
+  #
+  # The ternary picks the JSON *string* and parses afterwards, rather than
+  # choosing between two parsed arrays. GitHub's `a && b || c` yields the last
+  # truthy operand, and whether an empty array counts as truthy is not
+  # something the expression docs settle; if `[]` were falsy the `||` would
+  # fall through and restore the full matrix, silently undoing this. A
+  # non-empty string is unambiguously truthy, so `'[]'` survives the ternary
+  # and `fromJSON` turns it into the empty matrix.
   build-windows:
     name: build/test on windows-latest py${{ matrix.python-version }} tls=${{ matrix.test-tls }}
-    if: ${{ !inputs.linux-only }}
     runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ${{ fromJSON(inputs.python-versions) }}
+        python-version: ${{ fromJSON(inputs.linux-only && '[]' || inputs.python-versions) }}
         test-tls: [true, false]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
