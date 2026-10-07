@@ -1211,6 +1211,17 @@ class Channel:
         :param method_frame: The method frame received
         """
         consumer_tag = method_frame.method.consumer_tag
+        # Sent before the `_cancelled` check below, so a user-initiated cancel
+        # racing a broker-sent one still gets a reply. That is safe in both
+        # orders, which is not obvious from here. A broker advertising the
+        # capability answers a `Basic.CancelOk` for a tag it is not waiting on
+        # with `{noreply, State}`, so a late or duplicate reply is ignored
+        # rather than treated as a protocol error. And if this reply reaches the
+        # broker first, it releases the consumer without replying, leaving the
+        # user's in-flight `Basic.Cancel` to arrive for a tag the broker no
+        # longer tracks - which `cancel_consumer` answers with a `Basic.CancelOk`
+        # anyway ("Spec requires we ignore this situation"), so the pending RPC
+        # still completes instead of hanging.
         if self.is_open and self.connection.accept_consumer_cancel_ok:
             self._send_method(spec.Basic.CancelOk(consumer_tag=consumer_tag))
 

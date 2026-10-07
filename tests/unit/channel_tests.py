@@ -40,6 +40,12 @@ class ChannelTests(unittest.TestCase):
 
     def setUp(self):
         self.connection = self._create_connection()
+        # The connection is autospec'd, so every capability property is a truthy
+        # Mock unless told otherwise. That inverts the production default and
+        # would hand `_on_cancel` the reply branch by accident in any test that
+        # happens to leave the channel open, so pin it to what a broker without
+        # the capability reports. Tests that want the reply set it to True.
+        self.connection.accept_consumer_cancel_ok = False
         self._on_openok_callback = mock.Mock()
         self.obj = channel.Channel(self.connection, 1, self._on_openok_callback)
         # self.obj.callbacks is the autospec'd connection mock at runtime; expose it as a
