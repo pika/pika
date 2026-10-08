@@ -26,6 +26,7 @@ utils/regen_spec.py     # regenerate/verify pika/spec.py (hatch run spec-regen)
 .ci/release.py          # the release CLI: one operation per step (see RELEASE.md)
 .ci/docs_site.py        # docs-site deploy helper (alias policy, verification)
 .ci/release_version.py  # version arithmetic; what a pushed tag means
+.ci/changelog.py        # the HISTORY.md entry, from the milestone
 .ci/tag_release.py      # tag preconditions, before and after the push
 .ci/smoke_test.py       # post-publish check against a live broker
 docs/                   # the mkdocs source tree; `site/` is what publishes
