@@ -13,8 +13,8 @@ name: Deploy Docs
 #
 # This file exists for the cases neither covers: re-publishing after a failed
 # deploy, the one-time bootstrap described in RELEASE.md, or backfilling a
-# version. Because it takes the version and aliases as inputs, it cannot silently
-# do the wrong thing with a ref the way a tag trigger would.
+# version. It takes the version and aliases as inputs rather than deriving them,
+# so it can only publish what it was asked for.
 
 on:
   workflow_dispatch:
