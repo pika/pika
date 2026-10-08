@@ -24,18 +24,9 @@
 ## Introduction
 Pika is a pure-Python implementation of the AMQP 0-9-1 protocol including RabbitMQ's extensions.
 
-- Supports Python 3.7+ (CPython and PyPy; versions are listed on
-  [PyPI](https://pypi.org/project/pika/)). Pika 1.1.0 was the last release
-  that supported Python 2.7.
-- Since threads aren't appropriate to every situation, it doesn't require
-  threads. Pika core takes care not to forbid them, either. The same goes for
-  greenlets, callbacks, continuations, and generators. Most connection adapters
-  are single-threaded; use `Connection` when you need to publish or
-  consume from multiple threads.
-- People may be using direct sockets, plain old `select()`, or any of the
-  wide variety of ways of getting network events to and from a Python
-  application. Pika tries to stay compatible with all of these, and to make
-  adapting it to a new environment as simple as possible.
+- Supports Python 3.7+ (CPython and PyPy; versions are listed on [PyPI](https://pypi.org/project/pika/)). Pika 1.1.0 was the last release that supported Python 2.7.
+- Since threads aren't appropriate to every situation, it doesn't require threads. Pika core takes care not to forbid them, either. The same goes for greenlets, callbacks, continuations, and generators. Most connection adapters are single-threaded; use `Connection` when you need to publish or consume from multiple threads.
+- People may be using direct sockets, plain old `select()`, or any of the wide variety of ways of getting network events to and from a Python application. Pika tries to stay compatible with all of these, and to make adapting it to a new environment as simple as possible.
 
 ## Documentation
 Pika's documentation can be found [here](https://pika.github.io/pika/).
@@ -80,22 +71,13 @@ connection.close()
 
 Pika provides the following adapters:
 
-- `pika.adapters.asyncio_connection.AsyncioConnection` - asynchronous adapter
-  for Python 3 [AsyncIO](https://docs.python.org/3/library/asyncio.html)'s
-  I/O loop.
-- `pika.BlockingConnection` - synchronous adapter on top of library for
-  simple usage.
-- `pika.SelectConnection` - asynchronous adapter without third-party
-  dependencies.
-- `pika.adapters.gevent_connection.GeventConnection` - asynchronous adapter
-  for use with [Gevent](https://www.gevent.org)'s I/O loop.
-- `pika.adapters.tornado_connection.TornadoConnection` - asynchronous adapter
-  for use with [Tornado](https://tornadoweb.org)'s I/O loop.
-- `pika.adapters.twisted_connection.TwistedProtocolConnection` - asynchronous
-  adapter for use with [Twisted](https://twistedmatrix.com)'s I/O loop.
-- `pika.adapters.thread_safe_connection.Connection` - thread-safe
-  adapter that runs SelectConnection's IOLoop in a background thread. All
-  channel methods are safe to call from any thread simultaneously.
+- `pika.adapters.asyncio_connection.AsyncioConnection` - asynchronous adapter for Python 3 [AsyncIO](https://docs.python.org/3/library/asyncio.html)'s I/O loop.
+- `pika.BlockingConnection` - synchronous adapter on top of library for simple usage.
+- `pika.SelectConnection` - asynchronous adapter without third-party dependencies.
+- `pika.adapters.gevent_connection.GeventConnection` - asynchronous adapter for use with [Gevent](https://www.gevent.org)'s I/O loop.
+- `pika.adapters.tornado_connection.TornadoConnection` - asynchronous adapter for use with [Tornado](https://tornadoweb.org)'s I/O loop.
+- `pika.adapters.twisted_connection.TwistedProtocolConnection` - asynchronous adapter for use with [Twisted](https://twistedmatrix.com)'s I/O loop.
+- `pika.adapters.thread_safe_connection.Connection` - thread-safe adapter that runs SelectConnection's IOLoop in a background thread. All channel methods are safe to call from any thread simultaneously.
 
 ## Multiple connection parameters
 You can also pass multiple `pika.ConnectionParameters` instances for fault-tolerance as in the code snippet below (host names are just examples, of course). To enable retries, set `connection_attempts` and `retry_delay` as needed in the last `pika.ConnectionParameters` element of the sequence. Retries occur after connection attempts using all of the given connection parameters fail.
@@ -154,24 +136,13 @@ def ack_message(channel, delivery_tag):
 ```
 The code running in the other thread may request the `ack_message()` function to be executed in the connection adapter's I/O loop thread using an adapter-specific mechanism:
 
-- `pika.BlockingConnection` abstracts its I/O loop from the application and
-  thus exposes `pika.BlockingConnection.add_callback_threadsafe()`. Refer to
-  this method's docstring for additional information. For example:
+- `pika.BlockingConnection` abstracts its I/O loop from the application and thus exposes `pika.BlockingConnection.add_callback_threadsafe()`. Refer to this method's docstring for additional information. For example:
 
 ```python
 connection.add_callback_threadsafe(functools.partial(ack_message, channel, delivery_tag))
 
 ```
-- When using a non-blocking connection adapter, such as
-  `pika.adapters.asyncio_connection.AsyncioConnection` or
-  `pika.SelectConnection`, you use the underlying asynchronous framework's
-  native API for requesting an I/O loop-bound callback from another thread. For
-  example, `pika.SelectConnection`'s I/O loop provides
-  `add_callback_threadsafe()`,
-  `pika.adapters.tornado_connection.TornadoConnection`'s I/O loop has
-  `add_callback()`, while
-  `pika.adapters.asyncio_connection.AsyncioConnection`'s I/O loop exposes
-  `call_soon_threadsafe()`.
+- When using a non-blocking connection adapter, such as `pika.adapters.asyncio_connection.AsyncioConnection` or `pika.SelectConnection`, you use the underlying asynchronous framework's native API for requesting an I/O loop-bound callback from another thread. For example, `pika.SelectConnection`'s I/O loop provides `add_callback_threadsafe()`, `pika.adapters.tornado_connection.TornadoConnection`'s I/O loop has `add_callback()`, while `pika.adapters.asyncio_connection.AsyncioConnection`'s I/O loop exposes `call_soon_threadsafe()`.
 
 This threadsafe callback request mechanism may also be used to delegate publishing of messages, etc., from a background thread to the connection adapter's thread.
 
@@ -240,17 +211,5 @@ See the [Contributing guide](https://pika.github.io/pika/latest/contributing/) f
 ## Extending to support additional I/O frameworks
 New non-blocking adapters may be implemented in either of the following ways:
 
-- By subclassing `pika.BaseConnection`, implementing its abstract method and
-  passing its constructor an implementation of
-  `pika.adapters.utils.nbio_interface.AbstractIOServices`.
-  `pika.BaseConnection` implements `pika.connection.Connection`'s abstract
-  methods, including internally-initiated connection logic. For examples, refer
-  to the implementations of
-  `pika.adapters.asyncio_connection.AsyncioConnection`,
-  `pika.adapters.gevent_connection.GeventConnection` and
-  `pika.adapters.tornado_connection.TornadoConnection`.
-- By subclassing `pika.connection.Connection` and implementing its abstract
-  methods. This approach facilitates implementation of custom
-  connection-establishment and transport mechanisms. For an example, refer to
-  the implementation of
-  `pika.adapters.twisted_connection.TwistedProtocolConnection`.
+- By subclassing `pika.BaseConnection`, implementing its abstract method and passing its constructor an implementation of `pika.adapters.utils.nbio_interface.AbstractIOServices`. `pika.BaseConnection` implements `pika.connection.Connection`'s abstract methods, including internally-initiated connection logic. For examples, refer to the implementations of `pika.adapters.asyncio_connection.AsyncioConnection`, `pika.adapters.gevent_connection.GeventConnection` and `pika.adapters.tornado_connection.TornadoConnection`.
+- By subclassing `pika.connection.Connection` and implementing its abstract methods. This approach facilitates implementation of custom connection-establishment and transport mechanisms. For an example, refer to the implementation of `pika.adapters.twisted_connection.TwistedProtocolConnection`.
