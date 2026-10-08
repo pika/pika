@@ -1,24 +1,33 @@
 """
-Version arithmetic for the release workflow.
+Version arithmetic and tag interpretation for the release.
 
-Computes the version a release publishes, from the version currently in `pyproject.toml` plus the
-dispatch inputs. Lives here rather than in `release.yaml` for the same reason the alias decision
-lives in `docs_site.py`: it is parsing and a state transition, the two things shell expresses worst,
-and the version it produces becomes a git tag, a PyPI release and a documentation directory, none of
-which can be taken back.
+Two jobs, either side of the moment a release becomes irreversible. `compute` works out the version
+a release should carry, and is now mostly a local helper: a real release is a pushed tag, so a human
+writes the version into `pyproject.toml` and `pika/__init__.py` and `compute` only says what to
+write. `classify` goes the other way, reading a pushed tag and returning what the workflow should do
+with it, including the documentation parameters.
 
-Expressed as shell it was both untestable and wrong. `${current%%[a-zA-Z]*}` strips a pre-release
-suffix correctly, but every bump then incremented, so once `1.5.0a1` was published no input produced
-`1.5.0`: `patch` gave `1.5.1`, `minor` gave `1.6.0`, `major` gave `2.0.0`. Promoting a pre-release
-meant hand-editing `pyproject.toml` between two workflow runs. `packaging` is used rather than hand-
-rolled string work because it already knows what `base_version` means.
+Both live here rather than in `release.yaml` for the same reason the alias decision lives in
+`docs_site.py`: they are parsing and a state transition, the two things shell expresses worst, and
+what they produce becomes a PyPI release and a documentation directory, neither of which can be
+taken back.
+
+Expressed as shell both were wrong. `${current%%[a-zA-Z]*}` strips a pre-release suffix correctly,
+but every bump then incremented, so once `1.5.0a1` was published no input produced `1.5.0`: `patch`
+gave `1.5.1`, `minor` gave `1.6.0`, `major` gave `2.0.0`. Promoting a pre-release meant hand-editing
+`pyproject.toml` between two workflow runs. The documentation version for a stable release was
+`${major}.${minor}`, where neither variable was ever assigned anywhere in the workflow, so it
+evaluated to `.` and `mike` was asked to publish a directory by that name. `packaging` is used
+rather than hand-rolled string work because it already knows what `base_version` and `is_prerelease`
+mean.
+
+A library, not a command. `.ci/release.py` is the only entry point, so there is one place to look up
+what the release can do and one place that talks to git, `gh` and PyPI.
 """
 
 from __future__ import annotations
 
-import argparse
 import re
-import sys
 
 from packaging.version import InvalidVersion, Version
 
@@ -32,6 +41,14 @@ PRERELEASE_TAG = re.compile(r'^(a|b|rc)(0|[1-9][0-9]*)$')
 #: because a pre-release cycle needs the base version held twice: to progress
 #: `1.5.0a1` to `1.5.0b1`, and to promote it to `1.5.0`.
 BUMPS = ('major', 'minor', 'patch', 'none')
+
+#: Tags this scheme publishes: `X.Y.Z`, optionally with a canonical pre-release
+#: segment. Deliberately narrower than PEP 440, which also admits `.devN`, post
+#: releases, local versions and epochs. A pushed tag is the whole trigger for a
+#: release, so the set of tags that can start one is spelled out rather than
+#: inferred: `1.5.0.dev3` is what `mode=test` publishes to TestPyPI and must
+#: never reach PyPI, and `1.5.0+local` is not installable from an index at all.
+RELEASABLE_TAG = re.compile(r'^\d+\.\d+\.\d+(?:(?:a|b|rc)(?:0|[1-9][0-9]*))?$')
 
 
 def base_of(current: str) -> tuple[int, int, int]:
@@ -136,42 +153,54 @@ def compute(current: str,
     return version
 
 
-def _cmd_compute(args: argparse.Namespace) -> int:
-    print(
-        compute(args.current, args.bump, args.mode, args.prerelease_tag,
-                args.run_number))
-    return 0
-
-
-def main(argv: list[str] | None = None) -> int:
+def classify(tag: str) -> dict[str, str]:
     """
-    Parse arguments and run the requested subcommand.
+    Return the release parameters a pushed tag implies.
 
-    :param argv: Argument list, defaulting to `sys.argv[1:]`.
-    :returns: Process exit status.
+    The pre-release decision comes from `packaging` rather than from the shape of the tag text.
+    `release.yaml` used to take it from a dispatch input on the grounds that reading it off a tag
+    was guesswork, which was true of a `case` on substrings and is not true of
+    `Version.is_prerelease` on a parsed PEP 440 version.
+
+    The documentation parameters are decided here, with the pre-release decision, because they
+    follow from it and because getting them wrong is not recoverable. A stable release owns
+    `MAJOR.MINOR` and takes the `latest` alias; a pre-release publishes under its full version and
+    takes no alias, so that a `1.5.0rc1` deploy cannot move readers off `1.4`.
+
+    :param tag: The pushed tag, which must equal the version in `pyproject.toml`.
+    :returns: Keys `mode`, `version`, `docs_version`, `docs_aliases` and `docs_set_default`, ready
+        to append to `$GITHUB_OUTPUT`.
+    :raises ValueError: if *tag* is not a tag this scheme publishes.
     """
-    parser = argparse.ArgumentParser(description=__doc__)
-    sub = parser.add_subparsers(dest='command', required=True)
+    if not RELEASABLE_TAG.match(tag):
+        raise ValueError(
+            f'{tag!r} is not a releasable tag: expected X.Y.Z, optionally with '
+            f'a canonical pre-release segment (e.g. 1.5.0, 1.5.0b1, 1.5.0rc2)')
 
-    comp = sub.add_parser('compute',
-                          help='print the version a dispatch would publish')
-    comp.add_argument('--current', required=True)
-    comp.add_argument('--bump', required=True)
-    comp.add_argument('--mode', required=True)
-    comp.add_argument('--prerelease-tag', default='', dest='prerelease_tag')
-    comp.add_argument('--run-number', default='', dest='run_number')
-    comp.set_defaults(func=_cmd_compute)
+    # `RELEASABLE_TAG` admits leading zeros in each component, which `packaging`
+    # strips: `1.05.0` normalizes to `1.5.0`. Tagging that would publish a
+    # version PyPI indexes under a name the tag does not carry.
+    if str(Version(tag)) != tag:
+        raise ValueError(
+            f'{tag!r} is not canonical; `packaging` normalizes it to '
+            f'{str(Version(tag))!r}, so the tag and the version PyPI indexes '
+            f'would differ')
 
-    args = parser.parse_args(argv)
-    try:
-        return int(args.func(args))
-    except (TypeError, ValueError) as exc:
-        # stderr, not stdout: the caller captures stdout to read the version, so
-        # an annotation printed there is swallowed into a shell variable and the
-        # failing step reports an empty log.
-        print(f'::error::{exc}', file=sys.stderr)
-        return 1
+    version = Version(tag)
+    if version.is_prerelease:
+        return {
+            'mode': 'prerelease',
+            'version': tag,
+            'docs_version': tag,
+            'docs_aliases': '',
+            'docs_set_default': 'false',
+        }
 
-
-if __name__ == '__main__':
-    sys.exit(main())
+    major, minor = version.release[0], version.release[1]
+    return {
+        'mode': 'release',
+        'version': tag,
+        'docs_version': f'{major}.{minor}',
+        'docs_aliases': 'latest',
+        'docs_set_default': 'true',
+    }

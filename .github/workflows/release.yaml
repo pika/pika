@@ -1,52 +1,83 @@
 name: release
 
 on:
+  # A pushed tag is the whole trigger for a real release. This workflow never
+  # writes to `main`, because it cannot: `main` requires a pull request and
+  # restricts pushes to the Maintainers team, and classic branch protection has
+  # no way to grant `GITHUB_TOKEN` a bypass - adding an app to the push
+  # allowlist does not exempt it from the review requirement. The version bump
+  # therefore lands through a pull request like any other change, which also
+  # means the commit that gets tagged is one `tests-passed` has already seen.
+  # The bot used to create that commit after the build and push it untested.
+  # See RELEASE.md and #1728.
+  #
+  # Three conditions make this trigger fire, and all three fail silently:
+  #
+  # 1. A person pushes the tag, not a workflow. Events triggered by
+  #    `GITHUB_TOKEN` do not create workflow runs; only `workflow_dispatch` and
+  #    `repository_dispatch` are exempt. #1614 hit exactly this and its commit
+  #    message says "tag push cannot trigger it", which was true of the tag
+  #    *that workflow* pushed and is not true of one pushed from a terminal.
+  #    That same commit kept the tag trigger "for manually pushed tags".
+  # 2. One tag per push. GitHub creates no events at all when more than three
+  #    tags are pushed at once, so `release.py tag` pushes a single tag by name
+  #    rather than `git push --tags` or `--follow-tags`.
+  # 3. The tagged commit contains this file, with this trigger. A `push` event
+  #    reads the workflow from the pushed ref, not from the default branch, so
+  #    tagging a commit from before this landed would do nothing.
+  push:
+    # Deliberately broader than `RELEASABLE_TAG`, which `classify` enforces. A
+    # narrow glob means a tag this scheme refuses starts no run at all: no
+    # annotation, no failure, nothing to notice, while three documents promise it
+    # is "refused". Catch anything that looks like a version or carries the `v`
+    # prefix pika does not use, and let the tested helper reject it by name.
+    tags:
+      - '[0-9]*'
+      - 'v[0-9]*'
   workflow_dispatch:
     inputs:
       mode:
         description: 'What to do'
         required: true
         type: choice
-        default: release
+        default: dry-run
         options:
-          # release:    bump, tag, publish X.Y.Z to PyPI, GitHub Release
-          # prerelease: bump, tag, publish X.Y.Z<tag> to PyPI (pip skips it
-          #             unless --pre or pinned), GitHub Release
-          # test:       publish a throwaway X.Y.Z.dev<run> to TestPyPI; no
-          #             commit, tag, or GitHub Release. Repeatable.
-          # dry-run:    compute the version and build, but publish nothing
-          - release
-          - prerelease
-          - test
+          # test:     publish a throwaway X.Y.Z.dev<run> to TestPyPI; no tag or
+          #           GitHub Release. Repeatable.
+          # dry-run:  compute the version and build, but publish nothing
+          #
+          # `release` and `prerelease` are deliberately absent: both come from
+          # pushing a tag, so there is no dispatch that publishes to PyPI.
           - dry-run
+          - test
       bump:
         description: 'Version bump type'
         required: true
         type: choice
         options:
-          # none: keep the current version, dropping any pre-release suffix.
-          #       Needed twice over while a pre-release is in flight, because
-          #       every other value increments the base version:
-          #         1.5.0a1 + none + release          -> 1.5.0  (promote)
-          #         1.5.0a1 + none + prerelease b1    -> 1.5.0b1 (progress)
-          #       Using `minor` for either would produce 1.6.0. Re-tagging the
-          #       same version is caught by the pre-flight tag check rather
-          #       than by banning an input combination, since what matters is
-          #       that the version moves, not which inputs were used.
+          # Only decides the throwaway version a `test` or `dry-run` builds, so
+          # `none` is here for completeness rather than because a mode needs it.
+          # `none` fails on a version with no pre-release suffix, which is
+          # correct rather than a defect: the computed version would equal the
+          # current one, and a release has to move.
+          # Choosing the version of a real release is a human decision now; run
+          # `release.py compute` locally to get the number to write into
+          # the files. See RELEASE.md.
           - patch
           - minor
           - major
           - none
-      prerelease_tag:
-        description: 'Pre-release suffix (e.g. b1, rc1). Required when mode is prerelease.'
-        required: false
-        type: string
-        default: ''
 
-# Serialize releases so two near-simultaneous dispatches cannot race on the
-# version bump.
+# Serialize releases so a tag push and a dispatch cannot publish at once.
+#
+# `queue: max` is as load-bearing here as in `_deploy-docs.yaml`, which explains
+# it at length: under the default `queue: single` GitHub keeps one pending run
+# per group and cancels and replaces any other, which `cancel-in-progress: false`
+# does not prevent. A second tag push while the first still ran would evict the
+# first's pending work and publish nothing, silently.
 concurrency:
   group: release
+  queue: max
   cancel-in-progress: false
 
 permissions:
@@ -54,114 +85,192 @@ permissions:
 
 jobs:
   release:
-    name: Bump version and build
-    if: github.ref == 'refs/heads/main'
+    name: Verify and build
+    # A tag push arrives as `refs/tags/<version>`, and the guards below prove the
+    # tagged commit is on `main`. A dispatch has no such guard, so it keeps the
+    # branch restriction the old workflow had: without it,
+    # `gh workflow run release.yaml --ref some-branch -f mode=test` builds an
+    # unreviewed tree and publishes it to TestPyPI under the real project name.
+    if: >-
+      ${{ github.event_name == 'push' ||
+          github.ref == format('refs/heads/{0}', 'main') }}
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     outputs:
-      version: ${{ steps.version.outputs.new }}
+      mode: ${{ steps.version.outputs.mode }}
+      version: ${{ steps.version.outputs.version }}
       docs-version: ${{ steps.version.outputs.docs_version }}
       docs-aliases: ${{ steps.version.outputs.docs_aliases }}
       docs-set-default: ${{ steps.version.outputs.docs_set_default }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Full history, so the tag path can prove the tagged commit is on
+          # `main` rather than on a branch that never merged.
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
 
-      - name: Configure git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Compute new version
+      - name: Determine the version and what to do with it
         id: version
         env:
+          EVENT: ${{ github.event_name }}
           MODE: ${{ inputs.mode }}
           BUMP: ${{ inputs.bump }}
-          PRERELEASE_TAG: ${{ inputs.prerelease_tag }}
           RUN_NUMBER: ${{ github.run_number }}
+          TAG: ${{ github.ref_name }}
         run: |
           # Nothing else in this job has installed anything yet, and the helper
           # parses with `packaging` rather than hand-rolled string work.
           python -m pip install --quiet --upgrade packaging
 
-          current=$(sed -nE 's/^version = "([^"]+)".*/\1/p' pyproject.toml)
+          # `q` after the first match: without it a second column-0
+          # `version = "` line emits a multi-line `current=` into
+          # `$GITHUB_OUTPUT`, where the Python side takes only the first.
+          current=$(sed -nE 's/^version = "([^"]+)".*/\1/p;/^version = "/q' pyproject.toml)
           echo "current=$current" >> "$GITHUB_OUTPUT"
 
-          # The arithmetic lives in `.ci/release_version.py`, with unit tests in
-          # `tests/unit/release_version_tests.py`, for the same reason the alias
-          # decision lives in `docs_site.py`: it is parsing plus a state
-          # transition, and the version it produces becomes a tag, a PyPI
-          # release and a docs directory that none of us can take back. As
-          # shell it was untestable and wrong - every bump incremented, so a
-          # published pre-release could not be promoted to its final version.
-          new_version=$(python .ci/release_version.py compute \
-            --current "$current" \
-            --bump "$BUMP" \
-            --mode "$MODE" \
-            --prerelease-tag "$PRERELEASE_TAG" \
-            --run-number "$RUN_NUMBER")
-
-          echo "new=$new_version" >> "$GITHUB_OUTPUT"
-          echo "Bumping $current -> $new_version (mode: $MODE)"
-
-          # Docs-site parameters, decided here because this is where the mode is
-          # known rather than inferred from tag text. See RELEASE.md.
-          case "$MODE" in
-            release)
-              echo "docs_version=${major}.${minor}" >> "$GITHUB_OUTPUT"
-              echo "docs_aliases=latest" >> "$GITHUB_OUTPUT"
-              echo "docs_set_default=true" >> "$GITHUB_OUTPUT"
-              ;;
-            prerelease)
-              echo "docs_version=$new_version" >> "$GITHUB_OUTPUT"
-              echo "docs_aliases=" >> "$GITHUB_OUTPUT"
-              echo "docs_set_default=false" >> "$GITHUB_OUTPUT"
-              ;;
-            *)
+          # Both decisions live beside `.ci/release.py`, with unit tests in
+          # `tests/unit/`, for the same reason the alias
+          # decision lives in `docs_site.py`: they are parsing plus a state
+          # transition, and what they produce becomes a PyPI release and a docs
+          # directory that none of us can take back. As shell both were wrong -
+          # every bump incremented, so a published pre-release could not be
+          # promoted, and the stable docs version read two variables that were
+          # never assigned, so it evaluated to `.`.
+          if [ "$EVENT" = "push" ]
+          then
+            # The tag decides everything: whether this is a pre-release, the
+            # version published, and the documentation parameters. `classify`
+            # refuses any tag this scheme does not publish, so `1.5.0.dev3` or
+            # `v1.5.0` fails here rather than part-way through publishing.
+            python .ci/release.py classify --tag "$TAG" \
+              >> "$GITHUB_OUTPUT"
+            echo "Releasing from tag $TAG"
+          else
+            new_version=$(python .ci/release.py compute \
+              --current "$current" \
+              --bump "$BUMP" \
+              --mode "$MODE" \
+              --run-number "$RUN_NUMBER")
+            {
+              echo "mode=$MODE"
+              echo "version=$new_version"
               # `test` and `dry-run` never tag, so they never deploy docs.
-              echo "docs_version=" >> "$GITHUB_OUTPUT"
-              echo "docs_aliases=" >> "$GITHUB_OUTPUT"
-              echo "docs_set_default=false" >> "$GITHUB_OUTPUT"
-              ;;
-          esac
+              echo "docs_version="
+              echo "docs_aliases="
+              echo "docs_set_default=false"
+            } >> "$GITHUB_OUTPUT"
+            echo "Bumping $current -> $new_version (mode: $MODE)"
+          fi
 
-      # Before anything is written, so a version that already exists fails with
-      # the tree untouched. The push would catch a duplicate tag on its own, but
-      # only after `main` carried the bump commit, leaving the branch claiming a
-      # version that was never tagged or published. `bump=none` makes this
-      # easier to trigger by accident, since running it twice recomputes the
-      # same version rather than a new one.
-      - name: Refuse a version that already exists
-        if: ${{ inputs.mode == 'release' || inputs.mode == 'prerelease' }}
+      # Pushing a tag is the whole trigger, and a tag carries no review, so
+      # these three checks are all that stand between a mistyped
+      # `git push origin <tag>` and a published release.
+      - name: Verify the tag against the commit it names
+        if: ${{ github.event_name == 'push' }}
         env:
-          NEW_VERSION: ${{ steps.version.outputs.new }}
+          TAG: ${{ github.ref_name }}
+          CURRENT: ${{ steps.version.outputs.current }}
         run: |
-          if git ls-remote --exit-code --tags origin \
-               "refs/tags/$NEW_VERSION" >/dev/null 2>&1; then
-            echo "::error::Tag $NEW_VERSION already exists on origin. For a release, pick a bump that moves past it; for a pre-release, use the next pre-release number."
+          # The artifact is built from the files at this commit, not from the tag
+          # text, so a tag that disagrees with `pyproject.toml` would publish one
+          # version under another's name. This catches the realistic mistake:
+          # tagging before the bump commit has landed, or tagging the wrong one.
+          if [ "$TAG" != "$CURRENT" ]
+          then
+            echo "::error::Tag $TAG does not match pyproject.toml, which says ${CURRENT:-nothing}. Tag the commit that bumps the version."
             exit 1
           fi
-          echo "::notice::$NEW_VERSION is not yet tagged; proceeding"
 
-      - name: Update version
+          # `pika/__init__.py` is what `pika.__version__` reports to anyone who
+          # installed the wheel, and nothing else checks the two files agree.
+          init=$(sed -nE "s/^__version__ = ['\"]([^'\"]+)['\"].*/\1/p" \
+            pika/__init__.py)
+          if [ "$init" != "$CURRENT" ]
+          then
+            echo "::error::pyproject.toml says $CURRENT but pika/__init__.py says ${init:-nothing}"
+            exit 1
+          fi
+
+          # `main` is the only branch whose content passed `tests-passed`, so a
+          # tag anywhere else would publish unreviewed code.
+          #
+          # The refspec is spelled out so the ref this check reads is a stated
+          # outcome of the fetch rather than a side effect. A bare
+          # `git fetch origin main` does write `refs/remotes/origin/main`, by
+          # git's opportunistic remote-tracking update - that was measured, and
+          # an earlier version of this comment claimed otherwise - but it is a
+          # convenience, not something the refspec asked for.
+          git fetch --quiet origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          then
+            echo "::error::$GITHUB_SHA is not an ancestor of origin/main. Land the bump on main before tagging it."
+            exit 1
+          fi
+          echo "::notice::$TAG matches both version files and is on main"
+
+      # A tag pushed by hand can be lightweight and unsigned, and all four guards
+      # above would pass it. The tag is the only record of what the published
+      # bytes were built from, so its shape is checked rather than assumed. The
+      # signature is checked for presence, not validity: verifying it would need
+      # the signer's public key on the runner. All three armour headers are
+      # accepted because `git tag --sign` honours `gpg.format`, so a correctly
+      # signed tag may be OpenPGP, SSH or x509; a PGP-only test rejected an
+      # SSH-signed tag after it had already been pushed, and advised recreating
+      # it, which reproduces a byte-identical tag.
+      - name: Verify the tag is annotated and signed
+        if: ${{ github.event_name == 'push' }}
         env:
-          NEW_VERSION: ${{ steps.version.outputs.new }}
+          TAG: ${{ github.ref_name }}
         run: |
-          sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" pyproject.toml
-          sed -i "s/^__version__ = ['\"].*['\"]/__version__ = '$NEW_VERSION'/" pika/__init__.py
+          kind=$(git cat-file -t "$TAG")
+          if [ "$kind" != "tag" ]
+          then
+            echo "::error::$TAG is a $kind, not an annotated tag. Delete it and re-create it with release.py tag, which annotates and signs."
+            exit 1
+          fi
+          if ! git cat-file tag "$TAG" |
+               grep -qE '^-----BEGIN (PGP|SSH) SIGNATURE-----|^-----BEGIN SIGNED MESSAGE-----'
+          then
+            echo "::error::$TAG carries no signature. Delete it and re-create it with release.py tag."
+            exit 1
+          fi
+          echo "::notice::$TAG is annotated and signed"
 
-      # Build once, before mutating main, so a broken build aborts the release
-      # before any commit or tag. Every downstream publish consumes this exact
-      # artifact rather than rebuilding, so the bytes tested are the bytes
-      # shipped. Runs in all modes, including dry-run, so a dry run validates
-      # that the project still builds.
+      # Only the dispatch modes need this: they publish a version nobody wrote
+      # down, so the files have to be edited to match. On the tag path the files
+      # already carry the version and the step above proved it, which is why the
+      # working tree is never modified for a real release.
+      - name: Update version
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # `[^\"]*` rather than `.*`: the greedy form reaches the last quote on
+          # the line, so a trailing comment containing quotes was swallowed.
+          sed -i "s/^version = \"[^\"]*\"/version = \"$NEW_VERSION\"/" pyproject.toml
+          sed -i "s/^__version__ = '[^']*'/__version__ = '$NEW_VERSION'/" pika/__init__.py
+
+          # `sed -i` exits 0 when nothing matched, so a reformatted declaration
+          # would build a wheel whose metadata disagrees with the version this
+          # job reported. `write_version` raises in that case; this is the copy
+          # that did not notice.
+          for file in pyproject.toml pika/__init__.py
+          do
+            if ! grep -q "$NEW_VERSION" "$file"
+            then
+              echo "::error::$file does not declare $NEW_VERSION after the rewrite; its version line is not in the expected form"
+              exit 1
+            fi
+          done
+
+      # Build once, before anything is published, so a broken build aborts the
+      # release while it is still only a tag. Every downstream publish consumes
+      # this exact artifact rather than rebuilding, so the bytes tested are the
+      # bytes shipped. Runs in all modes, including dry-run, so a dry run
+      # validates that the project still builds.
       - name: Build distribution
         run: |
           python -m pip install build twine --upgrade
@@ -175,30 +284,45 @@ jobs:
           path: dist/
           if-no-files-found: error
 
-      - name: Commit, tag, and push
-        if: ${{ inputs.mode == 'release' || inputs.mode == 'prerelease' }}
+      # Last of the guards, and the only one that outlives the run: a git tag can
+      # be deleted and re-pushed, but a PyPI version is immutable and cannot be
+      # re-uploaded even after deletion. `twine` would fail on its own, after
+      # uploading whichever files it managed first; this says so beforehand.
+      - name: Refuse a version PyPI already has
+        if: >-
+          ${{ steps.version.outputs.mode == 'release' ||
+              steps.version.outputs.mode == 'prerelease' }}
         env:
-          NEW_VERSION: ${{ steps.version.outputs.new }}
+          NEW_VERSION: ${{ steps.version.outputs.version }}
         run: |
-          git add pyproject.toml pika/__init__.py
-          git commit -m "release: pika $NEW_VERSION"
-          git tag -a "$NEW_VERSION" -m "pika $NEW_VERSION"
-          git push origin HEAD:${{ github.ref }} --follow-tags
-
-      - name: Verify tag exists on remote
-        if: ${{ inputs.mode == 'release' || inputs.mode == 'prerelease' }}
-        env:
-          NEW_VERSION: ${{ steps.version.outputs.new }}
-        run: |
-          git ls-remote --tags origin "refs/tags/$NEW_VERSION" | grep -q "$NEW_VERSION" \
-            || { echo "::error::Tag $NEW_VERSION not found on remote after push"; exit 1; }
+          # Only a 404 means "not published". Testing for 200 made every other
+          # status a green light, so a 429, a 503 or a redirect would wave an
+          # already-published version through to `twine`, which is the single
+          # unrecoverable mistake this step exists to prevent. `tag_release.py`
+          # gets this right and says why; this is the shell copy that did not.
+          status=$(curl -sS --location --max-time 30 --retry 3 \
+            --retry-connrefused -o /dev/null -w '%{http_code}' \
+            "https://pypi.org/pypi/pika/$NEW_VERSION/json")
+          case "$status" in
+            404)
+              echo "::notice::pika $NEW_VERSION is not on PyPI"
+              ;;
+            200)
+              echo "::error::pika $NEW_VERSION is already on PyPI. A version cannot be re-uploaded, even after deletion; bump to the next one. Delete the tag before re-tagging."
+              exit 1
+              ;;
+            *)
+              echo "::error::PyPI answered HTTP $status for $NEW_VERSION, so whether it is already published is unknown. Refusing rather than guessing."
+              exit 1
+              ;;
+          esac
 
       - name: Dry-run summary
-        if: ${{ inputs.mode == 'dry-run' }}
+        if: ${{ steps.version.outputs.mode == 'dry-run' }}
         env:
-          NEW_VERSION: ${{ steps.version.outputs.new }}
+          NEW_VERSION: ${{ steps.version.outputs.version }}
         run: |
-          echo "::notice::Dry run - would release pika $NEW_VERSION (no commit, tag, or publish)"
+          echo "::notice::Dry run - would release pika $NEW_VERSION (nothing published)"
           git --no-pager diff
 
   # The publish jobs only download and publish the artifact built by the
@@ -209,7 +333,9 @@ jobs:
   publish-pypi:
     name: Publish to PyPI
     needs: release
-    if: ${{ inputs.mode == 'release' || inputs.mode == 'prerelease' }}
+    if: >-
+      ${{ needs.release.outputs.mode == 'release' ||
+          needs.release.outputs.mode == 'prerelease' }}
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -232,7 +358,7 @@ jobs:
   publish-test-pypi:
     name: Publish to TestPyPI
     needs: release
-    if: ${{ inputs.mode == 'test' }}
+    if: ${{ needs.release.outputs.mode == 'test' }}
     runs-on: ubuntu-latest
     environment:
       name: testpypi
@@ -265,7 +391,7 @@ jobs:
        needs.publish-test-pypi.result == 'success')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -307,13 +433,23 @@ jobs:
 
   github-release:
     name: Create GitHub Release
-    needs: [release, publish-pypi]
-    if: ${{ inputs.mode == 'release' || inputs.mode == 'prerelease' }}
+    # `smoke-test` too, so the Release does not exist for a wheel that failed
+    # it. Without it this ran concurrently with the smoke test and fired every
+    # watcher's release notification regardless, while only `deploy-docs` was
+    # gated. RELEASE.md presents the order as publish, smoke-test, Release,
+    # docs, and the recovery procedure assumes the Release is absent when an
+    # earlier step failed.
+    needs: [release, publish-pypi, smoke-test]
+    if: >-
+      ${{ !cancelled() &&
+          (needs.release.outputs.mode == 'release' ||
+           needs.release.outputs.mode == 'prerelease') &&
+          needs.smoke-test.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           ref: ${{ needs.release.outputs.version }}
@@ -322,7 +458,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.release.outputs.version }}
-          IS_PRERELEASE: ${{ inputs.mode == 'prerelease' }}
+          IS_PRERELEASE: ${{ needs.release.outputs.mode == 'prerelease' }}
         run: |
           PRERELEASE_FLAG=""
           if [ "$IS_PRERELEASE" = "true" ]; then
@@ -361,8 +497,10 @@ jobs:
     # docs never publish - silently, because a skip is not a failure.
     if: >-
       ${{ !cancelled() &&
-          (inputs.mode == 'release' || inputs.mode == 'prerelease') &&
-          needs.smoke-test.result == 'success' }}
+          (needs.release.outputs.mode == 'release' ||
+           needs.release.outputs.mode == 'prerelease') &&
+          needs.smoke-test.result == 'success' &&
+          needs.github-release.result == 'success' }}
     # Required: a called workflow cannot elevate the caller's token.
     permissions:
       contents: write
