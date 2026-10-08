@@ -68,7 +68,12 @@ CLOSED_ISSUES = '**Closed issues:**'
 MERGED_PULLS = '**Merged pull requests:**'
 
 #: Both merge styles. `1.4.0..HEAD` holds 96 merge-style subjects and 2
-#: squash-style, so both occur despite the first dominating.
+#: squash-style, so both occur despite the first dominating. The leading `^` and
+#: the `.match` call anchor the same thing twice, deliberately: measured, either
+#: one alone still anchors, so dropping either is an equivalent mutation, and
+#: only dropping both lets `Revert "Merge pull request #5 from a"` be read as a
+#: merge of #5. The squash pattern below uses `.search`, so the belt and braces
+#: are worth keeping where the two styles sit side by side.
 MERGE_SUBJECT = re.compile(r'^Merge pull request #(\d+) ')
 SQUASH_SUBJECT = re.compile(r'\(#(\d+)\)$')
 
