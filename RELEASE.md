@@ -8,13 +8,19 @@
 release changelog --version 1.5.0
 ```
 
-That wraps [`github_changelog_generator`](https://github.com/github-changelog-generator/github-changelog-generator), which needs a token in `CHANGELOG_GITHUB_TOKEN`. It generates **only the new entry**, with `--since-tag`, and inserts it above the newest existing one.
+That builds the entry from the version's **milestone**, in `.ci/changelog.py`: the closed issues and merged pull requests it carries, plus a sweep of `git log` for merged pull requests that escaped it. It needs no token beyond the `gh` authentication the rest of the release already uses.
 
-`--dry-run` prints the generated entry instead of writing it, which is the way to read it before it lands. Without it, the entry is written and committed on the current branch, which must not be `main`.
+It replaced `github_changelog_generator`, which fits pika badly. That tool crawled every tag and every closed issue by date, and pika has tags back to `v0.9a` and a 1,380-line changelog. It also wrote the heading link from the *previous* tag, which is why the committed 1.4.3 entry points at `tree/1.4.2`. Above all it ignored milestones, and pika curates those: 1.5.0 carries 38 closed issues and 84 merged pull requests. See #1731.
 
-`--since-tag` defaults to the newest released version by **version order**, not `git describe`. That distinction matters here: 1.4.1 through 1.4.4 were cut from the `1.4.x` branch, so none of them is an ancestor of `main` and `git describe` answers 1.4.0 there, which would re-list everything already written up for 1.4.1, 1.4.2 and 1.4.3. Pass `--since-tag` to override. It will not regenerate the whole file, because everything from `## Version History` down is hand-written history for 1.3.0 and earlier that the generator does not reproduce; it refuses rather than reaching past that heading. `--dry-run` prints the generated entry instead of writing it.
+Only the new entry is generated, inserted above the newest existing one. It will not regenerate the whole file, because everything from `## Version History` down is hand-written history for 1.3.0 and earlier; it refuses rather than reaching past that heading.
 
-**Read the result before committing.** The generator groups by pull-request label and gets the grouping wrong when a label is missing, so this is the one operation whose output wants an editorial pass. It also writes the heading link from the previous tag rather than the new one, which is why the 1.4.3 heading in this file links to `tree/1.4.2`.
+`--dry-run` prints the entry instead of writing it, which is the way to read it before it lands. Without it, the entry is written and committed on the current branch, which must not be `main`.
+
+`--since-tag` defaults to the newest tag **reachable from HEAD**, which `git describe` answers. The range is "what is new on this branch", and reachability is exactly that question. That is the opposite of how "has this version already shipped" is decided, which is **PEP 440 order**, because 1.4.1 through 1.4.4 were cut from `1.4.x` and are not ancestors of `main`. Reasoning from one rule to the other gives either a changelog that re-lists three released versions or a release that goes backwards; both rules are commented where they live.
+
+**Unmilestoned pull requests are included, and reported.** There are 14 in `1.4.0..main`, mostly dependabot, and the list is printed so the milestone can be corrected afterwards. One of them, #1694, is a substantive fix that never got milestoned.
+
+**Read the result before committing.** Grouping follows labels: `C-enhancement` to "Implemented enhancements", `C-bug` to "Fixed bugs", `A-documentation` to "Documentation", everything else to "Closed issues". An unlabelled issue lands in the catch-all, so this is the one operation whose output wants an editorial pass. `.github/release.yml` maps the same three labels for the GitHub release notes, and a test checks the two agree, because it previously named six labels pika does not have and every pull request fell through its catch-all.
 
 Keep the file to a single `# ` heading. It is included verbatim into `docs/changelog.md`, so a second top-level heading becomes a second H1 on that page.
 
