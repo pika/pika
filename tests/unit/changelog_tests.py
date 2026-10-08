@@ -1,15 +1,18 @@
 """
 Tests for the changelog generator in `.ci/changelog.py`.
 
-The GitHub queries are injectable, so these never reach the network. What they are mostly about is
-the rendered format: the entry is prepended above a thousand lines of released history and has to be
-indistinguishable from it, down to the escaped `\\#` and the trailing author link. A format drift
-here is not a crash, it is a changelog that looks wrong forever.
+The GitHub queries are injectable, so none of this reaches the network.
 
-The other thing checked here is that `SECTIONS` and `.github/release.yml` name the same labels.
-`release.yml` listed six labels pika does not have, so every pull request fell through its catch-all
-and the generated release notes were never categorised. Two files deciding the same thing from the
-same labels is a drift risk, so the agreement is asserted rather than assumed.
+Two choices here were learned the hard way. The format test reads the 1.4.2 entry **out of
+`HISTORY.md`** rather than quoting it: an earlier version hand-typed both sides, its fixture dropped
+' on Windows' from the real title, and that self-consistency is why an ascending sort, missing title
+escaping and a doubled blank line all survived a review. The file is the standard to match, the more
+so because the committed entries were hand-edited after generation.
+
+And the fakes assert the **whole** command vector. Dispatching on the first two arguments and
+ignoring the rest left 13 of 29 mutants alive, including swapping the milestone for the version in
+both queries, dropping `--state closed`, and reversing the commit range, which silently empties the
+cross-check.
 """
 
 from __future__ import annotations
@@ -30,36 +33,180 @@ changelog = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(changelog)
 
 
-def fake_gh(issues=(), pulls=(), views=None):
-    """
-    Return a `gh` stand-in answering the three queries the generator makes.
+class Recorder:
+    """A `gh` and git stand-in that records every call in full."""
 
-    :param issues: What `issue list` returns.
-    :param pulls: What `pr list` returns.
-    :param views: Maps a number to what `pr view` returns.
-    :returns: A callable with `_gh`'s signature.
-    """
+    def __init__(self, answers=None, log='', tagged='2026-05-06'):
+        """
+        :param answers: Maps the first two arguments to the rows to return.
+        :param log: What `git log --format=%s` returns.
+        :param tagged: What `git log --format=%cs` returns.
+        """
+        self.answers = answers or {}
+        self.log = log
+        self.tagged = tagged
+        self.calls: list[tuple[str, ...]] = []
 
-    def run(*args):
-        if args[:2] == ('issue', 'list'):
-            return json.dumps(list(issues))
-        if args[:2] == ('pr', 'list'):
-            return json.dumps(list(pulls))
-        if args[:2] == ('pr', 'view'):
-            return json.dumps((views or {})[int(args[2])])
-        raise AssertionError(f'unexpected gh {args}')
+    def gh(self, *args):
+        """
+        :param args: Arguments after `gh`.
+        :returns: The canned JSON.
+        """
+        self.calls.append(args)
+        return json.dumps(self.answers.get(args[:2], []))
 
-    return run
+    def git(self, *args):
+        """
+        :param args: Arguments after `git`.
+        :returns: Canned output.
+        """
+        self.calls.append(args)
+        if '--format=%cs' in args:
+            return self.tagged + '\n'
+        return self.log
+
+    def call(self, *prefix):
+        """
+        :param prefix: Leading arguments to look for.
+        :returns: The single matching call.
+        """
+        found = [c for c in self.calls if c[:len(prefix)] == prefix]
+        assert len(found) == 1, f'{prefix} matched {len(found)} calls'
+        return found[0]
 
 
-def fake_git(subjects=()):
-    """
-    Return a git stand-in answering `log --format=%s`.
+class FormatTests(unittest.TestCase):
+    """The rendered entry, pinned to the committed file rather than to itself."""
 
-    :param subjects: Commit subjects, newest first.
-    :returns: A callable with `_git`'s signature.
-    """
-    return lambda *args: '\n'.join(subjects) + '\n' if subjects else ''
+    def committed(self, tag, following):
+        """
+        :param tag: The entry to read.
+        :param following: The entry after it, which bounds the read.
+        :returns: The committed block, ending in one newline.
+        """
+        text = (_ROOT / 'HISTORY.md').read_text(encoding='utf-8')
+        return text[text.index(f'## [{tag}]('):text.index(f'## [{following}]('
+                                                         )].rstrip() + '\n'
+
+    def test_it_reproduces_the_committed_1_4_2_entry_byte_for_byte(self):
+        # Both titles come out of the file, so nothing here can drift from it.
+        block = self.committed('1.4.2', '1.4.1')
+        issue_title = re.search(r'^- (.*) \[\\#1639\]', block,
+                                re.MULTILINE).group(1)
+        pull_title = re.search(r'^- (.*) \[\\#1642\]', block,
+                               re.MULTILINE).group(1)
+        self.assertEqual(
+            changelog.render('1.4.2',
+                             '1.4.1', [{
+                                 'number': 1639,
+                                 'title': issue_title,
+                                 'labels': [],
+                             }], [{
+                                 'number': 1642,
+                                 'title': pull_title,
+                                 'labels': [],
+                                 'author': {
+                                     'login': 'lukebakken',
+                                     'is_bot': False,
+                                 },
+                             }],
+                             released=datetime.date(2026, 7, 23)), block)
+
+    def test_the_heading_names_the_version_being_cut(self):
+        # `github_changelog_generator` wrote the previous tag here, which is why
+        # the committed 1.4.3 entry links to `tree/1.4.2`.
+        entry = changelog.render('1.4.3', '1.4.2', [], [])
+        self.assertIn('tree/1.4.3', entry)
+        self.assertIn('compare/1.4.2...1.4.3', entry)
+
+    def test_sections_read_newest_first(self):
+        entry = changelog.render('9.9.9', '9.9.8', [{
+            'number': n,
+            'title': str(n),
+            'labels': ['C-bug'],
+        } for n in (10, 30, 20)], [])
+        self.assertEqual([int(n) for n in re.findall(r'\\#(\d+)', entry)],
+                         [30, 20, 10])
+
+    def test_a_labelled_pull_request_joins_the_labelled_section(self):
+        # The committed 1.4.0 entry has #1579 and #1561 under
+        # `**Implemented enhancements:**`, with author links.
+        entry = changelog.render('9.9.9', '9.9.8', [], [{
+            'number': 7,
+            'title': 'a feature',
+            'labels': [{
+                'name': 'C-enhancement'
+            }],
+            'author': {
+                'login': 'someone'
+            },
+        }])
+        self.assertIn('**Implemented enhancements:**', entry)
+        self.assertNotIn(changelog.MERGED_PULLS, entry)
+        self.assertIn('([someone](https://github.com/someone))', entry)
+
+    def test_it_ends_in_exactly_one_newline(self):
+        entry = changelog.render('9.9.9', '9.9.8', [], [])
+        self.assertTrue(entry.endswith('\n'))
+        self.assertFalse(entry.endswith('\n\n'))
+
+
+class EscapeTests(unittest.TestCase):
+    """`HISTORY.md` is served verbatim on the documentation site."""
+
+    def test_it_escapes_what_the_committed_entries_escape(self):
+        self.assertEqual(changelog.escape('utcfromtimestamp() is deprecated'),
+                         r'utcfromtimestamp\(\) is deprecated')
+        self.assertEqual(changelog.escape("in '__init__.pyi'"),
+                         r"in '\_\_init\_\_.pyi'")
+        self.assertEqual(changelog.escape('see [docs](url)'),
+                         r'see \[docs\]\(url\)')
+
+    def test_it_leaves_backticks_alone(self):
+        # Measured: the committed region escapes `#_()[]<` and no backticks,
+        # because a backtick in a title is deliberate code formatting.
+        self.assertEqual(changelog.escape('a check using `ruff`'),
+                         'a check using `ruff`')
+
+    def test_each_escaped_character_appears_escaped_in_the_file(self):
+        text = (_ROOT / 'HISTORY.md').read_text(encoding='utf-8')
+        generated = text[:text.index('## Version History')]
+        for character in '_()[]<':
+            with self.subTest(character=character):
+                self.assertIn('\\' + character, generated)
+
+
+class AuthorTests(unittest.TestCase):
+    """Three author shapes, all present in the live data."""
+
+    def test_a_person(self):
+        self.assertEqual(changelog.author_of({'author': {
+            'login': 'luke'
+        }}), ('luke', 'https://github.com/luke'))
+
+    def test_a_github_app(self):
+        # `gh` reports `app/dependabot`; `github.com/app/dependabot` is a 404.
+        self.assertEqual(
+            changelog.author_of({
+                'author': {
+                    'login': 'app/dependabot',
+                    'is_bot': True
+                },
+            }), ('dependabot[bot]', 'https://github.com/apps/dependabot'))
+
+    def test_a_deleted_account(self):
+        self.assertEqual(changelog.author_of({'author': None}),
+                         ('ghost', 'https://github.com/ghost'))
+
+    def test_the_bot_form_matches_the_committed_entries(self):
+        name, url = changelog.author_of({
+            'author': {
+                'login': 'app/dependabot',
+                'is_bot': True
+            },
+        })
+        self.assertIn(f'([{name}]({url}))',
+                      (_ROOT / 'HISTORY.md').read_text(encoding='utf-8'))
 
 
 class SectionTests(unittest.TestCase):
@@ -72,244 +219,228 @@ class SectionTests(unittest.TestCase):
         self.assertEqual(changelog.section_for(['A-documentation']),
                          '**Documentation:**')
 
-    def test_everything_else_is_a_closed_issue(self):
-        # Deliberate: the entries this has to sit above only ever had two
-        # sections, so `C-refactor` and the rest do not get their own.
+    def test_everything_else_falls_to_the_catch_all(self):
         for labels in (['C-refactor'], ['C-performance'], ['dependencies'],
                        ['github_actions'], ['A-typing'], []):
             with self.subTest(labels=labels):
                 self.assertEqual(changelog.section_for(labels),
-                                 '**Closed issues:**')
+                                 changelog.CLOSED_ISSUES)
 
     def test_the_first_mapped_label_wins(self):
-        # An issue labelled both takes the earlier section, so the output is
-        # deterministic rather than dependent on label order.
         self.assertEqual(changelog.section_for(['C-bug', 'C-enhancement']),
                          '**Implemented enhancements:**')
 
-    def test_release_yml_names_the_same_labels(self):
-        # Parsed with a regex rather than `yaml`, which is not a test
-        # dependency and is not worth becoming one to compare two files. A
-        # label entry is a bare scalar list item; `- title: "..."` has a space
-        # after its colon, so it does not match.
+    def test_release_yml_maps_each_label_to_the_same_section(self):
+        # The mapping, not the label set: comparing sets let `C-bug` and
+        # `C-enhancement` swap titles with CI green, which is the same silent
+        # miscategorisation this work exists to fix.
         text = (_ROOT / '.github' / 'release.yml').read_text(encoding='utf-8')
-        from_yaml = {
-            label for label in re.findall(r'^\s+- (\S+)$', text, re.MULTILINE)
-            if label != '"*"'
-        }
-        self.assertEqual({label for label, _ in changelog.SECTIONS}, from_yaml)
+        pairs, title = {}, None
+        for line in text.splitlines():
+            heading = re.match(r'\s+- title: "(.*)"', line)
+            if heading:
+                title = heading.group(1)
+                continue
+            label = re.match(r'\s+- (\S+)$', line)
+            if label and title and label.group(1) != '"*"':
+                pairs[label.group(1)] = f'**{title}:**'
+        self.assertEqual(pairs, dict(changelog.SECTIONS))
 
-    def test_every_label_it_names_is_namespaced(self):
-        # `release.yml` listed `enhancement`, `bug` and `documentation`, which
-        # pika does not have; the namespace prefix is the tell.
-        for label, _ in changelog.SECTIONS:
-            with self.subTest(label=label):
-                self.assertRegex(label, r'^[CA]-')
-
-
-class RenderTests(unittest.TestCase):
-    """The format, which has to match a thousand lines of released history."""
-
-    ISSUE: ClassVar[dict] = {
-        'number': 1639,
-        'title': 'Importing pika.adapters can break asyncio subprocesses',
-        'labels': [],
-    }
-    PULL: ClassVar[dict] = {
-        'number': 1642,
-        'title': 'Stop mutating global asyncio event loop policy on import',
-        'author': 'lukebakken',
-    }
-
-    def test_it_reproduces_a_released_entry_exactly(self):
-        entry = changelog.render('1.4.2',
-                                 '1.4.1', [self.ISSUE], [self.PULL],
-                                 released=datetime.date(2026, 7, 23))
-        self.assertEqual(
-            entry, '## [1.4.2](https://github.com/pika/pika/tree/1.4.2) '
-            '(2026-07-23)\n'
-            '\n'
-            '[Full Changelog](https://github.com/pika/pika/compare/'
-            '1.4.1...1.4.2)\n'
-            '\n'
-            '**Closed issues:**\n'
-            '\n'
-            '- Importing pika.adapters can break asyncio subprocesses '
-            '[\\#1639](https://github.com/pika/pika/issues/1639)\n'
-            '\n'
-            '**Merged pull requests:**\n'
-            '\n'
-            '- Stop mutating global asyncio event loop policy on import '
-            '[\\#1642](https://github.com/pika/pika/pull/1642) '
-            '([lukebakken](https://github.com/lukebakken))\n')
-
-    def test_the_heading_names_the_version_being_cut(self):
-        # `github_changelog_generator` wrote the *previous* tag here, which is
-        # why the committed 1.4.3 entry links to `tree/1.4.2`.
-        entry = changelog.render('1.4.3', '1.4.2', [], [])
-        self.assertIn('## [1.4.3](https://github.com/pika/pika/tree/1.4.3)',
-                      entry)
-        self.assertIn('compare/1.4.2...1.4.3', entry)
-
-    def test_sections_appear_in_a_fixed_order(self):
-        issues = [
-            {
-                'number': 3,
-                'title': 'c',
-                'labels': ['A-documentation']
-            },
-            {
-                'number': 1,
-                'title': 'a',
-                'labels': ['C-bug']
-            },
-            {
-                'number': 2,
-                'title': 'b',
-                'labels': ['C-enhancement']
-            },
-            {
-                'number': 4,
-                'title': 'd',
-                'labels': ['C-refactor']
-            },
-        ]
-        headings = [
-            line for line in changelog.render('9.9.9', '9.9.8', issues,
-                                              []).splitlines()
-            if line.startswith('**')
-        ]
-        self.assertEqual(headings, [
-            '**Implemented enhancements:**',
-            '**Fixed bugs:**',
-            '**Documentation:**',
-            '**Closed issues:**',
-        ])
-
-    def test_entries_are_sorted_by_number_within_a_section(self):
-        issues = [{
-            'number': n,
-            'title': str(n),
-            'labels': ['C-bug']
-        } for n in (30, 10, 20)]
-        numbers = [
-            int(line.split('\\#')[1].split(']')[0])
-            for line in changelog.render('9.9.9', '9.9.8', issues,
-                                         []).splitlines()
-            if line.startswith('- ')
-        ]
-        self.assertEqual(numbers, [10, 20, 30])
-
-    def test_an_empty_section_is_omitted(self):
-        entry = changelog.render('9.9.9', '9.9.8', [], [])
-        self.assertNotIn('**', entry)
-        self.assertTrue(entry.endswith('\n'))
+    def test_release_yml_keeps_its_catch_all(self):
+        # The `"*"` is what was blamed for everything falling through; removing
+        # it must not pass unnoticed.
+        self.assertIn('- "*"', (_ROOT / '.github' /
+                                'release.yml').read_text(encoding='utf-8'))
 
 
 class MergedNumbersTests(unittest.TestCase):
     """Reading pull-request numbers out of a commit range."""
 
-    def test_merge_commits(self):
-        self.assertEqual(
-            changelog.merged_numbers(
-                '1.4.0',
-                git=fake_git([
-                    'Merge pull request #1727 from pika/gh-1675',
-                    'Merge pull request #1726 from pika/fix'
-                ])), [1727, 1726])
+    def test_both_merge_styles(self):
+        recorder = Recorder(log='Merge pull request #1727 from pika/gh-1675\n'
+                            'Fix the thing (#1700)\n')
+        self.assertEqual(changelog.merged_numbers('1.4.0', git=recorder.git),
+                         [1727, 1700])
 
-    def test_squashed_commits(self):
-        # pika squash-merges nothing today, but a future squash should not
-        # vanish from a release's changelog.
-        self.assertEqual(
-            changelog.merged_numbers('1.4.0',
-                                     git=fake_git(['Fix the thing (#1700)'])),
-            [1700])
+    def test_the_range_is_passed_in_the_right_order(self):
+        recorder = Recorder()
+        changelog.merged_numbers('1.4.0', 'HEAD', git=recorder.git)
+        self.assertEqual(recorder.call('log'),
+                         ('log', '--format=%s', '1.4.0..HEAD'))
 
     def test_other_subjects_are_ignored(self):
-        self.assertEqual(
-            changelog.merged_numbers('1.4.0',
-                                     git=fake_git([
-                                         'pika 1.4.2',
-                                         'Revert "something (#1)" badly',
-                                         'Mentions #1234 in passing'
-                                     ])), [])
+        recorder = Recorder(log='pika 1.4.2\nMentions #1234 in passing\n')
+        self.assertEqual(changelog.merged_numbers('1.4.0', git=recorder.git),
+                         [])
 
     def test_a_number_is_reported_once(self):
+        recorder = Recorder(log='Merge pull request #5 from a\n'
+                            'Merge pull request #5 from a\n')
+        self.assertEqual(changelog.merged_numbers('1.4.0', git=recorder.git),
+                         [5])
+
+
+class QueryTests(unittest.TestCase):
+    """The queries themselves, asserted in full."""
+
+    def test_the_milestone_issue_query(self):
+        recorder = Recorder()
+        changelog.milestone_issues('1.5.0', gh=recorder.gh)
+        self.assertEqual(recorder.call('issue', 'list'),
+                         ('issue', 'list', '--milestone', '1.5.0', '--state',
+                          'closed', '--limit', str(changelog.LIMIT), '--json',
+                          'number,title,labels,closedAt'))
+
+    def test_the_milestone_pull_query(self):
+        recorder = Recorder()
+        changelog.milestone_pulls('1.5.0', gh=recorder.gh)
+        self.assertEqual(recorder.call('pr', 'list'),
+                         ('pr', 'list', '--state', 'merged', '--search',
+                          'milestone:1.5.0', '--limit', str(changelog.LIMIT),
+                          '--json', 'number,title,author,labels,mergedAt'))
+
+    def test_the_window_query_for_the_cross_check(self):
+        recorder = Recorder()
+        changelog.merged_in_window('2026-05-06', gh=recorder.gh)
+        self.assertEqual(recorder.call('pr', 'list'),
+                         ('pr', 'list', '--state', 'merged', '--search',
+                          'merged:>=2026-05-06', '--limit', str(
+                              changelog.LIMIT), '--json', 'number,milestone'))
+
+
+class LimitTests(unittest.TestCase):
+    """A saturated `--limit` is refused, not silently truncated."""
+
+    def test_a_saturated_answer_is_refused(self):
+        rows = [{
+            'number': n,
+            'title': str(n),
+            'labels': []
+        } for n in range(changelog.LIMIT)]
+        with self.assertRaises(changelog.ChangelogError) as caught:
+            changelog.milestone_issues('1.5.0', gh=lambda *a: json.dumps(rows))
+        self.assertIn(str(changelog.LIMIT), str(caught.exception))
+
+    def test_one_short_of_it_is_fine(self):
+        rows = [{
+            'number': n,
+            'title': str(n),
+            'labels': []
+        } for n in range(changelog.LIMIT - 1)]
         self.assertEqual(
-            changelog.merged_numbers('1.4.0',
-                                     git=fake_git([
-                                         'Merge pull request #5 from a',
-                                         'Merge pull request #5 from a'
-                                     ])), [5])
+            len(
+                changelog.milestone_issues('1.5.0',
+                                           gh=lambda *a: json.dumps(rows))),
+            changelog.LIMIT - 1)
 
 
-class UnmilestonedTests(unittest.TestCase):
-    """Pull requests the milestone does not carry are found and included."""
+class DegenerateInputTests(unittest.TestCase):
+    """What arrives when something is wrong."""
 
-    def test_only_the_ones_the_milestone_lacks(self):
-        strays = changelog.unmilestoned(
-            '1.4.0', {7},
-            git=fake_git([
-                'Merge pull request #7 from a', 'Merge pull request #9 from b'
-            ]),
-            gh=fake_gh(views={
-                9: {
-                    'number': 9,
-                    'title': 'stray',
-                    'author': {
-                        'login': 'someone'
-                    },
-                }
-            }))
-        self.assertEqual(strays, [{
-            'number': 9,
-            'title': 'stray',
-            'author': 'someone'
-        }])
+    def test_an_empty_answer_is_not_an_error(self):
+        for answer in ('', '[]', '[]\n'):
+            with self.subTest(answer=answer):
+                self.assertEqual(
+                    changelog.milestone_issues(
+                        '1.5.0', gh=lambda *a, answer=answer: answer), [])
 
-    def test_generate_reports_them_and_still_includes_them(self):
-        notes = []
-        entry = changelog.generate(
-            '1.5.0',
-            '1.5.0',
-            '1.4.0',
-            git=fake_git(['Merge pull request #9 from b']),
-            gh=fake_gh(views={
-                9: {
-                    'number': 9,
-                    'title': 'stray',
-                    'author': {
-                        'login': 'someone'
-                    },
-                }
-            }),
-            report=notes.append)
-        self.assertIn('carry no 1.5.0 milestone', notes[0])
-        self.assertIn('#9 stray', notes[1])
-        self.assertIn('[\\#9](https://github.com/pika/pika/pull/9)', entry)
+    def test_malformed_json_names_the_query(self):
+        with self.assertRaises(changelog.ChangelogError) as caught:
+            changelog.milestone_issues('1.5.0', gh=lambda *a: 'not json')
+        self.assertIn('issue list', str(caught.exception))
+
+    def test_a_failing_tool_raises_an_oserror(self):
+        # `release.py main` catches OSError, so this reports as one line.
+        self.assertTrue(issubclass(changelog.ChangelogError, OSError))
 
 
-class GenerateTests(unittest.TestCase):
-    """The milestone and the version are not the same thing."""
+class CollectTests(unittest.TestCase):
+    """The milestone decides membership; the range only reports disagreement."""
 
-    def test_a_prerelease_draws_on_the_base_milestone_but_names_itself(self):
-        entry = changelog.generate('1.5.0',
-                                   '1.5.0a1',
-                                   '1.4.0',
-                                   git=fake_git(),
-                                   gh=fake_gh(issues=[{
-                                       'number': 1,
-                                       'title': 'a thing',
-                                       'labels': [{
-                                           'name': 'C-bug'
-                                       }],
-                                   }]),
-                                   report=lambda message: None)
-        self.assertIn('## [1.5.0a1]', entry)
-        self.assertIn('tree/1.5.0a1', entry)
-        self.assertIn('compare/1.4.0...1.5.0a1', entry)
-        self.assertIn('**Fixed bugs:**', entry)
+    ISSUES: ClassVar[list] = [
+        {
+            'number': 99,
+            'title': 'in the milestone',
+            'labels': [],
+            'closedAt': '2026-06-01T00:00:00Z'
+        },
+        {
+            'number': 50,
+            'title': 'shipped earlier',
+            'labels': [],
+            'closedAt': '2026-05-05T00:00:00Z'
+        },
+    ]
+    PULLS: ClassVar[list] = [
+        {
+            'number': 10,
+            'title': 'ten',
+            'labels': [],
+            'author': {
+                'login': 'a'
+            },
+            'mergedAt': '2026-06-01T00:00:00Z'
+        },
+    ]
+
+    def _collect(self, log, window):
+        """
+        :param log: Commit subjects in the cross-check range.
+        :param window: Maps a number to the milestone it names.
+        :returns: `(issues, pulls, report)`.
+        """
+        recorder = Recorder(answers={
+            ('issue', 'list'): self.ISSUES,
+            ('pr', 'list'): self.PULLS,
+        },
+                            log=log)
+        calls = {'n': 0}
+
+        def gh(*args):
+            # `pr list` serves both the milestone query and the window query.
+            if args[:2] == ('pr', 'list') and 'merged:>=2026-05-06' in args:
+                return json.dumps([{
+                    'number': number,
+                    'milestone': {
+                        'title': named
+                    } if named else None,
+                } for number, named in window.items()])
+            calls['n'] += 1
+            return recorder.gh(*args)
+
+        return changelog.collect('1.5.0', '1.4.0', git=recorder.git, gh=gh)
+
+    def test_membership_comes_from_the_milestone(self):
+        issues, pulls, _ = self._collect('', {})
+        self.assertEqual([i['number'] for i in issues], [99, 50])
+        self.assertEqual([p['number'] for p in pulls], [10])
+
+    def test_a_pull_request_with_no_milestone_is_reported_not_included(self):
+        _, pulls, report = self._collect('Merge pull request #11 from b\n',
+                                         {11: ''})
+        self.assertEqual(report['none'], [11])
+        self.assertNotIn(11, [p['number'] for p in pulls])
+
+    def test_a_different_milestone_is_reported_separately(self):
+        # Conflating this with "no milestone" produced dangerous advice: moving
+        # #1596 onto 1.5.0 would move work that shipped in 1.4.1.
+        _, _, report = self._collect('Merge pull request #12 from c\n',
+                                     {12: '1.4.1'})
+        self.assertEqual(report['elsewhere'], [(12, '1.4.1')])
+        self.assertEqual(report['none'], [])
+
+    def test_something_finished_before_the_previous_tag_is_reported_stale(self):
+        # #1558 is the live case: in milestone 1.5.0, closed the day before
+        # 1.4.0 shipped, and already in the committed 1.4.0 entry.
+        report = self._collect('', {})[2]
+        self.assertEqual(report['stale'], [(50, '2026-05-05')])
+
+    def test_a_number_that_is_not_a_merged_pull_request_is_ignored(self):
+        # A `(#N)` subject naming an issue. An earlier version ran `gh pr view`
+        # on it and aborted the whole operation; pika has 21 such subjects.
+        _, _, report = self._collect('Fix a thing (#307)\n', {})
+        self.assertEqual(report['none'], [])
+        self.assertEqual(report['elsewhere'], [])
 
 
 if __name__ == '__main__':

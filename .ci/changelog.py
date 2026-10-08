@@ -1,27 +1,39 @@
 """
-The `HISTORY.md` entry for a release, built from the milestone.
+The `HISTORY.md` entry for a release, from the commits the release contains.
 
-Replaces `github_changelog_generator`, which fits pika badly. That tool crawls every tag and every
-closed issue by date, and pika has tags back to `v0.9a` and a 1,380-line changelog; it needs a Ruby
-gem and a token nothing else in the release path uses; and it writes the heading link from the
-*previous* tag, which is why the 1.4.3 entry in `HISTORY.md` points at `tree/1.4.2`. Above all it
-ignores milestones, and pika curates those rigorously: 1.5.0 carries 38 closed issues and 84 merged
-pull requests that the generator simply discards.
+Replaces `github_changelog_generator`, which fits pika badly: it crawls every tag and every closed
+issue by date, pika has tags back to `v0.9a` and a 1,380-line changelog, it needs a Ruby gem and a
+token nothing else in the release path uses, and it writes the heading link from the *previous* tag,
+which is why the committed 1.4.3 entry points at `tree/1.4.2`.
 
-The shape here is `rabbitmq-dotnet-client`'s `tools/generate-changelog.sh`, in Python with the GitHub
-queries injectable so the tests do not reach the network. The milestone is authoritative; the commit
-range catches what escaped it.
+**The milestone is definitive; the commit range only cross-checks.** The milestone is where the
+editorial decision about a release is recorded, and pika curates it, so this never second-guesses it.
+What the range is for is catching the three ways the milestone and the history can disagree, each
+reported and none acted on:
 
-Two rules about tags live close together and mean opposite things, so they are spelled out:
+- merged in the range with no milestone, which wants milestoning
+- merged in the range carrying a *different* milestone, which wants checking. Never move a milestone
+  that has already shipped: #1596 says 1.4.1 and #1678 says 1.4.4, and both merged inside
+  `1.4.0..HEAD`
+- in the milestone but closed before the previous tag, which is almost certainly mis-milestoned.
+  #1558 is the live example: closed 2026-05-05, shipped in 1.4.0 the next day, and still milestoned
+  1.5.0
 
-- The range *starts* at the newest tag **reachable from HEAD**, which `git describe` answers. The
-  question is "what is new on this branch", and reachability is exactly that.
-- Whether a version has already shipped is a question of **PEP 440 order**, not reachability, because
-  1.4.1 through 1.4.4 were cut from `1.4.x` and are not ancestors of `main`. That rule lives in
-  `release.py previous_release`.
+An earlier attempt inverted this and let the range decide membership. That is wrong for pika: it made
+the generator paper over milestone data errors instead of surfacing them, and it dropped 20 of the 62
+numbers in the committed 1.4.0 entry, because pika closes plenty of issues with no linking pull
+request.
 
-Reasoning from one to the other produces a changelog that re-lists three released versions, or a
-release that goes backwards. They are not the same question.
+`gh` rather than a GitHub client library, deliberately. There is no official Python client: GitHub
+maintains Octokit for JavaScript, Ruby, .NET and Terraform only, and lists every Python option as third
+party. Meanwhile `gh` is already load-bearing - `release.py pr` and `release.yaml` both shell out to it
+- and already authenticated on a maintainer's machine and through `GH_TOKEN` in Actions. A library
+would mean two ways to reach GitHub plus a token to wire up, which is the `CHANGELOG_GITHUB_TOKEN`
+problem this file exists to remove.
+
+Two queries, never one per pull request: `gh pr list` returns title, author, milestone and closing
+issues together, and `gh issue list` returns titles and labels. An earlier version made one
+`gh pr view` per stray, fourteen subprocesses at about a second each, ninety-eight in the worst case.
 """
 
 from __future__ import annotations
@@ -30,16 +42,22 @@ import datetime
 import json
 import re
 import subprocess
-import sys
-from typing import Callable
+from typing import Any, Callable
+
+#: How many rows each query asks for. `gh` applies this and exits 0 with no
+#: warning, so a saturated answer would silently lose entries; `_rows` refuses
+#: instead. Pagination is the one thing a client library would have given us.
+#: Both queries are date-bounded to the release window, so 500 is ample: the
+#: widest window to date holds 104 pull requests and 55 issues.
+LIMIT = 500
 
 REPO = 'pika/pika'
 REPO_URL = f'https://github.com/{REPO}'
 
-#: Label to section heading, for issues. Everything unmatched falls to
-#: `CLOSED_ISSUES`, which is what the historical entries called it. `C-refactor`,
-#: `C-performance`, `dependencies` and `github_actions` land there deliberately:
-#: the entries this file has to stay consistent with only ever had two sections.
+#: Label to section heading. Everything unmatched falls to `CLOSED_ISSUES`, the
+#: name the historical entries use. Kept in step with `.github/release.yml`,
+#: which categorises the GitHub release notes from the same labels; a test
+#: asserts the mapping, not merely the label set.
 SECTIONS = (
     ('C-enhancement', '**Implemented enhancements:**'),
     ('C-bug', '**Fixed bugs:**'),
@@ -49,47 +67,132 @@ SECTIONS = (
 CLOSED_ISSUES = '**Closed issues:**'
 MERGED_PULLS = '**Merged pull requests:**'
 
-#: Both merge styles. pika squash-merges nothing today - all 53 merges in the
-#: most recent range are the first form - but a future squash should not vanish
-#: silently from a release's changelog.
+#: Both merge styles. `1.4.0..HEAD` holds 96 merge-style subjects and 2
+#: squash-style, so both occur despite the first dominating.
 MERGE_SUBJECT = re.compile(r'^Merge pull request #(\d+) ')
 SQUASH_SUBJECT = re.compile(r'\(#(\d+)\)$')
+
+#: Escaped inside titles, because `HISTORY.md` is included verbatim into
+#: `docs/changelog.md` and rendered by mkdocs-material. The committed entries
+#: escape exactly these: `_` 26 times, `(` and `)` 14 each, `[` and `]` twice.
+#: An unescaped `_pair_` or `[text](url)` becomes markup on the published site,
+#: Measured, not guessed: the committed region escapes `#` 106 times, `_` 26,
+#: `(` and `)` 14 each, `[` and `]` twice and `<` once, and leaves backticks
+#: alone because a backtick in a title is deliberate code formatting.
+MARKDOWN = re.compile(r'([_()\[\]<#])')
+
+
+class ChangelogError(OSError):
+    """
+    A command this module runs failed, or answered something unusable.
+
+    Derived from `OSError` so `release.py main` reports it as one line rather than a traceback; it
+    catches `CheckFailed`, `OSError`, `TypeError` and `ValueError`.
+    """
+
+
+def _run(tool: str, *args: str) -> str:
+    """
+    Run *tool* and return its stdout.
+
+    :param tool:`gh` or `git`.
+    :param args: Arguments after the tool.
+    :returns: Captured stdout.
+    :raises ChangelogError: if it fails.
+    """
+    done = subprocess.run((tool, *args),
+                          capture_output=True,
+                          text=True,
+                          check=False)
+    if done.returncode != 0:
+        raise ChangelogError(f'{tool} {" ".join(args)} failed: '
+                             f'{done.stderr.strip() or done.stdout.strip()}')
+    return done.stdout
 
 
 def _gh(*args: str) -> str:
     """
-    Run `gh` and return its stdout.
+    Run `gh`.
 
     :param args: Arguments after `gh`.
     :returns: Captured stdout.
-    :raises RuntimeError: if `gh` fails.
     """
-    done = subprocess.run(('gh', *args),
-                          capture_output=True,
-                          text=True,
-                          check=False)
-    if done.returncode != 0:
-        raise RuntimeError(f'gh {" ".join(args)} failed: '
-                           f'{done.stderr.strip() or done.stdout.strip()}')
-    return done.stdout
+    return _run('gh', *args)
 
 
 def _git(*args: str) -> str:
     """
-    Run git and return its stdout.
+    Run git.
 
     :param args: Arguments after `git`.
     :returns: Captured stdout.
-    :raises RuntimeError: if git fails.
     """
-    done = subprocess.run(('git', *args),
-                          capture_output=True,
-                          text=True,
-                          check=False)
-    if done.returncode != 0:
-        raise RuntimeError(f'git {" ".join(args)} failed: '
-                           f'{done.stderr.strip() or done.stdout.strip()}')
-    return done.stdout
+    return _run('git', *args)
+
+
+def _json(raw: str, what: str) -> Any:
+    """
+    Parse *raw* as JSON, naming the query when it is not.
+
+    :param raw: Captured stdout.
+    :param what: The query, for the message.
+    :returns: The parsed value.
+    :raises ChangelogError: if *raw* is not JSON.
+    """
+    try:
+        return json.loads(raw or '[]')
+    except ValueError as exc:
+        raise ChangelogError(f'gh {what} did not answer JSON: {exc}. It '
+                             f'returned {raw[:200]!r}') from exc
+
+
+def _rows(raw: str, what: str) -> list:
+    """
+    Parse a list answer, refusing one that saturated `--limit`.
+
+    :param raw: Captured stdout.
+    :param what: The query, for the message.
+    :returns: The parsed rows.
+    :raises ChangelogError: if unusable, or exactly `LIMIT` long.
+    """
+    rows = _json(raw, what)
+    if len(rows) >= LIMIT:
+        raise ChangelogError(
+            f'gh {what} returned {len(rows)} rows, the --limit of {LIMIT}, so '
+            f'the answer is probably truncated and the changelog would lose '
+            f'entries silently. Raise LIMIT in changelog.py')
+    return rows
+
+
+def escape(title: str) -> str:
+    """
+    Return *title* with markdown-significant characters escaped.
+
+    :param title: An issue or pull-request title, as GitHub stores it.
+    :returns: The title, safe to interpolate into a list item.
+    """
+    return MARKDOWN.sub(r'\\\1', title)
+
+
+def author_of(item: dict) -> tuple[str, str]:
+    """
+    Return a pull request's author as `(name, url)`.
+
+    Three cases, all present in the live data. A person renders as their login. A GitHub App arrives
+    as `login: "app/dependabot"` with `is_bot: true`, and the committed entries render that as
+    `dependabot[bot]` linking to `/apps/dependabot`, because `github.com/app/dependabot` is a 404
+    and ten of the fourteen unmilestoned pull requests in `1.4.0..HEAD` are that bot. A deleted
+    account arrives as `author: null`, which GitHub itself renders as `ghost`.
+
+    :param item: The `gh` JSON for one pull request.
+    :returns: The displayed name and the profile URL.
+    """
+    author = item.get('author') or {}
+    login = author.get('login') or 'ghost'
+    if author.get('is_bot') and login.startswith('app/'):
+        slug = login[len('app/'):]
+        return f'{slug}[bot]', f'https://github.com/apps/{slug}'
+    return login, f'https://github.com/{login}'
 
 
 def section_for(labels: list[str]) -> str:
@@ -105,44 +208,6 @@ def section_for(labels: list[str]) -> str:
     return CLOSED_ISSUES
 
 
-def milestone_issues(milestone: str,
-                     gh: Callable[..., str] = _gh) -> list[dict]:
-    """
-    Return the closed issues in *milestone*.
-
-    `gh issue list` excludes pull requests, which is what makes the two queries separable.
-
-    :param milestone: The milestone title, e.g. `1.5.0`.
-    :param gh: Injected `gh` runner.
-    :returns: Dicts with `number`, `title` and `labels`.
-    """
-    raw = gh('issue', 'list', '--milestone', milestone, '--state', 'closed',
-             '--limit', '500', '--json', 'number,title,labels')
-    return [{
-        'number': item['number'],
-        'title': item['title'],
-        'labels': [label['name'] for label in item['labels']],
-    } for item in json.loads(raw or '[]')]
-
-
-def milestone_pulls(milestone: str, gh: Callable[..., str] = _gh) -> list[dict]:
-    """
-    Return the merged pull requests in *milestone*.
-
-    :param milestone: The milestone title.
-    :param gh: Injected `gh` runner.
-    :returns: Dicts with `number`, `title` and `author`.
-    """
-    raw = gh('pr', 'list', '--state', 'merged', '--search',
-             f'milestone:{milestone}', '--limit', '500', '--json',
-             'number,title,author')
-    return [{
-        'number': item['number'],
-        'title': item['title'],
-        'author': item['author']['login'],
-    } for item in json.loads(raw or '[]')]
-
-
 def merged_numbers(since: str,
                    until: str = 'HEAD',
                    git: Callable[..., str] = _git) -> list[int]:
@@ -152,7 +217,7 @@ def merged_numbers(since: str,
     :param since: The tag the range starts after.
     :param until: The ref the range ends at.
     :param git: Injected git runner.
-    :returns: Numbers, in the order the commits appear.
+    :returns: Numbers, newest commit first.
     """
     found = []
     for subject in git('log', '--format=%s', f'{since}..{until}').splitlines():
@@ -164,47 +229,70 @@ def merged_numbers(since: str,
     return found
 
 
-def pull_request(number: int, gh: Callable[..., str] = _gh) -> dict:
+def tag_date(tag: str, git: Callable[..., str] = _git) -> str:
     """
-    Return one pull request's title and author.
+    Return the commit date of *tag*, as `YYYY-MM-DD`.
 
-    :param number: The pull-request number.
-    :param gh: Injected `gh` runner.
-    :returns: A dict with `number`, `title` and `author`.
-    """
-    item = json.loads(
-        gh('pr', 'view', str(number), '--json', 'number,title,author'))
-    return {
-        'number': item['number'],
-        'title': item['title'],
-        'author': item['author']['login'],
-    }
+    Used only to bound the two queries to the release window so `--limit` cannot saturate.
+    Membership is decided by the commit range, never by this date.
 
-
-def unmilestoned(since: str,
-                 known: set[int],
-                 until: str = 'HEAD',
-                 git: Callable[..., str] = _git,
-                 gh: Callable[..., str] = _gh) -> list[dict]:
-    """
-    Return merged pull requests in the range that the milestone does not carry.
-
-    They are included rather than ignored, because they are real changes in the release, and
-    reported by the caller so the milestone can be corrected. Silently dropping them is how a
-    milestone stops reflecting what shipped.
-
-    :param since: The tag the range starts after.
-    :param known: Numbers the milestone already supplied.
-    :param until: The ref the range ends at.
+    :param tag: The tag to date.
     :param git: Injected git runner.
-    :param gh: Injected `gh` runner.
-    :returns: Dicts with `number`, `title` and `author`.
+    :returns: The date.
     """
-    return [
-        pull_request(number, gh)
-        for number in merged_numbers(since, until, git)
-        if number not in known
-    ]
+    return git('log', '-1', '--format=%cs', tag).strip()
+
+
+def milestone_issues(milestone: str,
+                     gh: Callable[..., str] = _gh) -> list[dict]:
+    """
+    Return the closed issues the milestone carries.
+
+    `gh issue list` excludes pull requests, which is what makes the two queries separable.
+
+    :param milestone: The milestone title, e.g. `1.5.0`.
+    :param gh: Injected `gh` runner.
+    :returns: Rows with `number`, `title`, `labels` and `closedAt`.
+    """
+    raw = gh('issue', 'list', '--milestone', milestone, '--state', 'closed',
+             '--limit', str(LIMIT), '--json', 'number,title,labels,closedAt')
+    return _rows(raw, 'issue list')
+
+
+def milestone_pulls(milestone: str, gh: Callable[..., str] = _gh) -> list[dict]:
+    """
+    Return the merged pull requests the milestone carries.
+
+    :param milestone: The milestone title.
+    :param gh: Injected `gh` runner.
+    :returns: Rows with `number`, `title`, `author`, `labels` and `mergedAt`.
+    """
+    raw = gh('pr', 'list', '--state',
+             'merged', '--search', f'milestone:{milestone}', '--limit',
+             str(LIMIT), '--json', 'number,title,author,labels,mergedAt')
+    return _rows(raw, 'pr list')
+
+
+def merged_in_window(since_date: str,
+                     gh: Callable[..., str] = _gh) -> dict[int, str]:
+    """
+    Return every pull request merged since *since_date* and the milestone it names.
+
+    Used only for the cross-check, in one query rather than one `gh pr view` per pull request: an
+    earlier version made fourteen subprocesses at about a second each, and ninety-eight in the worst
+    case.
+
+    :param since_date:`YYYY-MM-DD`, the start of the window.
+    :param gh: Injected `gh` runner.
+    :returns: Maps number to the milestone title, or `''` when it has none.
+    """
+    raw = gh('pr', 'list', '--state',
+             'merged', '--search', f'merged:>={since_date}', '--limit',
+             str(LIMIT), '--json', 'number,milestone')
+    return {
+        row['number']: (row.get('milestone') or {}).get('title') or ''
+        for row in _rows(raw, 'pr list')
+    }
 
 
 def render(version: str,
@@ -215,18 +303,19 @@ def render(version: str,
     """
     Return the `HISTORY.md` entry.
 
-    The format is the one the existing entries use, down to the escaped `\\#` and the author link,
-    because this file has to live above them without looking different.
+    The format is the one the existing entries use, because this sits above 1,379 lines of it:
+    descending by number within each section, titles escaped, and the `\\#` link form. Issues and
+    pull requests are grouped together under a label's heading, which is how the committed 1.4.0
+    entry has #1579 and #1561 under `**Implemented enhancements:**`; only the catch-all separates
+    them.
 
     :param version: The version being released.
     :param previous: The version the range starts after.
-    :param issues: Closed issues, each with `number`, `title` and `labels`.
-    :param pulls: Merged pull requests, each with `number`, `title` and `author`.
-    :param released: The release date, defaulting to today.
-    :returns: The entry, ending in a newline.
+    :param issues: Rows with `number`, `title` and `labels`.
+    :param pulls: Rows with `number`, `title`, `labels` and `author`.
+    :param released: The release date, defaulting to today in UTC.
+    :returns: The entry, ending in a single newline.
     """
-    # UTC rather than the local date: a release cut late in the evening would
-    # otherwise be dated differently depending on who cut it.
     day = (released or
            datetime.datetime.now(datetime.timezone.utc).date()).isoformat()
     lines = [
@@ -236,72 +325,101 @@ def render(version: str,
     ]
 
     grouped: dict[str, list[dict]] = {}
-    for issue in issues:
-        grouped.setdefault(section_for(issue['labels']), []).append(issue)
+    spare_issues: list[dict] = []
+    spare_pulls: list[dict] = []
+    for item in list(issues) + list(pulls):
+        names = [
+            label['name'] if isinstance(label, dict) else label
+            for label in item.get('labels') or []
+        ]
+        heading = section_for(names)
+        if heading == CLOSED_ISSUES:
+            (spare_pulls if 'author' in item else spare_issues).append(item)
+        else:
+            grouped.setdefault(heading, []).append(item)
 
-    for _, heading in SECTIONS:
+    def newest(items: list[dict]) -> list[dict]:
+        """
+        Return *items* newest first, which is how every committed section reads.
+
+        :param items: Rows with a `number`.
+        :returns: The rows, descending.
+        """
+        return sorted(items, key=lambda item: item['number'], reverse=True)
+
+    def bullet(item: dict) -> str:
+        """
+        Return one list item, in the form the committed entries use.
+
+        :param item: An issue or pull-request row.
+        :returns: The rendered bullet.
+        """
+        if 'author' in item:
+            name, url = author_of(item)
+            return (f'- {escape(item["title"])} '
+                    f'[\\#{item["number"]}]'
+                    f'({REPO_URL}/pull/{item["number"]}) ([{name}]({url}))')
+        return (f'- {escape(item["title"])} '
+                f'[\\#{item["number"]}]({REPO_URL}/issues/{item["number"]})')
+
+    for heading in [heading for _, heading in SECTIONS]:
         if heading in grouped:
             lines += ['', heading, '']
-            lines += [
-                f'- {issue["title"]} '
-                f'[\\#{issue["number"]}]({REPO_URL}/issues/{issue["number"]})'
-                for issue in sorted(grouped[heading], key=lambda i: i['number'])
-            ]
-    if CLOSED_ISSUES in grouped:
-        lines += ['', CLOSED_ISSUES, '']
-        lines += [
-            f'- {issue["title"]} '
-            f'[\\#{issue["number"]}]({REPO_URL}/issues/{issue["number"]})'
-            for issue in sorted(grouped[CLOSED_ISSUES],
-                                key=lambda i: i['number'])
-        ]
-
-    if pulls:
-        lines += ['', MERGED_PULLS, '']
-        lines += [
-            f'- {pull["title"]} '
-            f'[\\#{pull["number"]}]({REPO_URL}/pull/{pull["number"]}) '
-            f'([{pull["author"]}](https://github.com/{pull["author"]}))'
-            for pull in sorted(pulls, key=lambda p: p['number'])
-        ]
+            lines += [bullet(item) for item in newest(grouped[heading])]
+    for heading, items in ((CLOSED_ISSUES, spare_issues), (MERGED_PULLS,
+                                                           spare_pulls)):
+        if items:
+            lines += ['', heading, '']
+            lines += [bullet(item) for item in newest(items)]
 
     return '\n'.join(lines) + '\n'
 
 
-def generate(
-    milestone: str,
-    version: str,
-    previous: str,
-    until: str = 'HEAD',
-    git: Callable[..., str] = _git,
-    gh: Callable[..., str] = _gh,
-    report: Callable[[str],
-                     None] = lambda message: print(message, file=sys.stderr)
-) -> str:
+def collect(
+        milestone: str,
+        previous: str,
+        until: str = 'HEAD',
+        git: Callable[..., str] = _git,
+        gh: Callable[..., str] = _gh) -> tuple[list[dict], list[dict], dict]:
     """
-    Return the entry for *version*, from its milestone plus the commit range.
+    Return what the milestone carries, plus how the history disagrees with it.
 
-    *milestone* and *version* are separate because a pre-release draws on the milestone of the
-    version it leads to: 1.5.0a1 is milestone 1.5.0. Rendering takes the version, so the heading and
-    the compare link name the tag actually being cut.
+    The milestone decides membership. The range decides nothing; it only populates the report.
 
-    :param milestone: The milestone title to draw content from.
-    :param version: The version being released, which the entry names.
-    :param previous: The tag the range starts after.
-    :param until: The ref the range ends at.
+    :param milestone: The milestone title, which is definitive.
+    :param previous: The tag the cross-check range starts after.
+    :param until: The ref the cross-check range ends at.
     :param git: Injected git runner.
     :param gh: Injected `gh` runner.
-    :param report: Where to send the note about unmilestoned pull requests.
-    :returns: The rendered entry.
+    :returns:`(issues, pulls, report)`, where `report` maps a concern to what raises it.
     """
     issues = milestone_issues(milestone, gh)
     pulls = milestone_pulls(milestone, gh)
-    strays = unmilestoned(previous, {pull['number'] for pull in pulls}, until,
-                          git, gh)
-    if strays:
-        report(f'{len(strays)} merged pull requests in {previous}..{until} '
-               f'carry no {milestone} milestone; they are included below. '
-               f'Milestone them to silence this:')
-        for stray in strays:
-            report(f'  #{stray["number"]} {stray["title"]}')
-    return render(version, previous, issues, pulls + strays)
+    carried = {row['number'] for row in pulls}
+
+    since_date = tag_date(previous, git)
+    in_window = merged_in_window(since_date, gh)
+    report: dict[str, list] = {'none': [], 'elsewhere': [], 'stale': []}
+
+    for number in merged_numbers(previous, until, git):
+        if number in carried or number not in in_window:
+            # Already accounted for, or a `(#N)` subject naming something that is
+            # not a pull request merged in this window. pika has 21 of the latter,
+            # and an earlier version ran `gh pr view` on them and aborted.
+            continue
+        named = in_window[number]
+        (report['none'] if not named else
+         report['elsewhere']).append(number if not named else (number, named))
+
+    # In the milestone but finished before the previous tag, so it shipped in an
+    # earlier release and the milestone is wrong. #1558 is the live example.
+    for row in issues:
+        when = (row.get('closedAt') or '')[:10]
+        if when and when < since_date:
+            report['stale'].append((row['number'], when))
+    for row in pulls:
+        when = (row.get('mergedAt') or '')[:10]
+        if when and when < since_date:
+            report['stale'].append((row['number'], when))
+
+    return issues, pulls, report
