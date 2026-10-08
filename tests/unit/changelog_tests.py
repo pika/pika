@@ -145,6 +145,34 @@ class FormatTests(unittest.TestCase):
         self.assertNotIn(changelog.MERGED_PULLS, entry)
         self.assertIn('([someone](https://github.com/someone))', entry)
 
+    def test_the_date_is_utc_not_local(self):
+        # Mutation-tested: swapping UTC for `date.today()` survived, because
+        # every other test passes an explicit date. A release cut late in the
+        # evening would otherwise be dated by whoever cut it.
+        from unittest import mock
+        fixed = datetime.datetime(2026,
+                                  7,
+                                  23,
+                                  2,
+                                  0,
+                                  tzinfo=datetime.timezone.utc)
+
+        class Frozen(datetime.datetime):
+            """A clock reading 02:00 UTC, which is the previous day in UTC-8."""
+
+            @classmethod
+            def now(cls, tz=None):
+                """
+                :param tz: The requested zone.
+                :returns: The fixed instant in *tz*.
+                """
+                return fixed.astimezone(tz) if tz else fixed.replace(
+                    tzinfo=None)
+
+        with mock.patch.object(changelog.datetime, 'datetime', Frozen):
+            entry = changelog.render('9.9.9', '9.9.8', [], [])
+        self.assertIn('(2026-07-23)', entry)
+
     def test_it_ends_in_exactly_one_newline(self):
         entry = changelog.render('9.9.9', '9.9.8', [], [])
         self.assertTrue(entry.endswith('\n'))
@@ -267,6 +295,22 @@ class MergedNumbersTests(unittest.TestCase):
         changelog.merged_numbers('1.4.0', 'HEAD', git=recorder.git)
         self.assertEqual(recorder.call('log'),
                          ('log', '--format=%s', '1.4.0..HEAD'))
+
+    def test_the_merge_pattern_is_anchored_at_the_start(self):
+        # Measured: `^` and `.match` anchor the same thing, so dropping either
+        # alone is an equivalent mutation this cannot kill. It does kill dropping
+        # both, which is the case that matters - a revert quoting the phrase
+        # would otherwise be read as a merge of that number.
+        recorder = Recorder(log='Revert "Merge pull request #5 from a"\n')
+        self.assertEqual(changelog.merged_numbers('1.4.0', git=recorder.git),
+                         [])
+
+    def test_the_merge_pattern_requires_the_trailing_space(self):
+        # Also survived. `Merge pull request #5` with nothing after it is not
+        # the form git writes, and matching it would invent a number.
+        recorder = Recorder(log='Merge pull request #5\n')
+        self.assertEqual(changelog.merged_numbers('1.4.0', git=recorder.git),
+                         [])
 
     def test_other_subjects_are_ignored(self):
         recorder = Recorder(log='pika 1.4.2\nMentions #1234 in passing\n')
