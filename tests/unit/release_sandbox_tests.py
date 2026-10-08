@@ -138,14 +138,19 @@ class Sandbox:
             'labels': [{
                 'name': 'C-bug'
             }],
+            'closedAt': '2099-01-01T00:00:00Z',
         }]
         self.pulls: list[dict] = [{
             'number': 9002,
             'title': 'Fix the thing',
+            'labels': [],
             'author': {
                 'login': 'lukebakken'
             },
+            'mergedAt': '2099-01-01T00:00:00Z',
         }]
+        # What the cross-check window reports, which is a different shape.
+        self.window: list[dict] = []
 
         # `symbolic-ref` rather than `init --initial-branch`, which needs git
         # 2.28, and an explicit identity and signing state rather than whatever
@@ -628,6 +633,37 @@ class ChangelogSandboxTests(unittest.TestCase):
         self.assertEqual(status, 1)
         self.assertIn('9.9.0', err)
 
+    def test_a_dry_run_prints_the_entry_and_writes_nothing(self):
+        # RELEASE.md promises this, and nothing pinned it: deleting the whole
+        # `if args.dry_run` block left the suite green. The fixtures were also
+        # unreachable, because every other test here asserts a refusal and
+        # returns before generation.
+        with contextlib.ExitStack() as stack:
+            box = self._branched(stack)
+            status, out, err = invoke(['changelog', '--dry-run'])
+            history = (box.root / 'HISTORY.md').read_text(encoding='utf-8')
+        self.assertEqual(status, 0, err)
+        self.assertIn('## [9.9.0]', out)
+        self.assertIn('**Fixed bugs:**', out)
+        self.assertIn(r'[\#9001]', out)
+        self.assertIn(r'[\#9002]', out)
+        self.assertNotIn('## [9.9.0]', history)
+
+    def test_it_writes_and_commits_on_the_release_branch(self):
+        with contextlib.ExitStack() as stack:
+            box = self._branched(stack)
+            status, _, err = invoke(['changelog'])
+            history = (box.root / 'HISTORY.md').read_text(encoding='utf-8')
+            subject = box.git('log', '-1', '--format=%s')
+            dirty = box.git('status', '--porcelain')
+        self.assertEqual(status, 0, err)
+        self.assertIn('## [9.9.0]', history)
+        self.assertEqual(subject, 'Add the 9.9.0 changelog entry')
+        self.assertEqual(dirty, '')
+        # One blank line before the next heading, as every committed entry has.
+        self.assertIn('\n\n## [9.8.0]', history)
+        self.assertNotIn('\n\n\n## [9.8.0]', history)
+
     def test_a_version_already_in_history_is_refused(self):
         with contextlib.ExitStack() as stack:
             box = self._branched(stack)
@@ -640,6 +676,17 @@ class ChangelogSandboxTests(unittest.TestCase):
             status, _, err = invoke(['changelog', '--dry-run'])
         self.assertEqual(status, 1)
         self.assertIn('already has an entry', err)
+
+
+@_LINUX_ONLY
+class ErrorReportingTests(unittest.TestCase):
+    """
+    A failure prints one line, never a traceback.
+
+    These were briefly methods of `ChangelogSandboxTests`: deleting the three tests that covered
+    `github_changelog_generator`'s stdout parsing swallowed this class header with them, and neither
+    test touches `changelog`.
+    """
 
     def test_an_unparseable_version_lists_every_problem(self):
         # `refuse_backwards` raises `InvalidVersion`, a `ValueError`, which

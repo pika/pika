@@ -230,16 +230,20 @@ Fix the cause, then tag again. Re-pushing the same tag is fine here precisely be
 
 This is the ordering the workflow is built around: every guard, and the build, run ahead of the first publish, so the common failures all land in the recoverable half.
 
-### PR label categories
+### Label categories
 
-Release notes are grouped by PR labels (configured in `.github/release.yml`):
+Both the `HISTORY.md` entry and the GitHub release notes group by label, from the same three:
 
-| Label                    | Section                  |
-|--------------------------|--------------------------|
-| `enhancement`, `feature` | Implemented enhancements |
-| `bug`, `fix`             | Fixed bugs               |
-| `documentation`, `docs`  | Documentation            |
-| everything else          | Other changes            |
+| Label | Section |
+|---|---|
+| `C-enhancement` | Implemented enhancements |
+| `C-bug` | Fixed bugs |
+| `A-documentation` | Documentation |
+| everything else | Closed issues, or Merged pull requests |
+
+`.ci/changelog.py` applies this to the changelog and `.github/release.yml` to the release notes, and a test asserts the two agree on the *mapping*, not merely on the set of labels. `C-refactor`, `C-performance`, `dependencies` and `github_actions` fall to the catch-all deliberately.
+
+This table previously listed `enhancement`, `feature`, `bug`, `fix`, `documentation` and `docs`, none of which pika has: its labels are namespaced `C-` and `A-`. `release.yml` named the same six, so every pull request fell through its catch-all and the generated release notes were never categorised. A maintainer labelling from the old table would have reproduced the bug. See #1731.
 
 ### Setup: publishing credentials
 
