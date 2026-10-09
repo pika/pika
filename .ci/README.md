@@ -8,6 +8,7 @@ This directory holds two unrelated things: the scripts and configuration that st
 |---|---|
 | `release.py` | the release command line, one operation per step. See `RELEASE.md` |
 | `release_version.py` | version arithmetic, and what a pushed tag implies |
+| `changelog.py` | the `HISTORY.md` entry, from the milestone plus `git log` |
 | `tag_release.py` | the preconditions for tagging, and the tag command itself |
 | `docs_site.py` | the documentation alias policy and deploy verification |
 | `smoke_test.py` | connect, declare, publish and get against a live broker |

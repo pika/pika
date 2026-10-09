@@ -10,9 +10,9 @@ file written under `.git`, which is a regular file in a linked worktree; a branc
 step that could fail; and a documented sequence of operations that could not execute because each
 one left the tree in a state the next refused.
 
-Only `gh` and `github_changelog_generator` are faked, because they reach the network. Every `git`
-command runs. Tag creation drops `--sign`, since a signing key cannot be assumed on a runner; that
-the real command signs is asserted in `tag_release_tests.py`.
+Only `gh` is faked, because it reaches the network. Every `git` command runs. Tag creation drops
+`--sign`, since a signing key cannot be assumed on a runner; that the real command signs is asserted
+in `tag_release_tests.py`.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import io
+import json
 import os
 import pathlib
 import shutil
@@ -130,6 +131,26 @@ class Sandbox:
         self.origin = base / 'origin.git'
         self.root.mkdir()
         self.commands: list[tuple[str, ...]] = []
+        # What the fake `gh` reports for the changelog's milestone queries.
+        self.issues: list[dict] = [{
+            'number': 9001,
+            'title': 'A thing that was fixed',
+            'labels': [{
+                'name': 'C-bug'
+            }],
+            'closedAt': '2099-01-01T00:00:00Z',
+        }]
+        self.pulls: list[dict] = [{
+            'number': 9002,
+            'title': 'Fix the thing',
+            'labels': [],
+            'author': {
+                'login': 'lukebakken'
+            },
+            'mergedAt': '2099-01-01T00:00:00Z',
+        }]
+        # What the cross-check window reports, which is a different shape.
+        self.window: list[dict] = []
 
         # `symbolic-ref` rather than `init --initial-branch`, which needs git
         # 2.28, and an explicit identity and signing state rather than whatever
@@ -224,14 +245,27 @@ class Sandbox:
                 return ''
             return self.git(*command[1:])
         if command[0] == 'gh':
-            # `pr list` is the "is one already open" probe and must answer
-            # empty; only `pr create` returns a URL.
-            return ('' if command[1:3] == ('pr', 'list') else
-                    'https://example.invalid/pull/1')
+            # `pr list` without `--search` is the "is one already open" probe
+            # and must answer empty; with `--search` it is the changelog's
+            # milestone query and must answer JSON. Only `pr create` returns a
+            # URL.
+            if command[1:3] == ('issue', 'list'):
+                return json.dumps(self.issues)
+            if command[1:3] == ('pr', 'list'):
+                if '--search' in command:
+                    return json.dumps(self.pulls)
+                return ''
+            if command[1:3] == ('pr', 'view'):
+                return json.dumps({
+                    'number': int(command[3]),
+                    'title': f'stray {command[3]}',
+                    'author': {
+                        'login': 'someone'
+                    },
+                })
+            return 'https://example.invalid/pull/1'
         if command[0] == 'github_changelog_generator':
-            version = command[command.index('--future-release') + 1]
-            return (f'## [{version}](https://example.invalid/{version}) '
-                    f'(2026-02-02)\n\n- generated\n')
+            raise AssertionError('the generator was replaced by changelog.py')
         raise AssertionError(f'unexpected command {command}')
 
     def write_version(self, version: str) -> None:
@@ -536,7 +570,14 @@ class BackwardsGuardTests(unittest.TestCase):
 
 @_LINUX_ONLY
 class ChangelogSandboxTests(unittest.TestCase):
-    """`changelog` writes and commits, so what it refuses matters."""
+    """
+    `changelog` writes and commits, so what it refuses matters.
+
+    What the entry *contains* is covered by `changelog_tests.py`, which renders without touching
+    git. Three tests here went with `github_changelog_generator`: two asserted how its stdout was
+    parsed, and one that the parsed entry named the right version. Nothing parses anything now, so
+    the question cannot arise.
+    """
 
     def _branched(self, stack):
         """
@@ -573,23 +614,6 @@ class ChangelogSandboxTests(unittest.TestCase):
         self.assertEqual(status, 1)
         self.assertIn('not clean', err)
 
-    def test_an_entry_for_another_version_is_refused(self):
-        # Existence was checked, identity was not, so a wrong-version entry was
-        # prepended and committed under a subject naming the right one.
-        with contextlib.ExitStack() as stack:
-            box = self._branched(stack)
-            stack.enter_context(
-                mock.patch.object(release,
-                                  'run',
-                                  lambda c, dry_run=False: box._run(c, dry_run)
-                                  if c[0] != 'github_changelog_generator' else
-                                  '## [9.0.1](x) (2026)\n\n- wrong\n'))
-            status, _, err = invoke(['changelog', '--version', '9.9.0'])
-            history = (box.root / 'HISTORY.md').read_text(encoding='utf-8')
-        self.assertEqual(status, 1)
-        self.assertIn('9.9.0', err)
-        self.assertNotIn('## [9.0.1]', history)
-
     def test_it_will_not_compute_a_version_off_the_already_bumped_file(self):
         # `bump` leaves pyproject at the release version, so a `--bump` here
         # compounds and generates an entry for a version the branch is not
@@ -609,6 +633,37 @@ class ChangelogSandboxTests(unittest.TestCase):
         self.assertEqual(status, 1)
         self.assertIn('9.9.0', err)
 
+    def test_a_dry_run_prints_the_entry_and_writes_nothing(self):
+        # RELEASE.md promises this, and nothing pinned it: deleting the whole
+        # `if args.dry_run` block left the suite green. The fixtures were also
+        # unreachable, because every other test here asserts a refusal and
+        # returns before generation.
+        with contextlib.ExitStack() as stack:
+            box = self._branched(stack)
+            status, out, err = invoke(['changelog', '--dry-run'])
+            history = (box.root / 'HISTORY.md').read_text(encoding='utf-8')
+        self.assertEqual(status, 0, err)
+        self.assertIn('## [9.9.0]', out)
+        self.assertIn('**Fixed bugs:**', out)
+        self.assertIn(r'[\#9001]', out)
+        self.assertIn(r'[\#9002]', out)
+        self.assertNotIn('## [9.9.0]', history)
+
+    def test_it_writes_and_commits_on_the_release_branch(self):
+        with contextlib.ExitStack() as stack:
+            box = self._branched(stack)
+            status, _, err = invoke(['changelog'])
+            history = (box.root / 'HISTORY.md').read_text(encoding='utf-8')
+            subject = box.git('log', '-1', '--format=%s')
+            dirty = box.git('status', '--porcelain')
+        self.assertEqual(status, 0, err)
+        self.assertIn('## [9.9.0]', history)
+        self.assertEqual(subject, 'Add the 9.9.0 changelog entry')
+        self.assertEqual(dirty, '')
+        # One blank line before the next heading, as every committed entry has.
+        self.assertIn('\n\n## [9.8.0]', history)
+        self.assertNotIn('\n\n\n## [9.8.0]', history)
+
     def test_a_version_already_in_history_is_refused(self):
         with contextlib.ExitStack() as stack:
             box = self._branched(stack)
@@ -622,40 +677,16 @@ class ChangelogSandboxTests(unittest.TestCase):
         self.assertEqual(status, 1)
         self.assertIn('already has an entry', err)
 
-    def test_the_generator_is_asked_for_stdout_with_a_blank_path(self):
-        # `--output -` is taken as a filename, because ActiveSupport's
-        # `'-'.present?` is true; the help says to use a blank path.
-        with contextlib.ExitStack() as stack:
-            box = self._branched(stack)
-            invoke(['changelog', '--dry-run'])
-            generated = [
-                c for c in box.commands if c[0] == 'github_changelog_generator'
-            ]
-        self.assertEqual(len(generated), 1)
-        flat = list(generated[0])
-        self.assertEqual(flat[flat.index('--output') + 1], '')
-
-    def test_output_with_no_entry_is_refused_rather_than_sliced(self):
-        # `find()` returning -1 was used as a slice start, so the guard saw the
-        # last character, which is truthy.
-        with contextlib.ExitStack() as stack:
-            box = self._branched(stack)
-            stack.enter_context(
-                mock.patch.object(release,
-                                  'run',
-                                  lambda c, dry_run=False: box._run(c, dry_run)
-                                  if c[0] != 'github_changelog_generator' else
-                                  'Done!\nGenerated log placed in /x/-'))
-            status, _, err = invoke(['changelog'])
-            history = (box.root / 'HISTORY.md').read_text(encoding='utf-8')
-        self.assertEqual(status, 1)
-        self.assertIn('no entry for 9.9.0', err)
-        self.assertNotIn('## [9.9.0]', history)
-
 
 @_LINUX_ONLY
 class ErrorReportingTests(unittest.TestCase):
-    """A failure prints one line, never a traceback."""
+    """
+    A failure prints one line, never a traceback.
+
+    These were briefly methods of `ChangelogSandboxTests`: deleting the three tests that covered
+    `github_changelog_generator`'s stdout parsing swallowed this class header with them, and neither
+    test touches `changelog`.
+    """
 
     def test_an_unparseable_version_lists_every_problem(self):
         # `refuse_backwards` raises `InvalidVersion`, a `ValueError`, which

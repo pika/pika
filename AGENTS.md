@@ -25,6 +25,7 @@ utils/codegen.py        # code generator for pika/spec.py
 utils/regen_spec.py     # regenerate/verify pika/spec.py (hatch run spec-regen)
 .ci/release.py          # the release CLI: one operation per step (see RELEASE.md)
 .ci/release_version.py  # library: version arithmetic; what a pushed tag means
+.ci/changelog.py        # library: the HISTORY.md entry, from the milestone
 .ci/tag_release.py      # library: preconditions for tagging, and the tag itself
 .ci/docs_site.py        # docs-site deploy helper (alias policy, verification)
 examples/               # usage examples

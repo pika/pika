@@ -48,6 +48,7 @@ _ROOT = _HERE.parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
+import changelog  # noqa: E402
 import release_version  # noqa: E402
 import tag_release  # noqa: E402
 
@@ -309,6 +310,45 @@ def refuse_backwards(version: str) -> None:
             f'{version} does not move past {newest}, the newest released '
             f'version. A release has to go forwards: pick a bump that advances '
             f'past it')
+
+
+def reachable_release() -> str:
+    """
+    Return the newest released tag reachable from HEAD.
+
+    The range a changelog covers is "what is new on this branch", and reachability is exactly that
+    question, so the ancestry of HEAD is right here. It is wrong for "what is the newest released
+    version", which `previous_release` answers by PEP 440 order, because 1.4.1 through 1.4.4 were
+    cut from `1.4.x` and are not ancestors of `main`. Confusing the two produces either a changelog
+    that re-lists three released versions or a release that goes backwards.
+
+    Not `git describe --tags --abbrev=0`, which was the first attempt and is wrong twice over. It
+    answers the *nearest* tag by commit distance rather than the newest, and `--tags` re-enables
+    lightweight ones, so with pika's `wip-1617-core-2p0`, `en_support_201107` and nine legacy `v*`
+    tags it will happily name a work-in-progress branch marker as the previous release. Instead:
+    take every tag that is an ancestor of HEAD, keep the ones this scheme publishes, and pick the
+    newest by version order. Tags are fetched first, for the reason `previous_release` gives.
+
+    :returns: The newest releasable tag reachable from HEAD.
+    :raises CheckFailed: if there is none.
+    """
+    tag_release.git('fetch', '--quiet', '--tags', 'origin', check=False)
+    reachable = tag_release.git('tag', '--list', '--merged', 'HEAD')
+    released = []
+    for line in reachable.splitlines():
+        name = line.strip()
+        if not name:
+            continue
+        try:
+            release_version.classify(name)
+        except ValueError:
+            # Tags from before this scheme: `v0.9a`, `wip-1617-core-2p0`.
+            continue
+        released.append(name)
+    if not released:
+        raise CheckFailed('no releasable tag is an ancestor of HEAD to '
+                          'generate a changelog since; pass --since-tag')
+    return max(released, key=release_version.Version)
 
 
 def previous_release() -> str:
@@ -673,44 +713,63 @@ def cmd_changelog(args: argparse.Namespace) -> int:
     if f'{HISTORY_ENTRY}{version}]' in body:
         raise CheckFailed(f'HISTORY.md already has an entry for {version}')
 
-    since = args.since_tag or previous_release()
-    # `--output ''`, not `--output -`. The generator's help says "To print to
-    # STDOUT instead, use blank as path", and it decides with ActiveSupport's
-    # `present?`: `'-'.present?` is true, so `-` is taken as a filename and the
-    # changelog is written to a file called `-` while stdout carries only
-    # `Done!`. Passthrough goes first, since the generator is last-wins too.
-    command = (
-        'github_changelog_generator',
-        *args.passthrough,
-        '--user',
-        'pika',
-        '--project',
-        'pika',
-        '--since-tag',
-        since,
-        '--future-release',
-        version,
-        '--output',
-        '',
-    )
-    print(f'generating the {version} entry, since {since}')
-    # Generated even under `--dry-run`: it only reads from the GitHub API, and
-    # RELEASE.md promises a dry run prints the entry rather than writing it.
-    generated = run(command)
+    # A pre-release gets no entry. The milestone belongs to the version it leads
+    # to, so 1.5.0a1 and 1.5.0 would draw the same content and the file would
+    # carry it twice.
+    implied = tag_release.check_releasable(version)
+    major, minor, patch = release_version.base_of(version)
+    milestone = f'{major}.{minor}.{patch}'
+    if implied['mode'] == 'prerelease' and not args.force:
+        raise CheckFailed(
+            f'{version} is a pre-release, and milestone {milestone} belongs to '
+            f'{milestone} itself. Generate the entry when you cut {milestone}, '
+            f'or pass --force to write one anyway')
 
-    expected = f'{HISTORY_ENTRY}{version}]'
-    if expected not in generated:
+    since = args.since_tag or reachable_release()
+    print(f'collecting milestone {milestone}, cross-checked against '
+          f'{since}..HEAD')
+
+    # Both runners are injected rather than left to default. `changelog`'s own
+    # helpers use the process's working directory, which is not necessarily the
+    # repository root - invoking from a subdirectory would read the wrong repo -
+    # and routing `gh` through `run` means one place talks to the network.
+    issues, pulls, report = changelog.collect(milestone,
+                                              since,
+                                              until='HEAD',
+                                              git=tag_release.git,
+                                              gh=lambda *command: run(
+                                                  ('gh', *command)))
+
+    if not issues and not pulls:
         raise CheckFailed(
-            f'the generator produced no entry for {version}. It was asked for '
-            f'--future-release {version}; its output starts:\n'
-            f'{generated[:400]}')
-    start = generated.find(HISTORY_ENTRY)
-    if start < 0:
-        raise CheckFailed(
-            f'the generator produced no {HISTORY_ENTRY!r} entry. Check '
-            f'CHANGELOG_GITHUB_TOKEN, and that pull requests have merged since '
-            f'{since}. Its output was:\n{generated[:400]}')
-    entry = generated[start:].strip()
+            f'milestone {milestone} carries nothing closed, so the entry would '
+            f'be a heading and a link. Check the milestone exists and has '
+            f'closed items')
+
+    # Three concerns, reported apart, because conflating them gave dangerous
+    # advice: telling the operator to milestone #1596 onto 1.5.0 would move work
+    # that shipped in 1.4.1.
+    if report['none']:
+        print(f'  {len(report["none"])} merged pull requests carry no '
+              f'milestone. They are NOT in this entry; milestone them to '
+              f'{milestone} and re-run:')
+        for number in report['none']:
+            print(f'    #{number}')
+    if report['elsewhere']:
+        print(
+            f'  {len(report["elsewhere"])} merged in this range carry another '
+            f'milestone. Check them, but do not move a milestone that has '
+            f'already shipped:')
+        for number, named in report['elsewhere']:
+            print(f'    #{number} -> {named}')
+    if report['stale']:
+        print(f'  {len(report["stale"])} in milestone {milestone} finished '
+              f'before {since}, so they shipped earlier and the milestone is '
+              f'probably wrong:')
+        for number, when in report['stale']:
+            print(f'    #{number} finished {when}')
+
+    entry = changelog.render(version, since, issues, pulls)
 
     if args.dry_run:
         print(entry)
@@ -723,12 +782,15 @@ def cmd_changelog(args: argparse.Namespace) -> int:
     # again on write, so editing one line rewrote the whole file as CRLF on
     # Windows.
     with history.open('w', encoding='utf-8', newline='') as handle:
-        handle.write(body[:anchor] + entry + '\n\n' + body[anchor:])
+        # One blank line, because `render` already ends in a newline and every
+        # committed `## [` heading is preceded by exactly one. The old `\n\n`
+        # was correct only for the generator's `.strip()`ed output.
+        handle.write(body[:anchor] + entry + '\n' + body[anchor:])
     print(f'  prepended {len(entry.splitlines())} lines to HISTORY.md')
     run(('git', 'add', 'HISTORY.md'))
     run(('git', 'commit', '--message', f'Add the {version} changelog entry'))
-    print('  committed. Read it before opening the pull request; the generator '
-          'groups by label')
+    print('  committed. Read it before opening the pull request; grouping '
+          'follows labels, so an unlabelled item lands in the catch-all')
     return 0
 
 
@@ -872,12 +934,14 @@ def build_parser() -> argparse.ArgumentParser:
                      action='store_true',
                      dest='no_verify_pypi')
 
-    changelog = add('changelog',
-                    cmd_changelog,
-                    'generate the HISTORY.md entry and prepend it',
-                    version=False)
-    changelog.add_argument('--version', default='')
-    changelog.add_argument('--since-tag', default='', dest='since_tag')
+    # Not named `changelog`: that shadowed the module imported at the top.
+    changelog_parser = add('changelog',
+                           cmd_changelog,
+                           'generate the HISTORY.md entry and prepend it',
+                           version=False)
+    changelog_parser.add_argument('--version', default='')
+    changelog_parser.add_argument('--since-tag', default='', dest='since_tag')
+    changelog_parser.add_argument('--force', action='store_true')
 
     check = add('check',
                 cmd_check,
@@ -912,8 +976,9 @@ def main(argv: list[str] | None = None) -> int:
     except (CheckFailed, OSError, TypeError, ValueError) as exc:
         # `ValueError` because the helpers raise it for a malformed version and
         # only some call sites wrap it, and `OSError` because a missing
-        # `HISTORY.md` or an absent `github_changelog_generator` - a Ruby gem no
-        # hatch environment installs - are both ordinary operator errors. A
+        # `HISTORY.md` and a failing `gh` are both ordinary operator errors -
+        # `changelog.ChangelogError` derives from `OSError` for exactly that
+        # reason, since a bare `RuntimeError` from it was a traceback. A
         # traceback where every sibling prints one clean line is worse than a
         # slightly broad except here.
         #
