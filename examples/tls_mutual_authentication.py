@@ -6,6 +6,8 @@ import pika
 
 logging.basicConfig(level=logging.INFO)
 
+# The certificates the test suite uses, so this runs against the broker the
+# repository's own CI configuration starts. See `.ci/linux/rabbitmq.conf`.
 _certs = Path(__file__).resolve().parent.parent / 'tests' / 'certs'
 
 context = ssl.create_default_context(cafile=str(_certs / 'ca_certificate.pem'))
