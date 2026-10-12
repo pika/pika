@@ -4,7 +4,7 @@ This example demonstrates a TLS session with RabbitMQ using mutual authenticatio
 
 See [the RabbitMQ TLS/SSL documentation](https://www.rabbitmq.com/ssl.html) for certificate generation and RabbitMQ TLS configuration.
 
-Both examples read the certificates in `tests/certs/`, which are the ones the repository's own CI configuration gives the broker, so they run against a broker started with that configuration:
+Both examples on this page read the certificates in `tests/certs/`, which are the ones the repository's own CI configuration gives the broker, so they run against a broker started with that configuration:
 
 ```bash
 hatch run rabbitmq-tls
@@ -21,6 +21,10 @@ That configuration, `.ci/linux/rabbitmq.conf`, included here in full so it canno
 ```text
 --8<-- ".ci/linux/rabbitmq.conf"
 ```
+
+Note `ssl_options.fail_if_no_peer_cert = true`, which requires every TLS client to present a certificate chain. Mutual authentication is therefore the only thing this broker allows over TLS; the same configuration still serves plaintext on 5672, which is what the rest of the examples use. If what you want is server authentication alone, verifying the broker and presenting nothing of your own, set `fail_if_no_peer_cert = false` and drop the `load_cert_chain` call; everything else above stays as it is.
+
+To use your own certificates instead of the test ones, generate a set with [tls-gen](https://github.com/rabbitmq/tls-gen) and point both the configuration and the example at them. See [configure](https://www.rabbitmq.com/configure.html) for where `rabbitmq.conf` lives on your system.
 
 The example above authenticates as *guest* over PLAIN and needs nothing more than that. Authenticating as the client certificate instead is a separate feature: it needs the [RabbitMQ TLS (x509 certificate) authentication mechanism](https://github.com/rabbitmq/rabbitmq-auth-mechanism-ssl) enabled, `EXTERNAL` among the broker's `auth_mechanisms`, and a user named for the certificate's distinguished name. The Twisted example below does that, and its docstring spells out the requirements:
 

@@ -17,7 +17,6 @@ Pika has various methods of use, between the synchronous BlockingConnection adap
 - [Twisted consumer](examples/twisted_example.md)
 - [Tornado consumer](examples/tornado_consumer.md)
 - [TLS mutual authentication](examples/tls_mutual_authentication.md)
-- [TLS server authentication](examples/tls_server_authentication.md)
 - [Thread-safe consumer](examples/threaded_consumer.md)
 - [Thread-safe publisher](examples/threaded_publisher.md)
 - [Thread-safe publisher confirms](examples/publisher_confirms_threaded.md)

@@ -108,10 +108,9 @@ Either flag is enough on its own. `durable=True` is the usual answer; `exclusive
 
 | File | Description |
 |------|-------------|
-| `tls_server_authentication.py` | TLS with server certificate verification |
 | `tls_mutual_authentication.py` | Mutual TLS using test certificates from `tests/certs/` |
 | `tls_mutual_authentication_twisted.py` | Mutual TLS with Twisted adapter |
-| `blocking_consume_tls.py` | Blocking consumer over TLS |
+| `blocking_consume_tls.py` | Blocking consumer over TLS, where the certificate does not name the address dialed |
 
 ### Other
 

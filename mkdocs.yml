@@ -99,6 +99,9 @@ markdown_extensions:
   - pymdownx.snippets:
       # Repo root so index/contributing can include README.md and CONTRIBUTING.md
       base_path: ["."]
+      # Fail the build on a missing include. Without this, deleting an example
+      # leaves its page rendering an empty code block and the build stays green.
+      check_paths: true
   - pymdownx.superfences
 
 extra_css:
@@ -151,7 +154,6 @@ nav:
       - Twisted Consumer: examples/twisted_example.md
       - Tornado Consumer: examples/tornado_consumer.md
       - TLS Mutual Authentication: examples/tls_mutual_authentication.md
-      - TLS Server Authentication: examples/tls_server_authentication.md
       - Thread-Safe Consumer: examples/threaded_consumer.md
       - Thread-Safe Publisher: examples/threaded_publisher.md
       - Thread-Safe Publisher Confirms: examples/publisher_confirms_threaded.md
