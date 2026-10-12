@@ -2090,17 +2090,18 @@
 </span><span id="__span-0-15"><span class="c1"># Turn on delivery confirmations</span>
 </span><span id="__span-0-16"><span class="n">channel</span><span class="o">.</span><span class="n">confirm_delivery</span><span class="p">()</span>
 </span><span id="__span-0-17">
-</span><span id="__span-0-18"><span class="c1"># Send a message</span>
-</span><span id="__span-0-19"><span class="k">try</span><span class="p">:</span>
-</span><span id="__span-0-20">    <span class="n">channel</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="s1">'test'</span><span class="p">,</span>
-</span><span id="__span-0-21">                          <span class="n">routing_key</span><span class="o">=</span><span class="s1">'test'</span><span class="p">,</span>
-</span><span id="__span-0-22">                          <span class="n">body</span><span class="o">=</span><span class="sa">b</span><span class="s1">'Hello World!'</span><span class="p">,</span>
-</span><span id="__span-0-23">                          <span class="n">properties</span><span class="o">=</span><span class="n">pika</span><span class="o">.</span><span class="n">BasicProperties</span><span class="p">(</span>
-</span><span id="__span-0-24">                              <span class="n">content_type</span><span class="o">=</span><span class="s1">'text/plain'</span><span class="p">,</span>
-</span><span id="__span-0-25">                              <span class="n">delivery_mode</span><span class="o">=</span><span class="n">pika</span><span class="o">.</span><span class="n">DeliveryMode</span><span class="o">.</span><span class="n">Transient</span><span class="p">))</span>
-</span><span id="__span-0-26">    <span class="nb">print</span><span class="p">(</span><span class="s1">'Message publish was confirmed'</span><span class="p">)</span>
-</span><span id="__span-0-27"><span class="k">except</span> <span class="n">pika</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">UnroutableError</span><span class="p">:</span>
-</span><span id="__span-0-28">    <span class="nb">print</span><span class="p">(</span><span class="s1">'Message could not be confirmed'</span><span class="p">)</span>
+</span><span id="__span-0-18"><span class="c1"># Send a message. The default exchange ('') routes by queue name, so this</span>
+</span><span id="__span-0-19"><span class="c1"># reaches the queue declared above without declaring an exchange as well.</span>
+</span><span id="__span-0-20"><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-0-21">    <span class="n">channel</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span>
+</span><span id="__span-0-22">                          <span class="n">routing_key</span><span class="o">=</span><span class="s1">'test'</span><span class="p">,</span>
+</span><span id="__span-0-23">                          <span class="n">body</span><span class="o">=</span><span class="sa">b</span><span class="s1">'Hello World!'</span><span class="p">,</span>
+</span><span id="__span-0-24">                          <span class="n">properties</span><span class="o">=</span><span class="n">pika</span><span class="o">.</span><span class="n">BasicProperties</span><span class="p">(</span>
+</span><span id="__span-0-25">                              <span class="n">content_type</span><span class="o">=</span><span class="s1">'text/plain'</span><span class="p">,</span>
+</span><span id="__span-0-26">                              <span class="n">delivery_mode</span><span class="o">=</span><span class="n">pika</span><span class="o">.</span><span class="n">DeliveryMode</span><span class="o">.</span><span class="n">Transient</span><span class="p">))</span>
+</span><span id="__span-0-27">    <span class="nb">print</span><span class="p">(</span><span class="s1">'Message publish was confirmed'</span><span class="p">)</span>
+</span><span id="__span-0-28"><span class="k">except</span> <span class="n">pika</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">UnroutableError</span><span class="p">:</span>
+</span><span id="__span-0-29">    <span class="nb">print</span><span class="p">(</span><span class="s1">'Message could not be confirmed'</span><span class="p">)</span>
 </span></code></pre></div>
 
 

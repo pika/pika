@@ -2073,98 +2073,127 @@
 
 <h1 id="tls-parameters-example">TLS parameters example<a class="headerlink" href="#tls-parameters-example" title="Permanent link">&para;</a></h1>
 <p>This example demonstrates a TLS session with RabbitMQ using mutual authentication (server and client authentication).</p>
-<p>See <a href="https://www.rabbitmq.com/ssl.html">the RabbitMQ TLS/SSL documentation</a> for certificate generation and RabbitMQ TLS configuration. Please note that the <a href="https://github.com/rabbitmq/rabbitmq-auth-mechanism-ssl">RabbitMQ TLS (x509 certificate) authentication mechanism</a> must be enabled for these examples to work.</p>
+<p>See <a href="https://www.rabbitmq.com/ssl.html">the RabbitMQ TLS/SSL documentation</a> for certificate generation and RabbitMQ TLS configuration.</p>
+<p>Both examples read the certificates in <code>tests/certs/</code>, which are the ones the repository's own CI configuration gives the broker, so they run against a broker started with that configuration:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-0-1">hatch<span class="w"> </span>run<span class="w"> </span>rabbitmq-tls
+</span></code></pre></div>
 <p><code>examples/tls_mutual_authentication.py</code>:</p>
-<p><div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
-</span><span id="__span-0-2"><span class="kn">import</span><span class="w"> </span><span class="nn">ssl</span>
-</span><span id="__span-0-3"><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-</span><span id="__span-0-4">
-</span><span id="__span-0-5"><span class="kn">import</span><span class="w"> </span><span class="nn">pika</span>
-</span><span id="__span-0-6">
-</span><span id="__span-0-7"><span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
-</span><span id="__span-0-8">
-</span><span id="__span-0-9"><span class="n">_certs</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s1">'tests'</span> <span class="o">/</span> <span class="s1">'certs'</span>
-</span><span id="__span-0-10">
-</span><span id="__span-0-11"><span class="n">context</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">create_default_context</span><span class="p">(</span><span class="n">cafile</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">_certs</span> <span class="o">/</span> <span class="s1">'ca_certificate.pem'</span><span class="p">))</span>
-</span><span id="__span-0-12"><span class="n">context</span><span class="o">.</span><span class="n">verify_mode</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">CERT_REQUIRED</span>
-</span><span id="__span-0-13"><span class="n">context</span><span class="o">.</span><span class="n">load_cert_chain</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">_certs</span> <span class="o">/</span> <span class="s1">'client_certificate.pem'</span><span class="p">),</span>
-</span><span id="__span-0-14">                        <span class="nb">str</span><span class="p">(</span><span class="n">_certs</span> <span class="o">/</span> <span class="s1">'client_key.pem'</span><span class="p">))</span>
-</span><span id="__span-0-15"><span class="n">ssl_options</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">SSLOptions</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="s1">'localhost'</span><span class="p">)</span>
-</span><span id="__span-0-16"><span class="n">conn_params</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">ConnectionParameters</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="mi">5671</span><span class="p">,</span> <span class="n">ssl_options</span><span class="o">=</span><span class="n">ssl_options</span><span class="p">)</span>
-</span><span id="__span-0-17">
-</span><span id="__span-0-18"><span class="k">with</span> <span class="n">pika</span><span class="o">.</span><span class="n">BlockingConnection</span><span class="p">(</span><span class="n">conn_params</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
-</span><span id="__span-0-19">    <span class="n">ch</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
-</span><span id="__span-0-20">    <span class="n">ch</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="s1">'foobar'</span><span class="p">)</span>
-</span><span id="__span-0-21">    <span class="n">ch</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span><span class="s1">''</span><span class="p">,</span> <span class="s1">'foobar'</span><span class="p">,</span> <span class="sa">b</span><span class="s1">'Hello, world!'</span><span class="p">)</span>
-</span><span id="__span-0-22">    <span class="nb">print</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">basic_get</span><span class="p">(</span><span class="s1">'foobar'</span><span class="p">))</span>
-</span></code></pre></div>
-rabbitmq.config:</p>
-<p><div class="highlight"><pre><span></span><code><span id="__span-1-1"># Enable AMQPS
-</span><span id="__span-1-2">listeners.ssl.default = 5671
-</span><span id="__span-1-3">ssl_options.cacertfile = PIKA_DIR/testdata/certs/ca_certificate.pem
-</span><span id="__span-1-4">ssl_options.certfile = PIKA_DIR/testdata/certs/server_certificate.pem
-</span><span id="__span-1-5">ssl_options.keyfile = PIKA_DIR/testdata/certs/server_key.pem
-</span><span id="__span-1-6">ssl_options.verify = verify_peer
-</span><span id="__span-1-7">ssl_options.fail_if_no_peer_cert = true
+<div class="highlight"><pre><span></span><code><span id="__span-1-1"><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+</span><span id="__span-1-2"><span class="kn">import</span><span class="w"> </span><span class="nn">ssl</span>
+</span><span id="__span-1-3"><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+</span><span id="__span-1-4">
+</span><span id="__span-1-5"><span class="kn">import</span><span class="w"> </span><span class="nn">pika</span>
+</span><span id="__span-1-6">
+</span><span id="__span-1-7"><span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
 </span><span id="__span-1-8">
-</span><span id="__span-1-9"># Enable HTTPS
-</span><span id="__span-1-10">management.listener.port = 15671
-</span><span id="__span-1-11">management.listener.ssl = true
-</span><span id="__span-1-12">management.listener.ssl_opts.cacertfile = PIKA_DIR/testdata/certs/ca_certificate.pem
-</span><span id="__span-1-13">management.listener.ssl_opts.certfile = PIKA_DIR/testdata/certs/server_certificate.pem
-</span><span id="__span-1-14">management.listener.ssl_opts.keyfile = PIKA_DIR/testdata/certs/server_key.pem
+</span><span id="__span-1-9"><span class="n">_certs</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s1">'tests'</span> <span class="o">/</span> <span class="s1">'certs'</span>
+</span><span id="__span-1-10">
+</span><span id="__span-1-11"><span class="n">context</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">create_default_context</span><span class="p">(</span><span class="n">cafile</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">_certs</span> <span class="o">/</span> <span class="s1">'ca_certificate.pem'</span><span class="p">))</span>
+</span><span id="__span-1-12"><span class="n">context</span><span class="o">.</span><span class="n">verify_mode</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">CERT_REQUIRED</span>
+</span><span id="__span-1-13"><span class="n">context</span><span class="o">.</span><span class="n">load_cert_chain</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">_certs</span> <span class="o">/</span> <span class="s1">'client_certificate.pem'</span><span class="p">),</span>
+</span><span id="__span-1-14">                        <span class="nb">str</span><span class="p">(</span><span class="n">_certs</span> <span class="o">/</span> <span class="s1">'client_key.pem'</span><span class="p">))</span>
+</span><span id="__span-1-15"><span class="n">ssl_options</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">SSLOptions</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="s1">'localhost'</span><span class="p">)</span>
+</span><span id="__span-1-16"><span class="n">conn_params</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">ConnectionParameters</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="mi">5671</span><span class="p">,</span> <span class="n">ssl_options</span><span class="o">=</span><span class="n">ssl_options</span><span class="p">)</span>
+</span><span id="__span-1-17">
+</span><span id="__span-1-18"><span class="k">with</span> <span class="n">pika</span><span class="o">.</span><span class="n">BlockingConnection</span><span class="p">(</span><span class="n">conn_params</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+</span><span id="__span-1-19">    <span class="n">ch</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
+</span><span id="__span-1-20">    <span class="c1"># `durable=True` because RabbitMQ 4.x refuses transient non-exclusive</span>
+</span><span id="__span-1-21">    <span class="c1"># queues by default, and pika's `queue_declare` still defaults to</span>
+</span><span id="__span-1-22">    <span class="c1"># `durable=False`.</span>
+</span><span id="__span-1-23">    <span class="n">ch</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="s1">'foobar'</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-1-24">    <span class="n">ch</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span><span class="s1">''</span><span class="p">,</span> <span class="s1">'foobar'</span><span class="p">,</span> <span class="sa">b</span><span class="s1">'Hello, world!'</span><span class="p">)</span>
+</span><span id="__span-1-25">    <span class="nb">print</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">basic_get</span><span class="p">(</span><span class="s1">'foobar'</span><span class="p">))</span>
 </span></code></pre></div>
-To perform mutual authentication with a Twisted connection:</p>
-<div class="highlight"><pre><span></span><code><span id="__span-2-1"><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-</span><span id="__span-2-2">
-</span><span id="__span-2-3"><span class="kn">from</span><span class="w"> </span><span class="nn">twisted.internet</span><span class="w"> </span><span class="kn">import</span> <span class="n">defer</span><span class="p">,</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">reactor</span><span class="p">,</span> <span class="n">ssl</span>
-</span><span id="__span-2-4">
-</span><span id="__span-2-5"><span class="kn">from</span><span class="w"> </span><span class="nn">pika</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConnectionParameters</span>
-</span><span id="__span-2-6"><span class="kn">from</span><span class="w"> </span><span class="nn">pika.adapters</span><span class="w"> </span><span class="kn">import</span> <span class="n">twisted_connection</span>
-</span><span id="__span-2-7"><span class="kn">from</span><span class="w"> </span><span class="nn">pika.credentials</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExternalCredentials</span>
-</span><span id="__span-2-8">
-</span><span id="__span-2-9">
-</span><span id="__span-2-10"><span class="nd">@defer</span><span class="o">.</span><span class="n">inlineCallbacks</span>
-</span><span id="__span-2-11"><span class="k">def</span><span class="w"> </span><span class="nf">publish</span><span class="p">(</span><span class="n">connection</span><span class="p">):</span>
-</span><span id="__span-2-12">    <span class="n">channel</span> <span class="o">=</span> <span class="k">yield</span> <span class="n">connection</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
-</span><span id="__span-2-13">    <span class="k">yield</span> <span class="n">channel</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span>
-</span><span id="__span-2-14">        <span class="n">exchange</span><span class="o">=</span><span class="s1">'amq.topic'</span><span class="p">,</span>
-</span><span id="__span-2-15">        <span class="n">routing_key</span><span class="o">=</span><span class="s1">'hello.world'</span><span class="p">,</span>
-</span><span id="__span-2-16">        <span class="n">body</span><span class="o">=</span><span class="s1">'Hello World!'</span><span class="p">,</span>
-</span><span id="__span-2-17">    <span class="p">)</span>
-</span><span id="__span-2-18">    <span class="nb">print</span><span class="p">(</span><span class="s1">'published'</span><span class="p">)</span>
-</span><span id="__span-2-19">
-</span><span id="__span-2-20">
-</span><span id="__span-2-21"><span class="k">def</span><span class="w"> </span><span class="nf">connection_ready</span><span class="p">(</span><span class="n">conn</span><span class="p">):</span>
-</span><span id="__span-2-22">    <span class="n">conn</span><span class="o">.</span><span class="n">ready</span><span class="o">.</span><span class="n">addCallback</span><span class="p">(</span><span class="k">lambda</span> <span class="n">_</span><span class="p">:</span> <span class="n">conn</span><span class="p">)</span>
-</span><span id="__span-2-23">    <span class="k">return</span> <span class="n">conn</span><span class="o">.</span><span class="n">ready</span>
-</span><span id="__span-2-24">
-</span><span id="__span-2-25">
-</span><span id="__span-2-26"><span class="n">_certs</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s1">'tests'</span> <span class="o">/</span> <span class="s1">'certs'</span>
-</span><span id="__span-2-27"><span class="c1"># Load the CA certificate to validate the server's identity</span>
-</span><span id="__span-2-28"><span class="k">with</span> <span class="n">_certs</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s1">'ca_certificate.pem'</span><span class="p">)</span><span class="o">.</span><span class="n">open</span><span class="p">()</span> <span class="k">as</span> <span class="n">fd</span><span class="p">:</span>
-</span><span id="__span-2-29">    <span class="n">ca_cert</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">Certificate</span><span class="o">.</span><span class="n">loadPEM</span><span class="p">(</span><span class="n">fd</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
-</span><span id="__span-2-30">
-</span><span id="__span-2-31"><span class="c1"># Load the client certificate and key to authenticate with the server</span>
-</span><span id="__span-2-32"><span class="k">with</span> <span class="n">_certs</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s1">'client_key.pem'</span><span class="p">)</span><span class="o">.</span><span class="n">open</span><span class="p">()</span> <span class="k">as</span> <span class="n">fd</span><span class="p">:</span>
-</span><span id="__span-2-33">    <span class="n">client_key</span> <span class="o">=</span> <span class="n">fd</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
-</span><span id="__span-2-34"><span class="k">with</span> <span class="n">_certs</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s1">'client_certificate.pem'</span><span class="p">)</span><span class="o">.</span><span class="n">open</span><span class="p">()</span> <span class="k">as</span> <span class="n">fd</span><span class="p">:</span>
-</span><span id="__span-2-35">    <span class="n">client_cert</span> <span class="o">=</span> <span class="n">fd</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
-</span><span id="__span-2-36"><span class="n">client_keypair</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">PrivateCertificate</span><span class="o">.</span><span class="n">loadPEM</span><span class="p">(</span><span class="n">client_key</span> <span class="o">+</span> <span class="n">client_cert</span><span class="p">)</span>
-</span><span id="__span-2-37">
-</span><span id="__span-2-38"><span class="n">context_factory</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">optionsForClientTLS</span><span class="p">(</span>
-</span><span id="__span-2-39">    <span class="s1">'localhost'</span><span class="p">,</span>
-</span><span id="__span-2-40">    <span class="n">trustRoot</span><span class="o">=</span><span class="n">ca_cert</span><span class="p">,</span>
-</span><span id="__span-2-41">    <span class="n">clientCertificate</span><span class="o">=</span><span class="n">client_keypair</span><span class="p">,</span>
-</span><span id="__span-2-42"><span class="p">)</span>
-</span><span id="__span-2-43"><span class="n">params</span> <span class="o">=</span> <span class="n">ConnectionParameters</span><span class="p">(</span><span class="n">credentials</span><span class="o">=</span><span class="n">ExternalCredentials</span><span class="p">())</span>
-</span><span id="__span-2-44"><span class="n">cc</span> <span class="o">=</span> <span class="n">protocol</span><span class="o">.</span><span class="n">ClientCreator</span><span class="p">(</span><span class="n">reactor</span><span class="p">,</span>
-</span><span id="__span-2-45">                            <span class="n">twisted_connection</span><span class="o">.</span><span class="n">TwistedProtocolConnection</span><span class="p">,</span>
-</span><span id="__span-2-46">                            <span class="n">params</span><span class="p">)</span>
-</span><span id="__span-2-47"><span class="n">deferred</span> <span class="o">=</span> <span class="n">cc</span><span class="o">.</span><span class="n">connectSSL</span><span class="p">(</span><span class="s1">'localhost'</span><span class="p">,</span> <span class="mi">5671</span><span class="p">,</span> <span class="n">context_factory</span><span class="p">)</span>
-</span><span id="__span-2-48"><span class="n">deferred</span><span class="o">.</span><span class="n">addCallback</span><span class="p">(</span><span class="n">connection_ready</span><span class="p">)</span>
-</span><span id="__span-2-49"><span class="n">deferred</span><span class="o">.</span><span class="n">addCallback</span><span class="p">(</span><span class="n">publish</span><span class="p">)</span>
-</span><span id="__span-2-50"><span class="n">reactor</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+<p>The TLS part of that configuration, <code>.ci/linux/rabbitmq.conf</code>:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-2-1">listeners.ssl.default = 5671
+</span><span id="__span-2-2">ssl_options.cacertfile = /etc/rabbitmq/certs/ca_certificate.pem
+</span><span id="__span-2-3">ssl_options.certfile = /etc/rabbitmq/certs/server_certificate.pem
+</span><span id="__span-2-4">ssl_options.keyfile = /etc/rabbitmq/certs/server_key.pem
+</span><span id="__span-2-5">ssl_options.verify = verify_peer
+</span><span id="__span-2-6">ssl_options.fail_if_no_peer_cert = true
+</span></code></pre></div>
+<p>The example above authenticates as <em>guest</em> over PLAIN and needs nothing more than that. Authenticating as the client certificate instead is a separate feature: it needs the <a href="https://github.com/rabbitmq/rabbitmq-auth-mechanism-ssl">RabbitMQ TLS (x509 certificate) authentication mechanism</a> enabled, <code>EXTERNAL</code> among the broker's <code>auth_mechanisms</code>, and a user named for the certificate's distinguished name. The Twisted example below does that, and its docstring spells out the requirements:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-3-1"><span class="sd">"""</span>
+</span><span id="__span-3-2"><span class="sd">Mutual TLS with the Twisted adapter, authenticating by client certificate.</span>
+</span><span id="__span-3-3">
+</span><span id="__span-3-4"><span class="sd">`ExternalCredentials` asks the broker for SASL EXTERNAL, which means the broker takes the identity</span>
+</span><span id="__span-3-5"><span class="sd">from the TLS client certificate rather than from a username and password. That needs broker-side</span>
+</span><span id="__span-3-6"><span class="sd">setup beyond a TLS listener:</span>
+</span><span id="__span-3-7">
+</span><span id="__span-3-8"><span class="sd">- the `rabbitmq_auth_mechanism_ssl` plugin enabled</span>
+</span><span id="__span-3-9"><span class="sd">- `EXTERNAL` among `auth_mechanisms`</span>
+</span><span id="__span-3-10"><span class="sd">- a user named for the identity the broker extracts from the certificate. It uses the whole</span>
+</span><span id="__span-3-11"><span class="sd">  distinguished name by default, so for `tests/certs/client_certificate.pem` that user is</span>
+</span><span id="__span-3-12"><span class="sd">  `O=client,CN=shostakovich`; set `ssl_cert_login_from = common_name` to have it use `shostakovich`</span>
+</span><span id="__span-3-13"><span class="sd">  instead</span>
+</span><span id="__span-3-14">
+</span><span id="__span-3-15"><span class="sd">Without those the connection is refused during authentication. See</span>
+</span><span id="__span-3-16"><span class="sd">https://www.rabbitmq.com/docs/access-control#with-client-certificate-authentication</span>
+</span><span id="__span-3-17"><span class="sd">"""</span>
+</span><span id="__span-3-18">
+</span><span id="__span-3-19"><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+</span><span id="__span-3-20">
+</span><span id="__span-3-21"><span class="kn">from</span><span class="w"> </span><span class="nn">twisted.internet</span><span class="w"> </span><span class="kn">import</span> <span class="n">defer</span><span class="p">,</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">reactor</span><span class="p">,</span> <span class="n">ssl</span>
+</span><span id="__span-3-22">
+</span><span id="__span-3-23"><span class="kn">from</span><span class="w"> </span><span class="nn">pika</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConnectionParameters</span>
+</span><span id="__span-3-24"><span class="kn">from</span><span class="w"> </span><span class="nn">pika.adapters</span><span class="w"> </span><span class="kn">import</span> <span class="n">twisted_connection</span>
+</span><span id="__span-3-25"><span class="kn">from</span><span class="w"> </span><span class="nn">pika.credentials</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExternalCredentials</span>
+</span><span id="__span-3-26">
+</span><span id="__span-3-27">
+</span><span id="__span-3-28"><span class="nd">@defer</span><span class="o">.</span><span class="n">inlineCallbacks</span>
+</span><span id="__span-3-29"><span class="k">def</span><span class="w"> </span><span class="nf">publish</span><span class="p">(</span><span class="n">connection</span><span class="p">):</span>
+</span><span id="__span-3-30">    <span class="n">channel</span> <span class="o">=</span> <span class="k">yield</span> <span class="n">connection</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
+</span><span id="__span-3-31">    <span class="k">yield</span> <span class="n">channel</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span>
+</span><span id="__span-3-32">        <span class="n">exchange</span><span class="o">=</span><span class="s1">'amq.topic'</span><span class="p">,</span>
+</span><span id="__span-3-33">        <span class="n">routing_key</span><span class="o">=</span><span class="s1">'hello.world'</span><span class="p">,</span>
+</span><span id="__span-3-34">        <span class="n">body</span><span class="o">=</span><span class="s1">'Hello World!'</span><span class="p">,</span>
+</span><span id="__span-3-35">    <span class="p">)</span>
+</span><span id="__span-3-36">    <span class="nb">print</span><span class="p">(</span><span class="s1">'published'</span><span class="p">)</span>
+</span><span id="__span-3-37">
+</span><span id="__span-3-38">
+</span><span id="__span-3-39"><span class="k">def</span><span class="w"> </span><span class="nf">connection_ready</span><span class="p">(</span><span class="n">conn</span><span class="p">):</span>
+</span><span id="__span-3-40">    <span class="n">conn</span><span class="o">.</span><span class="n">ready</span><span class="o">.</span><span class="n">addCallback</span><span class="p">(</span><span class="k">lambda</span> <span class="n">_</span><span class="p">:</span> <span class="n">conn</span><span class="p">)</span>
+</span><span id="__span-3-41">    <span class="k">return</span> <span class="n">conn</span><span class="o">.</span><span class="n">ready</span>
+</span><span id="__span-3-42">
+</span><span id="__span-3-43">
+</span><span id="__span-3-44"><span class="k">def</span><span class="w"> </span><span class="nf">done</span><span class="p">(</span><span class="n">_result</span><span class="p">):</span>
+</span><span id="__span-3-45">    <span class="n">reactor</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</span><span id="__span-3-46">
+</span><span id="__span-3-47">
+</span><span id="__span-3-48"><span class="k">def</span><span class="w"> </span><span class="nf">failed</span><span class="p">(</span><span class="n">failure</span><span class="p">):</span>
+</span><span id="__span-3-49">    <span class="c1"># Without this the reactor reports 'Unhandled error in Deferred' and the</span>
+</span><span id="__span-3-50">    <span class="c1"># process sits there, which says nothing about the broker refusing the</span>
+</span><span id="__span-3-51">    <span class="c1"># certificate.</span>
+</span><span id="__span-3-52">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'failed: </span><span class="si">{</span><span class="n">failure</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">failure</span><span class="o">.</span><span class="n">getErrorMessage</span><span class="p">()</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+</span><span id="__span-3-53">    <span class="n">reactor</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</span><span id="__span-3-54">
+</span><span id="__span-3-55">
+</span><span id="__span-3-56"><span class="n">_certs</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s1">'tests'</span> <span class="o">/</span> <span class="s1">'certs'</span>
+</span><span id="__span-3-57"><span class="c1"># Load the CA certificate to validate the server's identity</span>
+</span><span id="__span-3-58"><span class="k">with</span> <span class="n">_certs</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s1">'ca_certificate.pem'</span><span class="p">)</span><span class="o">.</span><span class="n">open</span><span class="p">()</span> <span class="k">as</span> <span class="n">fd</span><span class="p">:</span>
+</span><span id="__span-3-59">    <span class="n">ca_cert</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">Certificate</span><span class="o">.</span><span class="n">loadPEM</span><span class="p">(</span><span class="n">fd</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+</span><span id="__span-3-60">
+</span><span id="__span-3-61"><span class="c1"># Load the client certificate and key to authenticate with the server</span>
+</span><span id="__span-3-62"><span class="k">with</span> <span class="n">_certs</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s1">'client_key.pem'</span><span class="p">)</span><span class="o">.</span><span class="n">open</span><span class="p">()</span> <span class="k">as</span> <span class="n">fd</span><span class="p">:</span>
+</span><span id="__span-3-63">    <span class="n">client_key</span> <span class="o">=</span> <span class="n">fd</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+</span><span id="__span-3-64"><span class="k">with</span> <span class="n">_certs</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s1">'client_certificate.pem'</span><span class="p">)</span><span class="o">.</span><span class="n">open</span><span class="p">()</span> <span class="k">as</span> <span class="n">fd</span><span class="p">:</span>
+</span><span id="__span-3-65">    <span class="n">client_cert</span> <span class="o">=</span> <span class="n">fd</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+</span><span id="__span-3-66"><span class="n">client_keypair</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">PrivateCertificate</span><span class="o">.</span><span class="n">loadPEM</span><span class="p">(</span><span class="n">client_key</span> <span class="o">+</span> <span class="n">client_cert</span><span class="p">)</span>
+</span><span id="__span-3-67">
+</span><span id="__span-3-68"><span class="n">context_factory</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">optionsForClientTLS</span><span class="p">(</span>
+</span><span id="__span-3-69">    <span class="s1">'localhost'</span><span class="p">,</span>
+</span><span id="__span-3-70">    <span class="n">trustRoot</span><span class="o">=</span><span class="n">ca_cert</span><span class="p">,</span>
+</span><span id="__span-3-71">    <span class="n">clientCertificate</span><span class="o">=</span><span class="n">client_keypair</span><span class="p">,</span>
+</span><span id="__span-3-72"><span class="p">)</span>
+</span><span id="__span-3-73"><span class="n">params</span> <span class="o">=</span> <span class="n">ConnectionParameters</span><span class="p">(</span><span class="n">credentials</span><span class="o">=</span><span class="n">ExternalCredentials</span><span class="p">())</span>
+</span><span id="__span-3-74"><span class="n">cc</span> <span class="o">=</span> <span class="n">protocol</span><span class="o">.</span><span class="n">ClientCreator</span><span class="p">(</span><span class="n">reactor</span><span class="p">,</span>
+</span><span id="__span-3-75">                            <span class="n">twisted_connection</span><span class="o">.</span><span class="n">TwistedProtocolConnection</span><span class="p">,</span>
+</span><span id="__span-3-76">                            <span class="n">params</span><span class="p">)</span>
+</span><span id="__span-3-77"><span class="n">deferred</span> <span class="o">=</span> <span class="n">cc</span><span class="o">.</span><span class="n">connectSSL</span><span class="p">(</span><span class="s1">'localhost'</span><span class="p">,</span> <span class="mi">5671</span><span class="p">,</span> <span class="n">context_factory</span><span class="p">)</span>
+</span><span id="__span-3-78"><span class="n">deferred</span><span class="o">.</span><span class="n">addCallback</span><span class="p">(</span><span class="n">connection_ready</span><span class="p">)</span>
+</span><span id="__span-3-79"><span class="n">deferred</span><span class="o">.</span><span class="n">addCallback</span><span class="p">(</span><span class="n">publish</span><span class="p">)</span>
+</span><span id="__span-3-80"><span class="n">deferred</span><span class="o">.</span><span class="n">addCallbacks</span><span class="p">(</span><span class="n">done</span><span class="p">,</span> <span class="n">failed</span><span class="p">)</span>
+</span><span id="__span-3-81"><span class="n">reactor</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 </span></code></pre></div>
 
 

@@ -2077,45 +2077,45 @@
 <p><code>examples/tls_server_authentication.py</code>:</p>
 <p><div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 </span><span id="__span-0-2"><span class="kn">import</span><span class="w"> </span><span class="nn">ssl</span>
-</span><span id="__span-0-3">
-</span><span id="__span-0-4"><span class="kn">import</span><span class="w"> </span><span class="nn">pika</span>
-</span><span id="__span-0-5">
-</span><span id="__span-0-6"><span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
-</span><span id="__span-0-7">
-</span><span id="__span-0-8"><span class="n">context</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">create_default_context</span><span class="p">(</span>
-</span><span id="__span-0-9">    <span class="n">cafile</span><span class="o">=</span><span class="s1">'/Users/me/tls-gen/basic/result/ca_certificate.pem'</span><span class="p">)</span>
-</span><span id="__span-0-10"><span class="n">context</span><span class="o">.</span><span class="n">verify_mode</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">CERT_REQUIRED</span>
-</span><span id="__span-0-11"><span class="n">context</span><span class="o">.</span><span class="n">load_cert_chain</span><span class="p">(</span><span class="s1">'/Users/me/tls-gen/result/client_certificate.pem'</span><span class="p">,</span>
-</span><span id="__span-0-12">                        <span class="s1">'/Users/me/tls-gen/result/client_key.pem'</span><span class="p">)</span>
-</span><span id="__span-0-13"><span class="n">ssl_options</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">SSLOptions</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="s1">'localhost'</span><span class="p">)</span>
-</span><span id="__span-0-14"><span class="n">conn_params</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">ConnectionParameters</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="mi">5671</span><span class="p">,</span> <span class="n">ssl_options</span><span class="o">=</span><span class="n">ssl_options</span><span class="p">)</span>
-</span><span id="__span-0-15">
-</span><span id="__span-0-16"><span class="k">with</span> <span class="n">pika</span><span class="o">.</span><span class="n">BlockingConnection</span><span class="p">(</span><span class="n">conn_params</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
-</span><span id="__span-0-17">    <span class="n">ch</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
-</span><span id="__span-0-18">    <span class="nb">print</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="s1">'sslq'</span><span class="p">))</span>
-</span><span id="__span-0-19">    <span class="n">ch</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span><span class="s1">''</span><span class="p">,</span> <span class="s1">'sslq'</span><span class="p">,</span> <span class="sa">b</span><span class="s1">'abc'</span><span class="p">)</span>
-</span><span id="__span-0-20">    <span class="nb">print</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">basic_get</span><span class="p">(</span><span class="s1">'sslq'</span><span class="p">))</span>
+</span><span id="__span-0-3"><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+</span><span id="__span-0-4">
+</span><span id="__span-0-5"><span class="kn">import</span><span class="w"> </span><span class="nn">pika</span>
+</span><span id="__span-0-6">
+</span><span id="__span-0-7"><span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+</span><span id="__span-0-8">
+</span><span id="__span-0-9"><span class="c1"># The certificates the test suite uses, so this runs against the broker the</span>
+</span><span id="__span-0-10"><span class="c1"># repository's own CI configuration starts. See `.ci/linux/rabbitmq.conf`.</span>
+</span><span id="__span-0-11"><span class="n">_certs</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s1">'tests'</span> <span class="o">/</span> <span class="s1">'certs'</span>
+</span><span id="__span-0-12">
+</span><span id="__span-0-13"><span class="n">context</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">create_default_context</span><span class="p">(</span><span class="n">cafile</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">_certs</span> <span class="o">/</span> <span class="s1">'ca_certificate.pem'</span><span class="p">))</span>
+</span><span id="__span-0-14"><span class="n">context</span><span class="o">.</span><span class="n">verify_mode</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">CERT_REQUIRED</span>
+</span><span id="__span-0-15"><span class="n">context</span><span class="o">.</span><span class="n">load_cert_chain</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">_certs</span> <span class="o">/</span> <span class="s1">'client_certificate.pem'</span><span class="p">),</span>
+</span><span id="__span-0-16">                        <span class="nb">str</span><span class="p">(</span><span class="n">_certs</span> <span class="o">/</span> <span class="s1">'client_key.pem'</span><span class="p">))</span>
+</span><span id="__span-0-17"><span class="n">ssl_options</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">SSLOptions</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="s1">'localhost'</span><span class="p">)</span>
+</span><span id="__span-0-18"><span class="n">conn_params</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">ConnectionParameters</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="mi">5671</span><span class="p">,</span> <span class="n">ssl_options</span><span class="o">=</span><span class="n">ssl_options</span><span class="p">)</span>
+</span><span id="__span-0-19">
+</span><span id="__span-0-20"><span class="k">with</span> <span class="n">pika</span><span class="o">.</span><span class="n">BlockingConnection</span><span class="p">(</span><span class="n">conn_params</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+</span><span id="__span-0-21">    <span class="n">ch</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
+</span><span id="__span-0-22">    <span class="c1"># `durable=True` because RabbitMQ 4.x refuses transient non-exclusive</span>
+</span><span id="__span-0-23">    <span class="c1"># queues by default, and pika's `queue_declare` still defaults to</span>
+</span><span id="__span-0-24">    <span class="c1"># `durable=False`.</span>
+</span><span id="__span-0-25">    <span class="nb">print</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="s1">'sslq'</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+</span><span id="__span-0-26">    <span class="n">ch</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span><span class="s1">''</span><span class="p">,</span> <span class="s1">'sslq'</span><span class="p">,</span> <span class="sa">b</span><span class="s1">'abc'</span><span class="p">)</span>
+</span><span id="__span-0-27">    <span class="nb">print</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">basic_get</span><span class="p">(</span><span class="s1">'sslq'</span><span class="p">))</span>
 </span></code></pre></div>
-rabbitmq.conf:</p>
-<div class="highlight"><pre><span></span><code><span id="__span-1-1">%% In this example, both the client and RabbitMQ server are assumed to be running on the same machine
-</span><span id="__span-1-2">%% with a self-signed set of certificates generated using https://github.com/rabbitmq/tls-gen.
-</span><span id="__span-1-3">%%
-</span><span id="__span-1-4">%% To find out the default rabbitmq.conf location, see https://www.rabbitmq.com/configure.html.
-</span><span id="__span-1-5">%%
-</span><span id="__span-1-6">%% The contents of the example config file are for demonstration purposes only.
-</span><span id="__span-1-7">%% See https://www.rabbitmq.com/ssl.html to learn how to use TLS for client connections in RabbitMQ.
-</span><span id="__span-1-8">%%
-</span><span id="__span-1-9">%% The example below allows clients without a certificate to connect
-</span><span id="__span-1-10">%% but performs peer verification on those that present a certificate chain.
-</span><span id="__span-1-11">
-</span><span id="__span-1-12">listeners.ssl.default = 5671
-</span><span id="__span-1-13">
-</span><span id="__span-1-14">ssl_options.cacertfile = /Users/me/tls-gen/basic/result/ca_certificate.pem
-</span><span id="__span-1-15">ssl_options.certfile = /Users/me/tls-gen/basic/result/server_certificate.pem
-</span><span id="__span-1-16">ssl_options.keyfile = /Users/me/tls-gen/basic/result/server_key.pem
-</span><span id="__span-1-17">ssl_options.verify = verify_peer
-</span><span id="__span-1-18">ssl_options.fail_if_no_peer_cert = false
+The example reads the certificates in <code>tests/certs/</code>, which are the ones the repository's own CI configuration gives the broker, so it runs against a broker started with that configuration:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-1-1">hatch<span class="w"> </span>run<span class="w"> </span>rabbitmq-tls
 </span></code></pre></div>
+<p>That configuration is <code>.ci/linux/rabbitmq.conf</code>, and the parts that matter here are the TLS listener and the certificates it presents. Note <code>fail_if_no_peer_cert</code>: it requires every TLS client to present a certificate chain, which is why this example loads one even though it is demonstrating server authentication.</p>
+<div class="highlight"><pre><span></span><code><span id="__span-2-1">listeners.ssl.default = 5671
+</span><span id="__span-2-2">
+</span><span id="__span-2-3">ssl_options.cacertfile = /etc/rabbitmq/certs/ca_certificate.pem
+</span><span id="__span-2-4">ssl_options.certfile = /etc/rabbitmq/certs/server_certificate.pem
+</span><span id="__span-2-5">ssl_options.keyfile = /etc/rabbitmq/certs/server_key.pem
+</span><span id="__span-2-6">ssl_options.verify = verify_peer
+</span><span id="__span-2-7">ssl_options.fail_if_no_peer_cert = true
+</span></code></pre></div>
+<p>To use your own certificates instead, generate a set with <a href="https://github.com/rabbitmq/tls-gen">tls-gen</a> and point both the config above and the example at them. See <a href="https://www.rabbitmq.com/configure.html">configure</a> for where <code>rabbitmq.conf</code> lives on your system.</p>
 
 
 

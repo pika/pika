@@ -2091,18 +2091,32 @@
 </span><span id="__span-0-16"><span class="c1"># Enabled delivery confirmations. This is REQUIRED.</span>
 </span><span id="__span-0-17"><span class="n">channel</span><span class="o">.</span><span class="n">confirm_delivery</span><span class="p">()</span>
 </span><span id="__span-0-18">
-</span><span id="__span-0-19"><span class="c1"># Send a message</span>
-</span><span id="__span-0-20"><span class="k">try</span><span class="p">:</span>
-</span><span id="__span-0-21">    <span class="n">channel</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="s1">'test'</span><span class="p">,</span>
-</span><span id="__span-0-22">                          <span class="n">routing_key</span><span class="o">=</span><span class="s1">'test'</span><span class="p">,</span>
-</span><span id="__span-0-23">                          <span class="n">body</span><span class="o">=</span><span class="sa">b</span><span class="s1">'Hello World!'</span><span class="p">,</span>
-</span><span id="__span-0-24">                          <span class="n">properties</span><span class="o">=</span><span class="n">pika</span><span class="o">.</span><span class="n">BasicProperties</span><span class="p">(</span>
-</span><span id="__span-0-25">                              <span class="n">content_type</span><span class="o">=</span><span class="s1">'text/plain'</span><span class="p">,</span>
-</span><span id="__span-0-26">                              <span class="n">delivery_mode</span><span class="o">=</span><span class="n">pika</span><span class="o">.</span><span class="n">DeliveryMode</span><span class="o">.</span><span class="n">Transient</span><span class="p">),</span>
-</span><span id="__span-0-27">                          <span class="n">mandatory</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-0-28">    <span class="nb">print</span><span class="p">(</span><span class="s1">'Message was published'</span><span class="p">)</span>
-</span><span id="__span-0-29"><span class="k">except</span> <span class="n">pika</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">UnroutableError</span><span class="p">:</span>
-</span><span id="__span-0-30">    <span class="nb">print</span><span class="p">(</span><span class="s1">'Message was returned'</span><span class="p">)</span>
+</span><span id="__span-0-19"><span class="n">properties</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">BasicProperties</span><span class="p">(</span><span class="n">content_type</span><span class="o">=</span><span class="s1">'text/plain'</span><span class="p">,</span>
+</span><span id="__span-0-20">                                  <span class="n">delivery_mode</span><span class="o">=</span><span class="n">pika</span><span class="o">.</span><span class="n">DeliveryMode</span><span class="o">.</span><span class="n">Transient</span><span class="p">)</span>
+</span><span id="__span-0-21">
+</span><span id="__span-0-22"><span class="c1"># Send a message the broker can route. The default exchange ('') routes by</span>
+</span><span id="__span-0-23"><span class="c1"># queue name, so this reaches the queue declared above.</span>
+</span><span id="__span-0-24"><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-0-25">    <span class="n">channel</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span>
+</span><span id="__span-0-26">                          <span class="n">routing_key</span><span class="o">=</span><span class="s1">'test'</span><span class="p">,</span>
+</span><span id="__span-0-27">                          <span class="n">body</span><span class="o">=</span><span class="sa">b</span><span class="s1">'Hello World!'</span><span class="p">,</span>
+</span><span id="__span-0-28">                          <span class="n">properties</span><span class="o">=</span><span class="n">properties</span><span class="p">,</span>
+</span><span id="__span-0-29">                          <span class="n">mandatory</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-0-30">    <span class="nb">print</span><span class="p">(</span><span class="s1">'Message was published'</span><span class="p">)</span>
+</span><span id="__span-0-31"><span class="k">except</span> <span class="n">pika</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">UnroutableError</span><span class="p">:</span>
+</span><span id="__span-0-32">    <span class="nb">print</span><span class="p">(</span><span class="s1">'Message was returned'</span><span class="p">)</span>
+</span><span id="__span-0-33">
+</span><span id="__span-0-34"><span class="c1"># Now send one the broker cannot route. `mandatory=True` is what makes the</span>
+</span><span id="__span-0-35"><span class="c1"># broker hand it back instead of discarding it silently.</span>
+</span><span id="__span-0-36"><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-0-37">    <span class="n">channel</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span>
+</span><span id="__span-0-38">                          <span class="n">routing_key</span><span class="o">=</span><span class="s1">'no-such-queue'</span><span class="p">,</span>
+</span><span id="__span-0-39">                          <span class="n">body</span><span class="o">=</span><span class="sa">b</span><span class="s1">'Hello World!'</span><span class="p">,</span>
+</span><span id="__span-0-40">                          <span class="n">properties</span><span class="o">=</span><span class="n">properties</span><span class="p">,</span>
+</span><span id="__span-0-41">                          <span class="n">mandatory</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-0-42">    <span class="nb">print</span><span class="p">(</span><span class="s1">'Message was published'</span><span class="p">)</span>
+</span><span id="__span-0-43"><span class="k">except</span> <span class="n">pika</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">UnroutableError</span><span class="p">:</span>
+</span><span id="__span-0-44">    <span class="nb">print</span><span class="p">(</span><span class="s1">'Message was returned'</span><span class="p">)</span>
 </span></code></pre></div>
 
 

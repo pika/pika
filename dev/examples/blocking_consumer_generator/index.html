@@ -2074,70 +2074,60 @@
 <h1 id="using-the-blockingchannelconsume-generator-to-consume-messages">Using the BlockingChannel.consume generator to consume messages<a class="headerlink" href="#using-the-blockingchannelconsume-generator-to-consume-messages" title="Permanent link">&para;</a></h1>
 <p><a id="example_blocking_consumer_generator"></a></p>
 <p>The <code>BlockingChannel.consume</code> method is a generator that will return a tuple of method, properties and body.</p>
-<p>When you escape out of the loop, be sure to call consumer.cancel() to return any unprocessed messages.</p>
+<p>When you escape out of the loop, be sure to call <code>BlockingChannel.cancel</code> to return any unprocessed messages. It answers with the number requeued, which is zero when you consumed everything the queue held.</p>
 <p>Example of consuming messages and acknowledging them:</p>
 <p><div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="kn">import</span><span class="w"> </span><span class="nn">pika</span>
 </span><span id="__span-0-2">
 </span><span id="__span-0-3"><span class="n">connection</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">BlockingConnection</span><span class="p">()</span>
 </span><span id="__span-0-4"><span class="n">channel</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
 </span><span id="__span-0-5">
-</span><span id="__span-0-6"><span class="c1"># Get ten messages and break out</span>
-</span><span id="__span-0-7"><span class="k">for</span> <span class="n">method_frame</span><span class="p">,</span> <span class="n">properties</span><span class="p">,</span> <span class="n">body</span> <span class="ow">in</span> <span class="n">channel</span><span class="o">.</span><span class="n">consume</span><span class="p">(</span><span class="s1">'test'</span><span class="p">):</span>
-</span><span id="__span-0-8">
-</span><span id="__span-0-9">    <span class="c1"># Display the message parts</span>
-</span><span id="__span-0-10">    <span class="nb">print</span><span class="p">(</span><span class="n">method_frame</span><span class="p">)</span>
-</span><span id="__span-0-11">    <span class="nb">print</span><span class="p">(</span><span class="n">properties</span><span class="p">)</span>
-</span><span id="__span-0-12">    <span class="nb">print</span><span class="p">(</span><span class="n">body</span><span class="p">)</span>
-</span><span id="__span-0-13">
-</span><span id="__span-0-14">    <span class="c1"># Acknowledge the message</span>
-</span><span id="__span-0-15">    <span class="n">channel</span><span class="o">.</span><span class="n">basic_ack</span><span class="p">(</span><span class="n">method_frame</span><span class="o">.</span><span class="n">delivery_tag</span><span class="p">)</span>
-</span><span id="__span-0-16">
-</span><span id="__span-0-17">    <span class="c1"># Escape out of the loop after 10 messages</span>
-</span><span id="__span-0-18">    <span class="k">if</span> <span class="n">method_frame</span><span class="o">.</span><span class="n">delivery_tag</span> <span class="o">==</span> <span class="mi">10</span><span class="p">:</span>
-</span><span id="__span-0-19">        <span class="k">break</span>
+</span><span id="__span-0-6"><span class="c1"># Declare the queue we are about to consume from, so the example is</span>
+</span><span id="__span-0-7"><span class="c1"># self-contained. `durable=True` because RabbitMQ 4.x refuses transient</span>
+</span><span id="__span-0-8"><span class="c1"># non-exclusive queues by default, and pika's `queue_declare` still defaults to</span>
+</span><span id="__span-0-9"><span class="c1"># `durable=False`.</span>
+</span><span id="__span-0-10"><span class="n">channel</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="n">queue</span><span class="o">=</span><span class="s1">'test'</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-0-11">
+</span><span id="__span-0-12"><span class="c1"># Publish the ten messages the loop below expects, so it terminates.</span>
+</span><span id="__span-0-13"><span class="k">for</span> <span class="n">number</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+</span><span id="__span-0-14">    <span class="n">channel</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span>
+</span><span id="__span-0-15">                          <span class="n">routing_key</span><span class="o">=</span><span class="s1">'test'</span><span class="p">,</span>
+</span><span id="__span-0-16">                          <span class="n">body</span><span class="o">=</span><span class="sa">f</span><span class="s1">'Hello World </span><span class="si">{</span><span class="n">number</span><span class="si">}</span><span class="s1">!'</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
+</span><span id="__span-0-17">
+</span><span id="__span-0-18"><span class="c1"># Get ten messages and break out</span>
+</span><span id="__span-0-19"><span class="k">for</span> <span class="n">method_frame</span><span class="p">,</span> <span class="n">properties</span><span class="p">,</span> <span class="n">body</span> <span class="ow">in</span> <span class="n">channel</span><span class="o">.</span><span class="n">consume</span><span class="p">(</span><span class="s1">'test'</span><span class="p">):</span>
 </span><span id="__span-0-20">
-</span><span id="__span-0-21"><span class="c1"># Cancel the consumer and return any pending messages</span>
-</span><span id="__span-0-22"><span class="n">requeued_messages</span> <span class="o">=</span> <span class="n">channel</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
-</span><span id="__span-0-23"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Requeued </span><span class="si">{</span><span class="n">requeued_messages</span><span class="si">}</span><span class="s1"> messages'</span><span class="p">)</span>
-</span><span id="__span-0-24">
-</span><span id="__span-0-25"><span class="c1"># Close the channel and the connection</span>
-</span><span id="__span-0-26"><span class="n">channel</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-</span><span id="__span-0-27"><span class="n">connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span id="__span-0-21">    <span class="c1"># Display the message parts</span>
+</span><span id="__span-0-22">    <span class="nb">print</span><span class="p">(</span><span class="n">method_frame</span><span class="p">)</span>
+</span><span id="__span-0-23">    <span class="nb">print</span><span class="p">(</span><span class="n">properties</span><span class="p">)</span>
+</span><span id="__span-0-24">    <span class="nb">print</span><span class="p">(</span><span class="n">body</span><span class="p">)</span>
+</span><span id="__span-0-25">
+</span><span id="__span-0-26">    <span class="c1"># Acknowledge the message</span>
+</span><span id="__span-0-27">    <span class="n">channel</span><span class="o">.</span><span class="n">basic_ack</span><span class="p">(</span><span class="n">method_frame</span><span class="o">.</span><span class="n">delivery_tag</span><span class="p">)</span>
+</span><span id="__span-0-28">
+</span><span id="__span-0-29">    <span class="c1"># Escape out of the loop after 10 messages</span>
+</span><span id="__span-0-30">    <span class="k">if</span> <span class="n">method_frame</span><span class="o">.</span><span class="n">delivery_tag</span> <span class="o">==</span> <span class="mi">10</span><span class="p">:</span>
+</span><span id="__span-0-31">        <span class="k">break</span>
+</span><span id="__span-0-32">
+</span><span id="__span-0-33"><span class="c1"># Cancel the consumer and return any pending messages</span>
+</span><span id="__span-0-34"><span class="n">requeued_messages</span> <span class="o">=</span> <span class="n">channel</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
+</span><span id="__span-0-35"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Requeued </span><span class="si">{</span><span class="n">requeued_messages</span><span class="si">}</span><span class="s1"> messages'</span><span class="p">)</span>
+</span><span id="__span-0-36">
+</span><span id="__span-0-37"><span class="c1"># Close the channel and the connection</span>
+</span><span id="__span-0-38"><span class="n">channel</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span id="__span-0-39"><span class="n">connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 </span></code></pre></div>
-If you have pending messages in the test queue, your output should look something like:</p>
-<div class="highlight"><pre><span></span><code><span id="__span-1-1">    (pika)gmr-0x02:pika gmr$ python blocking_nack.py
-</span><span id="__span-1-2">    &lt;Basic.Deliver(['consumer_tag=ctag1.0', 'redelivered=True', 'routing_key=test', 'delivery_tag=1', 'exchange=test'])&gt;
-</span><span id="__span-1-3">    &lt;BasicProperties(['delivery_mode=1', 'content_type=text/plain'])&gt;
-</span><span id="__span-1-4">    Hello World!
-</span><span id="__span-1-5">    &lt;Basic.Deliver(['consumer_tag=ctag1.0', 'redelivered=True', 'routing_key=test', 'delivery_tag=2', 'exchange=test'])&gt;
-</span><span id="__span-1-6">    &lt;BasicProperties(['delivery_mode=1', 'content_type=text/plain'])&gt;
-</span><span id="__span-1-7">    Hello World!
-</span><span id="__span-1-8">    &lt;Basic.Deliver(['consumer_tag=ctag1.0', 'redelivered=True', 'routing_key=test', 'delivery_tag=3', 'exchange=test'])&gt;
-</span><span id="__span-1-9">    &lt;BasicProperties(['delivery_mode=1', 'content_type=text/plain'])&gt;
-</span><span id="__span-1-10">    Hello World!
-</span><span id="__span-1-11">    &lt;Basic.Deliver(['consumer_tag=ctag1.0', 'redelivered=True', 'routing_key=test', 'delivery_tag=4', 'exchange=test'])&gt;
-</span><span id="__span-1-12">    &lt;BasicProperties(['delivery_mode=1', 'content_type=text/plain'])&gt;
-</span><span id="__span-1-13">    Hello World!
-</span><span id="__span-1-14">    &lt;Basic.Deliver(['consumer_tag=ctag1.0', 'redelivered=True', 'routing_key=test', 'delivery_tag=5', 'exchange=test'])&gt;
-</span><span id="__span-1-15">    &lt;BasicProperties(['delivery_mode=1', 'content_type=text/plain'])&gt;
-</span><span id="__span-1-16">    Hello World!
-</span><span id="__span-1-17">    &lt;Basic.Deliver(['consumer_tag=ctag1.0', 'redelivered=True', 'routing_key=test', 'delivery_tag=6', 'exchange=test'])&gt;
-</span><span id="__span-1-18">    &lt;BasicProperties(['delivery_mode=1', 'content_type=text/plain'])&gt;
-</span><span id="__span-1-19">    Hello World!
-</span><span id="__span-1-20">    &lt;Basic.Deliver(['consumer_tag=ctag1.0', 'redelivered=True', 'routing_key=test', 'delivery_tag=7', 'exchange=test'])&gt;
-</span><span id="__span-1-21">    &lt;BasicProperties(['delivery_mode=1', 'content_type=text/plain'])&gt;
-</span><span id="__span-1-22">    Hello World!
-</span><span id="__span-1-23">    &lt;Basic.Deliver(['consumer_tag=ctag1.0', 'redelivered=True', 'routing_key=test', 'delivery_tag=8', 'exchange=test'])&gt;
-</span><span id="__span-1-24">    &lt;BasicProperties(['delivery_mode=1', 'content_type=text/plain'])&gt;
-</span><span id="__span-1-25">    Hello World!
-</span><span id="__span-1-26">    &lt;Basic.Deliver(['consumer_tag=ctag1.0', 'redelivered=True', 'routing_key=test', 'delivery_tag=9', 'exchange=test'])&gt;
-</span><span id="__span-1-27">    &lt;BasicProperties(['delivery_mode=1', 'content_type=text/plain'])&gt;
-</span><span id="__span-1-28">    Hello World!
-</span><span id="__span-1-29">    &lt;Basic.Deliver(['consumer_tag=ctag1.0', 'redelivered=True', 'routing_key=test', 'delivery_tag=10', 'exchange=test'])&gt;
-</span><span id="__span-1-30">    &lt;BasicProperties(['delivery_mode=1', 'content_type=text/plain'])&gt;
-</span><span id="__span-1-31">    Hello World!
-</span><span id="__span-1-32">    Requeued 1894 messages
+The example publishes the ten messages it then consumes, so it terminates on its own. Its output looks like this, abbreviated to the first and last message:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-1-1">$ python examples/blocking_consumer_generator.py
+</span><span id="__span-1-2">&lt;Basic.Deliver(['consumer_tag=ctag1.5530b02c97654528aacbde82ba5cc271', 'delivery_tag=1', 'exchange=', 'redelivered=False', 'routing_key=test'])&gt;
+</span><span id="__span-1-3">&lt;BasicProperties&gt;
+</span><span id="__span-1-4">b'Hello World 0!'
+</span><span id="__span-1-5">...
+</span><span id="__span-1-6">&lt;Basic.Deliver(['consumer_tag=ctag1.5530b02c97654528aacbde82ba5cc271', 'delivery_tag=10', 'exchange=', 'redelivered=False', 'routing_key=test'])&gt;
+</span><span id="__span-1-7">&lt;BasicProperties&gt;
+</span><span id="__span-1-8">b'Hello World 9!'
+</span><span id="__span-1-9">Requeued 0 messages
 </span></code></pre></div>
+<p>If the queue already held messages, the delivery tags start where those leave off and <code>cancel</code> reports whatever is left over.</p>
 
 
 
