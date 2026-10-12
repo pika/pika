@@ -2197,13 +2197,14 @@
 </span><span id="__span-0-42">
 </span><span id="__span-0-43"><span class="c1"># Catch a Keyboard Interrupt to make sure that the connection is closed cleanly</span>
 </span><span id="__span-0-44"><span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
-</span><span id="__span-0-45">    <span class="c1"># Gracefully close the connection, unless it is already closing or closed:</span>
-</span><span id="__span-0-46">    <span class="c1"># close() raises ConnectionWrongStateError in either of those states.</span>
-</span><span id="__span-0-47">    <span class="k">if</span> <span class="n">connection</span><span class="o">.</span><span class="n">is_open</span><span class="p">:</span>
-</span><span id="__span-0-48">        <span class="n">connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-</span><span id="__span-0-49">        <span class="c1"># Start the IOLoop again so Pika can communicate,</span>
-</span><span id="__span-0-50">        <span class="c1"># it will stop when on_close is called</span>
-</span><span id="__span-0-51">        <span class="n">connection</span><span class="o">.</span><span class="n">ioloop</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span id="__span-0-45">    <span class="c1"># close() raises ConnectionWrongStateError unless the connection is open,</span>
+</span><span id="__span-0-46">    <span class="c1"># and by this point it may have closed itself, so ask first. Note this</span>
+</span><span id="__span-0-47">    <span class="c1"># also skips an interrupt arriving mid-connect, which drops the socket.</span>
+</span><span id="__span-0-48">    <span class="k">if</span> <span class="n">connection</span><span class="o">.</span><span class="n">is_open</span><span class="p">:</span>
+</span><span id="__span-0-49">        <span class="n">connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span id="__span-0-50">        <span class="c1"># Start the IOLoop again so Pika can communicate,</span>
+</span><span id="__span-0-51">        <span class="c1"># it will stop when on_close is called</span>
+</span><span id="__span-0-52">        <span class="n">connection</span><span class="o">.</span><span class="n">ioloop</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
 </span></code></pre></div>
 
 

@@ -2194,29 +2194,33 @@ Generic operation retry libraries such as <a href="https://github.com/invl/retry
 </span><span id="__span-1-28">    <span class="n">channel</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
 </span><span id="__span-1-29">    <span class="n">channel</span><span class="o">.</span><span class="n">basic_qos</span><span class="p">(</span><span class="n">prefetch_count</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 </span><span id="__span-1-30">
-</span><span id="__span-1-31">    <span class="c1">## `durable=True` because RabbitMQ 4.x refuses transient non-exclusive</span>
-</span><span id="__span-1-32">    <span class="c1">## queues by default, and pika's `queue_declare` still defaults to</span>
-</span><span id="__span-1-33">    <span class="c1">## `durable=False`. This queue used to be declared non-durable to show</span>
-</span><span id="__span-1-34">    <span class="c1">## non-mirrored queue behaviour on node failure, which no longer applies:</span>
-</span><span id="__span-1-35">    <span class="c1">## classic queue mirroring was removed in RabbitMQ 4.0.</span>
-</span><span id="__span-1-36">    <span class="n">channel</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="s1">'recovery-example'</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">auto_delete</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-1-37">    <span class="n">channel</span><span class="o">.</span><span class="n">basic_consume</span><span class="p">(</span><span class="s1">'recovery-example'</span><span class="p">,</span> <span class="n">on_message</span><span class="p">)</span>
-</span><span id="__span-1-38">
-</span><span id="__span-1-39">    <span class="k">try</span><span class="p">:</span>
-</span><span id="__span-1-40">        <span class="n">channel</span><span class="o">.</span><span class="n">start_consuming</span><span class="p">()</span>
-</span><span id="__span-1-41">    <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
-</span><span id="__span-1-42">        <span class="n">channel</span><span class="o">.</span><span class="n">stop_consuming</span><span class="p">()</span>
-</span><span id="__span-1-43">        <span class="n">connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-</span><span id="__span-1-44">    <span class="k">except</span> <span class="n">pika</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">ConnectionClosedByBroker</span><span class="p">:</span>
-</span><span id="__span-1-45">        <span class="c1"># Uncomment this to make the example not attempt recovery</span>
-</span><span id="__span-1-46">        <span class="c1"># from server-initiated connection closure, including</span>
-</span><span id="__span-1-47">        <span class="c1"># when the node is stopped cleanly</span>
-</span><span id="__span-1-48">        <span class="c1"># except pika.exceptions.ConnectionClosedByBroker:</span>
-</span><span id="__span-1-49">        <span class="c1">#     pass</span>
-</span><span id="__span-1-50">        <span class="k">pass</span>
-</span><span id="__span-1-51">
-</span><span id="__span-1-52">
-</span><span id="__span-1-53"><span class="n">consume</span><span class="p">()</span>
+</span><span id="__span-1-31">    <span class="c1">## The queue stays non-durable on purpose, which is the point of the</span>
+</span><span id="__span-1-32">    <span class="c1">## example: a durable queue whose home node is down stays unavailable until</span>
+</span><span id="__span-1-33">    <span class="c1">## that node returns, and the redeclare below would fail rather than move to</span>
+</span><span id="__span-1-34">    <span class="c1">## a surviving endpoint. `exclusive=True` keeps it non-durable while staying</span>
+</span><span id="__span-1-35">    <span class="c1">## permitted on RabbitMQ 4.3, which refuses transient *non-exclusive*</span>
+</span><span id="__span-1-36">    <span class="c1">## queues by default. See examples/README.md.</span>
+</span><span id="__span-1-37">    <span class="n">channel</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="s1">'recovery-example'</span><span class="p">,</span>
+</span><span id="__span-1-38">                          <span class="n">durable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-1-39">                          <span class="n">exclusive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-1-40">                          <span class="n">auto_delete</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-1-41">    <span class="n">channel</span><span class="o">.</span><span class="n">basic_consume</span><span class="p">(</span><span class="s1">'recovery-example'</span><span class="p">,</span> <span class="n">on_message</span><span class="p">)</span>
+</span><span id="__span-1-42">
+</span><span id="__span-1-43">    <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-1-44">        <span class="n">channel</span><span class="o">.</span><span class="n">start_consuming</span><span class="p">()</span>
+</span><span id="__span-1-45">    <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+</span><span id="__span-1-46">        <span class="n">channel</span><span class="o">.</span><span class="n">stop_consuming</span><span class="p">()</span>
+</span><span id="__span-1-47">        <span class="n">connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span id="__span-1-48">    <span class="k">except</span> <span class="n">pika</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">ConnectionClosedByBroker</span><span class="p">:</span>
+</span><span id="__span-1-49">        <span class="c1"># Uncomment this to make the example not attempt recovery</span>
+</span><span id="__span-1-50">        <span class="c1"># from server-initiated connection closure, including</span>
+</span><span id="__span-1-51">        <span class="c1"># when the node is stopped cleanly</span>
+</span><span id="__span-1-52">        <span class="c1"># except pika.exceptions.ConnectionClosedByBroker:</span>
+</span><span id="__span-1-53">        <span class="c1">#     pass</span>
+</span><span id="__span-1-54">        <span class="k">pass</span>
+</span><span id="__span-1-55">
+</span><span id="__span-1-56">
+</span><span id="__span-1-57"><span class="n">consume</span><span class="p">()</span>
 </span></code></pre></div>
 
 

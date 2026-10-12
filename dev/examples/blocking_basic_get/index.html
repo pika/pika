@@ -2083,19 +2083,31 @@
 </span><span id="__span-0-4"><span class="n">channel</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
 </span><span id="__span-0-5">
 </span><span id="__span-0-6"><span class="c1"># Declare the queue we are about to read from, so the example is self-contained.</span>
-</span><span id="__span-0-7"><span class="c1"># `durable=True` because RabbitMQ 4.x refuses transient non-exclusive queues by</span>
-</span><span id="__span-0-8"><span class="c1"># default, and pika's `queue_declare` still defaults to `durable=False`.</span>
-</span><span id="__span-0-9"><span class="n">channel</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="n">queue</span><span class="o">=</span><span class="s1">'test'</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-0-10">
-</span><span id="__span-0-11"><span class="c1"># Put something there to get.</span>
-</span><span id="__span-0-12"><span class="n">channel</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">routing_key</span><span class="o">=</span><span class="s1">'test'</span><span class="p">,</span> <span class="n">body</span><span class="o">=</span><span class="sa">b</span><span class="s1">'Hello World!'</span><span class="p">)</span>
+</span><span id="__span-0-7"><span class="c1"># `durable=True` is required by RabbitMQ 4.3; see examples/README.md.</span>
+</span><span id="__span-0-8"><span class="n">channel</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="n">queue</span><span class="o">=</span><span class="s1">'test'</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-0-9">
+</span><span id="__span-0-10"><span class="c1"># Drain anything a previous run left, so both branches below are reachable.</span>
+</span><span id="__span-0-11"><span class="k">while</span> <span class="n">channel</span><span class="o">.</span><span class="n">basic_get</span><span class="p">(</span><span class="s1">'test'</span><span class="p">,</span> <span class="n">auto_ack</span><span class="o">=</span><span class="kc">True</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-12">    <span class="k">pass</span>
 </span><span id="__span-0-13">
-</span><span id="__span-0-14"><span class="n">method_frame</span><span class="p">,</span> <span class="n">header_frame</span><span class="p">,</span> <span class="n">body</span> <span class="o">=</span> <span class="n">channel</span><span class="o">.</span><span class="n">basic_get</span><span class="p">(</span><span class="s1">'test'</span><span class="p">)</span>
-</span><span id="__span-0-15"><span class="k">if</span> <span class="n">method_frame</span><span class="p">:</span>
-</span><span id="__span-0-16">    <span class="nb">print</span><span class="p">(</span><span class="n">method_frame</span><span class="p">,</span> <span class="n">header_frame</span><span class="p">,</span> <span class="n">body</span><span class="p">)</span>
-</span><span id="__span-0-17">    <span class="n">channel</span><span class="o">.</span><span class="n">basic_ack</span><span class="p">(</span><span class="n">method_frame</span><span class="o">.</span><span class="n">delivery_tag</span><span class="p">)</span>
-</span><span id="__span-0-18"><span class="k">else</span><span class="p">:</span>
-</span><span id="__span-0-19">    <span class="nb">print</span><span class="p">(</span><span class="s1">'No message returned'</span><span class="p">)</span>
+</span><span id="__span-0-14"><span class="c1"># Put a single message there to get.</span>
+</span><span id="__span-0-15"><span class="n">channel</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">routing_key</span><span class="o">=</span><span class="s1">'test'</span><span class="p">,</span> <span class="n">body</span><span class="o">=</span><span class="sa">b</span><span class="s1">'Hello World!'</span><span class="p">)</span>
+</span><span id="__span-0-16">
+</span><span id="__span-0-17">
+</span><span id="__span-0-18"><span class="k">def</span><span class="w"> </span><span class="nf">get_one</span><span class="p">():</span>
+</span><span id="__span-0-19"><span class="w">    </span><span class="sd">"""Get a message if there is one, which is the thing `basic_get` has to</span>
+</span><span id="__span-0-20"><span class="sd">    teach: it answers either a delivery or nothing at all."""</span>
+</span><span id="__span-0-21">    <span class="n">method_frame</span><span class="p">,</span> <span class="n">header_frame</span><span class="p">,</span> <span class="n">body</span> <span class="o">=</span> <span class="n">channel</span><span class="o">.</span><span class="n">basic_get</span><span class="p">(</span><span class="s1">'test'</span><span class="p">)</span>
+</span><span id="__span-0-22">    <span class="k">if</span> <span class="n">method_frame</span><span class="p">:</span>
+</span><span id="__span-0-23">        <span class="nb">print</span><span class="p">(</span><span class="n">method_frame</span><span class="p">,</span> <span class="n">header_frame</span><span class="p">,</span> <span class="n">body</span><span class="p">)</span>
+</span><span id="__span-0-24">        <span class="n">channel</span><span class="o">.</span><span class="n">basic_ack</span><span class="p">(</span><span class="n">method_frame</span><span class="o">.</span><span class="n">delivery_tag</span><span class="p">)</span>
+</span><span id="__span-0-25">    <span class="k">else</span><span class="p">:</span>
+</span><span id="__span-0-26">        <span class="nb">print</span><span class="p">(</span><span class="s1">'No message returned'</span><span class="p">)</span>
+</span><span id="__span-0-27">
+</span><span id="__span-0-28">
+</span><span id="__span-0-29"><span class="c1"># The first call finds the message, the second finds the queue empty.</span>
+</span><span id="__span-0-30"><span class="n">get_one</span><span class="p">()</span>
+</span><span id="__span-0-31"><span class="n">get_one</span><span class="p">()</span>
 </span></code></pre></div>
 
 

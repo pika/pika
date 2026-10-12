@@ -2097,20 +2097,25 @@
 </span><span id="__span-1-17">
 </span><span id="__span-1-18"><span class="k">with</span> <span class="n">pika</span><span class="o">.</span><span class="n">BlockingConnection</span><span class="p">(</span><span class="n">conn_params</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
 </span><span id="__span-1-19">    <span class="n">ch</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
-</span><span id="__span-1-20">    <span class="c1"># `durable=True` because RabbitMQ 4.x refuses transient non-exclusive</span>
-</span><span id="__span-1-21">    <span class="c1"># queues by default, and pika's `queue_declare` still defaults to</span>
-</span><span id="__span-1-22">    <span class="c1"># `durable=False`.</span>
-</span><span id="__span-1-23">    <span class="n">ch</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="s1">'foobar'</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-1-24">    <span class="n">ch</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span><span class="s1">''</span><span class="p">,</span> <span class="s1">'foobar'</span><span class="p">,</span> <span class="sa">b</span><span class="s1">'Hello, world!'</span><span class="p">)</span>
-</span><span id="__span-1-25">    <span class="nb">print</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">basic_get</span><span class="p">(</span><span class="s1">'foobar'</span><span class="p">))</span>
+</span><span id="__span-1-20">    <span class="c1"># `durable=True` is required by RabbitMQ 4.3; see examples/README.md.</span>
+</span><span id="__span-1-21">    <span class="n">ch</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="s1">'foobar'</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-1-22">    <span class="n">ch</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span><span class="s1">''</span><span class="p">,</span> <span class="s1">'foobar'</span><span class="p">,</span> <span class="sa">b</span><span class="s1">'Hello, world!'</span><span class="p">)</span>
+</span><span id="__span-1-23">    <span class="nb">print</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">basic_get</span><span class="p">(</span><span class="s1">'foobar'</span><span class="p">))</span>
 </span></code></pre></div>
-<p>The TLS part of that configuration, <code>.ci/linux/rabbitmq.conf</code>:</p>
-<div class="highlight"><pre><span></span><code><span id="__span-2-1">listeners.ssl.default = 5671
-</span><span id="__span-2-2">ssl_options.cacertfile = /etc/rabbitmq/certs/ca_certificate.pem
-</span><span id="__span-2-3">ssl_options.certfile = /etc/rabbitmq/certs/server_certificate.pem
-</span><span id="__span-2-4">ssl_options.keyfile = /etc/rabbitmq/certs/server_key.pem
-</span><span id="__span-2-5">ssl_options.verify = verify_peer
-</span><span id="__span-2-6">ssl_options.fail_if_no_peer_cert = true
+<p>That configuration, <code>.ci/linux/rabbitmq.conf</code>, included here in full so it cannot drift from the file:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-2-1">listeners.tcp.default = 5672
+</span><span id="__span-2-2">listeners.ssl.default = 5671
+</span><span id="__span-2-3">num_acceptors.tcp = 10
+</span><span id="__span-2-4">num_acceptors.ssl = 10
+</span><span id="__span-2-5">reverse_dns_lookups = false
+</span><span id="__span-2-6">loopback_users.guest = false
+</span><span id="__span-2-7">ssl_options.verify = verify_peer
+</span><span id="__span-2-8">ssl_options.fail_if_no_peer_cert = true
+</span><span id="__span-2-9">ssl_options.cacertfile = /etc/rabbitmq/certs/ca_certificate.pem
+</span><span id="__span-2-10">ssl_options.certfile = /etc/rabbitmq/certs/server_certificate.pem
+</span><span id="__span-2-11">ssl_options.keyfile = /etc/rabbitmq/certs/server_key.pem
+</span><span id="__span-2-12">log.console = true
+</span><span id="__span-2-13">log.console.level = debug
 </span></code></pre></div>
 <p>The example above authenticates as <em>guest</em> over PLAIN and needs nothing more than that. Authenticating as the client certificate instead is a separate feature: it needs the <a href="https://github.com/rabbitmq/rabbitmq-auth-mechanism-ssl">RabbitMQ TLS (x509 certificate) authentication mechanism</a> enabled, <code>EXTERNAL</code> among the broker's <code>auth_mechanisms</code>, and a user named for the certificate's distinguished name. The Twisted example below does that, and its docstring spells out the requirements:</p>
 <div class="highlight"><pre><span></span><code><span id="__span-3-1"><span class="sd">"""</span>
