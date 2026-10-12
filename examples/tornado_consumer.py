@@ -174,8 +174,10 @@ class ExampleConsumer:
         :param str|unicode queue_name: The name of the queue to declare.
         """
         LOGGER.info('Declaring queue %s', queue_name)
+        # `durable=True` is required by RabbitMQ 4.3; see examples/README.md.
         self._channel.queue_declare(
             queue=queue_name,
+            durable=True,
             callback=self.on_queue_declareok,
         )
 
@@ -262,9 +264,12 @@ class ExampleConsumer:
         """Tell RabbitMQ that you would like to stop consuming by sending the Basic.Cancel RPC
         command.
         """
-        if self._channel:
+        # There is nothing to cancel until Basic.ConsumeOk has given us a tag,
+        # and passing None would raise a TypeError that hides whatever closed
+        # the channel first.
+        if self._channel and self._consumer_tag:
             LOGGER.info('Sending a Basic.Cancel RPC command to RabbitMQ')
-            self._channel.basic_cancel(self.on_cancelok, self._consumer_tag)
+            self._channel.basic_cancel(self._consumer_tag, self.on_cancelok)
 
     def start_consuming(self):
         """

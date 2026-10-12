@@ -54,20 +54,23 @@ amqps://www-data:rabbit_pwd@rabbit1/web_messages?client_properties=%7B%27connect
 - locale: Set the locale of the client using underscore delimited posix Locale code in ll_CC format (en_US, pt_BR, de_DE).
 - retry_delay: The number of seconds to wait before attempting to reconnect on a failed connection, if connection_attempts is > 0.
 - socket_timeout: Change the default socket timeout duration from 0.25 seconds to another integer or float value. Adjust with caution.
-- ssl_options: A url encoded dict of values for the SSL connection. The available keys are:
-   - ca_certs
-   - cert_reqs
-   - certfile
-   - keyfile
-   - ssl_version
+- ssl_options: A url encoded dict of values for the SSL connection. The keys are the arguments the corresponding `ssl.SSLContext` methods take:
+   - protocol, passed to `ssl.SSLContext`
+   - ca_certs (or cafile), ca_path (or capath), ca_data (or cadata), passed to `SSLContext.load_verify_locations`
+   - certfile, keyfile, password, passed to `SSLContext.load_cert_chain`
+   - ciphers, passed to `SSLContext.set_ciphers`
+   - server_hostname, passed to `pika.SSLOptions`
 
-For information on what the ssl_options can be set to reference the [official Python documentation](https://docs.python.org/3/library/ssl.html). Here is an example of setting the client certificate and key:
+!!! note
+    `cert_reqs` and `ssl_version` are not among them. They were arguments of the removed `ssl.wrap_socket` and are ignored, so a `cert_reqs` of `CERT_NONE` silently leaves verification on. A URL that sets no other `ssl_options` key is worse than ignored: it raises `TypeError: cafile, capath and cadata cannot be all omitted`.
+
+For information on what the ssl_options can be set to reference the [official Python documentation](https://docs.python.org/3/library/ssl.html). Here is an example of setting the client certificate and key. Note the *amqps* scheme: the query argument configures TLS but does not select it, so with *amqp* you would get a TLS context aimed at the plaintext port 5672.
 
 ```text
-amqp://www-data:rabbit_pwd@rabbit1/web_messages?heartbeat=30&ssl_options=%7B%27keyfile%27%3A+%27%2Fetc%2Fssl%2Fmykey.pem%27%2C+%27certfile%27%3A+%27%2Fetc%2Fssl%2Fmycert.pem%27%7D
+amqps://www-data:rabbit_pwd@rabbit1/web_messages?heartbeat=30&ssl_options=%7B%27keyfile%27%3A+%27%2Fetc%2Fssl%2Fmykey.pem%27%2C+%27certfile%27%3A+%27%2Fetc%2Fssl%2Fmycert.pem%27%7D
 ```
 
-The following example demonstrates how to generate the ssl_options string with [Python's urllib](https://docs.python.org/3/library/urllib.html):
+The following example generates an ssl_options string like that one with [Python's urllib](https://docs.python.org/3/library/urllib.html), using the repository's own test certificates, and connects with it:
 
 ```python
 --8<-- "examples/using_urlparameters.py"

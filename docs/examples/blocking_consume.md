@@ -11,7 +11,7 @@ Example of consuming messages and acknowledging them:
 ```python
 --8<-- "examples/blocking_consume.py"
 ```
-Example of using more connection parameters. This example will connect using TLS, but not verify hostname and not a client provided certificate. It will set the heartbeat to 150 seconds and use a maximum of 10 channels. It will use a specific vhost, username and password. It will set the client provided connection_name for easy identification:
+Example of using more connection parameters. This example connects over TLS, verifying the broker against a CA certificate and presenting a client certificate of its own. It names its virtual host, username and password explicitly rather than relying on the defaults, sets the heartbeat to 150 seconds, caps the connection at 10 channels, and sets the client provided connection_name for easy identification:
 
 ```python
 --8<-- "examples/blocking_consume_tls.py"

@@ -155,11 +155,17 @@ spec-check = "python utils/regen_spec.py --check"
 unit = "pytest -n auto --dist=loadscope tests/unit/ {args}"
 test = "pytest -n auto --dist=loadscope {args}"
 rabbitmq = "docker run --name pika-rabbitmq --pull always --detach --rm --publish 5672:5672 --publish 15672:15672 rabbitmq:management-alpine"
+# The same broker with the TLS listener CI uses, for `test --use-tls` and for the
+# TLS examples. Separate from `rabbitmq` because it mounts the repository.
+rabbitmq-tls = "docker run --name pika-rabbitmq --pull always --detach --rm --publish 5672:5672 --publish 5671:5671 --publish 15672:15672 --volume {root}/.ci/linux/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro --volume {root}/tests/certs:/etc/rabbitmq/certs:ro rabbitmq:management-alpine"
 
 [tool.hatch.envs.examples]
 dependencies = [
     "tornado",
-    "twisted",
+    # `twisted.internet.ssl` imports `OpenSSL`, which plain `twisted` does not
+    # pull in, so `tls_mutual_authentication_twisted.py` fails at import
+    # without the `tls` extra.
+    "twisted[tls]",
     "retry",
     "msgpack",
     "pydantic",

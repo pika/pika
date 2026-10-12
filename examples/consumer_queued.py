@@ -65,5 +65,7 @@ consumer_channel.basic_consume(queue, callback, auto_ack=True)
 
 try:
     consumer_channel.start_consuming()
+except KeyboardInterrupt:
+    consumer_channel.stop_consuming()
 finally:
     connection.close()

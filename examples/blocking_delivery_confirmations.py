@@ -15,9 +15,10 @@ channel.queue_declare(queue='test',
 # Turn on delivery confirmations
 channel.confirm_delivery()
 
-# Send a message
+# Send a message. The default exchange ('') routes by queue name, so this
+# reaches the queue declared above without declaring an exchange as well.
 try:
-    channel.basic_publish(exchange='test',
+    channel.basic_publish(exchange='',
                           routing_key='test',
                           body=b'Hello World!',
                           properties=pika.BasicProperties(

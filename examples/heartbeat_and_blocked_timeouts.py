@@ -9,7 +9,7 @@ Here, we specify an explicit lower bound for heartbeat timeout.
 When RabbitMQ broker is running out of certain resources, such as memory and disk space, it may
 block connections that are performing resource-consuming operations, such as publishing messages.
 Once a connection is blocked, RabbitMQ stops reading from that connection's socket, so no commands
-from the client will get through to te broker on that connection until the broker unblocks it. A
+from the client will get through to the broker on that connection until the broker unblocks it. A
 blocked connection may last for an indefinite period of time, stalling the connection and possibly
 resulting in a hang (e.g., in BlockingConnection) until the connection is unblocked. Blocked
 Connection Timeout is intended to interrupt (i.e., drop) a connection that has been blocked longer

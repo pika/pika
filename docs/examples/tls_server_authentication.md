@@ -8,25 +8,18 @@ See [TLS Support](https://www.rabbitmq.com/ssl.html) for certificate creation an
 ```python
 --8<-- "examples/tls_server_authentication.py"
 ```
-rabbitmq.conf:
+The example reads the certificates in `tests/certs/`, which are the ones the repository's own CI configuration gives the broker, so it runs against a broker started with that configuration:
+
+```bash
+hatch run rabbitmq-tls
+```
+
+That configuration, `.ci/linux/rabbitmq.conf`, included here in full so it cannot drift from the file:
 
 ```text
-%% In this example, both the client and RabbitMQ server are assumed to be running on the same machine
-%% with a self-signed set of certificates generated using https://github.com/rabbitmq/tls-gen.
-%%
-%% To find out the default rabbitmq.conf location, see https://www.rabbitmq.com/configure.html.
-%%
-%% The contents of the example config file are for demonstration purposes only.
-%% See https://www.rabbitmq.com/ssl.html to learn how to use TLS for client connections in RabbitMQ.
-%%
-%% The example below allows clients without a certificate to connect
-%% but performs peer verification on those that present a certificate chain.
-
-listeners.ssl.default = 5671
-
-ssl_options.cacertfile = /Users/me/tls-gen/basic/result/ca_certificate.pem
-ssl_options.certfile = /Users/me/tls-gen/basic/result/server_certificate.pem
-ssl_options.keyfile = /Users/me/tls-gen/basic/result/server_key.pem
-ssl_options.verify = verify_peer
-ssl_options.fail_if_no_peer_cert = false
+--8<-- ".ci/linux/rabbitmq.conf"
 ```
+
+Note `ssl_options.fail_if_no_peer_cert = true`. It requires every TLS client to present a certificate chain, so against this broker even a server-authentication example has to load a client certificate, which is why the code above does. Server authentication on its own, verifying the broker and presenting nothing, needs `fail_if_no_peer_cert = false`; set that and the `load_cert_chain` call becomes unnecessary.
+
+To use your own certificates instead, generate a set with [tls-gen](https://github.com/rabbitmq/tls-gen) and point both the config above and the example at them. See [configure](https://www.rabbitmq.com/configure.html) for where `rabbitmq.conf` lives on your system.

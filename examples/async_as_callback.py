@@ -8,7 +8,7 @@ import time
 from enum import Enum
 
 import msgpack
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 
 import pika
 from pika.exceptions import AMQPConnectionError
@@ -36,9 +36,14 @@ class Headers(BaseModel):
     priority: Priority
     task_type: str | None = None
 
-    @validator('priority', pre=True)
-    def _convert_priority(self, value):
-        return Priority[value]
+    # Accept the member name, so `Headers(job_id='x', priority='HIGH')` works.
+    # A pydantic 2 validator is a classmethod and runs before parsing when
+    # `mode='before'`; the pydantic 1 `@validator(pre=True)` spelling this
+    # replaces is rejected outright on an instance method.
+    @field_validator('priority', mode='before')
+    @classmethod
+    def _convert_priority(cls, value):
+        return Priority[value] if isinstance(value, str) else value
 
 
 class RabbitMQConfig(BaseModel):
@@ -52,8 +57,8 @@ class RabbitMQConfig(BaseModel):
 class BasicPikaClient:
 
     def __init__(self):
-        self.username = 'username'
-        self.password = 'password'
+        self.username = 'guest'
+        self.password = 'guest'
         self.host = 'localhost'
         self.port = 5672
         self.protocol = 'amqp'
@@ -222,4 +227,9 @@ def create_consumer():
 
 
 if __name__ == '__main__':
-    create_consumer()
+    try:
+        create_consumer()
+    except KeyboardInterrupt:
+        # A consumer is meant to be stopped with Ctrl-C, so exit quietly
+        # rather than letting the interrupt out as a traceback.
+        pass

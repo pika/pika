@@ -10,6 +10,8 @@ hatch run rabbitmq
 
 This starts a RabbitMQ container with the management plugin on ports 5672 (AMQP) and 15672 (HTTP management UI, guest/guest).
 
+If you intend to run the TLS examples too, start `rabbitmq-tls` instead and skip this one. It publishes 5672 and 15672 as well, so it serves every example, and both scripts name the container `pika-rabbitmq`, so running the second while the first is up fails with a name conflict.
+
 ## Running examples
 
 Use the `examples` hatch environment, which includes all optional dependencies (Twisted, Tornado, etc.):
@@ -26,7 +28,37 @@ python examples/blocking_consume.py
 
 ## TLS examples
 
-The TLS mutual authentication examples use test certificates from `tests/certs/`. To run them, you need a RabbitMQ broker configured for TLS. See the [RabbitMQ TLS documentation](https://www.rabbitmq.com/ssl.html) for setup instructions.
+The TLS examples connect to port 5671 with the test certificates from `tests/certs/`, so they need a broker with a TLS listener using those same certificates. That is what `.ci/linux/rabbitmq.conf` configures, and `rabbitmq-tls` starts a container with it:
+
+```bash
+# Stop the plain broker first if you started one; both use this container name.
+docker rm -f pika-rabbitmq
+hatch run rabbitmq-tls
+```
+
+`tls_mutual_authentication_twisted.py` needs more than that, because it authenticates by client certificate rather than by password. Its docstring lists what the broker also has to have: the `rabbitmq_auth_mechanism_ssl` plugin, `EXTERNAL` among `auth_mechanisms`, and a user named for the certificate's distinguished name.
+
+## Queue durability and RabbitMQ 4.3
+
+The examples declare queues that are either durable or exclusive. This is not incidental, and it is why several of them carry a `durable=True` that points here.
+
+RabbitMQ 4.3 and later refuse a queue that is both non-durable and non-exclusive, because the `transient_nonexcl_queues` deprecated feature moved to denied-by-default. pika's `queue_declare` still defaults to `durable=False`, so the naive `queue_declare('name')` now fails. It fails hard: the broker answers 541 and closes the **connection**, not just the channel.
+
+```text
+Feature `transient_nonexcl_queues` is deprecated.
+By default, this feature is not permitted anymore.
+```
+
+4.3 is where that default changed, not 4.0, so a queue declaration that works against an older 4.x broker can still fail here. The same declare was measured against the `rabbitmq:4.N-management-alpine` images:
+
+| broker | `queue_declare('q')`, no flags |
+|---|---|
+| 4.0 | accepted |
+| 4.1 | accepted |
+| 4.2.9 | accepted |
+| 4.3.6 | refused, 541 |
+
+Either flag is enough on its own. `durable=True` is the usual answer; `exclusive=True` suits a queue that should disappear with its connection, and `blocking_consume_recover_multiple_hosts_retry.py` uses it to stay non-durable on purpose.
 
 ## Examples
 
@@ -87,5 +119,5 @@ The TLS mutual authentication examples use test certificates from `tests/certs/`
 |------|-------------|
 | `direct_reply_to.py` | RPC using RabbitMQ's direct reply-to feature |
 | `publish.py` | Publish with exchange declaration and delivery confirmation |
-| `using_urlparameters.py` | Constructing AMQP URLs with `ssl_options` |
+| `using_urlparameters.py` | Constructing AMQP URLs with `ssl_options` (connects over TLS, so it needs the broker from the TLS section) |
 | `async_as_callback.py` | Asyncio integration with pydantic models and msgpack serialization |

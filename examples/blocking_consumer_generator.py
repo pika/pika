@@ -3,6 +3,17 @@ import pika
 connection = pika.BlockingConnection()
 channel = connection.channel()
 
+# Declare the queue we are about to consume from, so the example is
+# self-contained. `durable=True` is required by RabbitMQ 4.3; see
+# examples/README.md.
+channel.queue_declare(queue='test', durable=True)
+
+# Publish the ten messages the loop below expects, so it terminates.
+for number in range(10):
+    channel.basic_publish(exchange='',
+                          routing_key='test',
+                          body=f'Hello World {number}!'.encode())
+
 # Get ten messages and break out
 for method_frame, properties, body in channel.consume('test'):
 

@@ -17,6 +17,7 @@ conn_params = pika.ConnectionParameters(port=5671, ssl_options=ssl_options)
 
 with pika.BlockingConnection(conn_params) as conn:
     ch = conn.channel()
-    ch.queue_declare('foobar')
+    # `durable=True` is required by RabbitMQ 4.3; see examples/README.md.
+    ch.queue_declare('foobar', durable=True)
     ch.basic_publish('', 'foobar', b'Hello, world!')
     print(ch.basic_get('foobar'))
