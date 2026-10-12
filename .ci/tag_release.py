@@ -46,6 +46,15 @@ RELEASE_BRANCH = 'main'
 PYPROJECT_VERSION = re.compile(r'^version = "([^"]+)"', re.MULTILINE)
 INIT_VERSION = re.compile(r'^__version__ = [\'"]([^\'"]+)[\'"]', re.MULTILINE)
 
+#: The armour a signed tag carries. All three forms are accepted because
+#: `git tag --sign` honours `gpg.format`, so a correctly signed tag may be
+#: OpenPGP, SSH or x509; a PGP-only check once rejected an SSH-signed tag after
+#: it had already been pushed. Presence is what is checked, not validity:
+#: verifying the signature would need the signer's public key on the runner.
+SIGNATURE_ARMOUR = re.compile(
+    r'^-----BEGIN (?:PGP|SSH) SIGNATURE-----|^-----BEGIN SIGNED MESSAGE-----',
+    re.MULTILINE)
+
 PYPI_URL = 'https://pypi.org/pypi/pika/{version}/json'
 
 #: urllib's default announces Python and gets refused by some indexes.
@@ -241,6 +250,80 @@ def check(version: str,
         raise CheckFailed(
             f'pika {version} is already on PyPI. A version is immutable and '
             f'cannot be re-uploaded even after deletion; pick the next one')
+
+    return implied
+
+
+def verify_tag(version: str,
+               sha: str,
+               verify_pypi: bool = True,
+               root: pathlib.Path | None = None) -> dict[str, str]:
+    """
+    Refuse every reason a tag that has already been pushed should not publish.
+
+    The mirror of `check`, on the other side of the push. `check` runs before the tag exists and
+    refuses if it does; this runs in `release.yaml` after someone has pushed one, so the tag must
+    exist, and what it can establish is about the tag object and the commit it names rather than
+    about a working tree.
+
+    The overlap with `check` is the point rather than an oversight. A tag carries no review, and
+    nothing obliges anyone to create it with `release.py tag`: a hand-edited version bump plus
+    `git tag -s` and `git push` skips every local check. So each guard on the irreversible path has
+    to hold here too. The version-ordering guard did not, which is how a tag naming a version older
+    than the newest release would have published `main` under that older name. 1.4.3 was the live
+    example: never published, lower than 1.4.4, and accepted by every check the workflow ran.
+
+    :param version: The pushed tag, which must equal both version files.
+    :param sha: The commit the tag names, which must be an ancestor of `main`.
+    :param verify_pypi: Ask PyPI whether the version is already published.
+    :param root: Directory to resolve the version files against.
+    :returns: The release parameters the tag implies, from `release_version.classify`.
+    :raises CheckFailed: on the first precondition that does not hold.
+    """
+    # First, because a tag this scheme will not publish makes the rest moot.
+    implied = check_releasable(version)
+
+    kind = git('cat-file', '-t', version)
+    if kind != 'tag':
+        raise CheckFailed(
+            f'{version} is a {kind}, not an annotated tag. Delete it and '
+            f're-create it with `release.py tag`, which annotates and signs')
+    if not SIGNATURE_ARMOUR.search(git('cat-file', 'tag', version)):
+        raise CheckFailed(f'{version} carries no signature. Delete it and '
+                          f're-create it with `release.py tag`')
+
+    # The artifact is built from the files at this commit, not from the tag text,
+    # so a tag disagreeing with either file would publish one version under
+    # another's name. The realistic mistake is tagging before the bump landed.
+    for path, pattern in ((pathlib.Path('pyproject.toml'), PYPROJECT_VERSION),
+                          (pathlib.Path('pika/__init__.py'), INIT_VERSION)):
+        written = version_in(path, pattern, root)
+        if written != version:
+            raise CheckFailed(f'{path} says {written!r}, not {version!r}. Tag '
+                              f'the commit that bumps the version')
+
+    # `main` is the only branch whose content passed `tests-passed`, so a tag
+    # anywhere else would publish unreviewed code. The refspec is spelled out for
+    # the reason `check` documents.
+    git('fetch', '--quiet', 'origin',
+        f'+refs/heads/{RELEASE_BRANCH}:refs/remotes/origin/{RELEASE_BRANCH}')
+    try:
+        git('merge-base', '--is-ancestor', sha, f'origin/{RELEASE_BRANCH}')
+    except CheckFailed as exc:
+        raise CheckFailed(
+            f'{sha[:12]} is not an ancestor of origin/{RELEASE_BRANCH}. Land '
+            f'the version bump on {RELEASE_BRANCH} before tagging it') from exc
+
+    newest = newest_released(root)
+    if newest and release_version.Version(version) <= release_version.Version(
+            newest):
+        raise CheckFailed(f'{version} does not move past {newest}, the newest '
+                          f'released version. A release has to go forwards')
+
+    if verify_pypi and on_pypi(version):
+        raise CheckFailed(
+            f'pika {version} is already on PyPI. A version is immutable and '
+            f'cannot be re-uploaded even after deletion')
 
     return implied
 

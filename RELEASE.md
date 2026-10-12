@@ -185,7 +185,7 @@ A pre-release goes to real PyPI: per PEP 440, `pip install pika` skips it unless
 
 The entire flow lives in a single `release.yaml` workflow:
 
-1. The `release` job works out what to do. On a tag push it asks `release.py classify` for the mode and the documentation parameters, then runs the four guards below. On a dispatch it computes a throwaway version and edits the two version files, which a real release never does because the files already carry the version. Either way it builds the distribution once (`twine check` included) and uploads it as an artifact
+1. The `release` job works out what to do. On a tag push it asks `release.py verify` to refuse the tag outright or answer with the mode and the documentation parameters, which is the single step that runs all five guards below. On a dispatch it computes a throwaway version and edits the two version files, which a real release never does because the files already carry the version. Either way it builds the distribution once (`twine check` included) and uploads it as an artifact
 2. The `publish-pypi` / `publish-test-pypi` job downloads that artifact and publishes it, authenticating with the `PYPI_API_TOKEN` / `TEST_PYPI_API_TOKEN` repository secrets. Downstream jobs never rebuild, so the bytes tested are the bytes shipped
 3. The `smoke-test` job installs the just-published wheel from the matching index and runs `.ci/smoke_test.py` against a live broker (see Post-release verification)
 4. The `github-release` job creates a GitHub Release on the pushed tag, with notes auto-generated from merged PRs (`--generate-notes`, grouped per `.github/release.yml`) and the upgrade preamble prepended
@@ -199,10 +199,12 @@ A `dry-run` dispatch builds the artifact and stops. Nothing is published.
 
 A tag carries no review, so these are what stand between a mistyped `git push origin <tag>` and a published release. `release.py tag` runs the same checks locally, before the tag exists, which is the cheaper place to fail.
 
+Both sides share one implementation. `release.py tag` calls `tag_release.check` and the workflow calls `release.py verify`, which calls `tag_release.verify_tag`; the two differ only in what they can know, since one runs before the tag exists and the other after. The workflow used to carry its own shell copies instead, and they had drifted: nothing in them asked whether the version moved forwards, even though guard 4 below has always said it did. A hand-pushed `1.4.3` would have passed every check and published `main` under a version lower than `1.4.4`.
+
 1. **The tag is one this scheme publishes.** `X.Y.Z` with an optional canonical `a`/`b`/`rc` segment. `v1.5.0`, `1.5`, `1.5.0.dev3`, `1.5.0.post1`, `1.5.0+local` and `1.05.0` are all refused, the last because `packaging` would normalise it to a version the tag does not spell. The `on.push.tags` glob is deliberately *broader* than that rule, matching anything starting with a digit or `v`, so a refused tag produces a named failing step rather than no workflow run at all. A narrow glob made those tags a silent no-op while this document called them refused
 2. **The tag matches both version files.** The artifact is built from the files at that commit, not from the tag text, so a disagreement would publish one version under another's name. This catches the realistic mistake: tagging before the bump commit landed, or tagging the wrong commit
 3. **The tagged commit is an ancestor of `origin/main`.** `main` is the only branch whose content passed `tests-passed`
-4. **PyPI does not already hold the version**, and the version sorts above the newest released one. A tag can be deleted and re-pushed; a PyPI version cannot be re-uploaded even after deletion. Only a 404 from PyPI counts as "not published": any other status fails the step, because treating, say, a 503 as a green light would wave an already-published version through to `twine`
+4. **PyPI does not already hold the version, and the version sorts above the newest released one.** A tag can be deleted and re-pushed; a PyPI version cannot be re-uploaded even after deletion. Only a 404 from PyPI counts as "not published": any other status fails the step, because treating, say, a 503 as a green light would wave an already-published version through to `twine`
 5. **The tag is annotated and signed.** Checked on the pushed tag, since a tag created by hand can be neither
 
 Failing any of them aborts before anything is published, because they all run in the `release` job ahead of the publish jobs.

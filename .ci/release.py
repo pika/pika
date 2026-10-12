@@ -800,6 +800,27 @@ def cmd_check(args: argparse.Namespace) -> int:
     return 1
 
 
+def cmd_verify(args: argparse.Namespace) -> int:
+    """
+    Refuse a pushed tag that must not publish, as `$GITHUB_OUTPUT` lines.
+
+    The one operation `release.yaml` runs on the irreversible path, and the second operation a
+    machine runs, so its output is bare `key=value` lines like `classify`. It exists because the
+    workflow previously carried its own shell copies of these checks, and the copies had drifted:
+    they never asked whether the tag moved the version forwards.
+
+    :param args: Parsed arguments.
+    :returns: Process exit status.
+    """
+    implied = tag_release.verify_tag(args.tag,
+                                     args.sha,
+                                     verify_pypi=not args.no_verify_pypi,
+                                     root=_ROOT)
+    for key, value in implied.items():
+        print(f'{key}={value}')
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     """
     Return the argument parser for every operation.
@@ -839,6 +860,15 @@ def build_parser() -> argparse.ArgumentParser:
                               help='print what a pushed tag implies')
     classify.add_argument('--tag', required=True)
     classify.set_defaults(func=cmd_classify, dry_run=False, passthrough=())
+
+    verify = sub.add_parser('verify',
+                            help='refuse a pushed tag that must not publish')
+    verify.add_argument('--tag', required=True)
+    verify.add_argument('--sha', required=True)
+    verify.add_argument('--no-verify-pypi',
+                        action='store_true',
+                        dest='no_verify_pypi')
+    verify.set_defaults(func=cmd_verify, dry_run=False, passthrough=())
 
     bump = add('bump', cmd_bump, 'branch, write the version, and commit')
     bump.add_argument('--branch', default='')

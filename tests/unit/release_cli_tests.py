@@ -136,6 +136,62 @@ class ClassifyTests(unittest.TestCase):
         self.assertIn('error:', err)
 
 
+class VerifyTests(unittest.TestCase):
+    """
+    The other machine-facing operation, and the only one on the irreversible path.
+
+    `release.yaml` runs this instead of the shell copies it used to carry, so its output shape is
+    the same contract `classify` has: bare `key=value` lines, and nothing at all on a refusal.
+    """
+
+    def test_output_is_bare_github_output_lines(self):
+        with mock.patch.object(release.tag_release,
+                               'verify_tag',
+                               return_value={
+                                   'mode': 'release',
+                                   'version': '1.5.0'
+                               }) as verify:
+            status, out, _ = run(
+                ['verify', '--tag', '1.5.0', '--sha', 'a' * 40])
+        self.assertEqual(status, 0)
+        self.assertEqual(out.splitlines(), ['mode=release', 'version=1.5.0'])
+        # `call_args[0]` rather than `.args`: the attribute form is 3.8+ and
+        # the matrix floor is 3.7, where `call_args` is a plain
+        # `(args, kwargs)` tuple and `.kwargs['x']` raises TypeError. The
+        # index form reads the same on every version in the matrix.
+        self.assertEqual(verify.call_args[0], ('1.5.0', 'a' * 40))
+
+    def test_a_refused_tag_writes_nothing_to_stdout(self):
+        # Same reason as `classify`: a partial write would land half the
+        # parameters in `$GITHUB_OUTPUT` and the job would carry on.
+        refuse = release.tag_release.CheckFailed(
+            '1.4.3 does not move past 1.4.4')
+        with mock.patch.object(release.tag_release,
+                               'verify_tag',
+                               side_effect=refuse):
+            status, out, err = run(
+                ['verify', '--tag', '1.4.3', '--sha', 'a' * 40])
+        self.assertEqual(status, 1)
+        self.assertEqual(out, '')
+        self.assertIn('does not move past', err)
+
+    def test_pypi_can_be_skipped(self):
+        with mock.patch.object(release.tag_release,
+                               'verify_tag',
+                               return_value={}) as verify:
+            run([
+                'verify', '--tag', '1.5.0', '--sha', 'a' * 40,
+                '--no-verify-pypi'
+            ])
+        self.assertIs(verify.call_args[1]['verify_pypi'], False)
+
+    def test_both_the_tag_and_the_sha_are_required(self):
+        for argv in (['verify', '--tag',
+                      '1.5.0'], ['verify', '--sha', 'a' * 40]):
+            with self.subTest(argv=argv), self.assertRaises(SystemExit):
+                run(argv)
+
+
 class ComputeTests(unittest.TestCase):
     """One operation, two callers: `release.yaml` and a person."""
 

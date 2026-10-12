@@ -248,5 +248,180 @@ class SigningKeyTests(unittest.TestCase):
             tag_release.signing_key('')
 
 
+class VerifyTagTests(unittest.TestCase):
+    """
+    The other side of the push: a tag that already exists and may not have come from `tag`.
+
+    `check` guards the maintainer's machine, where failing is free. These guard the workflow, which
+    is the last place anything can refuse before `twine` makes it permanent. Nothing obliges a
+    maintainer to create the tag with `release.py tag`, so a hand-rolled `git tag -s` has to meet
+    the same bar.
+    """
+
+    SHA = 'b' * 40
+    SIGNED = (
+        'object ' + 'c' * 40 + '\ntype commit\ntag 1.5.0\n\npika 1.5.0\n'
+        '-----BEGIN PGP SIGNATURE-----\nabc\n-----END PGP SIGNATURE-----\n')
+
+    def _git(self, responses):
+        """
+        Return a `git` stand-in answering by leading arguments.
+
+        A response may be an exception instance, which is raised instead of returned: that is how
+        `merge-base --is-ancestor` reports "no", and the refusal depends on it.
+
+        :param responses: Maps the git subcommand to its stdout, or to an exception.
+        :returns: A callable with `git`'s signature.
+        """
+
+        def fake(*args, check=True):
+            for key, value in responses.items():
+                if args[:len(key)] == key:
+                    if isinstance(value, Exception):
+                        raise value
+                    return value
+            return ''
+
+        return fake
+
+    def _clean_responses(self, overrides=None):
+        """
+        Return git answers for a pushed tag that passes every check.
+
+        :param overrides: Replace or add individual answers.
+        :returns: Maps a git subcommand to its stdout.
+        """
+        responses = {
+            ('cat-file', '-t'): 'tag',
+            ('cat-file', 'tag'): self.SIGNED,
+            ('fetch',): '',
+            ('merge-base', '--is-ancestor'): '',
+        }
+        responses.update(overrides or {})
+        return responses
+
+    @contextlib.contextmanager
+    def _patched(self,
+                 responses,
+                 version='1.5.0',
+                 newest='1.4.4',
+                 on_pypi=False):
+        """
+        Patch git, the version files, the newest release and PyPI for one call.
+
+        :param responses: Maps a git subcommand to its stdout, or to an exception.
+        :param version: What both version files declare.
+        :param newest: The newest already-released version.
+        :param on_pypi: Whether PyPI already holds the version.
+        :yields: Nothing; the patches are active for the block.
+        """
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(
+                mock.patch.object(tag_release, 'git', self._git(responses)))
+            stack.enter_context(
+                mock.patch.object(tag_release, 'version_in',
+                                  lambda *a: version))
+            stack.enter_context(
+                mock.patch.object(tag_release, 'newest_released',
+                                  lambda *a: newest))
+            stack.enter_context(
+                mock.patch.object(tag_release, 'on_pypi', lambda v: on_pypi))
+            yield
+
+    def _refuses(self, responses, tag='1.5.0', **patches):
+        """
+        Assert `verify_tag` refuses, and return the reason it gave.
+
+        :param responses: Maps a git subcommand to its stdout, or to an exception.
+        :param tag: The pushed tag.
+        :param patches: Forwarded to `_patched`.
+        :returns: The exception message.
+        """
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(self._patched(responses, **patches))
+            caught = stack.enter_context(
+                self.assertRaises(tag_release.CheckFailed))
+            tag_release.verify_tag(tag, self.SHA)
+        return str(caught.exception)
+
+    def test_a_signed_tag_on_main_passes_and_returns_the_parameters(self):
+        with self._patched(self._clean_responses()):
+            implied = tag_release.verify_tag('1.5.0', self.SHA)
+        self.assertEqual(implied['mode'], 'release')
+
+    def test_an_unreleasable_tag_is_refused_before_touching_git(self):
+
+        def never(*args, **kwargs):
+            raise AssertionError('should not have been consulted')
+
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.object(tag_release, 'git', never))
+            stack.enter_context(self.assertRaises(tag_release.CheckFailed))
+            tag_release.verify_tag('v1.5.0', self.SHA)
+
+    def test_a_lightweight_tag_is_refused(self):
+        overrides = {('cat-file', '-t'): 'commit'}
+        self.assertIn('not an annotated tag',
+                      self._refuses(self._clean_responses(overrides)))
+
+    def test_an_unsigned_annotated_tag_is_refused(self):
+        overrides = {('cat-file', 'tag'): 'object x\ntype commit\n\npika\n'}
+        self.assertIn('no signature',
+                      self._refuses(self._clean_responses(overrides)))
+
+    def test_every_armour_git_can_produce_is_accepted(self):
+        # `git tag --sign` honours `gpg.format`, so all three are correct output.
+        for armour in ('-----BEGIN PGP SIGNATURE-----',
+                       '-----BEGIN SSH SIGNATURE-----',
+                       '-----BEGIN SIGNED MESSAGE-----'):
+            with self.subTest(armour=armour):
+                overrides = {('cat-file', 'tag'): f'tag 1.5.0\n\n{armour}\n'}
+                with self._patched(self._clean_responses(overrides)):
+                    tag_release.verify_tag('1.5.0', self.SHA)
+
+    def test_version_files_disagree_with_the_tag(self):
+        reason = self._refuses(self._clean_responses(), version='1.4.4')
+        self.assertIn("not '1.5.0'", reason)
+
+    def test_a_commit_that_is_not_on_main_is_refused(self):
+        # `merge-base --is-ancestor` exits nonzero rather than printing, so the
+        # stand-in raises to reproduce what `git` does.
+        overrides = {
+            ('merge-base', '--is-ancestor'):
+                tag_release.CheckFailed('git merge-base failed'),
+        }
+        self.assertIn('not an ancestor',
+                      self._refuses(self._clean_responses(overrides)))
+
+    def test_a_version_older_than_the_newest_release_is_refused(self):
+        # The check the workflow's shell copy never had. 1.4.3 was never
+        # published and is lower than 1.4.4, so every other guard passes it and
+        # `main` would have been published as 1.4.3.
+        reason = self._refuses(self._clean_responses(),
+                               tag='1.4.3',
+                               version='1.4.3',
+                               newest='1.4.4')
+        self.assertIn('does not move past 1.4.4', reason)
+
+    def test_re_tagging_the_newest_release_is_refused(self):
+        reason = self._refuses(self._clean_responses(),
+                               tag='1.4.4',
+                               version='1.4.4',
+                               newest='1.4.4')
+        self.assertIn('has to go forwards', reason)
+
+    def test_a_first_release_with_no_predecessor_passes(self):
+        with self._patched(self._clean_responses(), newest=''):
+            tag_release.verify_tag('1.5.0', self.SHA)
+
+    def test_a_version_already_on_pypi_is_refused(self):
+        self.assertIn('already on PyPI',
+                      self._refuses(self._clean_responses(), on_pypi=True))
+
+    def test_pypi_can_be_skipped(self):
+        with self._patched(self._clean_responses(), on_pypi=True):
+            tag_release.verify_tag('1.5.0', self.SHA, verify_pypi=False)
+
+
 if __name__ == '__main__':
     unittest.main()
