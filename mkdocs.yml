@@ -6,6 +6,9 @@ repo_url: https://github.com/pika/pika
 
 docs_dir: docs
 site_dir: site
+# Keeps docs/internal/ out of the published site. See AGENTS.md.
+exclude_docs: |
+  internal/
 
 # `mike` reads this when it deploys, so the published build is strict too.
 strict: true
