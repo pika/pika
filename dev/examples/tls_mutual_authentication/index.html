@@ -16,7 +16,7 @@
         <link rel="prev" href="../tornado_consumer/">
       
       
-        <link rel="next" href="../tls_server_authentication/">
+        <link rel="next" href="../threaded_consumer/">
       
       
         
@@ -1100,8 +1100,6 @@
       
         
       
-        
-      
     
     
     
@@ -1613,34 +1611,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../tls_server_authentication/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    TLS Server Authentication
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../threaded_consumer/" class="md-nav__link">
         
   
@@ -2074,7 +2044,7 @@
 <h1 id="tls-parameters-example">TLS parameters example<a class="headerlink" href="#tls-parameters-example" title="Permanent link">&para;</a></h1>
 <p>This example demonstrates a TLS session with RabbitMQ using mutual authentication (server and client authentication).</p>
 <p>See <a href="https://www.rabbitmq.com/ssl.html">the RabbitMQ TLS/SSL documentation</a> for certificate generation and RabbitMQ TLS configuration.</p>
-<p>Both examples read the certificates in <code>tests/certs/</code>, which are the ones the repository's own CI configuration gives the broker, so they run against a broker started with that configuration:</p>
+<p>Both examples on this page read the certificates in <code>tests/certs/</code>, which are the ones the repository's own CI configuration gives the broker, so they run against a broker started with that configuration:</p>
 <div class="highlight"><pre><span></span><code><span id="__span-0-1">hatch<span class="w"> </span>run<span class="w"> </span>rabbitmq-tls
 </span></code></pre></div>
 <p><code>examples/tls_mutual_authentication.py</code>:</p>
@@ -2086,21 +2056,23 @@
 </span><span id="__span-1-6">
 </span><span id="__span-1-7"><span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
 </span><span id="__span-1-8">
-</span><span id="__span-1-9"><span class="n">_certs</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s1">'tests'</span> <span class="o">/</span> <span class="s1">'certs'</span>
-</span><span id="__span-1-10">
-</span><span id="__span-1-11"><span class="n">context</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">create_default_context</span><span class="p">(</span><span class="n">cafile</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">_certs</span> <span class="o">/</span> <span class="s1">'ca_certificate.pem'</span><span class="p">))</span>
-</span><span id="__span-1-12"><span class="n">context</span><span class="o">.</span><span class="n">verify_mode</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">CERT_REQUIRED</span>
-</span><span id="__span-1-13"><span class="n">context</span><span class="o">.</span><span class="n">load_cert_chain</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">_certs</span> <span class="o">/</span> <span class="s1">'client_certificate.pem'</span><span class="p">),</span>
-</span><span id="__span-1-14">                        <span class="nb">str</span><span class="p">(</span><span class="n">_certs</span> <span class="o">/</span> <span class="s1">'client_key.pem'</span><span class="p">))</span>
-</span><span id="__span-1-15"><span class="n">ssl_options</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">SSLOptions</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="s1">'localhost'</span><span class="p">)</span>
-</span><span id="__span-1-16"><span class="n">conn_params</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">ConnectionParameters</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="mi">5671</span><span class="p">,</span> <span class="n">ssl_options</span><span class="o">=</span><span class="n">ssl_options</span><span class="p">)</span>
-</span><span id="__span-1-17">
-</span><span id="__span-1-18"><span class="k">with</span> <span class="n">pika</span><span class="o">.</span><span class="n">BlockingConnection</span><span class="p">(</span><span class="n">conn_params</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
-</span><span id="__span-1-19">    <span class="n">ch</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
-</span><span id="__span-1-20">    <span class="c1"># `durable=True` is required by RabbitMQ 4.3; see examples/README.md.</span>
-</span><span id="__span-1-21">    <span class="n">ch</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="s1">'foobar'</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-1-22">    <span class="n">ch</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span><span class="s1">''</span><span class="p">,</span> <span class="s1">'foobar'</span><span class="p">,</span> <span class="sa">b</span><span class="s1">'Hello, world!'</span><span class="p">)</span>
-</span><span id="__span-1-23">    <span class="nb">print</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">basic_get</span><span class="p">(</span><span class="s1">'foobar'</span><span class="p">))</span>
+</span><span id="__span-1-9"><span class="c1"># The certificates the test suite uses, so this runs against the broker the</span>
+</span><span id="__span-1-10"><span class="c1"># repository's own CI configuration starts. See `.ci/linux/rabbitmq.conf`.</span>
+</span><span id="__span-1-11"><span class="n">_certs</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s1">'tests'</span> <span class="o">/</span> <span class="s1">'certs'</span>
+</span><span id="__span-1-12">
+</span><span id="__span-1-13"><span class="n">context</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">create_default_context</span><span class="p">(</span><span class="n">cafile</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">_certs</span> <span class="o">/</span> <span class="s1">'ca_certificate.pem'</span><span class="p">))</span>
+</span><span id="__span-1-14"><span class="n">context</span><span class="o">.</span><span class="n">verify_mode</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">CERT_REQUIRED</span>
+</span><span id="__span-1-15"><span class="n">context</span><span class="o">.</span><span class="n">load_cert_chain</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">_certs</span> <span class="o">/</span> <span class="s1">'client_certificate.pem'</span><span class="p">),</span>
+</span><span id="__span-1-16">                        <span class="nb">str</span><span class="p">(</span><span class="n">_certs</span> <span class="o">/</span> <span class="s1">'client_key.pem'</span><span class="p">))</span>
+</span><span id="__span-1-17"><span class="n">ssl_options</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">SSLOptions</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="s1">'localhost'</span><span class="p">)</span>
+</span><span id="__span-1-18"><span class="n">conn_params</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">ConnectionParameters</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="mi">5671</span><span class="p">,</span> <span class="n">ssl_options</span><span class="o">=</span><span class="n">ssl_options</span><span class="p">)</span>
+</span><span id="__span-1-19">
+</span><span id="__span-1-20"><span class="k">with</span> <span class="n">pika</span><span class="o">.</span><span class="n">BlockingConnection</span><span class="p">(</span><span class="n">conn_params</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+</span><span id="__span-1-21">    <span class="n">ch</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
+</span><span id="__span-1-22">    <span class="c1"># `durable=True` is required by RabbitMQ 4.3; see examples/README.md.</span>
+</span><span id="__span-1-23">    <span class="n">ch</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="s1">'foobar'</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-1-24">    <span class="n">ch</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span><span class="s1">''</span><span class="p">,</span> <span class="s1">'foobar'</span><span class="p">,</span> <span class="sa">b</span><span class="s1">'Hello, world!'</span><span class="p">)</span>
+</span><span id="__span-1-25">    <span class="nb">print</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">basic_get</span><span class="p">(</span><span class="s1">'foobar'</span><span class="p">))</span>
 </span></code></pre></div>
 <p>That configuration, <code>.ci/linux/rabbitmq.conf</code>, included here in full so it cannot drift from the file:</p>
 <div class="highlight"><pre><span></span><code><span id="__span-2-1">listeners.tcp.default = 5672
@@ -2117,6 +2089,8 @@
 </span><span id="__span-2-12">log.console = true
 </span><span id="__span-2-13">log.console.level = debug
 </span></code></pre></div>
+<p>Note <code>ssl_options.fail_if_no_peer_cert = true</code>, which requires every TLS client to present a certificate chain. Mutual authentication is therefore the only thing this broker allows over TLS; the same configuration still serves plaintext on 5672, which is what the rest of the examples use. If what you want is server authentication alone, verifying the broker and presenting nothing of your own, set <code>fail_if_no_peer_cert = false</code> and drop the <code>load_cert_chain</code> call; everything else above stays as it is.</p>
+<p>To use your own certificates instead of the test ones, generate a set with <a href="https://github.com/rabbitmq/tls-gen">tls-gen</a> and point both the configuration and the example at them. See <a href="https://www.rabbitmq.com/configure.html">configure</a> for where <code>rabbitmq.conf</code> lives on your system.</p>
 <p>The example above authenticates as <em>guest</em> over PLAIN and needs nothing more than that. Authenticating as the client certificate instead is a separate feature: it needs the <a href="https://github.com/rabbitmq/rabbitmq-auth-mechanism-ssl">RabbitMQ TLS (x509 certificate) authentication mechanism</a> enabled, <code>EXTERNAL</code> among the broker's <code>auth_mechanisms</code>, and a user named for the certificate's distinguished name. The Twisted example below does that, and its docstring spells out the requirements:</p>
 <div class="highlight"><pre><span></span><code><span id="__span-3-1"><span class="sd">"""</span>
 </span><span id="__span-3-2"><span class="sd">Mutual TLS with the Twisted adapter, authenticating by client certificate.</span>
@@ -2254,13 +2228,13 @@
         
         
           
-          <a href="../tls_server_authentication/" class="md-footer__link md-footer__link--next" aria-label="Next: TLS Server Authentication">
+          <a href="../threaded_consumer/" class="md-footer__link md-footer__link--next" aria-label="Next: Thread-Safe Consumer">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                TLS Server Authentication
+                Thread-Safe Consumer
               </div>
             </div>
             <div class="md-footer__button md-icon">
