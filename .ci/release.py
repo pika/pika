@@ -338,14 +338,21 @@ def reachable_release() -> str:
         if not name:
             continue
         try:
-            release_version.classify(name)
+            implied = release_version.classify(name)
         except ValueError:
             # Tags from before this scheme: `v0.9a`, `wip-1617-core-2p0`.
             continue
+        # Final releases only. A pre-release is part of the release being
+        # prepared rather than a boundary before it, so counting 1.5.0a1 would
+        # start the 1.5.0 entry at a1 and leave out everything a1 already
+        # shipped. Worse, the milestone cross-check would then report every item
+        # closed before a1 as mis-milestoned, which is the opposite of true.
+        if implied['mode'] != 'release':
+            continue
         released.append(name)
     if not released:
-        raise CheckFailed('no releasable tag is an ancestor of HEAD to '
-                          'generate a changelog since; pass --since-tag')
+        raise CheckFailed('no released tag is an ancestor of HEAD to generate '
+                          'a changelog since; pass --since-tag')
     return max(released, key=release_version.Version)
 
 
@@ -726,7 +733,7 @@ def cmd_changelog(args: argparse.Namespace) -> int:
             f'be a heading and a link. Check the milestone exists and has '
             f'closed items')
 
-    # Three concerns, reported apart, because conflating them gave dangerous
+    # Four concerns, reported apart, because conflating them gave dangerous
     # advice: telling the operator to milestone #1596 onto 1.5.0 would move work
     # that shipped in 1.4.1.
     if report['none']:
@@ -748,6 +755,12 @@ def cmd_changelog(args: argparse.Namespace) -> int:
               f'probably wrong:')
         for number, when in report['stale']:
             print(f'    #{number} finished {when}')
+    if report['unplanned']:
+        print(f'  {len(report["unplanned"])} in milestone {milestone} were '
+              f'closed as not planned or duplicate, so they did not ship and '
+              f'are NOT in this entry. Drop the milestone or re-open them:')
+        for number in report['unplanned']:
+            print(f'    #{number}')
 
     entry = changelog.render(version, since, issues, pulls)
 
@@ -784,8 +797,9 @@ def readiness(version: str, verify_pypi: bool = True) -> list[str]:
     """
     problems = []
 
+    implied = None
     try:
-        release_version.classify(version)
+        implied = release_version.classify(version)
     except ValueError as exc:
         problems.append(str(exc))
 
@@ -806,8 +820,16 @@ def readiness(version: str, verify_pypi: bool = True) -> list[str]:
         if written != version:
             problems.append(f'{path} says {written}, not {version}')
 
-    if f'{HISTORY_ENTRY}{version}]' not in (_ROOT / 'HISTORY.md').read_text(
-            encoding='utf-8'):
+    # Only a final release needs an entry. `changelog` refuses to write one for
+    # a pre-release without `--force`, deliberately, because the entry for the
+    # final version covers everything its pre-releases shipped and `HISTORY.md`
+    # is already 1,380 lines. Requiring one here regardless made the two halves
+    # contradict each other: 1.5.0b1 could not be tagged at all without
+    # `--force` or `--skip-readiness`, and neither flag advertises itself as the
+    # way to tag a pre-release.
+    history = (_ROOT / 'HISTORY.md').read_text(encoding='utf-8')
+    final = implied is not None and implied['mode'] == 'release'
+    if final and f'{HISTORY_ENTRY}{version}]' not in history:
         problems.append(f'HISTORY.md has no entry for {version}; run '
                         f'`release.py changelog`')
 

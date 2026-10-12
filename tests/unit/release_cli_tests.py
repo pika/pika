@@ -429,6 +429,86 @@ class ReadinessTests(unittest.TestCase):
                                   lambda v: False))
             self.assertEqual(release.readiness('1.5.0'), [])
 
+    def test_a_prerelease_needs_no_history_entry(self):
+        # `changelog` refuses to write an entry for a pre-release without
+        # `--force`, so demanding one here made the two halves contradict: no
+        # pre-release could be tagged at all, and neither `--force` nor
+        # `--skip-readiness` advertises itself as the way to do it.
+        with contextlib.ExitStack() as stack:
+            root = _fixture_root(stack)
+            (root /
+             'pyproject.toml').write_text('[project]\nversion = "1.5.0b1"\n')
+            (root / 'pika' /
+             '__init__.py').write_text("__version__ = '1.5.0b1'\n")
+            stack.enter_context(
+                mock.patch.object(release, 'previous_release', lambda: '1.4.4'))
+            stack.enter_context(
+                mock.patch.object(release.tag_release, 'on_pypi',
+                                  lambda v: False))
+            self.assertEqual(release.readiness('1.5.0b1'), [])
+
+    def test_a_final_release_still_needs_one(self):
+        with contextlib.ExitStack() as stack:
+            _fixture_root(stack)
+            stack.enter_context(
+                mock.patch.object(release, 'previous_release', lambda: '1.4.4'))
+            stack.enter_context(
+                mock.patch.object(release.tag_release, 'on_pypi',
+                                  lambda v: False))
+            problems = release.readiness('1.5.0')
+        self.assertTrue(any('HISTORY.md has no entry' in p for p in problems),
+                        problems)
+
+
+class ReachableReleaseTests(unittest.TestCase):
+    """
+    Where a changelog starts.
+
+    Reachability is the right question for "what is new on this branch", but only final releases are
+    boundaries. A pre-release is part of the release being prepared, so counting 1.5.0a1 would start
+    the 1.5.0 entry at a1, omit everything a1 already shipped, and then report every milestone item
+    closed before a1 as mis-milestoned.
+    """
+
+    @staticmethod
+    def _tags(listed):
+        """
+        :param listed: Tag names `git tag --list --merged HEAD` returns.
+        :returns: A git stand-in answering those.
+        """
+
+        def fake(*args, **kwargs):
+            if args[:2] == ('tag', '--list'):
+                return '\n'.join(listed)
+            return ''
+
+        return fake
+
+    def test_a_prerelease_is_not_a_starting_point(self):
+        with mock.patch.object(release.tag_release, 'git',
+                               self._tags(['1.4.0', '1.5.0a1'])):
+            self.assertEqual(release.reachable_release(), '1.4.0')
+
+    def test_the_newest_final_release_wins(self):
+        with mock.patch.object(release.tag_release, 'git',
+                               self._tags(['1.3.0', '1.4.0', '1.5.0b2'])):
+            self.assertEqual(release.reachable_release(), '1.4.0')
+
+    def test_tags_from_before_this_scheme_are_ignored(self):
+        with mock.patch.object(
+                release.tag_release, 'git',
+                self._tags(['v0.9a', 'wip-1617-core-2p0', '1.4.0'])):
+            self.assertEqual(release.reachable_release(), '1.4.0')
+
+    def test_only_prereleases_is_refused_rather_than_guessed(self):
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(
+                mock.patch.object(release.tag_release, 'git',
+                                  self._tags(['1.5.0a1'])))
+            caught = stack.enter_context(self.assertRaises(release.CheckFailed))
+            release.reachable_release()
+        self.assertIn('--since-tag', str(caught.exception))
+
 
 class ResolveVersionTests(unittest.TestCase):
     """How an operation decides which version it is acting on."""

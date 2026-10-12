@@ -78,13 +78,25 @@ MERGE_SUBJECT = re.compile(r'^Merge pull request #(\d+) ')
 SQUASH_SUBJECT = re.compile(r'\(#(\d+)\)$')
 
 #: Escaped inside titles, because `HISTORY.md` is included verbatim into
-#: `docs/changelog.md` and rendered by mkdocs-material. The committed entries
-#: escape exactly these: `_` 26 times, `(` and `)` 14 each, `[` and `]` twice.
-#: An unescaped `_pair_` or `[text](url)` becomes markup on the published site,
-#: Measured, not guessed: the committed region escapes `#` 106 times, `_` 26,
-#: `(` and `)` 14 each, `[` and `]` twice and `<` once, and leaves backticks
-#: alone because a backtick in a title is deliberate code formatting.
+#: `docs/changelog.md` and rendered by mkdocs-material. An unescaped `_pair_` or
+#: `[text](url)` becomes markup on the published site. Measured, not guessed:
+#: the committed region escapes `#` 106 times, `_` 26, `(` and `)` 14 each,
+#: `[` and `]` twice and `<` once, and leaves backticks alone because a backtick
+#: in a title is deliberate code formatting.
 MARKDOWN = re.compile(r'([_()\[\]<#])')
+
+#: A code span, which markdown does not interpret, so nothing inside one needs
+#: escaping and a backslash there renders as a literal backslash. The committed
+#: entries agree: `HISTORY.md` holds 166 lines carrying a code span and not one
+#: escaped character inside any of them, while unescaped ones like
+#: `BlockingChannel.basic_publish` and `BlockingChannel.exchange_declare` are
+#: everywhere. Escaping blindly turned `` `exchange_exchange_bindings` `` into
+#: `` `exchange\_exchange\_bindings` ``, backslashes and all.
+CODE_SPAN = re.compile(r'`[^`]*`')
+
+#: Closed, but not fixed. An issue closed for either of these reasons did not
+#: ship in the release that happens to carry its milestone.
+UNSHIPPED_REASONS = frozenset({'NOT_PLANNED', 'DUPLICATE'})
 
 
 class ChangelogError(OSError):
@@ -171,12 +183,19 @@ def _rows(raw: str, what: str) -> list:
 
 def escape(title: str) -> str:
     """
-    Return *title* with markdown-significant characters escaped.
+    Return *title* with markdown-significant characters escaped outside code spans.
 
     :param title: An issue or pull-request title, as GitHub stores it.
     :returns: The title, safe to interpolate into a list item.
     """
-    return MARKDOWN.sub(r'\\\1', title)
+    out = []
+    end = 0
+    for span in CODE_SPAN.finditer(title):
+        out.append(MARKDOWN.sub(r'\\\1', title[end:span.start()]))
+        out.append(span.group(0))
+        end = span.end()
+    out.append(MARKDOWN.sub(r'\\\1', title[end:]))
+    return ''.join(out)
 
 
 def author_of(item: dict) -> tuple[str, str]:
@@ -236,32 +255,63 @@ def merged_numbers(since: str,
 
 def tag_date(tag: str, git: Callable[..., str] = _git) -> str:
     """
-    Return the commit date of *tag*, as `YYYY-MM-DD`.
+    Return the commit date of *tag* in UTC, as `YYYY-MM-DD`.
 
     Used only to bound the two queries to the release window so `--limit` cannot saturate.
     Membership is decided by the commit range, never by this date.
 
+    UTC rather than `%cs`, which renders the date in the offset the commit recorded. GitHub's
+    `merged:>=` compares UTC dates, so the two disagree by a day whenever a commit's offset carries
+    it across midnight, and the direction that matters is the dangerous one: a commit stamped
+    `2026-05-07T08:00+09:00` is `2026-05-06` in UTC, so `%cs` starts the window a day late and
+    anything merged in between is dropped from the cross-check without a word. Measured, not
+    reasoned: `%cs` says 2026-05-07 for that commit and the UTC date says 2026-05-06.
+
     :param tag: The tag to date.
     :param git: Injected git runner.
-    :returns: The date.
+    :returns: The date, in UTC.
     """
-    return git('log', '-1', '--format=%cs', tag).strip()
+    stamp = git('log', '-1', '--format=%ct', tag).strip()
+    try:
+        seconds = int(stamp)
+    except ValueError as exc:
+        raise ChangelogError(f'git gave {stamp!r} for the commit date of '
+                             f'{tag}, which is not a timestamp') from exc
+    return datetime.datetime.fromtimestamp(
+        seconds, datetime.timezone.utc).date().isoformat()
 
 
-def milestone_issues(milestone: str,
-                     gh: Callable[..., str] = _gh) -> list[dict]:
+def milestone_issues(
+        milestone: str,
+        gh: Callable[..., str] = _gh) -> tuple[list[dict], list[dict]]:
     """
     Return the closed issues the milestone carries.
 
     `gh issue list` excludes pull requests, which is what makes the two queries separable.
 
+    Closed is not the same as done. `--state closed` also returns issues closed as not planned or as
+    duplicates, and listing those as shipped claims the release fixed something nobody fixed. pika
+    has three `NOT_PLANNED` among its most recent sixty closed issues, so this is a live problem
+    rather than a hypothetical one. They are separated out rather than dropped, because an issue
+    closed as not planned but still carrying a release milestone is a data error the operator should
+    see.
+
+    The test is exclusion rather than `stateReason == 'COMPLETED'`: an issue closed before GitHub
+    recorded a reason answers `null`, and that should stay in the entry rather than vanish from it.
+
     :param milestone: The milestone title, e.g. `1.5.0`.
     :param gh: Injected `gh` runner.
-    :returns: Rows with `number`, `title`, `labels` and `closedAt`.
+    :returns:`(shipped, unplanned)`, both rows with `number`, `title`, `labels` and `closedAt`.
     """
-    raw = gh('issue', 'list', '--milestone', milestone, '--state', 'closed',
-             '--limit', str(LIMIT), '--json', 'number,title,labels,closedAt')
-    return _rows(raw, 'issue list')
+    raw = gh('issue',
+             'list', '--milestone', milestone, '--state', 'closed', '--limit',
+             str(LIMIT), '--json', 'number,title,labels,closedAt,stateReason')
+    shipped: list[dict] = []
+    unplanned: list[dict] = []
+    for row in _rows(raw, 'issue list'):
+        reason = row.get('stateReason')
+        (unplanned if reason in UNSHIPPED_REASONS else shipped).append(row)
+    return shipped, unplanned
 
 
 def milestone_pulls(milestone: str, gh: Callable[..., str] = _gh) -> list[dict]:
@@ -398,13 +448,18 @@ def collect(
     :param gh: Injected `gh` runner.
     :returns:`(issues, pulls, report)`, where `report` maps a concern to what raises it.
     """
-    issues = milestone_issues(milestone, gh)
+    issues, unplanned = milestone_issues(milestone, gh)
     pulls = milestone_pulls(milestone, gh)
     carried = {row['number'] for row in pulls}
 
     since_date = tag_date(previous, git)
     in_window = merged_in_window(since_date, gh)
-    report: dict[str, list] = {'none': [], 'elsewhere': [], 'stale': []}
+    report: dict[str, list] = {
+        'none': [],
+        'elsewhere': [],
+        'stale': [],
+        'unplanned': [row['number'] for row in unplanned],
+    }
 
     for number in merged_numbers(previous, until, git):
         if number in carried or number not in in_window:

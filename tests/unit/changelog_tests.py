@@ -40,7 +40,7 @@ class Recorder:
         """
         :param answers: Maps the first two arguments to the rows to return.
         :param log: What `git log --format=%s` returns.
-        :param tagged: What `git log --format=%cs` returns.
+        :param tagged: The UTC date `git log --format=%ct` should work out to.
         """
         self.answers = answers or {}
         self.log = log
@@ -61,8 +61,12 @@ class Recorder:
         :returns: Canned output.
         """
         self.calls.append(args)
-        if '--format=%cs' in args:
-            return self.tagged + '\n'
+        if '--format=%ct' in args:
+            # `tag_date` asks for the epoch second and converts it, so the stub
+            # answers in the same currency rather than in a formatted date.
+            noon = datetime.datetime.fromisoformat(self.tagged).replace(
+                hour=12, tzinfo=datetime.timezone.utc)
+            return f'{int(noon.timestamp())}\n'
         return self.log
 
     def call(self, *prefix):
@@ -333,7 +337,7 @@ class QueryTests(unittest.TestCase):
         self.assertEqual(recorder.call('issue', 'list'),
                          ('issue', 'list', '--milestone', '1.5.0', '--state',
                           'closed', '--limit', str(changelog.LIMIT), '--json',
-                          'number,title,labels,closedAt'))
+                          'number,title,labels,closedAt,stateReason'))
 
     def test_the_milestone_pull_query(self):
         recorder = Recorder()
@@ -371,11 +375,10 @@ class LimitTests(unittest.TestCase):
             'title': str(n),
             'labels': []
         } for n in range(changelog.LIMIT - 1)]
-        self.assertEqual(
-            len(
-                changelog.milestone_issues('1.5.0',
-                                           gh=lambda *a: json.dumps(rows))),
-            changelog.LIMIT - 1)
+        shipped, unplanned = changelog.milestone_issues(
+            '1.5.0', gh=lambda *a: json.dumps(rows))
+        self.assertEqual(len(shipped), changelog.LIMIT - 1)
+        self.assertEqual(unplanned, [])
 
 
 class DegenerateInputTests(unittest.TestCase):
@@ -386,7 +389,7 @@ class DegenerateInputTests(unittest.TestCase):
             with self.subTest(answer=answer):
                 self.assertEqual(
                     changelog.milestone_issues(
-                        '1.5.0', gh=lambda *a, answer=answer: answer), [])
+                        '1.5.0', gh=lambda *a, answer=answer: answer), ([], []))
 
     def test_malformed_json_names_the_query(self):
         with self.assertRaises(changelog.ChangelogError) as caught:
@@ -396,6 +399,127 @@ class DegenerateInputTests(unittest.TestCase):
     def test_a_failing_tool_raises_an_oserror(self):
         # `release.py main` catches OSError, so this reports as one line.
         self.assertTrue(issubclass(changelog.ChangelogError, OSError))
+
+
+class UnshippedIssueTests(unittest.TestCase):
+    """
+    Closed is not done.
+
+    `--state closed` also returns issues closed as not planned or as duplicates. Listing those
+    claims the release fixed something nobody fixed, and pika has three `NOT_PLANNED` among its
+    sixty most recent closed issues, so the query had to learn the difference.
+    """
+
+    @staticmethod
+    def _rows(*reasons):
+        """
+        :param reasons: One `stateReason` per issue.
+        :returns: A `gh` stand-in answering those issues.
+        """
+        rows = [{
+            'number': index,
+            'title': str(index),
+            'labels': [],
+            'stateReason': reason,
+        } for index, reason in enumerate(reasons)]
+        return lambda *a: json.dumps(rows)
+
+    def test_not_planned_is_separated_out(self):
+        shipped, unplanned = changelog.milestone_issues('1.5.0',
+                                                        gh=self._rows(
+                                                            'COMPLETED',
+                                                            'NOT_PLANNED'))
+        self.assertEqual([row['number'] for row in shipped], [0])
+        self.assertEqual([row['number'] for row in unplanned], [1])
+
+    def test_a_duplicate_is_separated_out(self):
+        shipped, unplanned = changelog.milestone_issues(
+            '1.5.0', gh=self._rows('DUPLICATE'))
+        self.assertEqual(shipped, [])
+        self.assertEqual([row['number'] for row in unplanned], [0])
+
+    def test_an_issue_with_no_recorded_reason_still_ships(self):
+        # Closed before GitHub recorded a reason. Excluding by name rather than
+        # keeping only `COMPLETED` is what stops these vanishing from the entry.
+        shipped, unplanned = changelog.milestone_issues('1.5.0',
+                                                        gh=self._rows(None))
+        self.assertEqual([row['number'] for row in shipped], [0])
+        self.assertEqual(unplanned, [])
+
+    def test_collect_reports_them_rather_than_dropping_them(self):
+        recorder = Recorder(
+            answers={
+                ('issue', 'list'): [{
+                    'number': 7,
+                    'title': 'never happened',
+                    'labels': [],
+                    'stateReason': 'NOT_PLANNED',
+                }],
+                ('pr', 'list'): [],
+            })
+        issues, _, report = changelog.collect('1.5.0',
+                                              '1.4.0',
+                                              git=recorder.git,
+                                              gh=recorder.gh)
+        self.assertEqual(issues, [])
+        self.assertEqual(report['unplanned'], [7])
+
+
+class TagDateTests(unittest.TestCase):
+    """
+    The window bound, in UTC.
+
+    `%cs` renders the date in the offset the commit recorded, while GitHub's `merged:>=` compares
+    UTC dates. A commit stamped `2026-05-07T08:00+09:00` is `2026-05-06` in UTC, so `%cs` would
+    start the window a day late and drop anything merged in between.
+    """
+
+    def test_the_epoch_second_is_converted_in_utc(self):
+        # 2026-05-06T23:00:00Z, which is 2026-05-07 in any offset east of +01:00.
+        stamp = int(
+            datetime.datetime(2026, 5, 6, 23, 0,
+                              tzinfo=datetime.timezone.utc).timestamp())
+        self.assertEqual(
+            changelog.tag_date('1.4.0', git=lambda *a: f'{stamp}\n'),
+            '2026-05-06')
+
+    def test_it_asks_for_the_epoch_second_not_a_rendered_date(self):
+        recorder = Recorder()
+        changelog.tag_date('1.4.0', git=recorder.git)
+        self.assertIn('--format=%ct', recorder.call('log'))
+
+    def test_an_unparseable_answer_names_the_tag(self):
+        with self.assertRaises(changelog.ChangelogError) as caught:
+            changelog.tag_date('1.4.0', git=lambda *a: 'not a timestamp')
+        self.assertIn('1.4.0', str(caught.exception))
+
+
+class EscapeInsideCodeSpansTests(unittest.TestCase):
+    """
+    Markdown does not interpret a code span, so escaping inside one is visible damage.
+
+    `HISTORY.md` holds 166 lines carrying a code span and not one escaped character inside any of
+    them, while unescaped `BlockingChannel.basic_publish` and `BlockingChannel.exchange_declare` are
+    everywhere, so the committed convention is unambiguous.
+    """
+
+    def test_a_code_span_is_left_alone(self):
+        self.assertEqual(changelog.escape('Add `exchange_exchange_bindings`'),
+                         'Add `exchange_exchange_bindings`')
+
+    def test_text_outside_a_span_is_still_escaped(self):
+        self.assertEqual(changelog.escape('Fix some_thing in `other_thing`'),
+                         'Fix some\\_thing in `other_thing`')
+
+    def test_a_lone_backtick_does_not_swallow_the_rest(self):
+        # An unbalanced backtick forms no span, so everything after it is still
+        # escaped rather than silently exempted.
+        self.assertEqual(changelog.escape('odd ` one under_score'),
+                         'odd ` one under\\_score')
+
+    def test_several_spans_in_one_title(self):
+        self.assertEqual(changelog.escape('`a_b` and c_d and `e_f`'),
+                         '`a_b` and c\\_d and `e_f`')
 
 
 class CollectTests(unittest.TestCase):
