@@ -1,17 +1,26 @@
+# Categories for the notes `gh release create --generate-notes` produces.
+#
+# These must name labels pika actually uses. They previously listed
+# `enhancement`, `feature`, `bug`, `fix`, `documentation` and `docs`, none of
+# which exist here: pika's are namespaced `C-` for category and `A-` for area.
+# Every pull request therefore fell through the `*` catch-all, so the generated
+# release notes were never categorised. See #1731.
+#
+# Kept deliberately in step with `SECTIONS` in `.ci/changelog.py`, which
+# categorises the `HISTORY.md` entry from the same labels. `C-refactor`,
+# `C-performance`, `dependencies` and `github_actions` fall to the catch-all in
+# both, matching the historical entries.
 changelog:
   categories:
     - title: "Implemented enhancements"
       labels:
-        - enhancement
-        - feature
+        - C-enhancement
     - title: "Fixed bugs"
       labels:
-        - bug
-        - fix
+        - C-bug
     - title: "Documentation"
       labels:
-        - documentation
-        - docs
+        - A-documentation
     - title: "Other changes"
       labels:
         - "*"
