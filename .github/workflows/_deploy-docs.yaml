@@ -5,11 +5,12 @@ name: pika docs deploy (reusable)
 # configured to serve from that branch.
 #
 # The caller passes the version name and aliases explicitly instead of having
-# this workflow infer them from a ref. The callers already know: `release.yaml`
-# knows its own `mode`, and a push to `main` always publishes `dev`. Inferring
-# them here would mean re-deriving "is this a pre-release" from tag text, which
-# gets the answer wrong for any tag whose pre-release segment happens to be all
-# digits.
+# this workflow infer them from a ref. A push to `main` always publishes `dev`,
+# and `release.yaml` resolves its tag once, in `release_version.classify`, where
+# `packaging` decides whether a version is a pre-release and unit tests cover the
+# answer. Re-deriving it here would mean a second implementation, in shell, of
+# the one decision that must not be wrong: a pre-release that takes the `latest`
+# alias sends every reader to an unreleased version.
 #
 # Invoked via `workflow_call`; never triggered directly. `deploy-docs.yaml` is
 # the entry point for a `main` push and for a manual deploy.

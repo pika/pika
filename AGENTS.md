@@ -23,8 +23,10 @@ tests/typing/           # type-checker fixtures (checked by hatch run typecheck)
 utils/codegen.py        # code generator for pika/spec.py
 utils/regen_spec.py     # regenerate/verify pika/spec.py (hatch run spec-regen)
 .ci/                    # release and docs helpers, plus the CI broker configs
+.ci/release.py          # the release CLI: one operation per step (see RELEASE.md)
 .ci/docs_site.py        # docs-site deploy helper (alias policy, verification)
 .ci/release_version.py  # version arithmetic; what a pushed tag means
+.ci/tag_release.py      # tag preconditions, before and after the push
 .ci/smoke_test.py       # post-publish check against a live broker
 docs/                   # the mkdocs source tree; `site/` is what publishes
 docs/internal/          # long-form notes, excluded from the site (see below)
@@ -157,7 +159,7 @@ directing the session.
 
 Read the relevant page before changing that area.
 
-- (none yet)
+- `docs/internal/release.md` - how a release is driven and verified, the designs that were tried and rejected, and the two known gaps.
 
 ## Code style
 
@@ -190,10 +192,12 @@ Read the relevant page before changing that area.
 - The gates name `.ci/` as a directory, not the files in it, so a new helper
   is covered without anyone remembering to add it.
 - Logic that decides something irreversible belongs in `.ci/` with unit tests,
-  not in a workflow. `.ci/docs_site.py` owns the documentation alias policy and
-  `.ci/release_version.py` the version arithmetic, each with tests in
-  `tests/unit/`. Both were shell first and both were wrong. A git tag, a PyPI
-  release and a documentation directory cannot be taken back.
+  not in a workflow. `.ci/docs_site.py` owns the documentation alias policy,
+  `.ci/release_version.py` the version arithmetic, and `.ci/tag_release.py` the
+  tag preconditions, each with tests in `tests/unit/`. Those are libraries;
+  `.ci/release.py` is the only command, so there is one place that talks to git,
+  `gh` and PyPI. A git tag, a PyPI release and a documentation directory cannot
+  be taken back.
 - Use single quotes for strings unless the string contains a single quote.
 - No trailing whitespace. Check before committing; nothing gates it in markdown.
 
@@ -262,7 +266,13 @@ Read the file for detail.
   push when a deploy produces no change and still exits 0. Logic in
   `.ci/docs_site.py`; see `RELEASE.md`.
 - `codeql-analysis.yml` - security analysis, including a weekly schedule.
-- `release.yaml` - manual only, triggered by `workflow_dispatch`.
+- `release.yaml` - a release is triggered by pushing a tag (`X.Y.Z`, with an
+  optional canonical `a`/`b`/`rc` segment). It never writes to `main` and
+  cannot: `main` requires a pull request and classic branch protection cannot
+  grant `GITHUB_TOKEN` a bypass, so the version bump lands as an ordinary pull
+  request and the tag is pushed afterwards, against a commit `tests-passed` has
+  already seen. `workflow_dispatch` serves `test` and `dry-run` only. Drive it
+  with `.ci/release.py`; see `RELEASE.md`.
 
 ## Running tests locally
 
