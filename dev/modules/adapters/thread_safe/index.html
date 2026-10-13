@@ -8797,8 +8797,8 @@ scheduled publish callback).</p>
 in <code>_blocking_waiters</code>, schedules the RPC on the IOLoop thread,
 waits for the response (or timeout/error), unregisters, and returns
 the result or raises.</p>
-<p><em>channel_method</em> is called on the IOLoop thread with (<em>args,
-</em>*kwargs, callback=<success_cb>).  The success callback receives
+<p><em>channel_method</em> is called on the IOLoop thread with (*args,
+**kwargs, callback=<success_cb>).  The success callback receives
 the broker's response frame and must be accepted as a keyword
 argument named <code>callback</code>.</p>
 
