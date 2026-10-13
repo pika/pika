@@ -1,39 +1,15 @@
 """
-The `HISTORY.md` entry for a release, from the commits the release contains.
+The `HISTORY.md` entry for a release, from the milestone it carries.
 
-Replaces `github_changelog_generator`, which fits pika badly: it crawls every tag and every closed
-issue by date, pika has tags back to `v0.9a` and a 1,380-line changelog, it needs a Ruby gem and a
-token nothing else in the release path uses, and it writes the heading link from the *previous* tag,
-which is why the committed 1.4.3 entry points at `tree/1.4.2`.
-
-**The milestone is definitive; the commit range only cross-checks.** The milestone is where the
-editorial decision about a release is recorded, and pika curates it, so this never second-guesses it.
-What the range is for is catching the three ways the milestone and the history can disagree, each
-reported and none acted on:
-
-- merged in the range with no milestone, which wants milestoning
-- merged in the range carrying a *different* milestone, which wants checking. Never move a milestone
-  that has already shipped: #1596 says 1.4.1 and #1678 says 1.4.4, and both merged inside
-  `1.4.0..HEAD`
-- in the milestone but closed before the previous tag, which is almost certainly mis-milestoned.
-  #1558 is the live example: closed 2026-05-05, shipped in 1.4.0 the next day, and still milestoned
-  1.5.0
-
-An earlier attempt inverted this and let the range decide membership. That is wrong for pika: it made
-the generator paper over milestone data errors instead of surfacing them, and it dropped 20 of the 62
-numbers in the committed 1.4.0 entry, because pika closes plenty of issues with no linking pull
-request.
-
-`gh` rather than a GitHub client library, deliberately. There is no official Python client: GitHub
-maintains Octokit for JavaScript, Ruby, .NET and Terraform only, and lists every Python option as third
-party. Meanwhile `gh` is already load-bearing - `release.py pr` and `release.yaml` both shell out to it
-- and already authenticated on a maintainer's machine and through `GH_TOKEN` in Actions. A library
-would mean two ways to reach GitHub plus a token to wire up, which is the `CHANGELOG_GITHUB_TOKEN`
-problem this file exists to remove.
+The milestone decides membership, because that is where the editorial decision about a release is
+recorded. The commit range only cross-checks it, reporting three ways the two can disagree and
+acting on none of them: merged in the range with no milestone, merged carrying a different
+milestone, and in the milestone but closed before the previous tag.
 
 Two queries, never one per pull request: `gh pr list` returns title, author, milestone and closing
-issues together, and `gh issue list` returns titles and labels. An earlier version made one
-`gh pr view` per stray, fourteen subprocesses at about a second each, ninety-eight in the worst case.
+issues together, and `gh issue list` returns titles and labels. Replaces
+`github_changelog_generator`; see docs/internal/release.md for why, and for the measurements behind
+the constants below.
 """
 
 from __future__ import annotations
@@ -44,20 +20,15 @@ import re
 import subprocess
 from typing import Any, Callable
 
-#: How many rows each query asks for. `gh` applies this and exits 0 with no
-#: warning, so a saturated answer would silently lose entries; `_rows` refuses
-#: instead. Pagination is the one thing a client library would have given us.
-#: Both queries are date-bounded to the release window, so 500 is ample: the
-#: widest window to date holds 104 pull requests and 55 issues.
+#: How many rows each query asks for. `gh` saturates silently, so `_rows`
+#: refuses an answer this long; see docs/internal/release.md.
 LIMIT = 500
 
 REPO = 'pika/pika'
 REPO_URL = f'https://github.com/{REPO}'
 
-#: Label to section heading. Everything unmatched falls to `CLOSED_ISSUES`, the
-#: name the historical entries use. Kept in step with `.github/release.yml`,
-#: which categorises the GitHub release notes from the same labels; a test
-#: asserts the mapping, not merely the label set.
+#: Label to section heading; anything unmatched falls to `CLOSED_ISSUES`. Kept
+#: in step with `.github/release.yml`, which a test asserts.
 SECTIONS = (
     ('C-enhancement', '**Implemented enhancements:**'),
     ('C-bug', '**Fixed bugs:**'),
@@ -67,31 +38,18 @@ SECTIONS = (
 CLOSED_ISSUES = '**Closed issues:**'
 MERGED_PULLS = '**Merged pull requests:**'
 
-#: Both merge styles. `1.4.0..HEAD` holds 96 merge-style subjects and 2
-#: squash-style, so both occur despite the first dominating. The leading `^` and
-#: the `.match` call anchor the same thing twice, deliberately: measured, either
-#: one alone still anchors, so dropping either is an equivalent mutation, and
-#: only dropping both lets `Revert "Merge pull request #5 from a"` be read as a
-#: merge of #5. The squash pattern below uses `.search`, so the belt and braces
-#: are worth keeping where the two styles sit side by side.
+#: Both merge styles, which both occur. The doubled anchoring is not
+#: redundant: see docs/internal/release.md.
 MERGE_SUBJECT = re.compile(r'^Merge pull request #(\d+) ')
 SQUASH_SUBJECT = re.compile(r'\(#(\d+)\)$')
 
-#: Escaped inside titles, because `HISTORY.md` is included verbatim into
-#: `docs/changelog.md` and rendered by mkdocs-material. An unescaped `_pair_` or
-#: `[text](url)` becomes markup on the published site. Measured, not guessed:
-#: the committed region escapes `#` 106 times, `_` 26, `(` and `)` 14 each,
-#: `[` and `]` twice and `<` once, and leaves backticks alone because a backtick
-#: in a title is deliberate code formatting.
+#: Escaped inside titles, because `HISTORY.md` renders on the published site.
+#: The set matches what the committed entries escape; see
+#: docs/internal/release.md.
 MARKDOWN = re.compile(r'([_()\[\]<#])')
 
-#: A code span, which markdown does not interpret, so nothing inside one needs
-#: escaping and a backslash there renders as a literal backslash. The committed
-#: entries agree: `HISTORY.md` holds 166 lines carrying a code span and not one
-#: escaped character inside any of them, while unescaped ones like
-#: `BlockingChannel.basic_publish` and `BlockingChannel.exchange_declare` are
-#: everywhere. Escaping blindly turned `` `exchange_exchange_bindings` `` into
-#: `` `exchange\_exchange\_bindings` ``, backslashes and all.
+#: Markdown does not interpret a code span, so escaping inside one renders the
+#: backslash; see docs/internal/release.md.
 CODE_SPAN = re.compile(r'`[^`]*`')
 
 #: Closed, but not fixed. An issue closed for either of these reasons did not

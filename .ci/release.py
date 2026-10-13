@@ -342,11 +342,8 @@ def reachable_release() -> str:
         except ValueError:
             # Tags from before this scheme: `v0.9a`, `wip-1617-core-2p0`.
             continue
-        # Final releases only. A pre-release is part of the release being
-        # prepared rather than a boundary before it, so counting 1.5.0a1 would
-        # start the 1.5.0 entry at a1 and leave out everything a1 already
-        # shipped. Worse, the milestone cross-check would then report every item
-        # closed before a1 as mis-milestoned, which is the opposite of true.
+        # Final releases only: a pre-release is part of the release being
+        # prepared, not a boundary before it. See docs/internal/release.md.
         if implied['mode'] != 'release':
             continue
         released.append(name)
@@ -716,10 +713,8 @@ def cmd_changelog(args: argparse.Namespace) -> int:
     print(f'collecting milestone {milestone}, cross-checked against '
           f'{since}..HEAD')
 
-    # Both runners are injected rather than left to default. `changelog`'s own
-    # helpers use the process's working directory, which is not necessarily the
-    # repository root - invoking from a subdirectory would read the wrong repo -
-    # and routing `gh` through `run` means one place talks to the network.
+    # Both runners injected: the defaults use the process's working directory,
+    # and routing `gh` through `run` keeps one place talking to the network.
     issues, pulls, report = changelog.collect(milestone,
                                               since,
                                               until='HEAD',
@@ -820,13 +815,8 @@ def readiness(version: str, verify_pypi: bool = True) -> list[str]:
         if written != version:
             problems.append(f'{path} says {written}, not {version}')
 
-    # Only a final release needs an entry. `changelog` refuses to write one for
-    # a pre-release without `--force`, deliberately, because the entry for the
-    # final version covers everything its pre-releases shipped and `HISTORY.md`
-    # is already 1,380 lines. Requiring one here regardless made the two halves
-    # contradict each other: 1.5.0b1 could not be tagged at all without
-    # `--force` or `--skip-readiness`, and neither flag advertises itself as the
-    # way to tag a pre-release.
+    # Only a final release needs an entry, since `changelog` refuses to write
+    # one for a pre-release; see docs/internal/release.md.
     history = (_ROOT / 'HISTORY.md').read_text(encoding='utf-8')
     final = implied is not None and implied['mode'] == 'release'
     if final and f'{HISTORY_ENTRY}{version}]' not in history:
@@ -1005,6 +995,7 @@ def main(argv: list[str] | None = None) -> int:
         # Broad on purpose: a malformed version, a missing `HISTORY.md` and a
         # failing `gh` all want one clean line, which is why
         # `changelog.ChangelogError` derives from `OSError`.
+
         # `::error::` annotates the workflow run; locally it would be noise.
         prefix = '::error::' if os.environ.get('GITHUB_ACTIONS') else 'error: '
         print(f'{prefix}{exc}', file=sys.stderr)
