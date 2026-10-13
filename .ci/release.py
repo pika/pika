@@ -18,7 +18,7 @@ The flow, which is also the order these operations run in:
 
 `bump` comes first because `changelog` commits, and it cannot commit to `main`.
 
-Each step stops rather than chaining into the next. Merging is deliberately not automated: the whole
+Each step stops rather than chaining into the next. Merging is not automated: the whole
 point of releasing from a tag is that the tagged commit is one a human approved and `tests-passed`
 has seen, and a script that merged its own pull request would hand that back.
 
@@ -245,10 +245,8 @@ def notes_agree() -> str:
         start = text.find(UPGRADE_HEADING)
         if start < 0:
             return None
-        # Ends at the next `## ` heading of any kind, not at the next `## [`
-        # version entry. RELEASE.md keeps the previous release's `## Upgrading`
-        # section, so anchoring on the version entry swallowed it into the
-        # region and reported every release after the first as drifted.
+        # Any `## ` heading, not the next `## [` version entry: RELEASE.md
+        # keeps the previous `## Upgrading` section between them.
         rest = text[start + len(UPGRADE_HEADING):]
         offset, fence = None, False
         for match in re.finditer(r'^(```|~~~|## )', rest, re.MULTILINE):
@@ -432,11 +430,8 @@ def cmd_bump(args: argparse.Namespace) -> int:
 
     print(f'bumping to {version} on {branch}')
     run(('git', 'checkout', '-b', branch), args.dry_run)
-    # Unwound on failure. `git commit` can still fail after the branch exists -
-    # no identity under `user.useConfigOnly`, a hook, a full disk - and this
-    # operation's docstring calls it reversible, so it has to be. Leaving the
-    # branch checked out also makes the tool's own advice, `git branch -D`, fail
-    # with "used by worktree".
+    # Unwound on failure: the commit can still fail after the branch exists,
+    # and this operation is documented as reversible.
     try:
         write_version(version, args.dry_run)
         run(('git', 'add', 'pyproject.toml', 'pika/__init__.py'), args.dry_run)
@@ -463,10 +458,8 @@ def cmd_pr(args: argparse.Namespace) -> int:
     if branch == tag_release.RELEASE_BRANCH:
         raise CheckFailed(f'on {tag_release.RELEASE_BRANCH}; run '
                           f'`release.py bump` first')
-    # `rev-parse --abbrev-ref HEAD` answers the literal string `HEAD` when
-    # detached, which is not `main` and so passed the test above. Pushing it
-    # creates a branch named `HEAD`, or fails inside git with a message about
-    # refnames that says nothing about the real problem.
+    # `--abbrev-ref HEAD` answers the literal `HEAD` when detached, which is
+    # not `main` and so passes the test above.
     if branch == 'HEAD':
         raise CheckFailed('HEAD is detached; check out the release branch')
     dirty = tag_release.git('status', '--porcelain')
@@ -563,13 +556,7 @@ def cmd_tag(args: argparse.Namespace) -> int:
                                 verify_pypi=not args.no_verify_pypi,
                                 root=_ROOT)
     # `tag_release.check` covers the repository and PyPI; these cover the
-    # documents. Without them `check` could exit 1 for a missing changelog entry
-    # and `tag --push` succeed on the very next line.
-    # `verify_pypi=False` rather than filtering the message: `tag_release.check`
-    # has already asked, and a `startswith` on an error string is a contract
-    # nobody can see. It also meant `--no-verify-pypi` still reached PyPI, so a
-    # PyPI outage blocked tagging entirely and the error named the flag that was
-    # already passed.
+    # documents. `verify_pypi=False` because `check` has already asked.
     problems = readiness(version, verify_pypi=False)
     if problems and not args.skip_readiness:
         raise CheckFailed('not ready to release:\n' +
@@ -593,13 +580,9 @@ def cmd_tag(args: argparse.Namespace) -> int:
             print(f'  would run: git push origin {version}')
         return 0
 
-    # Verified here rather than suggested, because an unsigned or lightweight tag
-    # is only discoverable after the fact and the tag is the record of what the
-    # published bytes were built from.
-    # Removed again if it cannot be verified. A tag has to exist before it can be
-    # checked, so the only way to keep the operation atomic is to undo it.
-    # `cmd_bump` carries the same shape for the same reason, and leaving the tag
-    # behind means the next run refuses with `already exists` instead.
+    # Verified rather than suggested: an unsigned tag is only discoverable
+    # after the fact.
+    # Removed again if it cannot be verified; see docs/internal/release.md.
     try:
         if tag_release.git('cat-file', '-t', version) != 'tag':
             raise CheckFailed(f'{version} is not an annotated tag')
@@ -611,12 +594,9 @@ def cmd_tag(args: argparse.Namespace) -> int:
     if not args.push:
         print(f'not pushed. `git push origin {version}` publishes it')
         return 0
-    # `--no-follow-tags` and an explicit refspec, because a bare
-    # `git push origin <tag>` honours `push.followTags`. The refspec alone is
-    # not enough: `--follow-tags` pushes every annotated tag reachable from the
-    # ref-tips being pushed, and a tag is a ref-tip, so the sibling tags went
-    # too. GitHub creates no event at all for more than three tags in one push,
-    # so the release would silently not happen while this printed success.
+    # `--no-follow-tags` and an explicit refspec, because either alone pushes
+    # sibling tags and GitHub then fires no event at all. See
+    # docs/internal/release.md.
     run(('git', 'push', '--no-follow-tags', 'origin',
          f'refs/tags/{version}:refs/tags/{version}'))
     print(f'pushed {version}; release.yaml is now running')
@@ -674,11 +654,8 @@ def cmd_changelog(args: argparse.Namespace) -> int:
         raise CheckFailed(f'HISTORY.md already has an entry for {version}')
 
     since = args.since_tag or previous_release()
-    # `--output ''`, not `--output -`. The generator's help says "To print to
-    # STDOUT instead, use blank as path", and it decides with ActiveSupport's
-    # `present?`: `'-'.present?` is true, so `-` is taken as a filename and the
-    # changelog is written to a file called `-` while stdout carries only
-    # `Done!`. Passthrough goes first, since the generator is last-wins too.
+    # `--output ''`, not `--output -`, which writes a file named `-`; see
+    # docs/internal/release.md. Passthrough first, the generator being last-wins.
     command = (
         'github_changelog_generator',
         *args.passthrough,
@@ -717,11 +694,9 @@ def cmd_changelog(args: argparse.Namespace) -> int:
         print(f'  dry run: {len(entry.splitlines())} lines, not written')
         return 0
 
-    # `newline=''` on both halves of the round trip, via `open` rather than
-    # `read_text`/`write_text`, whose `newline` parameters are 3.13 and 3.10
-    # while the floor is 3.7. Without it the default translates on read and
-    # again on write, so editing one line rewrote the whole file as CRLF on
-    # Windows.
+    # `newline=''` on both halves, via `open`: the `read_text`/`write_text`
+    # parameters are 3.10 and 3.13 and the floor is 3.7. Without it, editing one
+    # line rewrites the file as CRLF on Windows.
     with history.open('w', encoding='utf-8', newline='') as handle:
         handle.write(body[:anchor] + entry + '\n\n' + body[anchor:])
     print(f'  prepended {len(entry.splitlines())} lines to HISTORY.md')
@@ -877,10 +852,8 @@ def build_parser() -> argparse.ArgumentParser:
              cmd_pr,
              'push the branch and open the pull request',
              version=False)
-    # `default=None` rather than the list itself: `action='append'` appends to a
-    # default instead of replacing it, so a non-empty default would make
-    # `--label C-bug` mean `A-packaging` and `C-bug`, with no way to drop the
-    # first. The defaults are applied in `cmd_pr` instead.
+    # `default=None`, because `action='append'` appends to a default rather
+    # than replacing it. `cmd_pr` applies the defaults instead.
     pr.add_argument('--label', action='append', default=None)
     pr.add_argument('--assignee', action='append', default=None)
     pr.add_argument('--milestone', default=None)
@@ -940,16 +913,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return int(args.func(args))
     except (CheckFailed, OSError, TypeError, ValueError) as exc:
-        # `ValueError` because the helpers raise it for a malformed version and
-        # only some call sites wrap it, and `OSError` because a missing
-        # `HISTORY.md` or an absent `github_changelog_generator` - a Ruby gem no
-        # hatch environment installs - are both ordinary operator errors. A
-        # traceback where every sibling prints one clean line is worse than a
-        # slightly broad except here.
-        #
-        # `::error::` so a failure is an annotation on the workflow run, which
-        # matters because `classify` runs there and the caller reads stdout for
-        # the version. Locally the prefix would be noise, so it is conditional.
+        # Broad on purpose: a malformed version, a missing `HISTORY.md` and an
+        # absent generator are all operator errors that want one clean line.
+        # `::error::` only under Actions, where it annotates the run.
         prefix = '::error::' if os.environ.get('GITHUB_ACTIONS') else 'error: '
         print(f'{prefix}{exc}', file=sys.stderr)
         return 1

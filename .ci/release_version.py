@@ -32,9 +32,8 @@ import re
 from packaging.version import InvalidVersion, Version
 
 #: Canonical PEP 440 pre-release segments, spelled exactly. No leading zeros:
-#: `b01` matches a looser pattern but normalizes to `b1`, so the git tag and the
-#: version PyPI indexes would differ, and the docs deploy would reject the name
-#: after both were already unrecoverable.
+#: `b01` normalizes to `b1`, so the git tag and the version PyPI indexes would
+#: differ.
 PRERELEASE_TAG = re.compile(r'^(a|b|rc)(0|[1-9][0-9]*)$')
 
 #: Bumps that move the base version, and the one that does not. `none` exists
@@ -43,11 +42,9 @@ PRERELEASE_TAG = re.compile(r'^(a|b|rc)(0|[1-9][0-9]*)$')
 BUMPS = ('major', 'minor', 'patch', 'none')
 
 #: Tags this scheme publishes: `X.Y.Z`, optionally with a canonical pre-release
-#: segment. Deliberately narrower than PEP 440, which also admits `.devN`, post
-#: releases, local versions and epochs. A pushed tag is the whole trigger for a
-#: release, so the set of tags that can start one is spelled out rather than
-#: inferred: `1.5.0.dev3` is what `mode=test` publishes to TestPyPI and must
-#: never reach PyPI, and `1.5.0+local` is not installable from an index at all.
+#: segment. Narrower than PEP 440 on purpose: `1.5.0.dev3` is what `mode=test`
+#: sends to TestPyPI and must never reach PyPI, and `1.5.0+local` is not
+#: installable from an index.
 RELEASABLE_TAG = re.compile(r'^\d+\.\d+\.\d+(?:(?:a|b|rc)(?:0|[1-9][0-9]*))?$')
 
 

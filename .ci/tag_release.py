@@ -4,8 +4,8 @@ Create the signed tag that publishes a release.
 Pushing a tag is the whole trigger for `release.yaml`, which makes `git push origin <tag>` the
 single irreversible act in the release: a tag can be deleted and re-pushed, but the PyPI version it
 causes cannot. So the checks the workflow runs are worth running first, locally, where failing costs
-nothing. Every check here has a counterpart in the `release` job, deliberately: the point is to fail
-on this machine rather than half-way through a publish.
+nothing. Every check here has a counterpart in the `release` job: the point is to fail on this
+machine rather than half-way through a publish.
 
 It also spells out the tag command, which was previously a line pasted from shell history.
 `--annotate` because `--follow-tags` and `git describe` both ignore lightweight tags, `--sign`
@@ -46,11 +46,9 @@ RELEASE_BRANCH = 'main'
 PYPROJECT_VERSION = re.compile(r'^version = "([^"]+)"', re.MULTILINE)
 INIT_VERSION = re.compile(r'^__version__ = [\'"]([^\'"]+)[\'"]', re.MULTILINE)
 
-#: The armour a signed tag carries. All three forms are accepted because
-#: `git tag --sign` honours `gpg.format`, so a correctly signed tag may be
-#: OpenPGP, SSH or x509; a PGP-only check once rejected an SSH-signed tag after
-#: it had already been pushed. Presence is what is checked, not validity:
-#: verifying the signature would need the signer's public key on the runner.
+#: The armour a signed tag carries, in all three forms `gpg.format` can
+#: produce. Presence is checked, not validity, which would need the signer's
+#: public key on the runner. See docs/internal/release.md.
 SIGNATURE_ARMOUR = re.compile(
     r'^-----BEGIN (?:PGP|SSH) SIGNATURE-----|^-----BEGIN SIGNED MESSAGE-----',
     re.MULTILINE)
@@ -215,12 +213,8 @@ def check(version: str,
     if dirty:
         raise CheckFailed('working tree is not clean:\n' + dirty)
 
-    # The refspec is spelled out, as it is at the two sibling call sites: a bare
-    # `git fetch origin main` writes `refs/remotes/origin/main` as a convenience
-    # rather than because the refspec asked for it, and in a clone whose
-    # `remote.origin.fetch` is narrowed it writes only FETCH_HEAD. The next line
-    # would then fail opaquely, or compare against a stale tracking ref, in the
-    # one copy of this check that stands on the irreversible path.
+    # The refspec is spelled out, as at the sibling call sites: a narrowed
+    # `remote.origin.fetch` otherwise writes only FETCH_HEAD.
     git('fetch', '--quiet', 'origin',
         f'+refs/heads/{RELEASE_BRANCH}:refs/remotes/origin/{RELEASE_BRANCH}')
     head = git('rev-parse', 'HEAD')
@@ -243,10 +237,8 @@ def check(version: str,
     if git('ls-remote', '--tags', 'origin', f'refs/tags/{version}'):
         raise CheckFailed(f'tag {version} already exists on origin')
 
-    # Here rather than only in `release.py readiness`, because `--skip-readiness`
-    # must not be able to turn it off: the message refusing a backwards version
-    # names that flag, so advertising it as the escape hatch for a different
-    # check made it the escape hatch for this one too.
+    # Here rather than only in `readiness`, so `--skip-readiness` cannot turn
+    # it off.
     newest = newest_released(root)
     if newest and release_version.Version(version) <= release_version.Version(
             newest):

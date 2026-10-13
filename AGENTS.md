@@ -159,7 +159,7 @@ directing the session.
 
 Read the relevant page before changing that area.
 
-- (none yet)
+- `docs/internal/release.md` - how a release is driven and verified, the designs that were tried and rejected, and the two known gaps.
 
 ## Code style
 
