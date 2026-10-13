@@ -2191,11 +2191,7 @@
 <p>To run unit tests only (no RabbitMQ required), use</p>
 <div class="highlight"><pre><span></span><code>hatch run unit
 </code></pre></div>
-<p>Tests run in parallel by default via <code>pytest-xdist</code> (<code>-n auto --dist=loadscope</code>).
-<code>loadscope</code> keeps tests from the same class on the same worker, which some
-suites (e.g. <code>tests/unit/io_services_test_stubs_test.py</code>) require — their
-<code>tearDownClass</code> asserts that every dynamically generated test method ran.
-Pass <code>-n 0</code> to disable parallelism if needed.</p>
+<p>Tests run in parallel by default via <code>pytest-xdist</code> (<code>-n auto --dist=loadscope</code>). <code>loadscope</code> keeps tests from the same class on the same worker, which some suites (e.g. <code>tests/unit/io_services_test_stubs_test.py</code>) require — their <code>tearDownClass</code> asserts that every dynamically generated test method ran. Pass <code>-n 0</code> to disable parallelism if needed.</p>
 <p>To start RabbitMQ via Docker for acceptance tests, use</p>
 <div class="highlight"><pre><span></span><code>hatch run rabbitmq
 </code></pre></div>
@@ -2208,8 +2204,7 @@ Pass <code>-n 0</code> to disable parallelism if needed.</p>
 </span></code></pre></div>
 </li>
 <li>
-<p>Start RabbitMQ and use the configuration file you just created. An example command
-  that works with the <code>generic-unix</code> package is as follows:</p>
+<p>Start RabbitMQ and use the configuration file you just created. An example command that works with the <code>generic-unix</code> package is as follows:</p>
 <div class="highlight"><pre><span></span><code><span id="__span-1-1">$ RABBITMQ_CONFIG_FILE=/path/to/pika/testdata/rabbitmq.conf ./sbin/rabbitmq-server
 </span></code></pre></div>
 </li>
@@ -2237,13 +2232,7 @@ Pass <code>-n 0</code> to disable parallelism if needed.</p>
 <p>Install deps (includes <code>mike</code>).</p>
 </li>
 <li>
-<p>Deploy the current tree as one or more version labels on your <strong>local</strong>
-   <code>gh-pages</code> branch. Always omit <code>--push</code>: the published site is deployed by CI
-   and a hand-pushed <code>gh-pages</code> fights the next automated deploy over the version
-   index. Use the same naming the deploy uses, so a local preview matches what
-   the real site will look like: a stable release is <code>MAJOR.MINOR</code>, a pre-release
-   is its full version, and <code>dev</code> is a version in its own right rather than an
-   alias.</p>
+<p>Deploy the current tree as one or more version labels on your <strong>local</strong> <code>gh-pages</code> branch. Always omit <code>--push</code>: the published site is deployed by CI and a hand-pushed <code>gh-pages</code> fights the next automated deploy over the version index. Use the same naming the deploy uses, so a local preview matches what the real site will look like: a stable release is <code>MAJOR.MINOR</code>, a pre-release is its full version, and <code>dev</code> is a version in its own right rather than an alias.</p>
 <div class="highlight"><pre><span></span><code>hatch run docs:mike deploy 1.5
 hatch run docs:mike deploy 1.6.0rc1
 hatch run docs:mike deploy --update-aliases dev latest
@@ -2256,9 +2245,7 @@ hatch run docs:mike set-default latest
 </code></pre></div>
 </li>
 <li>
-<p>Open the URL it prints (default <code>http://127.0.0.1:8000</code>) and use the version
-   selector. <code>mike list</code> shows what is installed; <code>mike delete VERSION</code> removes
-   one version.</p>
+<p>Open the URL it prints (default <code>http://127.0.0.1:8000</code>) and use the version selector. <code>mike list</code> shows what is installed; <code>mike delete VERSION</code> removes one version.</p>
 </li>
 <li>
 <p>Delete the local branch when you are done:</p>
@@ -2266,15 +2253,9 @@ hatch run docs:mike set-default latest
 </code></pre></div>
 </li>
 </ol>
-<p>Do this even though you never pushed. Once CI has published to <code>gh-pages</code> and
-   you fetch it, your local branch has diverged from the remote, and every <code>mike</code>
-   write command refuses to run against a diverged branch: <code>deploy</code>, <code>delete</code> and
-   <code>set-default</code> all fail with <code>gh-pages has diverged from origin/gh-pages</code>.
-   Deleting the local branch is the fix; the next preview recreates it.</p>
+<p>Do this even though you never pushed. Once CI has published to <code>gh-pages</code> and you fetch it, your local branch has diverged from the remote, and every <code>mike</code> write command refuses to run against a diverged branch: <code>deploy</code>, <code>delete</code> and <code>set-default</code> all fail with <code>gh-pages has diverged from origin/gh-pages</code>. Deleting the local branch is the fix; the next preview recreates it.</p>
 <h2 id="code-formatting-and-linting">Code Formatting and Linting<a class="headerlink" href="#code-formatting-and-linting" title="Permanent link">&para;</a></h2>
-<p>Please format your code using <a href="https://pypi.org/project/yapf/">yapf</a> with <code>google</code> style prior to issuing your pull request.
-<em>Note: only format those lines that you have changed in your pull request.
-If you format an entire file and change code outside of the scope of your PR, it will likely be rejected.</em></p>
+<p>Please format your code using <a href="https://pypi.org/project/yapf/">yapf</a> with <code>google</code> style prior to issuing your pull request. <em>Note: only format those lines that you have changed in your pull request. If you format an entire file and change code outside of the scope of your PR, it will likely be rejected.</em></p>
 <div class="highlight"><pre><span></span><code>hatch run fmt
 </code></pre></div>
 <p>To verify formatting without modifying files (mirrors CI), use</p>

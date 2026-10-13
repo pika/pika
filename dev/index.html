@@ -2317,18 +2317,9 @@
 <h2 id="introduction">Introduction<a class="headerlink" href="#introduction" title="Permanent link">&para;</a></h2>
 <p>Pika is a pure-Python implementation of the AMQP 0-9-1 protocol including RabbitMQ's extensions.</p>
 <ul>
-<li>Supports Python 3.7+ (CPython and PyPy; versions are listed on
-  <a href="https://pypi.org/project/pika/">PyPI</a>). Pika 1.1.0 was the last release
-  that supported Python 2.7.</li>
-<li>Since threads aren't appropriate to every situation, it doesn't require
-  threads. Pika core takes care not to forbid them, either. The same goes for
-  greenlets, callbacks, continuations, and generators. Most connection adapters
-  are single-threaded; use <code>Connection</code> when you need to publish or
-  consume from multiple threads.</li>
-<li>People may be using direct sockets, plain old <code>select()</code>, or any of the
-  wide variety of ways of getting network events to and from a Python
-  application. Pika tries to stay compatible with all of these, and to make
-  adapting it to a new environment as simple as possible.</li>
+<li>Supports Python 3.7+ (CPython and PyPy; versions are listed on <a href="https://pypi.org/project/pika/">PyPI</a>). Pika 1.1.0 was the last release that supported Python 2.7.</li>
+<li>Since threads aren't appropriate to every situation, it doesn't require threads. Pika core takes care not to forbid them, either. The same goes for greenlets, callbacks, continuations, and generators. Most connection adapters are single-threaded; use <code>Connection</code> when you need to publish or consume from multiple threads.</li>
+<li>People may be using direct sockets, plain old <code>select()</code>, or any of the wide variety of ways of getting network events to and from a Python application. Pika tries to stay compatible with all of these, and to make adapting it to a new environment as simple as possible.</li>
 </ul>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 <p>Pika's documentation can be found <a href="https://pika.github.io/pika/">here</a>.</p>
@@ -2365,22 +2356,13 @@ And an example of writing a blocking consumer:</p>
 <h2 id="adapters">Adapters<a class="headerlink" href="#adapters" title="Permanent link">&para;</a></h2>
 <p>Pika provides the following adapters:</p>
 <ul>
-<li><code>pika.adapters.asyncio_connection.AsyncioConnection</code> - asynchronous adapter
-  for Python 3 <a href="https://docs.python.org/3/library/asyncio.html">AsyncIO</a>'s
-  I/O loop.</li>
-<li><code>pika.BlockingConnection</code> - synchronous adapter on top of library for
-  simple usage.</li>
-<li><code>pika.SelectConnection</code> - asynchronous adapter without third-party
-  dependencies.</li>
-<li><code>pika.adapters.gevent_connection.GeventConnection</code> - asynchronous adapter
-  for use with <a href="https://www.gevent.org">Gevent</a>'s I/O loop.</li>
-<li><code>pika.adapters.tornado_connection.TornadoConnection</code> - asynchronous adapter
-  for use with <a href="https://tornadoweb.org">Tornado</a>'s I/O loop.</li>
-<li><code>pika.adapters.twisted_connection.TwistedProtocolConnection</code> - asynchronous
-  adapter for use with <a href="https://twistedmatrix.com">Twisted</a>'s I/O loop.</li>
-<li><code>pika.adapters.thread_safe_connection.Connection</code> - thread-safe
-  adapter that runs SelectConnection's IOLoop in a background thread. All
-  channel methods are safe to call from any thread simultaneously.</li>
+<li><code>pika.adapters.asyncio_connection.AsyncioConnection</code> - asynchronous adapter for Python 3 <a href="https://docs.python.org/3/library/asyncio.html">AsyncIO</a>'s I/O loop.</li>
+<li><code>pika.BlockingConnection</code> - synchronous adapter on top of library for simple usage.</li>
+<li><code>pika.SelectConnection</code> - asynchronous adapter without third-party dependencies.</li>
+<li><code>pika.adapters.gevent_connection.GeventConnection</code> - asynchronous adapter for use with <a href="https://www.gevent.org">Gevent</a>'s I/O loop.</li>
+<li><code>pika.adapters.tornado_connection.TornadoConnection</code> - asynchronous adapter for use with <a href="https://tornadoweb.org">Tornado</a>'s I/O loop.</li>
+<li><code>pika.adapters.twisted_connection.TwistedProtocolConnection</code> - asynchronous adapter for use with <a href="https://twistedmatrix.com">Twisted</a>'s I/O loop.</li>
+<li><code>pika.adapters.thread_safe_connection.Connection</code> - thread-safe adapter that runs SelectConnection's IOLoop in a background thread. All channel methods are safe to call from any thread simultaneously.</li>
 </ul>
 <h2 id="multiple-connection-parameters">Multiple connection parameters<a class="headerlink" href="#multiple-connection-parameters" title="Permanent link">&para;</a></h2>
 <p>You can also pass multiple <code>pika.ConnectionParameters</code> instances for fault-tolerance as in the code snippet below (host names are just examples, of course). To enable retries, set <code>connection_attempts</code> and <code>retry_delay</code> as needed in the last <code>pika.ConnectionParameters</code> element of the sequence. Retries occur after connection attempts using all of the given connection parameters fail.</p>
@@ -2424,22 +2406,11 @@ With non-blocking adapters, such as <code>pika.SelectConnection</code> and <code
 </span></code></pre></div>
 The code running in the other thread may request the <code>ack_message()</code> function to be executed in the connection adapter's I/O loop thread using an adapter-specific mechanism:</p>
 <ul>
-<li><code>pika.BlockingConnection</code> abstracts its I/O loop from the application and
-  thus exposes <code>pika.BlockingConnection.add_callback_threadsafe()</code>. Refer to
-  this method's docstring for additional information. For example:</li>
+<li><code>pika.BlockingConnection</code> abstracts its I/O loop from the application and thus exposes <code>pika.BlockingConnection.add_callback_threadsafe()</code>. Refer to this method's docstring for additional information. For example:</li>
 </ul>
 <p><div class="highlight"><pre><span></span><code><span id="__span-5-1"><span class="n">connection</span><span class="o">.</span><span class="n">add_callback_threadsafe</span><span class="p">(</span><span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="n">ack_message</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">delivery_tag</span><span class="p">))</span>
 </span></code></pre></div>
-- When using a non-blocking connection adapter, such as
-  <code>pika.adapters.asyncio_connection.AsyncioConnection</code> or
-  <code>pika.SelectConnection</code>, you use the underlying asynchronous framework's
-  native API for requesting an I/O loop-bound callback from another thread. For
-  example, <code>pika.SelectConnection</code>'s I/O loop provides
-  <code>add_callback_threadsafe()</code>,
-  <code>pika.adapters.tornado_connection.TornadoConnection</code>'s I/O loop has
-  <code>add_callback()</code>, while
-  <code>pika.adapters.asyncio_connection.AsyncioConnection</code>'s I/O loop exposes
-  <code>call_soon_threadsafe()</code>.</p>
+- When using a non-blocking connection adapter, such as <code>pika.adapters.asyncio_connection.AsyncioConnection</code> or <code>pika.SelectConnection</code>, you use the underlying asynchronous framework's native API for requesting an I/O loop-bound callback from another thread. For example, <code>pika.SelectConnection</code>'s I/O loop provides <code>add_callback_threadsafe()</code>, <code>pika.adapters.tornado_connection.TornadoConnection</code>'s I/O loop has <code>add_callback()</code>, while <code>pika.adapters.asyncio_connection.AsyncioConnection</code>'s I/O loop exposes <code>call_soon_threadsafe()</code>.</p>
 <p>This threadsafe callback request mechanism may also be used to delegate publishing of messages, etc., from a background thread to the connection adapter's thread.</p>
 <h2 id="connection-recovery">Connection recovery<a class="headerlink" href="#connection-recovery" title="Permanent link">&para;</a></h2>
 <p>Some RabbitMQ clients (Bunny, Java, .NET, Objective-C, Swift) provide a way to automatically recover a connection, its channels and topology (e.g. queues, bindings and consumers) after a network failure. Others require connection recovery to be performed by the application code and strive to make it a straightforward process. Pika falls into the second category.</p>
@@ -2491,20 +2462,8 @@ This example can be found in <a href="https://github.com/pika/pika/blob/main/exa
 <h2 id="extending-to-support-additional-io-frameworks">Extending to support additional I/O frameworks<a class="headerlink" href="#extending-to-support-additional-io-frameworks" title="Permanent link">&para;</a></h2>
 <p>New non-blocking adapters may be implemented in either of the following ways:</p>
 <ul>
-<li>By subclassing <code>pika.BaseConnection</code>, implementing its abstract method and
-  passing its constructor an implementation of
-  <code>pika.adapters.utils.nbio_interface.AbstractIOServices</code>.
-  <code>pika.BaseConnection</code> implements <code>pika.connection.Connection</code>'s abstract
-  methods, including internally-initiated connection logic. For examples, refer
-  to the implementations of
-  <code>pika.adapters.asyncio_connection.AsyncioConnection</code>,
-  <code>pika.adapters.gevent_connection.GeventConnection</code> and
-  <code>pika.adapters.tornado_connection.TornadoConnection</code>.</li>
-<li>By subclassing <code>pika.connection.Connection</code> and implementing its abstract
-  methods. This approach facilitates implementation of custom
-  connection-establishment and transport mechanisms. For an example, refer to
-  the implementation of
-  <code>pika.adapters.twisted_connection.TwistedProtocolConnection</code>.</li>
+<li>By subclassing <code>pika.BaseConnection</code>, implementing its abstract method and passing its constructor an implementation of <code>pika.adapters.utils.nbio_interface.AbstractIOServices</code>. <code>pika.BaseConnection</code> implements <code>pika.connection.Connection</code>'s abstract methods, including internally-initiated connection logic. For examples, refer to the implementations of <code>pika.adapters.asyncio_connection.AsyncioConnection</code>, <code>pika.adapters.gevent_connection.GeventConnection</code> and <code>pika.adapters.tornado_connection.TornadoConnection</code>.</li>
+<li>By subclassing <code>pika.connection.Connection</code> and implementing its abstract methods. This approach facilitates implementation of custom connection-establishment and transport mechanisms. For an example, refer to the implementation of <code>pika.adapters.twisted_connection.TwistedProtocolConnection</code>.</li>
 </ul>
 
 
