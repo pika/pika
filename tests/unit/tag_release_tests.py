@@ -304,17 +304,28 @@ class VerifyTagTests(unittest.TestCase):
     def _patched(self,
                  responses,
                  version='1.5.0',
-                 newest='1.4.4',
+                 tags=('1.4.0', '1.4.4'),
                  on_pypi=False):
         """
-        Patch git, the version files, the newest release and PyPI for one call.
+        Patch git, the version files, the tag list and PyPI for one call.
+
+        The `newest_released` stand-in takes a tag list and honours `exclude`, rather than answering
+        a fixed version. A stand-in that ignored `exclude` let `verify_tag` refuse every release:
+        the tag exists by the time it runs, so without the exclusion the version is its own
+        predecessor.
 
         :param responses: Maps a git subcommand to its stdout, or to an exception.
         :param version: What both version files declare.
-        :param newest: The newest already-released version.
+        :param tags: The releasable tags the repository holds.
         :param on_pypi: Whether PyPI already holds the version.
         :yields: Nothing; the patches are active for the block.
         """
+
+        def newest_released(root=None, exclude=''):
+            kept = [name for name in tags if name != exclude]
+            return max(kept,
+                       key=tag_release.release_version.Version) if kept else ''
+
         with contextlib.ExitStack() as stack:
             stack.enter_context(
                 mock.patch.object(tag_release, 'git', self._git(responses)))
@@ -323,7 +334,7 @@ class VerifyTagTests(unittest.TestCase):
                                   lambda *a: version))
             stack.enter_context(
                 mock.patch.object(tag_release, 'newest_released',
-                                  lambda *a: newest))
+                                  newest_released))
             stack.enter_context(
                 mock.patch.object(tag_release, 'on_pypi', lambda v: on_pypi))
             yield
@@ -400,23 +411,35 @@ class VerifyTagTests(unittest.TestCase):
         reason = self._refuses(self._clean_responses(),
                                tag='1.4.3',
                                version='1.4.3',
-                               newest='1.4.4')
+                               tags=('1.4.0', '1.4.4'))
         self.assertIn('does not move past 1.4.4', reason)
 
     def test_re_tagging_the_newest_release_is_refused(self):
+        # 1.4.4 excludes itself, so 1.4.0 is the predecessor it must beat and
+        # does not. Re-tagging a released version is caught here and on PyPI.
         reason = self._refuses(self._clean_responses(),
                                tag='1.4.4',
                                version='1.4.4',
-                               newest='1.4.4')
-        self.assertIn('has to go forwards', reason)
+                               tags=('1.4.0', '1.4.4', '1.4.5'))
+        self.assertIn('does not move past 1.4.5', reason)
 
     def test_a_first_release_with_no_predecessor_passes(self):
-        with self._patched(self._clean_responses(), newest=''):
+        with self._patched(self._clean_responses(), tags=()):
             tag_release.verify_tag('1.5.0', self.SHA)
 
     def test_a_version_already_on_pypi_is_refused(self):
         self.assertIn('already on PyPI',
                       self._refuses(self._clean_responses(), on_pypi=True))
+
+    def test_re_tagging_a_published_version_is_refused_by_pypi(self):
+        # The exclusion means the ordering guard no longer sees 1.4.4 as its own
+        # predecessor, so PyPI is what refuses a re-pushed released tag.
+        reason = self._refuses(self._clean_responses(),
+                               tag='1.4.4',
+                               version='1.4.4',
+                               tags=('1.4.0', '1.4.3', '1.4.4'),
+                               on_pypi=True)
+        self.assertIn('already on PyPI', reason)
 
     def test_pypi_can_be_skipped(self):
         with self._patched(self._clean_responses(), on_pypi=True):

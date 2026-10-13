@@ -133,11 +133,16 @@ def on_pypi(version: str) -> bool:
             f'be republished') from exc
 
 
-def newest_released(root: pathlib.Path | None = None) -> str:
+def newest_released(root: pathlib.Path | None = None, exclude: str = '') -> str:
     """
     Return the newest tag this scheme publishes, or the empty string if there is none.
 
+    *exclude* drops one tag from the comparison. `verify_tag` needs it because it runs after the
+    push, so the tag being released is already in `git tag --list` and would otherwise be its own
+    predecessor.
+
     :param root: Directory to run git in.
+    :param exclude: A tag to leave out, or '' to consider all of them.
     :returns: The newest released version by PEP 440 order, or ''.
     """
     base = _ROOT if root is None else root
@@ -148,6 +153,8 @@ def newest_released(root: pathlib.Path | None = None) -> str:
                             check=False).stdout.split()
     released = []
     for name in listed:
+        if exclude and name == exclude:
+            continue
         try:
             release_version.classify(name)
         except ValueError:
@@ -314,7 +321,9 @@ def verify_tag(version: str,
             f'{sha[:12]} is not an ancestor of origin/{RELEASE_BRANCH}. Land '
             f'the version bump on {RELEASE_BRANCH} before tagging it') from exc
 
-    newest = newest_released(root)
+    # Excluding the tag leaves re-tagging an already-published version to the
+    # PyPI check below, which is the authority on what shipped.
+    newest = newest_released(root, exclude=version)
     if newest and release_version.Version(version) <= release_version.Version(
             newest):
         raise CheckFailed(f'{version} does not move past {newest}, the newest '

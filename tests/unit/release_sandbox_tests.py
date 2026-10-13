@@ -22,6 +22,7 @@ import importlib.util
 import io
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -532,6 +533,80 @@ class BackwardsGuardTests(unittest.TestCase):
             status, _, err = invoke(['tag'])
         self.assertEqual(status, 1)
         self.assertIn('9.9.9', err)
+
+
+@_LINUX_ONLY
+class VerifySandboxTests(unittest.TestCase):
+    """
+    `verify` against real tags, because mocking `newest_released` hid a refusal of every release.
+
+    `verify_tag` runs after the push, so the tag it is checking is already in `git tag --list`. The
+    unit tests patch `newest_released`, so they cannot see that, and with the real function the tag
+    was its own predecessor: `1.5.0 <= 1.5.0`.
+    """
+
+    def _landed(self, stack, version):
+        """
+        Return a sandbox whose `main` carries *version*, its changelog entry, and its tag.
+
+        :param stack: An entered `ExitStack`.
+        :param version: The version to land and tag.
+        :returns: The sandbox.
+        """
+        box = Sandbox(stack)
+        box.write_version(version)
+        history = (box.root / 'HISTORY.md').read_text(encoding='utf-8')
+        (box.root / 'HISTORY.md').write_text(history.replace(
+            '## [9.8.0]', f'## [{version}](x) (2026)\n\n- thing\n\n'
+            f'## [9.8.0]'),
+                                             encoding='utf-8')
+        box.git('commit', '--quiet', '--all', '--message', f'pika {version}')
+        box.git('push', '--quiet', 'origin', 'main')
+        box.git('fetch', '--quiet', 'origin')
+        box.git('tag', '--annotate', '--message', f'pika {version}', version)
+        stack.enter_context(
+            mock.patch.object(release.tag_release, 'on_pypi', lambda v: False))
+        # The sandbox tags are annotated but unsigned, for the reason `_run`
+        # gives, so the armour pattern is relaxed to reach the checks after it.
+        # That the production pattern demands real armour is asserted in
+        # `tag_release_tests.py`.
+        stack.enter_context(
+            mock.patch.object(release.tag_release, 'SIGNATURE_ARMOUR',
+                              re.compile('^tag ', re.MULTILINE)))
+        return box
+
+    def test_the_tag_being_verified_is_not_its_own_predecessor(self):
+        with contextlib.ExitStack() as stack:
+            box = Sandbox(stack)
+            for version in ('9.8.1', '9.9.0'):
+                box.git('tag', '--annotate', '--message', f'pika {version}',
+                        version)
+            everything = release.tag_release.newest_released(box.root)
+            excluded = release.tag_release.newest_released(box.root,
+                                                           exclude='9.9.0')
+        self.assertEqual(everything, '9.9.0')
+        self.assertEqual(excluded, '9.8.1')
+
+    def test_verify_accepts_the_version_being_released(self):
+        with contextlib.ExitStack() as stack:
+            box = self._landed(stack, '9.9.0')
+            head = box.git('rev-parse', 'HEAD')
+            status, out, err = invoke(
+                ['verify', '--tag', '9.9.0', '--sha', head])
+        self.assertEqual(status, 0, err)
+        self.assertIn('mode=release', out)
+
+    def test_verify_still_refuses_a_version_that_goes_backwards(self):
+        # 9.8.0 is tagged by the sandbox, so 9.7.0 does not move forwards even
+        # once its own tag is excluded.
+        with contextlib.ExitStack() as stack:
+            box = self._landed(stack, '9.7.0')
+            head = box.git('rev-parse', 'HEAD')
+            status, out, err = invoke(
+                ['verify', '--tag', '9.7.0', '--sha', head])
+        self.assertEqual(status, 1)
+        self.assertIn('does not move past 9.8.0', err)
+        self.assertEqual(out, '')
 
 
 @_LINUX_ONLY
