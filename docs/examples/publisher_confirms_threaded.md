@@ -20,11 +20,11 @@ def on_confirm(method_frame):
 ch.confirm_delivery(on_confirm)
 ```
 
-Learn the tag to match against from `basic_publish`'s `on_publish` callback, which is handed the tag the broker will confirm. Do not read `next_publish_seq_no` after a publish to infer it: `basic_publish` only schedules the publish, and the counter advances on the IOLoop thread when it runs, so the value immediately afterwards may still be the previous one. Measured against 4.3.6, the third of three back-to-back publishes read a stale counter.
+Learn the tag to match against from `basic_publish`'s `on_publish` callback, which is handed the tag the broker will confirm. Do not read `next_publish_seq_no` after a publish to infer it, because the counter advances later on the IOLoop thread.
 
-An ack is not proof that the message reached a queue. An unroutable publish sent with `mandatory=True` is answered with Basic.Return *and then* Basic.Ack, so the `isinstance` branch above sees a confirmation for a message the broker discarded. Register `add_on_return_callback` as well when routing matters, as [Mandatory publishing](blocking_publish_mandatory.md) does for the blocking adapter.
+An ack is not proof that the message reached a queue: an unroutable publish sent with `mandatory=True` is answered with Basic.Return *and then* Basic.Ack. Register `add_on_return_callback` as well when routing matters, as [Mandatory publishing](blocking_publish_mandatory.md) does for the blocking adapter.
 
-See #1737 for the report behind this section, and #1740 for the 2.0 review of the API's shape.
+Both hazards are measured, with the broker behaviour behind them, in `docs/internal/thread-safe-connection.md`.
 
 `examples/publisher_confirms_threaded.py`:
 

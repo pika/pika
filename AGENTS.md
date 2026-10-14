@@ -161,6 +161,7 @@ directing the session.
 Read the relevant page before changing that area.
 
 - `docs/internal/release.md` - how a release is driven and verified, the designs that were tried and rejected, and the two known gaps.
+- `docs/internal/thread-safe-connection.md` - how `pika.Connection` dispatches callbacks, the back-pressure that bounds it, and the broker measurements behind the publisher-confirm contract.
 
 ## Code style
 
