@@ -242,7 +242,7 @@ the `codegen` workflow enforces.
 Read the file for detail.
 
 - `main.yaml` - the entry point on push and pull request; calls `_test.yaml` for
-  the modern, legacy and preview matrices, builds the docs, gates on
+  the modern and legacy matrices, builds the docs, gates on
   `tests-passed`, and publishes the `dev` docs.
 - `_test.yaml` - the matrix itself, Linux and Windows crossed with each Python
   version and TLS on and off; `workflow_call` only. macOS runs as a separate

@@ -23,7 +23,7 @@ jobs:
   test-modern:
     uses: ./.github/workflows/_test.yaml
     with:
-      python-versions: '["3.10","3.11","3.12","3.13","3.14"]'
+      python-versions: '["3.10","3.11","3.12","3.13","3.14","3.15"]'
       ubuntu-runner: ubuntu-latest
       legacy: false
 
@@ -33,25 +33,6 @@ jobs:
       python-versions: '["3.7","3.8","3.9"]'
       ubuntu-runner: ubuntu-22.04
       legacy: true
-
-  # Pre-release Python. Deliberately absent from the `tests-passed` needs list:
-  # this leg reports breakage early without letting an unreleased interpreter
-  # block a merge. That non-blocking property depends on branch protection
-  # requiring only the `tests-passed` check, not every individual job; keep it
-  # that way. Promote it into `test-modern` once 3.15 ships a final release,
-  # and add the trove classifier at the same time.
-  #
-  # Linux-only and no coverage upload: this is an early-warning smoke test, so
-  # it skips the slow, expensive Windows legs and keeps pre-release
-  # coverage out of the Codecov report.
-  test-preview:
-    uses: ./.github/workflows/_test.yaml
-    with:
-      python-versions: '["3.15"]'
-      ubuntu-runner: ubuntu-latest
-      allow-prereleases: true
-      linux-only: true
-      upload-coverage: false
 
   # macOS is slow and occasionally flaky, so it is not run across the full
   # matrix like Linux and Windows. This single leg exercises only the latest
