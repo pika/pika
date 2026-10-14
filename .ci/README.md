@@ -37,6 +37,7 @@ The `--use-tls` pytest flag is passed when `test-tls` is true, directing tests t
   README.md              this file
   release.py             the release CLI
   release_version.py     version arithmetic and tag interpretation
+  changelog.py           the HISTORY.md entry, from the milestone
   tag_release.py         tagging preconditions
   docs_site.py           docs-site alias policy
   smoke_test.py          post-publish broker check

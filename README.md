@@ -32,52 +32,55 @@ Pika is a pure-Python implementation of the AMQP 0-9-1 protocol including Rabbit
 Pika's documentation can be found [here](https://pika.github.io/pika/).
 
 ## Example
-Here is the most simple example of use, sending a message with the `pika.BlockingConnection` adapter:
+Sending a message with `pika.Connection`, which is thread-safe and runs its own IOLoop on a background thread:
 
 ```python
 import pika
 
-connection = pika.BlockingConnection()
+connection = pika.Connection(pika.ConnectionParameters())
 channel = connection.channel()
-channel.basic_publish(exchange='test', routing_key='test',
-                      body=b'Test message.')
+
+# RabbitMQ 4.3 and later refuse a queue that is neither durable nor exclusive.
+channel.queue_declare('test', durable=True)
+channel.basic_publish(exchange='', routing_key='test', body=b'Test message.')
 connection.close()
 
 ```
-And an example of writing a blocking consumer:
+And consuming, where each delivery is dispatched on a per-channel worker thread, so slow processing does not stall heartbeats and `basic_ack` needs no `add_callback_threadsafe`:
 
 ```python
+import threading
+
 import pika
 
-connection = pika.BlockingConnection()
+connection = pika.Connection(pika.ConnectionParameters())
 channel = connection.channel()
+channel.queue_declare('test', durable=True)
 
-for method_frame, properties, body in channel.consume('test'):
-    # Display the message parts and acknowledge the message
+def on_message(ch, method_frame, properties, body):
     print(method_frame, properties, body)
-    channel.basic_ack(method_frame.delivery_tag)
+    ch.basic_ack(method_frame.delivery_tag)
 
-    # Escape out of the loop after 10 messages
-    if method_frame.delivery_tag == 10:
-        break
+channel.basic_consume('test', on_message)
 
-# Cancel the consumer and return any pending messages
-requeued_messages = channel.cancel()
-print('Requeued %i messages' % requeued_messages)
-connection.close()
+try:
+    # The IOLoop already runs in the background; block until interrupted.
+    threading.Event().wait()
+except KeyboardInterrupt:
+    connection.close()
 
 ```
 ## Adapters
 
 Pika provides the following adapters:
 
-- `pika.adapters.asyncio_connection.AsyncioConnection` - asynchronous adapter for Python 3 [AsyncIO](https://docs.python.org/3/library/asyncio.html)'s I/O loop.
-- `pika.BlockingConnection` - synchronous adapter on top of library for simple usage.
+- `pika.Connection` - thread-safe, runs SelectConnection's IOLoop in a background thread. All channel methods are safe to call from any thread simultaneously.
 - `pika.SelectConnection` - asynchronous adapter without third-party dependencies.
-- `pika.adapters.gevent_connection.GeventConnection` - asynchronous adapter for use with [Gevent](https://www.gevent.org)'s I/O loop.
-- `pika.adapters.tornado_connection.TornadoConnection` - asynchronous adapter for use with [Tornado](https://tornadoweb.org)'s I/O loop.
-- `pika.adapters.twisted_connection.TwistedProtocolConnection` - asynchronous adapter for use with [Twisted](https://twistedmatrix.com)'s I/O loop.
-- `pika.adapters.thread_safe_connection.Connection` - thread-safe adapter that runs SelectConnection's IOLoop in a background thread. All channel methods are safe to call from any thread simultaneously.
+- `pika.adapters.asyncio_connection.AsyncioConnection` - asynchronous adapter for [AsyncIO](https://docs.python.org/3/library/asyncio.html)'s I/O loop.
+- `pika.BlockingConnection` - synchronous and procedural *(deprecated, removed in Pika 2.0)*.
+- `pika.adapters.gevent_connection.GeventConnection` - asynchronous adapter for use with [Gevent](https://www.gevent.org)'s I/O loop *(deprecated, removed in Pika 2.0)*.
+- `pika.adapters.tornado_connection.TornadoConnection` - asynchronous adapter for use with [Tornado](https://www.tornadoweb.org/)'s I/O loop *(deprecated, removed in Pika 2.0)*.
+- `pika.adapters.twisted_connection.TwistedProtocolConnection` - asynchronous adapter for use with [Twisted](https://twistedmatrix.com)'s I/O loop *(deprecated, removed in Pika 2.0)*.
 
 ## Multiple connection parameters
 You can also pass multiple `pika.ConnectionParameters` instances for fault-tolerance as in the code snippet below (host names are just examples, of course). To enable retries, set `connection_attempts` and `retry_delay` as needed in the last `pika.ConnectionParameters` element of the sequence. Retries occur after connection attempts using all of the given connection parameters fail.
@@ -98,13 +101,16 @@ With non-blocking adapters, such as `pika.SelectConnection` and `pika.adapters.a
 
 ### Using Connection (recommended)
 
-`pika.adapters.thread_safe_connection.Connection` is the simplest way to use Pika from multiple threads. It runs the IOLoop in a background thread and provides a blocking API that is safe to call from any number of threads simultaneously. Consumer callbacks run on a per-channel worker thread, so slow processing never stalls heartbeats:
+`pika.Connection` is the simplest way to use Pika from multiple threads. It runs the IOLoop in a background thread and provides a blocking API that is safe to call from any number of threads simultaneously. Consumer callbacks run on a per-channel worker thread, so slow processing does not stall heartbeats as long as the callback keeps pace with deliveries:
 
 ```python
-from pika.adapters.thread_safe_connection import Connection
+import pika
 
-conn = Connection(pika.ConnectionParameters('localhost'))
+conn = pika.Connection(pika.ConnectionParameters('localhost'))
 ch = conn.channel()
+
+# RabbitMQ 4.3 and later refuse a queue that is neither durable nor exclusive.
+ch.queue_declare('work', durable=True)
 
 def on_message(channel, method, properties, body):
     process(body)
@@ -174,11 +180,12 @@ while True:
         continue
 
 ```
-This example can be found in [`examples/consume_recover.py`](https://github.com/pika/pika/blob/main/examples/consume_recover.py).
+A variant that recovers across several nodes is in [`examples/blocking_consume_recover_multiple_hosts.py`](https://github.com/pika/pika/blob/main/examples/blocking_consume_recover_multiple_hosts.py).
 
 Generic operation retry libraries such as [retry](https://github.com/invl/retry) can be used. Decorators make it possible to configure some additional recovery behaviours, like delays between retries and limiting the number of retries:
 
 ```python
+import pika
 from retry import retry
 
 
@@ -198,7 +205,7 @@ def consume():
 consume()
 
 ```
-This example can be found in [`examples/consume_recover_retry.py`](https://github.com/pika/pika/blob/main/examples/consume_recover_retry.py).
+The same decorator applied across several nodes is in [`examples/blocking_consume_recover_multiple_hosts_retry.py`](https://github.com/pika/pika/blob/main/examples/blocking_consume_recover_multiple_hosts_retry.py).
 
 For asynchronous adapters, use `on_close_callback` to react to connection failure events. This callback can be used to clean up and recover the connection.
 

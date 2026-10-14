@@ -11,28 +11,24 @@ Pika uses connection adapters to provide a flexible method for adapting pika's c
 - [TwistedProtocolConnection](twisted.md) *(deprecated, removed in Pika 2.0)*
 - [GeventConnection](gevent.md) *(deprecated, removed in Pika 2.0)*
 
-> [!WARNING]
-> `BlockingConnection`, `TornadoConnection`, `TwistedProtocolConnection`, and
-> `GeventConnection` are deprecated and will be removed in Pika 2.0. The async
-> adapters exist to integrate Pika into a framework's event loop — a constraint
-> that no longer applies — and `BlockingConnection` runs the IOLoop on the
-> calling thread, which makes heartbeats fragile and the adapter non-thread-safe.
-> [`Connection`](thread_safe.md) runs its own IOLoop on a background
-> thread and works with any framework (asyncio, Tornado, Twisted, Gevent,
-> Django, Flask, or plain synchronous code) without adapter-specific
-> integration.
+!!! warning
+
+    `BlockingConnection`, `TornadoConnection`, `TwistedProtocolConnection`, and `GeventConnection` are deprecated and will be removed in Pika 2.0. The async adapters exist to integrate Pika into a framework's event loop, a constraint that no longer applies, and `BlockingConnection` runs the IOLoop on the calling thread, which makes heartbeats fragile and the adapter non-thread-safe. [`Connection`](thread_safe.md) runs its own IOLoop on a background thread and works with any framework (asyncio, Tornado, Twisted, Gevent, Django, Flask, or plain synchronous code) without adapter-specific integration.
 
 ## Threading
 
 ### Using Connection (recommended)
 
-[Connection](thread_safe.md) is the simplest way to use Pika from multiple threads. It runs the IOLoop in a background thread and provides a blocking, thread-safe API. Consumer callbacks run on a dedicated worker thread, so slow processing never stalls heartbeats, and you can call `basic_ack`, `basic_publish`, and other channel methods directly from the callback without any special coordination:
+[Connection](thread_safe.md) is the simplest way to use Pika from multiple threads. It runs the IOLoop in a background thread and provides a blocking, thread-safe API. Consumer callbacks run on a dedicated worker thread, so slow processing does not stall heartbeats as long as the callback keeps pace with deliveries ([what happens when it does not](thread_safe.md#work-queue-bounds-and-back-pressure)), and you can call `basic_ack`, `basic_publish`, and other channel methods directly from the callback without any special coordination:
 
 ```python
-from pika.adapters.thread_safe_connection import Connection
+import pika
 
-conn = Connection(pika.ConnectionParameters('localhost'))
+conn = pika.Connection(pika.ConnectionParameters('localhost'))
 ch = conn.channel()
+
+# RabbitMQ 4.3 and later refuse a queue that is neither durable nor exclusive.
+ch.queue_declare('work', durable=True)
 
 def on_message(channel, method, properties, body):
     # This runs on a worker thread - safe to do blocking work here
@@ -105,11 +101,12 @@ while True:
         continue
 
 ```
-This example can be found in `examples/consume_recover.py`.
+A variant that recovers across several nodes is in `examples/blocking_consume_recover_multiple_hosts.py`.
 
 Generic operation retry libraries such as [retry](https://github.com/invl/retry) can be used. Decorators make it possible to configure some additional recovery behaviours, like delays between retries and limiting the number of retries:
 
 ```python
+import pika
 from retry import retry
 
 
@@ -129,7 +126,7 @@ def consume():
 consume()
 
 ```
-This example can be found in `examples/consume_recover_retry.py`.
+The same decorator applied across several nodes is in `examples/blocking_consume_recover_multiple_hosts_retry.py`.
 
 For asynchronous adapters, use `on_close_callback` to react to connection failure events. This callback can be used to clean up and recover the connection.
 

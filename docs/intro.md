@@ -37,7 +37,7 @@ except KeyboardInterrupt:
 
 ## Continuation-Passing Style
 
-Interfacing with Pika asynchronously is done by passing in callback methods you would like to have invoked when a certain event completes. For example, if you are going to declare a queue, you pass in a method that will be called when the RabbitMQ server returns a [Queue.DeclareOk](https://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.declare) response.
+Interfacing with Pika asynchronously is done by passing in callback methods you would like to have invoked when a certain event completes. For example, if you are going to declare a queue, you pass in a method that will be called when the RabbitMQ server returns a [Queue.DeclareOk](https://www.rabbitmq.com/amqp-0-9-1-reference) response.
 
 In our example below we use the following five easy steps:
 
@@ -48,7 +48,7 @@ In our example below we use the following five easy steps:
 1. When RabbitMQ has a message to send us, it calls the handle_delivery method passing the AMQP Method frame, Header frame, and Body.
 
 !!! note
-    Step #1 is on line #28 and Step #2 is on line #6. This is so that Python knows about the functions we'll call in Steps #2 through #5.
+    The steps do not run in the order they are written. Step #1 comes last in the code below and Step #2 first, because Python has to have defined each function before the connection can call it.
 
 <a id="cps_example"></a>
 
@@ -90,7 +90,7 @@ def on_close(connection, exception):
 
 # Step #1: Connect to RabbitMQ using the default parameters
 parameters = pika.ConnectionParameters()
-connection = pika.SelectConnection(on_open_callback=on_connected, on_close_callback=on_close)
+connection = pika.SelectConnection(parameters, on_open_callback=on_connected, on_close_callback=on_close)
 
 try:
     # Loop so we can communicate with RabbitMQ

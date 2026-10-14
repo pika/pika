@@ -979,8 +979,41 @@ class Channel:
         The *ack_nack_callback* is dispatched on the channel's worker
         thread (same as delivery callbacks), not the IOLoop thread.
         The RabbitMQ Java and .NET clients run this listener inline on
-        the I/O thread; pika's wrapper deliberately diverges so a slow
-        listener cannot stall heartbeats.
+        the I/O thread; pika's wrapper diverges so that heartbeats keep
+        flowing while the listener works.  It shares the worker thread
+        and bounded queue with delivery callbacks, so a listener that
+        cannot keep up with the confirm rate still blocks the IOLoop
+        once that queue fills (see *work_queue_maxsize*).
+
+        The callback receives one Basic.Ack or Basic.Nack frame and
+        reads three things off it: which publish is being confirmed,
+        whether it confirms every earlier one too, and whether it is an
+        ack or a nack.  There is no separate nack callback, so the
+        ``isinstance`` test is how the two are told apart::
+
+            def on_confirm(method_frame):
+                tag = method_frame.method.delivery_tag
+                multiple = method_frame.method.multiple
+                if isinstance(method_frame.method, pika.spec.Basic.Ack):
+                    ...   # `tag`, and every earlier tag if `multiple`
+                else:
+                    ...   # Basic.Nack: the broker rejected it
+
+            channel.confirm_delivery(on_confirm)
+
+        Learn the tag to match against from *basic_publish*'s
+        ``on_publish``, which is handed the tag the broker will confirm.
+        Do not read :attr:`next_publish_seq_no` after a publish to infer
+        it: ``basic_publish`` only schedules the publish, and the counter
+        advances on the IOLoop thread when it runs, so the value
+        immediately afterwards may still be the previous one.
+
+        An ack is not proof that the message reached a queue.  An
+        unroutable publish sent with ``mandatory=True`` is answered with
+        Basic.Return *and then* Basic.Ack, so the ``isinstance`` branch
+        above sees a confirmation for a message the broker discarded.
+        Register :meth:`add_on_return_callback` as well when routing
+        matters.  See ``examples/publisher_confirms_threaded.py``.
 
         Safe to call from any thread.
 
@@ -1522,7 +1555,7 @@ class Connection:
     IOLoop in a single dedicated background thread (the *IOLoop thread*).
     All channel operations submitted from external threads are routed
     through :meth:`add_callback_threadsafe` so that ``_tx_buffers`` has
-    exactly one owner — the IOLoop thread.
+    a single owner, the IOLoop thread.
 
     Usage::
 
@@ -1916,7 +1949,7 @@ class Connection:
             try:
                 self._connection.close()
             except Exception:
-                # Already closing or closed — _on_connection_closed will wake waiters.
+                # Already closing or closed; _on_connection_closed wakes waiters.
                 LOGGER.debug(
                     'connection.close() raised (already closing or closed)',
                     exc_info=True)
