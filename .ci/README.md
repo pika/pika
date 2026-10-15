@@ -19,11 +19,10 @@ All but `smoke_test.py` have unit tests in `tests/unit/`, which is the deal for 
 
 ## How the test matrix works
 
-`.github/workflows/main.yaml` triggers on push and PR. It calls the reusable workflow `.github/workflows/_test.yaml` three times. Each call matrices over `python-version` and `test-tls: [true, false]`; `test-modern` and `test-legacy` run on both the Linux and Windows runners, while `test-preview` is Linux-only:
+`.github/workflows/main.yaml` triggers on push and PR. It calls the reusable workflow `.github/workflows/_test.yaml` twice. Each call matrices over `python-version` and `test-tls: [true, false]` on both the Linux and Windows runners:
 
-- `test-modern` - Python 3.10-3.14, ubuntu-latest + windows-latest
+- `test-modern` - Python 3.10-3.15, ubuntu-latest + windows-latest
 - `test-legacy` - Python 3.7-3.9, ubuntu-22.04 + windows-latest
-- `test-preview` - pre-release Python 3.15, ubuntu-latest; non-blocking
 
 macOS runs separately as the standalone `test-macos` job in `main.yaml` (not through the reusable workflow): only the latest supported CPython on macos-latest, both TLS modes. It is slow and occasionally flaky, so it is kept minimal and non-blocking, but still exercises the BSD-only KQueuePoller path and feeds its coverage to Codecov.
 
