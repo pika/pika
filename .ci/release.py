@@ -320,12 +320,13 @@ def reachable_release() -> str:
     cut from `1.4.x` and are not ancestors of `main`. Confusing the two produces either a changelog
     that re-lists three released versions or a release that goes backwards.
 
-    Not `git describe --tags --abbrev=0`, which was the first attempt and is wrong twice over. It
-    answers the *nearest* tag by commit distance rather than the newest, and `--tags` re-enables
-    lightweight ones, so with pika's `wip-1617-core-2p0`, `en_support_201107` and nine legacy `v*`
-    tags it will happily name a work-in-progress branch marker as the previous release. Instead:
-    take every tag that is an ancestor of HEAD, keep the ones this scheme publishes, and pick the
-    newest by version order. Tags are fetched first, for the reason `previous_release` gives.
+    Not `git describe --tags --abbrev=0`, which was the first attempt and guarantees the wrong thing
+    twice over. It answers the *nearest* tag by commit distance rather than the newest, and `--tags`
+    admits lightweight tags this scheme does not publish, of which nine legacy `v0.*` are reachable
+    from `main`. It agrees here only while the newest release is also the nearest reachable tag,
+    which no rule enforces. Instead: take every tag that is an ancestor of HEAD, keep the ones this
+    scheme publishes, and pick the newest by version order. Tags are fetched first, for the reason
+    `previous_release` gives.
 
     :returns: The newest releasable tag reachable from HEAD.
     :raises CheckFailed: if there is none.

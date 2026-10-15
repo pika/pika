@@ -17,12 +17,12 @@ Use `Connection` when your application needs to publish or consume messages from
 ```python
 import threading
 import pika
-from pika.adapters.thread_safe_connection import Connection
 
-conn = Connection(pika.ConnectionParameters('localhost'))
+conn = pika.Connection(pika.ConnectionParameters('localhost'))
 ch = conn.channel()
 
-ch.queue_declare('work')
+# RabbitMQ 4.3 and later refuse a queue that is neither durable nor exclusive.
+ch.queue_declare('work', durable=True)
 
 # Publish from multiple threads simultaneously
 for i in range(5):
@@ -39,7 +39,7 @@ conn.close()
 The `on_message_callback` registered with `basic_consume` is dispatched on a per-channel worker thread. This means:
 
 - Blocking operations (database writes, HTTP calls, even `queue_declare` or `basic_qos`) are safe inside delivery callbacks
-- The IOLoop thread is never starved by slow consumer processing, so heartbeats are always sent on time
+- Slow consumer processing does not starve the IOLoop thread, so heartbeats keep flowing while a callback works. Filling the work queue is the one case that blocks the IOLoop; see below
 - Messages are delivered to the callback in order (single worker thread per channel)
 - All `Channel` methods (`basic_ack`, `basic_nack`, `basic_reject`, `basic_publish`) are safe to call from within the callback
 
@@ -52,7 +52,7 @@ Heartbeats are not sent while the IOLoop is blocked, so the broker's heartbeat t
 Both knobs are constructor parameters on `Connection`:
 
 ```python
-conn = Connection(
+conn = pika.Connection(
     pika.ConnectionParameters('localhost'),
     work_queue_maxsize=1000,     # 0 means unbounded
     work_queue_put_timeout=30.0, # seconds; must be positive, default 30 s

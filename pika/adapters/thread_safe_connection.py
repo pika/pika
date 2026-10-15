@@ -895,9 +895,9 @@ class Channel:
         consumer can silently stop receiving messages.
 
         Dispatched on the per-channel worker thread (same as delivery callbacks), so the callback
-        may safely call any :class:`Channel` method.  The RabbitMQ Java and .NET clients run this
-        listener inline on the I/O thread; pika's wrapper deliberately diverges so a slow listener
-        cannot stall heartbeats.
+        may safely call any :class:`Channel` method.  The RabbitMQ Java client dispatches its cancel
+        listener to the consumer work pool rather than running it inline on the I/O thread, which is
+        the same choice made here.
 
         Safe to call from any thread.
 
@@ -931,8 +931,8 @@ class Channel:
 
         Dispatched on the per-channel worker thread (same as delivery callbacks), so the callback
         may safely call any :class:`Channel` method.  The RabbitMQ Java and .NET clients run this
-        listener inline on the I/O thread; pika's wrapper deliberately diverges so a slow listener
-        cannot stall heartbeats.
+        listener inline on the I/O thread; pika's wrapper diverges so a slow listener cannot stall
+        heartbeats.
 
         Safe to call from any thread.
 
@@ -967,31 +967,60 @@ class Channel:
         Idempotent: calling this method more than once on the same
         channel - concurrently from several threads included - returns
         the original Confirm.SelectOk without sending a frame to the
-        broker or resetting the delivery-tag counter, matching the
-        behavior of the RabbitMQ Java and .NET clients.
+        broker or resetting the delivery-tag counter.
 
-        Concurrent callers are serialized on a per-channel lock, so a
-        second thread waits for the first call's round trip to finish
-        before it is handed the cached frame.  Its own *timeout* bounds
-        only the wait for the broker's response, not that queueing, so
-        it can block for the first caller's timeout on top of its own.
+        Concurrent callers serialize on a per-channel lock, and
+        *timeout* bounds only the wait for the broker's response, not
+        that queueing, so a second caller can block for the first
+        caller's timeout on top of its own.
 
-        The *ack_nack_callback* is dispatched on the channel's worker
-        thread (same as delivery callbacks), not the IOLoop thread.
-        The RabbitMQ Java and .NET clients run this listener inline on
-        the I/O thread; pika's wrapper deliberately diverges so a slow
-        listener cannot stall heartbeats.
+        The *ack_nack_callback* runs on the channel's worker thread, not
+        the IOLoop thread, so it may call any `Channel` method.  It
+        shares that thread and its bounded queue with delivery
+        callbacks, so a listener that cannot keep up with the confirm
+        rate blocks the IOLoop once the queue fills; see
+        *work_queue_maxsize*.
+
+        It receives one Basic.Ack or Basic.Nack frame.  There is no
+        separate nack callback, so ``isinstance`` is how the two are
+        told apart::
+
+            def on_confirm(method_frame):
+                tag = method_frame.method.delivery_tag
+                multiple = method_frame.method.multiple
+                if isinstance(method_frame.method, pika.spec.Basic.Ack):
+                    ...   # `tag`, and every earlier tag if `multiple`
+                else:
+                    ...   # Basic.Nack: the broker rejected it
+
+            channel.confirm_delivery(on_confirm)
+
+        Take the tag to match against from *basic_publish*'s
+        ``on_publish``.  Reading :attr:`next_publish_seq_no` after a
+        publish does not give that publish's tag, because the counter
+        advances later on the IOLoop thread.
+
+        An ack is not proof the message reached a queue: an unroutable
+        publish sent with ``mandatory=True`` is answered with
+        Basic.Return *and then* Basic.Ack.  Register
+        :meth:`add_on_return_callback` as well when routing matters.
 
         Safe to call from any thread.
 
         A :class:`TimeoutError` does not mean confirms are off.  The
-        Confirm.Select frame is written before the wait begins and may
-        well have reached the broker, which then numbers publishes from
-        1, so the delivery-tag counter is armed regardless of whether
-        Confirm.SelectOk arrived in time.  A subsequent publish therefore
-        still fires its ``on_publish`` and advances
-        :attr:`next_publish_seq_no`.  Retry ``confirm_delivery`` rather
-        than assuming confirms were left disabled.
+        Confirm.Select frame may already have reached the broker, which
+        then numbers publishes from 1, so the delivery-tag counter can
+        be armed and a subsequent publish still fire its ``on_publish``.
+        It may equally never have been written, since the send is
+        scheduled on the IOLoop thread rather than performed inline, and
+        a backed-up IOLoop can time this out before it runs.  Retry
+        either way rather than assuming confirms were left disabled.
+
+        Both hazards above are measured in
+        docs/internal/thread-safe-connection.md.
+        ``examples/publisher_confirms_threaded.py`` shows the tag
+        bookkeeping; it publishes to a bound key, so it does not cover
+        the unroutable case.
 
         :param ack_nack_callback:
             ``callback(method_frame)`` called for each Basic.Ack or
@@ -1522,7 +1551,7 @@ class Connection:
     IOLoop in a single dedicated background thread (the *IOLoop thread*).
     All channel operations submitted from external threads are routed
     through :meth:`add_callback_threadsafe` so that ``_tx_buffers`` has
-    exactly one owner — the IOLoop thread.
+    a single owner, the IOLoop thread.
 
     Usage::
 
@@ -1916,7 +1945,7 @@ class Connection:
             try:
                 self._connection.close()
             except Exception:
-                # Already closing or closed — _on_connection_closed will wake waiters.
+                # Already closing or closed; _on_connection_closed wakes waiters.
                 LOGGER.debug(
                     'connection.close() raised (already closing or closed)',
                     exc_info=True)
@@ -2113,7 +2142,7 @@ class Connection:
         connection), so the callback may safely call any
         :class:`Channel` method without stalling heartbeats.
         The RabbitMQ Java and .NET clients run this listener inline on
-        the I/O thread; pika's wrapper deliberately diverges so a slow
+        the I/O thread; pika's wrapper diverges so a slow
         listener cannot stall heartbeats.
 
         Safe to call from any thread.
@@ -2137,7 +2166,7 @@ class Connection:
         Dispatched on the connection-level worker thread (same as
         ``add_on_connection_blocked_callback``).  The RabbitMQ Java and
         .NET clients run this listener inline on the I/O thread; pika's
-        wrapper deliberately diverges so a slow listener cannot stall
+        wrapper diverges so a slow listener cannot stall
         heartbeats.
 
         Safe to call from any thread.
