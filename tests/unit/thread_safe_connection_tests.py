@@ -1075,11 +1075,37 @@ class ChannelTests(unittest.TestCase):
         ch.close(timeout=None)
         self.assertTrue(ch._pool_shutdown)
 
-    def test_properties_delegate_to_raw_channel(self):
+    def test_properties_follow_the_raw_channel_on_a_healthy_connection(self):
         ch, raw_ch, _wrapper = self._make_channel()
         self.assertEqual(ch.channel_number, raw_ch.channel_number)
         self.assertEqual(ch.is_open, raw_ch.is_open)
         self.assertEqual(ch.is_closed, raw_ch.is_closed)
+
+    def test_is_open_is_false_when_only_this_channel_closed(self):
+        ch, raw_ch, _wrapper = self._make_channel()
+        raw_ch.is_open = False
+        self.assertIsNone(_wrapper._closed_reason)
+        self.assertFalse(ch.is_open)
+
+    def test_is_open_is_false_once_the_connection_records_a_close_reason(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        # A crashed IOLoop leaves the raw channel's own state untouched, so
+        # delegating to it alone would report a usable channel (#1743).
+        wrapper._closed_reason = RuntimeError('from a callback')
+        self.assertTrue(raw_ch.is_open)
+        self.assertFalse(ch.is_open)
+
+    def test_is_closed_is_true_once_the_connection_records_a_close_reason(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        wrapper._closed_reason = RuntimeError('from a callback')
+        self.assertFalse(raw_ch.is_closed)
+        self.assertTrue(ch.is_closed)
+
+    def test_is_closed_is_true_when_only_this_channel_closed(self):
+        ch, raw_ch, _wrapper = self._make_channel()
+        raw_ch.is_closed = True
+        self.assertIsNone(_wrapper._closed_reason)
+        self.assertTrue(ch.is_closed)
 
     def test_concurrent_publishes_all_scheduled(self):
         """All publishes from N threads must each schedule exactly one callback."""
@@ -2977,15 +3003,80 @@ class ConnectionTests(unittest.TestCase):
         _conn, _, mock_ioloop = self._make_connection()
         mock_ioloop.start.assert_called_once()
 
-    def test_is_open_delegates_to_inner_connection(self):
+    def _make_connection_with_crashed_ioloop(self, exc):
+        """
+        Construct a Connection whose IOLoop thread exits on *exc*.
+
+        ``ioloop.start`` raising is what an exception escaping a callback on the IOLoop thread looks
+        like to ``_run_ioloop``.  ``on_open_callback`` fires while ``SelectConnection`` is
+        constructed, before the thread starts, so ``__init__`` still completes and the crash happens
+        afterwards.
+        """
+        with patch('pika.adapters.thread_safe_connection.SelectConnection'
+                  ) as MockSelectConn:
+            mock_conn = MagicMock()
+            mock_ioloop = MagicMock()
+            mock_conn.ioloop = mock_ioloop
+            # The underlying connection's own state never moves on a crash,
+            # which is the whole point of #1743.
+            mock_conn.is_open = True
+            mock_conn.is_closed = False
+            mock_conn.is_closing = False
+            mock_conn._error = None
+            mock_ioloop.start.side_effect = exc
+
+            def fake_init(parameters, on_open_callback, on_open_error_callback,
+                          on_close_callback):
+                on_open_callback(mock_conn)
+                return mock_conn
+
+            MockSelectConn.side_effect = fake_init
+            MockSelectConn.return_value = mock_conn
+
+            conn = Connection(parameters='params')
+            conn._ioloop_thread.join(timeout=5)
+            self.assertFalse(conn._ioloop_thread.is_alive())
+
+        return conn, mock_conn
+
+    def test_is_open_is_true_while_no_close_reason_is_recorded(self):
         conn, mock_conn, _ = self._make_connection()
         mock_conn.is_open = True
+        mock_conn.is_closed = False
+        self.assertIsNone(conn._closed_reason)
         self.assertTrue(conn.is_open)
+        self.assertFalse(conn.is_closed)
 
-    def test_is_closed_delegates_to_inner_connection(self):
+    def test_is_closed_is_true_once_the_inner_connection_closes(self):
         conn, mock_conn, _ = self._make_connection()
         mock_conn.is_closed = True
+        self.assertIsNone(conn._closed_reason)
         self.assertTrue(conn.is_closed)
+
+    def test_is_open_is_false_once_the_inner_connection_is_not_open(self):
+        conn, mock_conn, _ = self._make_connection()
+        mock_conn.is_open = False
+        self.assertIsNone(conn._closed_reason)
+        self.assertFalse(conn.is_open)
+
+    def test_is_open_is_false_after_the_ioloop_thread_crashes(self):
+        conn, mock_conn = self._make_connection_with_crashed_ioloop(
+            RuntimeError('from a callback'))
+        # The inner connection still claims to be open, so delegating to it
+        # alone would report a usable connection with no IOLoop behind it.
+        self.assertTrue(mock_conn.is_open)
+        self.assertFalse(conn.is_open)
+
+    def test_is_closed_is_true_after_the_ioloop_thread_crashes(self):
+        conn, mock_conn = self._make_connection_with_crashed_ioloop(
+            RuntimeError('from a callback'))
+        self.assertFalse(mock_conn.is_closed)
+        self.assertTrue(conn.is_closed)
+
+    def test_the_crash_reason_is_the_exception_the_callback_raised(self):
+        exc = RuntimeError('from a callback')
+        conn, _mock_conn = self._make_connection_with_crashed_ioloop(exc)
+        self.assertIs(conn._closed_reason, exc)
 
     def test_add_callback_threadsafe_delegates(self):
         conn, _mock_conn, mock_ioloop = self._make_connection()
