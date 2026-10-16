@@ -796,6 +796,18 @@ class URLParametersTests(ParametersTestsBase):
         self.assertEqual(parameters.credentials.password,
                          pika.URLParameters.DEFAULT_PASSWORD)
 
+    def test_uses_default_password_if_only_username_specified(self):
+        # The password is optional in an AMQP URI; `amqp://user@host` names a
+        # user without one.
+        for url, username in (('amqp://bob@myserver.mycompany.com', 'bob'),
+                              ('amqp://b%40b@myserver.mycompany.com', 'b@b')):
+            parameters = pika.URLParameters(url)
+            assert isinstance(parameters.credentials,
+                              credentials.PlainCredentials)
+            self.assertEqual(parameters.credentials.username, username)
+            self.assertEqual(parameters.credentials.password,
+                             pika.URLParameters.DEFAULT_PASSWORD)
+
     def test_accepts_blank_username_and_password(self):
         parameters = pika.URLParameters('amqp://:@myserver.mycompany.com')
         assert isinstance(parameters.credentials, credentials.PlainCredentials)
