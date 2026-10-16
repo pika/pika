@@ -1889,17 +1889,16 @@ class Connection:
         the callback that called ``close()``, so joining :attr:`_ioloop_thread` from there would
         deadlock the two threads against each other. In that case the close is scheduled and this
         method returns immediately without joining; the worker exits normally once the callback
-        returns.  Because this path does not join the IOLoop thread, *timeout* is not applied on it:
-        the close is best-effort and an unresponsive broker is not force-stopped from here, so a
-        healthy handshake is assumed (see #1706).
+        returns.  A finite *timeout* schedules an IOLoop timer to stop an unresponsive connection
+        and wake blocked callers.
 
         Calling ``close()`` on an already-closed connection is a no-op.
 
         :param timeout: Seconds to wait for a clean close before force-stopping the IOLoop. Defaults
             to 10 seconds, which is sufficient for a healthy broker on any reasonable network. The
             pathological force path may wait up to twice this (once for the clean join, once for the
-            forced join). Pass ``None`` to wait indefinitely. Ignored when ``close()`` is called
-            from one of this connection's pool worker threads (see above).
+            forced join). Pass ``None`` to wait indefinitely. On a pool worker thread, the timeout
+            is enforced asynchronously without blocking the worker.
         """
         if threading.current_thread() is self._ioloop_thread:
             try:
@@ -1912,6 +1911,18 @@ class Connection:
             if self._closed_reason is not None:
                 return
 
+        is_pool_worker = self._is_pool_worker_thread()
+        close_deadline = (time.monotonic() + timeout
+                          if is_pool_worker and timeout is not None else None)
+
+        def _force_close_on_timeout() -> None:
+            if self._record_forced_close():
+                LOGGER.warning(
+                    'Connection %s broker did not respond to close within '
+                    '%s seconds; force-stopping IOLoop', self._instance_id,
+                    timeout)
+                self._connection.ioloop.stop()
+
         def _safe_close() -> None:
             try:
                 self._connection.close()
@@ -1920,21 +1931,15 @@ class Connection:
                 LOGGER.debug(
                     'connection.close() raised (already closing or closed)',
                     exc_info=True)
+            if close_deadline is not None:
+                self._connection.ioloop.call_later(
+                    max(0.0, close_deadline - time.monotonic()),
+                    _force_close_on_timeout)
 
         self._connection.ioloop.add_callback_threadsafe(_safe_close)
 
-        if self._is_pool_worker_thread():
-            # Called from within a delivery or connection-event callback running on one of this
-            # connection's pool worker threads. The IOLoop thread's post-close cleanup tail
-            # (_shutdown_all_consumer_pools / _shutdown_connection_pool) joins every pool worker,
-            # including this one, once ioloop.start() returns - so joining self._ioloop_thread here
-            # would deadlock: this thread waiting on the IOLoop thread, which is waiting on this
-            # thread to return from the very callback that called close(). The close is already
-            # scheduled above, so return without joining. This worker then returns from the
-            # callback and, when the cleanup tail calls shutdown() on its pool and joins it, exits
-            # via the drained-and-shutdown check at the top of _run_worker. (The shutdown() self-
-            # join guard is not what saves us here: that fires only when a worker shuts down its own
-            # pool, whereas here the IOLoop thread, not this worker, calls shutdown().)
+        if is_pool_worker:
+            # The IOLoop cleanup joins this worker, so the worker must not join it.
             return
 
         self._ioloop_thread.join(timeout=timeout)
@@ -1962,20 +1967,26 @@ class Connection:
             # _on_connection_closed may not have fired if the IOLoop was
             # force-stopped before the broker sent Connection.CloseOk.
             # Wake any threads still blocked so they do not hang forever.
-            forced = Exception(
-                'connection force-closed: broker did not respond to close')
-            with self._channel_waiters_lock:
-                if self._closed_reason is None:
-                    self._record_closed_reason(forced)
-                    for evt, err in self._blocking_waiters:
-                        if err[0] is None:
-                            err[0] = self._closed_reason
-                        evt.set()
-                    self._blocking_waiters.clear()
+            self._record_forced_close()
             # Normally the IOLoop tail already claimed these pools, making the
             # calls no-ops; bound them in case this thread reaches them first.
             self._shutdown_all_consumer_pools(timeout=_remaining())
             self._shutdown_connection_pool(timeout=_remaining())
+
+    def _record_forced_close(self) -> bool:
+        """Record a forced close, wake blocked callers and report whether it was recorded."""
+        with self._channel_waiters_lock:
+            if self._closed_reason is not None:
+                return False
+            self._record_closed_reason(
+                Exception(
+                    'connection force-closed: broker did not respond to close'))
+            for event, error in self._blocking_waiters:
+                if error[0] is None:
+                    error[0] = self._closed_reason
+                event.set()
+            self._blocking_waiters.clear()
+            return True
 
     def abort(self, timeout: float | None = 10) -> None:
         """
