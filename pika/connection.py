@@ -776,9 +776,13 @@ class URLParameters(Parameters):
                          if self.ssl_options else self.DEFAULT_PORT)
 
         if parts.username is not None:
-            assert parts.password is not None
+            # The password is optional in an AMQP URI (`amqp://user@host` is
+            # valid) and `urlparse` reports it as None. Use the default, as for
+            # every other absent component.
+            password = (url_unquote(parts.password) if parts.password
+                        is not None else self.DEFAULT_PASSWORD)
             self.credentials = pika.credentials.PlainCredentials(
-                url_unquote(parts.username), url_unquote(parts.password))
+                url_unquote(parts.username), password)
 
         # Get the Virtual Host
         if len(parts.path) > 1:
