@@ -3430,13 +3430,15 @@ class ConnectionTests(unittest.TestCase):
                     error = [None]
                     conn._blocking_waiters.append((event, error))
 
-                    conn.close(timeout=0.1)
-                    ioloop.add_callback_threadsafe.call_args[0][0]()
+                    with patch(
+                            'pika.adapters.thread_safe_connection.time.monotonic',
+                            side_effect=(256, 256.0625)):
+                        conn.close(timeout=0.125)
+                        ioloop.add_callback_threadsafe.call_args[0][0]()
 
                     ioloop.call_later.assert_called_once()
                     delay, expire = ioloop.call_later.call_args[0]
-                    self.assertGreaterEqual(delay, 0)
-                    self.assertLessEqual(delay, 0.1)
+                    self.assertEqual(delay, 0.0625)
                     expire()
                     expire()
                     self.assertTrue(event.is_set())
