@@ -86,6 +86,34 @@ class TestBasicLifecycle(ThreadSafeTestCaseBase):
         self.assertTrue(conn.is_closed)
 
 
+class TestConfirmCallbackValidation(ThreadSafeTestCaseBase):
+
+    def test(self):
+        conn = self._connect()
+        ch = conn.channel()
+        for callback in (None, 0, 'callback'):
+            with self.subTest(callback=callback), self.assertRaises(TypeError):
+                ch.confirm_delivery(callback)
+        self.assertIsNone(ch.next_publish_seq_no)
+
+        confirmations = []
+        confirmed = threading.Event()
+
+        def on_confirm(method_frame):
+            confirmations.append(method_frame.method)
+            confirmed.set()
+
+        ch.confirm_delivery(on_confirm)
+        with self.assertRaises(TypeError):
+            ch.confirm_delivery(None)
+        queue = self._unique_queue()
+        ch.queue_declare(queue=queue, exclusive=True)
+        ch.basic_publish(exchange='', routing_key=queue, body=b'confirmed')
+        self.assertTrue(confirmed.wait(BLOCKING_CALL_TIMEOUT))
+        self.assertIsInstance(confirmations[0], pika.spec.Basic.Ack)
+        self.assertEqual(confirmations[0].delivery_tag, 1)
+
+
 class TestConcurrentPublishing(ThreadSafeTestCaseBase):
     """
     N threads publish simultaneously; all messages must reach the broker.
