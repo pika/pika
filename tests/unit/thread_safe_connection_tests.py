@@ -465,6 +465,41 @@ class ChannelTests(unittest.TestCase):
         wrapper._connection._error = None
         return Channel(raw_ch, wrapper), raw_ch, wrapper
 
+    def test_invalid_callbacks_are_rejected_before_scheduling(self):
+        for value in (None, 0, 'callback'):
+            for method, args in (
+                ('confirm_delivery', (value,)),
+                ('basic_consume', ('queue', value)),
+                ('add_on_cancel_callback', (value,)),
+                ('add_on_return_callback', (value,)),
+            ):
+                with self.subTest(method=method, value=value):
+                    ch, raw_ch, wrapper = self._make_channel()
+                    with self.assertRaises(TypeError):
+                        kwargs = {
+                            'timeout': 0.01
+                        } if method in ('confirm_delivery',
+                                        'basic_consume') else {}
+                        getattr(ch, method)(*args, **kwargs)
+                    wrapper._schedule_unchecked.assert_not_called()
+                    self.assertEqual(raw_ch.method_calls, [])
+
+    def test_invalid_publish_callback_is_rejected_before_scheduling(self):
+        for value in (0, 'callback'):
+            with self.subTest(value=value):
+                ch, raw_ch, wrapper = self._make_channel()
+                with self.assertRaises(TypeError):
+                    ch.basic_publish('', 'queue', b'body', on_publish=value)
+                wrapper._schedule_unchecked.assert_not_called()
+                raw_ch.basic_publish.assert_not_called()
+
+    def test_cached_confirm_rejects_invalid_callback(self):
+        ch, _raw_ch, wrapper = self._make_channel()
+        ch._confirm_select_ok = object()
+        with self.assertRaises(TypeError):
+            ch.confirm_delivery(None)
+        wrapper._schedule_unchecked.assert_not_called()
+
     def test_basic_publish_routes_through_schedule_unchecked(self):
         ch, _raw_ch, wrapper = self._make_channel()
         ch.basic_publish(exchange='ex', routing_key='rk', body=b'hello')

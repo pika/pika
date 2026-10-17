@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
     from typing_extensions import Literal, Self
 
-from pika import spec
+from pika import spec, validators
 from pika.adapters.select_connection import SelectConnection
 from pika.exceptions import ConnectionWrongStateError, WorkQueueFullError
 
@@ -678,8 +678,12 @@ class Channel:
             :meth:`~Connection.add_callback_threadsafe` callback). An exception raised by this
             callback is logged and suppressed rather than propagated, so it does not tear down the
             connection.
+        :raises TypeError: if *on_publish* is not callable and not ``None``.
         :raises Exception: if the connection is already closed.
         """
+        if on_publish is not None:
+            validators.require_callback(on_publish, 'on_publish')
+
         self._check_not_closed()
 
         def _publish() -> None:
@@ -903,8 +907,11 @@ class Channel:
 
         :param callback:``callback(method_frame)`` where *method_frame* contains a
             :class:`pika.spec.Basic.Cancel`.
+        :raises TypeError: if *callback* is not callable.
         :raises Exception: if the connection is already closed.
         """
+        validators.require_callback(callback, 'callback')
+
         self._check_not_closed()
 
         def _wrapped(method_frame) -> None:
@@ -939,8 +946,11 @@ class Channel:
         :param callback:``callback(channel, method, properties, body)`` where *channel* is this
             :class:`Channel`, *method* is a :class:`pika.spec.Basic.Return`, *properties* is a
             :class:`pika.spec.BasicProperties`, and *body* is :class:`bytes`.
+        :raises TypeError: if *callback* is not callable.
         :raises Exception: if the connection is already closed.
         """
+        validators.require_callback(callback, 'callback')
+
         self._check_not_closed()
 
         def _wrapped(_raw_ch, method, properties, body) -> None:
@@ -1000,9 +1010,12 @@ class Channel:
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Confirm.SelectOk method frame.
+        :raises TypeError: if *ack_nack_callback* is not callable.
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
+        validators.require_callback(ack_nack_callback, 'ack_nack_callback')
+
         with self._confirm_lock:
             if self._confirm_select_ok is not None:
                 return self._confirm_select_ok
@@ -1067,9 +1080,11 @@ class Channel:
         :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
             (10 s). Pass ``None`` to wait indefinitely.
         :returns: The consumer tag assigned by the broker.
+        :raises TypeError: if *on_message_callback* is not callable.
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
+        validators.require_callback(on_message_callback, 'on_message_callback')
 
         def _wrapped_callback(ch, method, properties, body) -> None:
             _submit_or_terminate(
