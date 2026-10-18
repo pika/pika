@@ -29,6 +29,7 @@ utils/regen_spec.py     # regenerate/verify pika/spec.py (hatch run spec-regen)
 .ci/changelog.py        # the HISTORY.md entry, from the milestone
 .ci/tag_release.py      # tag preconditions, before and after the push
 .ci/smoke_test.py       # post-publish check against a live broker
+.ci/docs_check.py       # post-build check for unrendered markup in `site/`
 docs/                   # the mkdocs source tree; `site/` is what publishes
 docs/internal/          # long-form notes, excluded from the site (see below)
 examples/               # usage examples
@@ -197,9 +198,10 @@ Read the relevant page before changing that area.
   not in a workflow. `.ci/docs_site.py` owns the documentation alias policy,
   `.ci/release_version.py` the version arithmetic, and `.ci/tag_release.py` the
   tag preconditions, each with tests in `tests/unit/`. Those are libraries;
-  `.ci/release.py` is the only command, so there is one place that talks to git,
-  `gh` and PyPI. A git tag, a PyPI release and a documentation directory cannot
-  be taken back.
+  `.ci/release.py` is the only command that acts, so there is one place that
+  talks to git, `gh` and PyPI. A git tag, a PyPI release and a documentation
+  directory cannot be taken back. `.ci/docs_check.py` is also run directly, by
+  `docs.yaml`, but it only reads `site/` and reports, so it changes nothing.
 - Use single quotes for strings unless the string contains a single quote.
 - No trailing whitespace. Check before committing; nothing gates it in markdown.
 
