@@ -28,7 +28,6 @@ import threading
 
 import pika
 from pika import spec
-from pika.adapters.thread_safe_connection import Connection
 from pika.exchange_type import ExchangeType
 
 LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
@@ -47,7 +46,7 @@ def main():
         credentials=pika.PlainCredentials('guest', 'guest'))
 
     LOGGER.info('Connecting ...')
-    conn = Connection(parameters)
+    conn = pika.Connection(parameters)
     ch = conn.channel()
 
     ch.exchange_declare(exchange=EXCHANGE_NAME,

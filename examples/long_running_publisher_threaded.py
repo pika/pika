@@ -22,7 +22,6 @@ import logging
 import time
 
 import pika
-from pika.adapters.thread_safe_connection import Connection
 
 LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
               '-35s %(lineno) -5d: %(message)s')
@@ -42,7 +41,7 @@ def main():
     )
 
     LOGGER.info('Connecting ...')
-    conn = Connection(parameters)
+    conn = pika.Connection(parameters)
     ch = conn.channel()
     ch.queue_declare(queue=QUEUE_NAME, durable=True)
 
