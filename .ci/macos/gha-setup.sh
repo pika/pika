@@ -65,7 +65,7 @@ readonly rabbitmq_conf_dir="$rabbitmq_home/etc/rabbitmq"
 mkdir -p "$rabbitmq_conf_dir"
 sed "s|PIKA_DIR|$pika_dir|g" "$script_dir/../rabbitmq.conf.in" \
     > "$rabbitmq_conf_dir/rabbitmq.conf"
-# RABBITMQ_CONFIG_FILE expects the path WITHOUT the .conf extension.
+# Extensionless path; RABBITMQ_CONFIG_FILE accepts it with or without .conf.
 export RABBITMQ_CONFIG_FILE="$rabbitmq_conf_dir/rabbitmq"
 echo '[INFO] RabbitMQ configuration:'
 cat "$rabbitmq_conf_dir/rabbitmq.conf"

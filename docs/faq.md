@@ -2,7 +2,7 @@
 
 ### Is Pika thread safe?
 
-Pika provides [`Connection`](modules/adapters/thread_safe.md) for multi-threaded applications. It wraps `SelectConnection` with a dedicated IOLoop thread and exposes a blocking API that is safe to call from any number of threads simultaneously. Consumer callbacks run on a per-channel worker thread, so blocking work inside a callback does not stall heartbeats or require manual callback scheduling.
+Pika provides [`Connection`](modules/adapters/thread_safe.md) for multi-threaded applications. It wraps `SelectConnection` with a dedicated IOLoop thread and exposes a blocking API that is safe to call from any number of threads simultaneously. Consumer callbacks run on a per-channel worker thread, so blocking work inside a callback needs no manual callback scheduling and heartbeats keep flowing while it runs. A callback that cannot keep pace with deliveries eventually fills that thread's bounded queue and blocks the IOLoop; see [work queue bounds](modules/adapters/thread_safe.md#work-queue-bounds-and-back-pressure).
 
 ```python
 import pika

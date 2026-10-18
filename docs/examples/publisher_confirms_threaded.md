@@ -24,7 +24,7 @@ Learn the tag to match against from `basic_publish`'s `on_publish` callback, whi
 
 An ack is not proof that the message reached a queue: an unroutable publish sent with `mandatory=True` is answered with Basic.Return *and then* Basic.Ack. Register `add_on_return_callback` as well when routing matters, as [Mandatory publishing](blocking_publish_mandatory.md) does for the blocking adapter.
 
-Both hazards are measured, with the broker behaviour behind them, in `docs/internal/thread-safe-connection.md`.
+Both hazards are measured, with the broker behaviour behind them, in [`docs/internal/thread-safe-connection.md`](https://github.com/pika/pika/blob/main/docs/internal/thread-safe-connection.md), which is in the repository rather than on this site.
 
 `examples/publisher_confirms_threaded.py`:
 

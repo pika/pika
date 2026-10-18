@@ -930,9 +930,10 @@ class Channel:
         returned message.
 
         Dispatched on the per-channel worker thread (same as delivery callbacks), so the callback
-        may safely call any :class:`Channel` method.  The RabbitMQ Java and .NET clients run this
-        listener inline on the I/O thread; pika's wrapper diverges so a slow listener cannot stall
-        heartbeats.
+        may safely call any :class:`Channel` method and heartbeats keep flowing while it works. The
+        RabbitMQ Java and .NET clients run this listener inline on the I/O thread.  A listener that
+        cannot keep pace still blocks the IOLoop once the shared queue fills; see
+        *work_queue_maxsize*.
 
         Safe to call from any thread.
 
@@ -1016,11 +1017,8 @@ class Channel:
         a backed-up IOLoop can time this out before it runs.  Retry
         either way rather than assuming confirms were left disabled.
 
-        Both hazards above are measured in
-        docs/internal/thread-safe-connection.md.
         ``examples/publisher_confirms_threaded.py`` shows the tag
-        bookkeeping; it publishes to a bound key, so it does not cover
-        the unroutable case.
+        bookkeeping.
 
         :param ack_nack_callback:
             ``callback(method_frame)`` called for each Basic.Ack or
@@ -1643,8 +1641,8 @@ class Connection:
         self._channels: list[Channel] = []
 
         # Single-worker pool for connection-level event callbacks
-        # (Connection.Blocked / Unblocked).  Keeps user code off the
-        # IOLoop thread so a slow listener cannot stall heartbeats.
+        # (Connection.Blocked / Unblocked).  Bounded like the per-channel
+        # pools, so a listener that cannot keep pace blocks the IOLoop.
         self._connection_work_pool = _BoundedWorkPool(
             maxsize=work_queue_maxsize,
             put_timeout=work_queue_put_timeout,
@@ -2140,10 +2138,12 @@ class Connection:
 
         Dispatched on a connection-level worker thread (one per
         connection), so the callback may safely call any
-        :class:`Channel` method without stalling heartbeats.
-        The RabbitMQ Java and .NET clients run this listener inline on
-        the I/O thread; pika's wrapper diverges so a slow
-        listener cannot stall heartbeats.
+        :class:`Channel` method and heartbeats keep flowing while it
+        works.  The RabbitMQ Java and .NET clients run this listener
+        inline on the I/O thread.  That pool is bounded like the
+        per-channel ones, so a listener that cannot keep pace still
+        blocks the IOLoop once its queue fills; see
+        *work_queue_maxsize*.
 
         Safe to call from any thread.
 
@@ -2163,11 +2163,8 @@ class Connection:
         Sent by RabbitMQ once a previously blocked connection is no
         longer resource-constrained, letting publishers resume.
 
-        Dispatched on the connection-level worker thread (same as
-        ``add_on_connection_blocked_callback``).  The RabbitMQ Java and
-        .NET clients run this listener inline on the I/O thread; pika's
-        wrapper diverges so a slow listener cannot stall
-        heartbeats.
+        Dispatched on the connection-level worker thread, with the same
+        back-pressure as ``add_on_connection_blocked_callback``.
 
         Safe to call from any thread.
 

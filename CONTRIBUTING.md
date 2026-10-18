@@ -49,10 +49,10 @@ That listens on 5671 as well as 5672. To run a broker yourself instead, build a 
     sed -e "s#PIKA_DIR#$PWD#g" ./.ci/rabbitmq.conf.in > /tmp/pika-rabbitmq.conf
     ```
 
-* Start RabbitMQ with it. `RABBITMQ_CONFIG_FILE` takes the path *without* the `.conf` extension, which is an Erlang convention. An example that works with the `generic-unix` package:
+* Start RabbitMQ with it. `RABBITMQ_CONFIG_FILE` takes the path with or without the `.conf` extension: the broker uses the path as given when it names a file that exists, and otherwise appends `.conf` or `.config` and retries. An example that works with the `generic-unix` package:
 
     ```
-    $ RABBITMQ_CONFIG_FILE=/tmp/pika-rabbitmq ./sbin/rabbitmq-server
+    $ RABBITMQ_CONFIG_FILE=/tmp/pika-rabbitmq.conf ./sbin/rabbitmq-server
     ```
 
 * Run the tests indicating that TLS/SSL connections should be used:
