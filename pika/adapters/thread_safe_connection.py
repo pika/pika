@@ -58,7 +58,7 @@ def _validate_put_timeout(put_timeout: float) -> float:
     because it cannot bound the stall.
 
     :param put_timeout: Seconds the IOLoop thread waits for queue space before raising
-        :class:`pika.exceptions.WorkQueueFullError`.
+        [`pika.exceptions.WorkQueueFullError`][pika.exceptions.WorkQueueFullError].
     :returns: *put_timeout* unchanged.
     :raises ValueError: if *put_timeout* is ``None`` or is not a positive number.
     """
@@ -129,17 +129,17 @@ def _submit_or_terminate(pool: _BoundedWorkPool, connection: SelectConnection,
     Submit *fn* to *pool*, tearing the connection down on queue overflow.
 
     Called on the IOLoop thread from the wrappers that hand user callbacks to a
-    :class:`_BoundedWorkPool`.  A :class:`~pika.exceptions.WorkQueueFullError`
+    :class:`_BoundedWorkPool`.  A [`WorkQueueFullError`][pika.exceptions.WorkQueueFullError]
     means a slow callback let the queue stay full past ``work_queue_put_timeout``;
-    it is routed through :meth:`~pika.connection.Connection._terminate_stream` so
-    the connection closes with :class:`~pika.exceptions.WorkQueueFullError` as the
+    it is routed through [`_terminate_stream`][pika.connection.Connection._terminate_stream] so
+    the connection closes with [`WorkQueueFullError`][pika.exceptions.WorkQueueFullError] as the
     reason the application observes, rather than being caught by the transport's
     generic read-error handler and relabeled as an opaque
-    :class:`~pika.exceptions.StreamLostError`.  A ``RuntimeError`` means the pool
+    [`StreamLostError`][pika.exceptions.StreamLostError].  A ``RuntimeError`` means the pool
     is already shut down, so the callback is dropped.
 
     Once teardown has begun, ``connection._error`` is set synchronously (by the
-    first :meth:`~pika.connection.Connection._terminate_stream` call) while the
+    first [`_terminate_stream`][pika.connection.Connection._terminate_stream] call) while the
     transport abort completes asynchronously on the IOLoop.  A broker that has
     buffered a burst of deliveries would otherwise keep dispatching them on this
     same thread before the abort runs, and each one would block for the full
@@ -186,7 +186,7 @@ class _BoundedWorkPool:
     :param maxsize: Maximum number of pending work items.  Pass ``0`` for
         an unbounded queue.
     :param put_timeout: Seconds :meth:`submit` waits for queue space before
-        raising :class:`pika.exceptions.WorkQueueFullError`.  Must be
+        raising [`pika.exceptions.WorkQueueFullError`][pika.exceptions.WorkQueueFullError].  Must be
         finite; an infinite (``None``) timeout would let a full queue block
         the IOLoop thread forever.
     :param thread_name: Name of the worker thread.
@@ -315,7 +315,7 @@ class _BoundedWorkPool:
 
 class Channel:
     """
-    Thread-safe wrapper around :class:`pika.channel.Channel`.
+    Thread-safe wrapper around [`pika.channel.Channel`][pika.channel.Channel].
 
     Every write operation is routed through the parent connection's
     ``add_callback_threadsafe`` so that ``_tx_buffers`` is only ever
@@ -323,21 +323,21 @@ class Channel:
 
     .. rubric:: Consumer callback threading model
 
-    The *on_message_callback* registered with :meth:`basic_consume` is
+    The *on_message_callback* registered with [`basic_consume`][pika.adapters.thread_safe_connection.Channel.basic_consume] is
     dispatched on a per-channel worker thread, **not** the IOLoop
     thread.  This means:
 
     - Blocking operations (database writes, HTTP calls, even
-      :meth:`queue_declare` / :meth:`basic_qos` / :meth:`basic_cancel`)
+      [`queue_declare`][pika.adapters.thread_safe_connection.Channel.queue_declare] / [`basic_qos`][pika.adapters.thread_safe_connection.Channel.basic_qos] / [`basic_cancel`][pika.adapters.thread_safe_connection.Channel.basic_cancel])
       are safe inside delivery callbacks.
     - As long as the callback keeps up with deliveries, the IOLoop
       thread is not starved by consumer processing, so heartbeats are
       sent on time.
     - Messages are delivered to the callback **in order** (a single
       worker thread per channel).
-    - All :class:`Channel` methods (:meth:`basic_ack`,
-      :meth:`basic_nack`, :meth:`basic_reject`, :meth:`basic_publish`,
-      :meth:`queue_declare`, etc.) are safe to call from within the
+    - All [`Channel`][pika.adapters.thread_safe_connection.Channel] methods ([`basic_ack`][pika.adapters.thread_safe_connection.Channel.basic_ack],
+      [`basic_nack`][pika.adapters.thread_safe_connection.Channel.basic_nack], [`basic_reject`][pika.adapters.thread_safe_connection.Channel.basic_reject], [`basic_publish`][pika.adapters.thread_safe_connection.Channel.basic_publish],
+      [`queue_declare`][pika.adapters.thread_safe_connection.Channel.queue_declare], etc.) are safe to call from within the
       callback.
 
     .. rubric:: Sustained-backlog caveat
@@ -347,7 +347,7 @@ class Channel:
     If a slow callback lets that queue fill, the IOLoop thread blocks
     while enqueuing the next delivery - sending no heartbeats during the
     stall - and, if the queue stays full for *work_queue_put_timeout*
-    seconds, raises :class:`pika.exceptions.WorkQueueFullError`, which
+    seconds, raises [`pika.exceptions.WorkQueueFullError`][pika.exceptions.WorkQueueFullError], which
     tears the connection down rather than silently dropping the event.
     A persistently slow consumer therefore does not stall heartbeats
     forever; it fails fast with an explicit error.  Keep callbacks
@@ -357,7 +357,7 @@ class Channel:
     .. rubric:: IOLoop-thread callbacks
 
     Callables passed directly to
-    :meth:`~Connection.add_callback_threadsafe` still run
+    [`add_callback_threadsafe`][pika.adapters.thread_safe_connection.Connection.add_callback_threadsafe] still run
     on the IOLoop thread.  These must return quickly and must not call
     blocking channel methods (which would deadlock).
     """
@@ -407,7 +407,7 @@ class Channel:
 
         Wraps a user callback so one failing dispatch neither escapes into the caller nor prevents
         later dispatches from running.  Most callers submit the wrapped callback to a
-        :class:`_BoundedWorkPool`, so it runs on a pool worker; :meth:`basic_publish` calls it
+        :class:`_BoundedWorkPool`, so it runs on a pool worker; [`basic_publish`][pika.adapters.thread_safe_connection.Channel.basic_publish] calls it
         inline on the IOLoop thread. Either way the exception is contained here.
 
         :param label: Human-readable name of the callback for log lines.
@@ -425,7 +425,7 @@ class Channel:
 
         Sets the pool's shutdown flag and wakes an idle worker, but returns immediately.  Used to
         signal every channel's pool up front so their workers drain concurrently before
-        :meth:`_shutdown_pool` joins them one at a time under a shared budget.
+        [`_shutdown_pool`][pika.adapters.thread_safe_connection.Channel._shutdown_pool] joins them one at a time under a shared budget.
         """
         self._consumer_work_pool.shutdown(wait=False)
 
@@ -435,11 +435,11 @@ class Channel:
 
         Returns ``True`` if this call is the first to claim the shutdown - so the caller owns any
         follow-up work, such as joining the worker - and ``False`` if a prior close already claimed
-        it.  Being idempotent lets a user :meth:`close`, the broker-close hook
-        (:meth:`_on_broker_close`) and the connection-shutdown sweep race while each channel is
+        it.  Being idempotent lets a user [`close`][pika.adapters.thread_safe_connection.Channel.close], the broker-close hook
+        ([`_on_broker_close`][pika.adapters.thread_safe_connection.Channel._on_broker_close]) and the connection-shutdown sweep race while each channel is
         dropped from ``_channels`` exactly once.
 
-        The tracking list exists only so :meth:`~Connection._shutdown_all_consumer_pools` can reach
+        The tracking list exists only so [`_shutdown_all_consumer_pools`][pika.adapters.thread_safe_connection.Connection._shutdown_all_consumer_pools] can reach
         every live pool, and a channel whose pool is shutting down has nothing left to drain; left
         in place the entries accumulate for the life of the connection, retaining each closed
         channel's pool, raw channel and per-RPC callbacks.
@@ -463,9 +463,9 @@ class Channel:
         """
         Shut down the consumer work pool, joining its worker.
 
-        Claims the shutdown and drops the channel from tracking via :meth:`_claim_pool_shutdown`,
+        Claims the shutdown and drops the channel from tracking via [`_claim_pool_shutdown`][pika.adapters.thread_safe_connection.Channel._claim_pool_shutdown],
         then joins the worker.  Used by the paths that can afford to wait off the IOLoop thread: a
-        user :meth:`close` (on the caller's thread) and the connection-shutdown sweep (after the
+        user [`close`][pika.adapters.thread_safe_connection.Channel.close] (on the caller's thread) and the connection-shutdown sweep (after the
         IOLoop has stopped).
 
         :param timeout: Seconds to wait for the worker to drain and exit. ``None`` waits
@@ -488,16 +488,16 @@ class Channel:
         Drop this channel from tracking when the broker closes it on its own.
 
         Registered once per channel, on the IOLoop thread, right after the channel opens.  A client
-        close - a user :meth:`close`, or the per-channel closes a graceful :meth:`Connection.close`
-        issues - reports :class:`~pika.exceptions.ChannelClosedByClient` and is left to
-        :meth:`_shutdown_pool`, so this handles only broker- or error-initiated closes.  Without it
+        close - a user [`close`][pika.adapters.thread_safe_connection.Channel.close], or the per-channel closes a graceful [`Connection.close`][pika.adapters.thread_safe_connection.Connection.close]
+        issues - reports [`ChannelClosedByClient`][pika.exceptions.ChannelClosedByClient] and is left to
+        [`_shutdown_pool`][pika.adapters.thread_safe_connection.Channel._shutdown_pool], so this handles only broker- or error-initiated closes.  Without it
         those channels stay in ``_channels`` (with their pool, worker thread, raw channel and
         per-RPC callbacks) until the connection itself is torn down - the leak #1688 describes,
-        reached through a close path :meth:`_shutdown_pool` never sees.
+        reached through a close path [`_shutdown_pool`][pika.adapters.thread_safe_connection.Channel._shutdown_pool] never sees.
 
         Runs on the IOLoop thread, so it must not join the worker: joining a worker that is mid
         delivery-callback and waiting on this same IOLoop would deadlock, which is why pool joins
-        are otherwise deferred off this thread (see :meth:`~Connection._on_connection_closed`).  It
+        are otherwise deferred off this thread (see [`_on_connection_closed`][pika.adapters.thread_safe_connection.Connection._on_connection_closed]).  It
         only signals the pool to drain; the daemon worker exits on its own once the channel is
         closed and no further deliveries arrive.  The connection-shutdown sweep, running after the
         IOLoop stops, joins any channel this has not already dropped.
@@ -548,7 +548,7 @@ class Channel:
         """
         Unregister the per-RPC channel callbacks now that the call has finished.
 
-        :meth:`~pika.channel.Channel.add_on_close_callback` registers with ``one_shot=False`` and
+        [`add_on_close_callback`][pika.channel.Channel.add_on_close_callback] registers with ``one_shot=False`` and
         each RPC passes a distinct closure, so nothing ever collapses them: left in place they
         accumulate for the life of the channel, and ``CallbackManager.add`` rescans that growing
         list on every later registration.  A completed RPC has no use for its close callback, so
@@ -673,9 +673,9 @@ class Channel:
         :param mandatory: If True, return unroutable messages to the publisher
         :param on_publish: Optional callback invoked on the **IOLoop thread** immediately after the
             publish frame is written successfully, with the delivery tag (int) as its sole argument.
-            Only meaningful when publisher confirms are enabled via :meth:`confirm_delivery`;
+            Only meaningful when publisher confirms are enabled via [`confirm_delivery`][pika.adapters.thread_safe_connection.Channel.confirm_delivery];
             ignored otherwise. Must return quickly (same contract as any
-            :meth:`~Connection.add_callback_threadsafe` callback). An exception raised by this
+            [`add_callback_threadsafe`][pika.adapters.thread_safe_connection.Connection.add_callback_threadsafe] callback). An exception raised by this
             callback is logged and suppressed rather than propagated, so it does not tear down the
             connection.
         :raises Exception: if the connection is already closed.
@@ -895,14 +895,14 @@ class Channel:
         consumer can silently stop receiving messages.
 
         Dispatched on the per-channel worker thread (same as delivery callbacks), so the callback
-        may safely call any :class:`Channel` method.  The RabbitMQ Java client dispatches its cancel
+        may safely call any [`Channel`][pika.adapters.thread_safe_connection.Channel] method.  The RabbitMQ Java client dispatches its cancel
         listener to the consumer work pool rather than running it inline on the I/O thread, which is
         the same choice made here.
 
         Safe to call from any thread.
 
         :param callback:``callback(method_frame)`` where *method_frame* contains a
-            :class:`pika.spec.Basic.Cancel`.
+            [`pika.spec.Basic.Cancel`][pika.spec.Basic.Cancel].
         :raises Exception: if the connection is already closed.
         """
         self._check_not_closed()
@@ -926,11 +926,11 @@ class Channel:
         Register a callback for messages returned by the broker.
 
         When a message is published with ``mandatory=True`` and cannot be routed to any queue, the
-        broker returns it via a :class:`pika.spec.Basic.Return`.  The *callback* receives the
+        broker returns it via a [`pika.spec.Basic.Return`][pika.spec.Basic.Return].  The *callback* receives the
         returned message.
 
         Dispatched on the per-channel worker thread (same as delivery callbacks), so the callback
-        may safely call any :class:`Channel` method and heartbeats keep flowing while it works. The
+        may safely call any [`Channel`][pika.adapters.thread_safe_connection.Channel] method and heartbeats keep flowing while it works. The
         RabbitMQ Java and .NET clients run this listener inline on the I/O thread.  A listener that
         cannot keep pace still blocks the IOLoop once the shared queue fills; see
         *work_queue_maxsize*.
@@ -938,8 +938,8 @@ class Channel:
         Safe to call from any thread.
 
         :param callback:``callback(channel, method, properties, body)`` where *channel* is this
-            :class:`Channel`, *method* is a :class:`pika.spec.Basic.Return`, *properties* is a
-            :class:`pika.spec.BasicProperties`, and *body* is :class:`bytes`.
+            [`Channel`][pika.adapters.thread_safe_connection.Channel], *method* is a [`pika.spec.Basic.Return`][pika.spec.Basic.Return], *properties* is a
+            [`pika.spec.BasicProperties`][pika.spec.BasicProperties], and *body* is :class:`bytes`.
         :raises Exception: if the connection is already closed.
         """
         self._check_not_closed()
@@ -997,14 +997,14 @@ class Channel:
             channel.confirm_delivery(on_confirm)
 
         Take the tag to match against from *basic_publish*'s
-        ``on_publish``.  Reading :attr:`next_publish_seq_no` after a
+        ``on_publish``.  Reading [`next_publish_seq_no`][pika.adapters.thread_safe_connection.Channel.next_publish_seq_no] after a
         publish does not give that publish's tag, because the counter
         advances later on the IOLoop thread.
 
         An ack is not proof the message reached a queue: an unroutable
         publish sent with ``mandatory=True`` is answered with
         Basic.Return *and then* Basic.Ack.  Register
-        :meth:`add_on_return_callback` as well when routing matters.
+        [`add_on_return_callback`][pika.adapters.thread_safe_connection.Channel.add_on_return_callback] as well when routing matters.
 
         Safe to call from any thread.
 
@@ -1077,10 +1077,10 @@ class Channel:
         Register a consumer and block until Basic.ConsumeOk arrives.
 
         The *on_message_callback* is dispatched on the channel's worker thread, not the IOLoop
-        thread.  All :class:`Channel` methods are safe to call from within the callback.
+        thread.  All [`Channel`][pika.adapters.thread_safe_connection.Channel] methods are safe to call from within the callback.
 
         Because the channel uses a single worker thread, deliveries are processed serially.  A
-        callback that blocks (e.g. on a database write or a call to :meth:`queue_declare`) delays
+        callback that blocks (e.g. on a database write or a call to [`queue_declare`][pika.adapters.thread_safe_connection.Channel.queue_declare]) delays
         subsequent deliveries on the same channel until it returns.
 
         Safe to call from any thread.
@@ -1126,7 +1126,7 @@ class Channel:
 
         Safe to call from any thread.
 
-        :param consumer_tag: Tag returned by :meth:`basic_consume`.
+        :param consumer_tag: Tag returned by [`basic_consume`][pika.adapters.thread_safe_connection.Channel.basic_consume].
         :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
             (10 s). Pass ``None`` to wait indefinitely.
         :returns: The Basic.CancelOk method frame.
@@ -1490,7 +1490,7 @@ class Channel:
         """
         Close the channel, swallowing any errors.
 
-        Equivalent to :meth:`close` but never raises.  Useful in error-recovery paths where the
+        Equivalent to [`close`][pika.adapters.thread_safe_connection.Channel.close] but never raises.  Useful in error-recovery paths where the
         channel may already be in a bad state and the caller only wants a best-effort shutdown.
 
         Safe to call from any thread.
@@ -1512,7 +1512,7 @@ class Channel:
         """
         The delivery tag that will be assigned to the next published message.
 
-        Returns ``None`` if publisher confirms have not been enabled via :meth:`confirm_delivery`.
+        Returns ``None`` if publisher confirms have not been enabled via [`confirm_delivery`][pika.adapters.thread_safe_connection.Channel.confirm_delivery].
         Once confirms are enabled, returns an integer starting at 1 that increments after each
         successful publish, matching the behavior of the RabbitMQ Java and .NET clients.
 
@@ -1548,7 +1548,7 @@ class Connection:
     Internally wraps :class:`~pika.adapters.SelectConnection` and runs its
     IOLoop in a single dedicated background thread (the *IOLoop thread*).
     All channel operations submitted from external threads are routed
-    through :meth:`add_callback_threadsafe` so that ``_tx_buffers`` has
+    through [`add_callback_threadsafe`][pika.adapters.thread_safe_connection.Connection.add_callback_threadsafe] so that ``_tx_buffers`` has
     a single owner, the IOLoop thread.
 
     Usage::
@@ -1598,7 +1598,7 @@ class Connection:
         thread.  Set an override comfortably below the negotiated
         heartbeat-death window (twice the heartbeat interval) so a stall
         surfaces here rather than as an opaque broker-side close.  On
-        timeout :class:`pika.exceptions.WorkQueueFullError` is raised on
+        timeout [`pika.exceptions.WorkQueueFullError`][pika.exceptions.WorkQueueFullError] is raised on
         the IOLoop thread, closing the connection rather than silently
         dropping the event (which would lose an auto-acked delivery or
         force redelivery of a manually-acked one).
@@ -1779,10 +1779,10 @@ class Connection:
         True if the calling thread is one of this connection's pool worker threads.
 
         Covers every channel's consumer worker plus the connection's own event-callback worker
-        (:attr:`_connection_work_pool`).  :meth:`close` uses this to detect that it is running from
-        inside a delivery/event callback so it can avoid joining :attr:`_ioloop_thread`: that thread's
-        post-``ioloop.start()`` cleanup tail (:meth:`_shutdown_all_consumer_pools`,
-        :meth:`_shutdown_connection_pool`) joins every pool worker in turn, including this one, so
+        ([`_connection_work_pool`][pika.adapters.thread_safe_connection.Connection._connection_work_pool]).  [`close`][pika.adapters.thread_safe_connection.Channel.close] uses this to detect that it is running from
+        inside a delivery/event callback so it can avoid joining [`_ioloop_thread`][pika.adapters.thread_safe_connection.Connection._ioloop_thread]: that thread's
+        post-``ioloop.start()`` cleanup tail ([`_shutdown_all_consumer_pools`][pika.adapters.thread_safe_connection.Connection._shutdown_all_consumer_pools],
+        [`_shutdown_connection_pool`][pika.adapters.thread_safe_connection.Connection._shutdown_connection_pool]) joins every pool worker in turn, including this one, so
         joining it here would deadlock each thread waiting on the other (issue #1686).
 
         Reading each pool's ``_thread`` without its lock is safe here: a worker only executes this
@@ -1824,7 +1824,7 @@ class Connection:
 
     def channel(self, timeout: float | None = DEFAULT_RPC_TIMEOUT) -> Channel:
         """
-        Open a new channel and return a :class:`Channel`.
+        Open a new channel and return a [`Channel`][pika.adapters.thread_safe_connection.Channel].
 
         Blocks the calling thread until the channel is open.  The returned channel's methods are
         safe to call from any thread.
@@ -1913,7 +1913,7 @@ class Connection:
         Also safe to call from a delivery or connection-event callback running on one of this
         connection's pool worker threads (e.g. a consumer's ``on_message_callback``).  The IOLoop
         thread's own post-close cleanup joins every pool worker, including whichever one is running
-        the callback that called ``close()``, so joining :attr:`_ioloop_thread` from there would
+        the callback that called ``close()``, so joining [`_ioloop_thread`][pika.adapters.thread_safe_connection.Connection._ioloop_thread] from there would
         deadlock the two threads against each other. In that case the close is scheduled and this
         method returns immediately without joining; the worker exits normally once the callback
         returns.  Because this path does not join the IOLoop thread, *timeout* is not applied on it:
@@ -2008,7 +2008,7 @@ class Connection:
         """
         Close the connection, swallowing any errors.
 
-        Equivalent to :meth:`close` but never raises.  Currently :meth:`close` itself does not raise
+        Equivalent to [`close`][pika.adapters.thread_safe_connection.Channel.close] but never raises.  Currently [`close`][pika.adapters.thread_safe_connection.Channel.close] itself does not raise
         (it logs a warning on timeout), but ``abort`` is provided for API symmetry with other AMQP
         0-9-1 clients and to make error-recovery intent explicit at the call site.
 
@@ -2039,10 +2039,10 @@ class Connection:
         Raises rather than accepting work that can never run: once the connection is closed the
         IOLoop thread has exited, so a queued callback would be silently dropped.  The caller gets
         the recorded close reason, the same exception every other method on the connection raises
-        once closed, or a :class:`~pika.exceptions.ConnectionWrongStateError` when no reason was
+        once closed, or a [`ConnectionWrongStateError`][pika.exceptions.ConnectionWrongStateError] when no reason was
         recorded yet.
 
-        Calls from the IOLoop thread itself are exempt and never raise, mirroring :meth:`close`.
+        Calls from the IOLoop thread itself are exempt and never raise, mirroring [`close`][pika.adapters.thread_safe_connection.Channel.close].
         A close callback runs on that thread while the connection is already closed, so raising
         would abort the rest of teardown rather than reach the application.  The callback is
         accepted and logged at debug level, but a stopping IOLoop will most likely never run it.
@@ -2111,7 +2111,7 @@ class Connection:
         class raises once closed, with its close-time traceback restored so re-raising the shared
         instance does not grow it (see :func:`_with_close_traceback`).  Only when the connection is
         closed but no reason was recorded yet does it raise a fresh
-        :class:`~pika.exceptions.ConnectionWrongStateError`.
+        [`ConnectionWrongStateError`][pika.exceptions.ConnectionWrongStateError].
 
         :raises BaseException: ``_closed_reason`` if one was recorded.
         :raises pika.exceptions.ConnectionWrongStateError: if the underlying connection is closed
@@ -2138,7 +2138,7 @@ class Connection:
 
         Dispatched on a connection-level worker thread (one per
         connection), so the callback may safely call any
-        :class:`Channel` method and heartbeats keep flowing while it
+        [`Channel`][pika.adapters.thread_safe_connection.Channel] method and heartbeats keep flowing while it
         works.  The RabbitMQ Java and .NET clients run this listener
         inline on the I/O thread.  That pool is bounded like the
         per-channel ones, so a listener that cannot keep pace still
@@ -2149,8 +2149,8 @@ class Connection:
 
         :param callback:
             ``callback(connection, method_frame)`` where *connection* is
-            this :class:`Connection` and *method_frame* contains
-            a :class:`pika.spec.Connection.Blocked`.
+            this [`Connection`][pika.adapters.thread_safe_connection.Connection] and *method_frame* contains
+            a [`pika.spec.Connection.Blocked`][pika.spec.Connection.Blocked].
         :raises Exception: if the connection is already closed.
         """
         self._register_connection_event_callback(
@@ -2170,8 +2170,8 @@ class Connection:
 
         :param callback:
             ``callback(connection, method_frame)`` where *connection* is
-            this :class:`Connection` and *method_frame* contains
-            a :class:`pika.spec.Connection.Unblocked`.
+            this [`Connection`][pika.adapters.thread_safe_connection.Connection] and *method_frame* contains
+            a [`pika.spec.Connection.Unblocked`][pika.spec.Connection.Unblocked].
         :raises Exception: if the connection is already closed.
         """
         self._register_connection_event_callback(
@@ -2183,7 +2183,7 @@ class Connection:
         Register a connection-level event callback via the IOLoop.
 
         Wraps the user callback so it dispatches on the connection work pool, then schedules
-        registration with the underlying :class:`pika.connection.Connection` on the IOLoop thread.
+        registration with the underlying [`pika.connection.Connection`][pika.connection.Connection] on the IOLoop thread.
         :param raw_method_name: Unqualified AMQP method name (e.g. ``"Basic.Publish"``)
         :param callback: User callback to dispatch on the connection work pool."
         """

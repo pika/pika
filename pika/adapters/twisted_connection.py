@@ -396,7 +396,7 @@ class TwistedChannel:
 
         Sends the AMQP 0-9-1 command Basic.Consume to the broker and binds
         messages for the consumer_tag to a
-        :class:`ClosableDeferredQueue`. If you do not pass in a
+        [`ClosableDeferredQueue`][pika.adapters.twisted_connection.ClosableDeferredQueue]. If you do not pass in a
         consumer_tag, one will be automatically generated for you.
 
         For more information on basic_consume, see:
@@ -416,7 +416,7 @@ class TwistedChannel:
         :returns: Deferred that fires with a tuple
             ``(queue_object, consumer_tag)``. The Deferred will errback with an
             instance of :class:`exceptions.ChannelClosed` if the call fails.
-            The queue object is an instance of :class:`ClosableDeferredQueue`,
+            The queue object is an instance of [`ClosableDeferredQueue`][pika.adapters.twisted_connection.ClosableDeferredQueue],
             where data received from the queue will be stored. Clients should
             use its :meth:`get() <ClosableDeferredQueue.get>` method to fetch
             an individual message, which will return a Deferred firing with a

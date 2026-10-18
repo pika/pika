@@ -1,19 +1,19 @@
 """
 The credentials classes are used to encapsulate all authentication information for the
-:class:`~pika.connection.ConnectionParameters` class.
+[`ConnectionParameters`][pika.connection.ConnectionParameters] class.
 
-The :class:`~pika.credentials.PlainCredentials` class returns the properly formatted username and
-password to the :class:`~pika.connection.Connection`.
+The [`PlainCredentials`][pika.credentials.PlainCredentials] class returns the properly formatted username and
+password to the [`Connection`][pika.connection.Connection].
 
-To authenticate with Pika, create a :class:`~pika.credentials.PlainCredentials` object passing in
+To authenticate with Pika, create a [`PlainCredentials`][pika.credentials.PlainCredentials] object passing in
 the username and password and pass it as the credentials argument value to the
-:class:`~pika.connection.ConnectionParameters` object.
+[`ConnectionParameters`][pika.connection.ConnectionParameters] object.
 
-If you are using :class:`~pika.connection.URLParameters` you do not need a credentials object, one
+If you are using [`URLParameters`][pika.connection.URLParameters] you do not need a credentials object, one
 will automatically be created for you.
 
 If you are looking to implement SSL certificate style authentication, you would extend the
-:class:`~pika.credentials.ExternalCredentials` class implementing the required behavior.
+[`ExternalCredentials`][pika.credentials.ExternalCredentials] class implementing the required behavior.
 """
 
 from __future__ import annotations
