@@ -116,11 +116,11 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
                                 nbio_interface.AbstractFileDescriptorIOServices
                                ):
     """Implements
-    :py:class:`.utils.nbio_interface.AbstractIOServices` interface
+    `AbstractIOServices` interface
     on top of `asyncio`.
 
     NOTE:
-    :py:class:`.utils.nbio_interface.AbstractFileDescriptorServices`
+    `AbstractFileDescriptorServices`
     interface is only required by the mixins.
 
     """
@@ -199,7 +199,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         :param family: Socket address family (e.g. ``socket.AF_INET``)
         :param socktype: Socket type (e.g. ``socket.SOCK_STREAM``)
         :param proto: Protocol number (0 for default)
-        :param flags: :func:`socket.getaddrinfo` flags
+        :param flags: `socket.getaddrinfo` flags
         """
         return self._schedule_and_wrap_in_io_ref(
             self._loop.getaddrinfo(host,

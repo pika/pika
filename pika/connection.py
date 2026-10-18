@@ -706,7 +706,7 @@ class URLParameters(Parameters):
             Override the default `en_US` locale value
         - ssl_options:
             None for plaintext; for SSL: dict of public ssl context-related
-            arguments that may be passed to :meth:`ssl.SSLSocket` as kwargs,
+            arguments that may be passed to `ssl.SSLSocket` as kwargs,
             except `sock`, `server_side`,`do_handshake_on_connect`, `family`,
             `type`, `proto`, `fileno`.
         - retry_delay:

@@ -98,7 +98,7 @@ class SocketConnectionMixin:
             on_done: Callable[[BaseException | None],
                               None]) -> AbstractIOReference:
         """Implement
-        :py:meth:`.nbio_interface.AbstractIOServices.connect_socket()`.
+        `connect_socket()`.
 
         :param sock: non-blocking socket to connect
         :param resolved_addr: resolved destination address/port two-tuple
@@ -131,7 +131,7 @@ class StreamingConnectionMixin:
             ssl_context: ssl.SSLContext | None = None,
             server_hostname: str | None = None) -> AbstractIOReference:
         """Implement
-        :py:meth:`.nbio_interface.AbstractIOServices.create_streaming_connection()`.
+        `create_streaming_connection()`.
 
         :param protocol_factory: factory to create protocol instance
         :param sock: connected socket

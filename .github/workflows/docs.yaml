@@ -30,3 +30,8 @@ jobs:
 
       - name: Build documentation
         run: hatch run docs:build
+
+      # `--strict` refuses a cross-reference whose target is missing, but not one
+      # that never parsed as a reference. See .ci/docs_check.py and #1750.
+      - name: Check the built site for unrendered markup
+        run: python .ci/docs_check.py site

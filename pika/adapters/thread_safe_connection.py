@@ -105,7 +105,7 @@ def _reraisable(error: BaseException, close_reason: BaseException | None,
     Return an exception recorded for a blocking waiter, ready to be raised.
 
     A waiter woken by the connection closing is handed the shared close reason itself, so raising it
-    grows that instance's traceback the way :func:`_with_close_traceback` avoids.  Any other value
+    grows that instance's traceback the way `_with_close_traceback` avoids.  Any other value
     was raised for this call alone and is returned untouched - grafting the close-time traceback onto
     it would misreport where it came from.
 
@@ -129,7 +129,7 @@ def _submit_or_terminate(pool: _BoundedWorkPool, connection: SelectConnection,
     Submit *fn* to *pool*, tearing the connection down on queue overflow.
 
     Called on the IOLoop thread from the wrappers that hand user callbacks to a
-    :class:`_BoundedWorkPool`.  A [`WorkQueueFullError`][pika.exceptions.WorkQueueFullError]
+    `_BoundedWorkPool`.  A [`WorkQueueFullError`][pika.exceptions.WorkQueueFullError]
     means a slow callback let the queue stay full past ``work_queue_put_timeout``;
     it is routed through [`_terminate_stream`][pika.connection.Connection._terminate_stream] so
     the connection closes with [`WorkQueueFullError`][pika.exceptions.WorkQueueFullError] as the
@@ -171,7 +171,7 @@ class _BoundedWorkPool:
     """
     Single worker thread consuming from a bounded work queue.
 
-    Replaces :class:`concurrent.futures.ThreadPoolExecutor`, whose internal
+    Replaces `concurrent.futures.ThreadPoolExecutor`, whose internal
     queue is unbounded and grows without limit when user callbacks cannot
     keep up with incoming events (issue #1600).
 
@@ -185,7 +185,7 @@ class _BoundedWorkPool:
 
     :param maxsize: Maximum number of pending work items.  Pass ``0`` for
         an unbounded queue.
-    :param put_timeout: Seconds :meth:`submit` waits for queue space before
+    :param put_timeout: Seconds `submit` waits for queue space before
         raising [`pika.exceptions.WorkQueueFullError`][pika.exceptions.WorkQueueFullError].  Must be
         finite; an infinite (``None``) timeout would let a full queue block
         the IOLoop thread forever.
@@ -260,14 +260,14 @@ class _BoundedWorkPool:
         """
         Shut down the pool, allowing in-flight work to finish.
 
-        Idempotent: repeated calls are safe and subsequent :meth:`submit`
-        calls raise :class:`RuntimeError`.  A repeat call still joins (so a
+        Idempotent: repeated calls are safe and subsequent `submit`
+        calls raise `RuntimeError`.  A repeat call still joins (so a
         caller whose first bounded call timed out can wait again for the
         worker), which is why the flag is set unconditionally rather than
         short-circuiting.
 
         The shutdown flag is the source of truth.  A best-effort
-        :data:`_SENTINEL` ping is then enqueued via ``put_nowait`` purely to
+        `_SENTINEL` ping is then enqueued via ``put_nowait`` purely to
         rouse a worker idling in a blocking ``get()``; if the queue is full the
         ping is dropped, which is harmless because a busy worker re-checks the
         flag between items.  Either way this call never blocks on a full queue,
@@ -407,7 +407,7 @@ class Channel:
 
         Wraps a user callback so one failing dispatch neither escapes into the caller nor prevents
         later dispatches from running.  Most callers submit the wrapped callback to a
-        :class:`_BoundedWorkPool`, so it runs on a pool worker; [`basic_publish`][pika.adapters.thread_safe_connection.Channel.basic_publish] calls it
+        `_BoundedWorkPool`, so it runs on a pool worker; [`basic_publish`][pika.adapters.thread_safe_connection.Channel.basic_publish] calls it
         inline on the IOLoop thread. Either way the exception is contained here.
 
         :param label: Human-readable name of the callback for log lines.
@@ -796,7 +796,7 @@ class Channel:
         :param prefetch_count: Prefetch window in whole messages (0 = no limit).
         :param global_qos: Apply QoS to all consumers on the channel.
         :param timeout: Seconds to wait for the response.
-            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
+            Defaults to [`DEFAULT_RPC_TIMEOUT`][pika.adapters.thread_safe_connection.DEFAULT_RPC_TIMEOUT] (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Basic.QosOk method frame.
         :raises Exception: if the connection is closed before the response arrives.
@@ -826,7 +826,7 @@ class Channel:
 
         :param queue: The queue to get a message from.
         :param auto_ack: Do not require acknowledgement.
-        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+        :param timeout: Seconds to wait for the response. Defaults to [`DEFAULT_RPC_TIMEOUT`][pika.adapters.thread_safe_connection.DEFAULT_RPC_TIMEOUT]
             (10 s). Pass ``None`` to wait indefinitely.
         :returns:``(method, properties, body)`` or ``(None, None, None)``.
         :raises Exception: if the connection is closed before the response arrives.
@@ -939,7 +939,7 @@ class Channel:
 
         :param callback:``callback(channel, method, properties, body)`` where *channel* is this
             [`Channel`][pika.adapters.thread_safe_connection.Channel], *method* is a [`pika.spec.Basic.Return`][pika.spec.Basic.Return], *properties* is a
-            [`pika.spec.BasicProperties`][pika.spec.BasicProperties], and *body* is :class:`bytes`.
+            [`pika.spec.BasicProperties`][pika.spec.BasicProperties], and *body* is `bytes`.
         :raises Exception: if the connection is already closed.
         """
         self._check_not_closed()
@@ -1008,7 +1008,7 @@ class Channel:
 
         Safe to call from any thread.
 
-        A :class:`TimeoutError` does not mean confirms are off.  The
+        A `TimeoutError` does not mean confirms are off.  The
         Confirm.Select frame may already have reached the broker, which
         then numbers publishes from 1, so the delivery-tag counter can
         be armed and a subsequent publish still fire its ``on_publish``.
@@ -1024,7 +1024,7 @@ class Channel:
             ``callback(method_frame)`` called for each Basic.Ack or
             Basic.Nack received from the broker.
         :param timeout: Seconds to wait for the response.
-            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
+            Defaults to [`DEFAULT_RPC_TIMEOUT`][pika.adapters.thread_safe_connection.DEFAULT_RPC_TIMEOUT] (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Confirm.SelectOk method frame.
         :raises Exception: if the connection is closed before the response arrives.
@@ -1091,7 +1091,7 @@ class Channel:
         :param exclusive: Request exclusive consumer access.
         :param consumer_tag: Client-provided tag; generated if omitted.
         :param arguments: Additional AMQP arguments.
-        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+        :param timeout: Seconds to wait for the response. Defaults to [`DEFAULT_RPC_TIMEOUT`][pika.adapters.thread_safe_connection.DEFAULT_RPC_TIMEOUT]
             (10 s). Pass ``None`` to wait indefinitely.
         :returns: The consumer tag assigned by the broker.
         :raises Exception: if the connection is closed before the response arrives.
@@ -1127,7 +1127,7 @@ class Channel:
         Safe to call from any thread.
 
         :param consumer_tag: Tag returned by [`basic_consume`][pika.adapters.thread_safe_connection.Channel.basic_consume].
-        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+        :param timeout: Seconds to wait for the response. Defaults to [`DEFAULT_RPC_TIMEOUT`][pika.adapters.thread_safe_connection.DEFAULT_RPC_TIMEOUT]
             (10 s). Pass ``None`` to wait indefinitely.
         :returns: The Basic.CancelOk method frame.
         :raises Exception: if the connection is closed before the response arrives.
@@ -1159,7 +1159,7 @@ class Channel:
         :param exclusive: If True, restrict access to the current connection
         :param auto_delete: If True, delete the queue or exchange when no longer in use
         :param arguments: Custom arguments for the queue declaration
-        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+        :param timeout: Seconds to wait for the response. Defaults to [`DEFAULT_RPC_TIMEOUT`][pika.adapters.thread_safe_connection.DEFAULT_RPC_TIMEOUT]
             (10 s). Pass ``None`` to wait indefinitely.
         :returns: The Queue.DeclareOk method frame.
         :raises Exception: if the connection is closed before the response arrives.
@@ -1198,7 +1198,7 @@ class Channel:
         :param auto_delete: Delete when no queues are bound.
         :param internal: Can only be published to by other exchanges.
         :param arguments: Custom arguments for the exchange.
-        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+        :param timeout: Seconds to wait for the response. Defaults to [`DEFAULT_RPC_TIMEOUT`][pika.adapters.thread_safe_connection.DEFAULT_RPC_TIMEOUT]
             (10 s). Pass ``None`` to wait indefinitely.
         :returns: The Exchange.DeclareOk method frame.
         :raises Exception: if the connection is closed before the response arrives.
@@ -1232,7 +1232,7 @@ class Channel:
         :param exchange: The exchange to bind to.
         :param routing_key: The routing key to bind on. Defaults to the queue name.
         :param arguments: Custom arguments for the binding.
-        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+        :param timeout: Seconds to wait for the response. Defaults to [`DEFAULT_RPC_TIMEOUT`][pika.adapters.thread_safe_connection.DEFAULT_RPC_TIMEOUT]
             (10 s). Pass ``None`` to wait indefinitely.
         :returns: The Queue.BindOk method frame.
         :raises Exception: if the connection is closed before the response arrives.
@@ -1263,7 +1263,7 @@ class Channel:
         :param exchange: The exchange to unbind from.
         :param routing_key: The routing key to unbind. Defaults to the queue name.
         :param arguments: Custom arguments for the unbinding.
-        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+        :param timeout: Seconds to wait for the response. Defaults to [`DEFAULT_RPC_TIMEOUT`][pika.adapters.thread_safe_connection.DEFAULT_RPC_TIMEOUT]
             (10 s). Pass ``None`` to wait indefinitely.
         :returns: The Queue.UnbindOk method frame.
         :raises Exception: if the connection is closed before the response arrives.
@@ -1292,7 +1292,7 @@ class Channel:
         :param queue: The queue to delete.
         :param if_unused: Only delete if the queue has no consumers.
         :param if_empty: Only delete if the queue is empty.
-        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+        :param timeout: Seconds to wait for the response. Defaults to [`DEFAULT_RPC_TIMEOUT`][pika.adapters.thread_safe_connection.DEFAULT_RPC_TIMEOUT]
             (10 s). Pass ``None`` to wait indefinitely.
         :returns: The Queue.DeleteOk method frame.
         :raises Exception: if the connection is closed before the response arrives.
@@ -1316,7 +1316,7 @@ class Channel:
         Safe to call from any thread.
 
         :param queue: The queue to purge.
-        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+        :param timeout: Seconds to wait for the response. Defaults to [`DEFAULT_RPC_TIMEOUT`][pika.adapters.thread_safe_connection.DEFAULT_RPC_TIMEOUT]
             (10 s). Pass ``None`` to wait indefinitely.
         :returns: The Queue.PurgeOk method frame.
         :raises Exception: if the connection is closed before the response arrives.
@@ -1344,7 +1344,7 @@ class Channel:
         :param source: The source exchange to bind to.
         :param routing_key: The routing key to bind on.
         :param arguments: Custom arguments for the binding.
-        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+        :param timeout: Seconds to wait for the response. Defaults to [`DEFAULT_RPC_TIMEOUT`][pika.adapters.thread_safe_connection.DEFAULT_RPC_TIMEOUT]
             (10 s). Pass ``None`` to wait indefinitely.
         :returns: The Exchange.BindOk method frame.
         :raises Exception: if the connection is closed before the response arrives.
@@ -1375,7 +1375,7 @@ class Channel:
         :param source: The source exchange to unbind from.
         :param routing_key: The routing key to unbind.
         :param arguments: Custom arguments for the unbinding.
-        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+        :param timeout: Seconds to wait for the response. Defaults to [`DEFAULT_RPC_TIMEOUT`][pika.adapters.thread_safe_connection.DEFAULT_RPC_TIMEOUT]
             (10 s). Pass ``None`` to wait indefinitely.
         :returns: The Exchange.UnbindOk method frame.
         :raises Exception: if the connection is closed before the response arrives.
@@ -1402,7 +1402,7 @@ class Channel:
 
         :param exchange: The exchange name.
         :param if_unused: Only delete if the exchange has no bindings.
-        :param timeout: Seconds to wait for the response. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+        :param timeout: Seconds to wait for the response. Defaults to [`DEFAULT_RPC_TIMEOUT`][pika.adapters.thread_safe_connection.DEFAULT_RPC_TIMEOUT]
             (10 s). Pass ``None`` to wait indefinitely.
         :returns: The Exchange.DeleteOk method frame.
         :raises Exception: if the connection is closed before the response arrives.
@@ -1545,7 +1545,7 @@ class Connection:
         so that multiple connections are distinguishable in stack traces
         and thread listings.
 
-    Internally wraps :class:`~pika.adapters.SelectConnection` and runs its
+    Internally wraps [`SelectConnection`][pika.adapters.select_connection.SelectConnection] and runs its
     IOLoop in a single dedicated background thread (the *IOLoop thread*).
     All channel operations submitted from external threads are routed
     through [`add_callback_threadsafe`][pika.adapters.thread_safe_connection.Connection.add_callback_threadsafe] so that ``_tx_buffers`` has
@@ -1578,21 +1578,21 @@ class Connection:
         Called in the IOLoop thread when the connection is closed.
         Signature: ``on_close_callback(connection, reason)``
     :param timeout: Seconds to wait for the AMQP connection
-        to be established.  Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
+        to be established.  Defaults to [`DEFAULT_RPC_TIMEOUT`][pika.adapters.thread_safe_connection.DEFAULT_RPC_TIMEOUT] (10 s).
         Pass ``None`` to wait indefinitely (relying on the socket timeout
         in *parameters*).  On timeout the IOLoop is stopped and
-        :class:`TimeoutError` is raised.
+        `TimeoutError` is raised.
     :param work_queue_maxsize: Maximum number of user-callback dispatches
         (deliveries, publisher confirms, returned messages, cancel and
         blocked/unblocked notifications) that may be pending on each
-        worker's queue.  Defaults to :data:`DEFAULT_WORK_QUEUE_MAXSIZE`
+        worker's queue.  Defaults to [`DEFAULT_WORK_QUEUE_MAXSIZE`][pika.adapters.thread_safe_connection.DEFAULT_WORK_QUEUE_MAXSIZE]
         (1000, matching the RabbitMQ Java client).  While a queue is full
         the IOLoop blocks, applying back-pressure to the broker via TCP.
         Heartbeats are not sent while the IOLoop is blocked, so the
         broker's heartbeat timeout bounds how long a wedged consumer can
         stall the connection.  Pass ``0`` for an unbounded queue.
     :param work_queue_put_timeout: Seconds to wait for space on a full
-        work queue.  Defaults to :data:`DEFAULT_WORK_QUEUE_PUT_TIMEOUT`
+        work queue.  Defaults to [`DEFAULT_WORK_QUEUE_PUT_TIMEOUT`][pika.adapters.thread_safe_connection.DEFAULT_WORK_QUEUE_PUT_TIMEOUT]
         (30 s); must be a positive number, and ``None`` (infinite) is
         rejected because it lets a full queue stall or deadlock the IOLoop
         thread.  Set an override comfortably below the negotiated
@@ -1829,7 +1829,7 @@ class Connection:
         Blocks the calling thread until the channel is open.  The returned channel's methods are
         safe to call from any thread.
 
-        :param timeout: Seconds to wait for Channel.OpenOk. Defaults to :data:`DEFAULT_RPC_TIMEOUT`
+        :param timeout: Seconds to wait for Channel.OpenOk. Defaults to [`DEFAULT_RPC_TIMEOUT`][pika.adapters.thread_safe_connection.DEFAULT_RPC_TIMEOUT]
             (10 s). Pass ``None`` to wait indefinitely.
         :raises Exception: if the connection is closed before the channel opens.
         :raises TimeoutError: if *timeout* expires before the channel opens.
@@ -2109,7 +2109,7 @@ class Connection:
 
         Raises the recorded ``_closed_reason`` itself, the same exception every other method on the
         class raises once closed, with its close-time traceback restored so re-raising the shared
-        instance does not grow it (see :func:`_with_close_traceback`).  Only when the connection is
+        instance does not grow it (see `_with_close_traceback`).  Only when the connection is
         closed but no reason was recorded yet does it raise a fresh
         [`ConnectionWrongStateError`][pika.exceptions.ConnectionWrongStateError].
 

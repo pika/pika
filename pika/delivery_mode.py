@@ -5,7 +5,7 @@ class DeliveryMode(IntEnum):
     """
     Enum for specifying the message delivery mode.
 
-    Inherits from :class:`enum.IntEnum` so members are usable wherever an
+    Inherits from `enum.IntEnum` so members are usable wherever an
     integer is expected, including the wire encoder for
     [`pika.spec.BasicProperties.delivery_mode`][pika.spec.BasicProperties.delivery_mode].
 
