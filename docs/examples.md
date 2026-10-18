@@ -1,6 +1,6 @@
 # Usage Examples
 
-Pika has various methods of use, between the synchronous BlockingConnection adapter and the various asynchronous connection adapter. The following examples illustrate the various ways that you can use Pika in your projects.
+These examples cover each way of using Pika: `Connection`, which is thread-safe and runs its own IOLoop on a background thread; the asynchronous adapters, which attach to an event loop you already have; and `BlockingConnection`, which is procedural and deprecated in favour of `Connection`.
 
 - [URLParameters](examples/using_urlparameters.md)
 - [Connecting asynchronously](examples/connecting_async.md)

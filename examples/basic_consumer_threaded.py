@@ -22,7 +22,6 @@ import threading
 import time
 
 import pika
-from pika.adapters.thread_safe_connection import Connection
 from pika.exceptions import ConnectionClosed
 from pika.exchange_type import ExchangeType
 
@@ -64,7 +63,7 @@ def main():
     )
 
     LOGGER.info('Connecting ...')
-    conn = Connection(parameters)
+    conn = pika.Connection(parameters)
     ch = conn.channel()
 
     ch.exchange_declare(exchange=EXCHANGE_NAME,

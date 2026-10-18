@@ -37,6 +37,7 @@ The `--use-tls` pytest flag is passed when `test-tls` is true, directing tests t
   README.md              this file
   release.py             the release CLI
   release_version.py     version arithmetic and tag interpretation
+  changelog.py           the HISTORY.md entry, from the milestone
   tag_release.py         tagging preconditions
   docs_site.py           docs-site alias policy
   smoke_test.py          post-publish broker check
@@ -94,7 +95,7 @@ Installs RabbitMQ natively:
 5. Starts the server detached, waits for epmd + `rabbitmqctl await_startup`
 6. Dumps `rabbitmq-diagnostics listeners` and `status` for TLS verification
 
-The `RABBITMQ_CONFIG_FILE` environment variable must point to the config path without the `.conf` extension (an Erlang/RabbitMQ convention).
+The `RABBITMQ_CONFIG_FILE` environment variable takes the config path with or without the `.conf` extension. The broker uses the path as given when it names a file that exists, and otherwise appends `.conf` or `.config` and retries, so this script's extensionless form works and so would the other.
 
 ### Windows (`windows/gha-setup.ps1`)
 

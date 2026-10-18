@@ -2,7 +2,7 @@
 Pika has two methods of encapsulating the data that lets it know how to connect to RabbitMQ, `pika.connection.ConnectionParameters` and `pika.connection.URLParameters`.
 
 !!! note
-    If you're connecting to RabbitMQ on localhost on port 5672, with the default virtual host of */* and the default username and password of *guest* and *guest*, you do not need to specify connection parameters when connecting.
+    If you're connecting to RabbitMQ on localhost on port 5672, with the default virtual host of */* and the default username and password of *guest* and *guest*, `BlockingConnection` and the asynchronous adapters can be constructed without connection parameters at all. `pika.Connection` requires them, so pass `pika.ConnectionParameters()` to take the same defaults.
 
 Using `pika.connection.URLParameters` is an easy way to minimize the variables required to connect to RabbitMQ and supports all of the directives that `pika.connection.ConnectionParameters` supports.
 
@@ -53,7 +53,7 @@ amqps://www-data:rabbit_pwd@rabbit1/web_messages?client_properties=%7B%27connect
 - heartbeat: Pass a value greater than zero to enable heartbeats between the server and your application. The integer value you pass here will be the number of seconds between heartbeats.
 - locale: Set the locale of the client using underscore delimited posix Locale code in ll_CC format (en_US, pt_BR, de_DE).
 - retry_delay: The number of seconds to wait before attempting to reconnect on a failed connection, if connection_attempts is > 0.
-- socket_timeout: Change the default socket timeout duration from 0.25 seconds to another integer or float value. Adjust with caution.
+- socket_timeout: Change the `socket.connect()` timeout from its default of 10 seconds to another integer or float value, or `None` to disable it. Adjust with caution.
 - ssl_options: A url encoded dict of values for the SSL connection. The keys are the arguments the corresponding `ssl.SSLContext` methods take:
    - protocol, passed to `ssl.SSLContext`
    - ca_certs (or cafile), ca_path (or capath), ca_data (or cadata), passed to `SSLContext.load_verify_locations`
