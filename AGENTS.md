@@ -202,6 +202,16 @@ Read the relevant page before changing that area.
   be taken back.
 - Use single quotes for strings unless the string contains a single quote.
 - No trailing whitespace. Check before committing; nothing gates it in markdown.
+- No hard-wrap in markdown: one line per paragraph and per list item, however
+  long, in every `.md` file and in every GitHub-rendered body (pull request and
+  issue bodies, comments). Commit message bodies are the exception and wrap at
+  72, per the Git conventions below. Line breaks that are syntax rather than
+  prose stay put: a table, a fenced or indented code block, raw HTML, YAML
+  front matter, the indented body under a `:::` or `!!!` directive, and the
+  list-and-rule block atop `.github/ISSUE_TEMPLATE.md`, whose `<hr>` vanishes
+  when those lines are joined. This file is exempt. In `HISTORY.md` the 1.0.0
+  and older entries stay as written; 1.0.1 upward is already unwrapped, and so
+  is everything `.ci/changelog.py` generates. Nothing gates any of it.
 
 ## Auto-generated code
 
@@ -230,9 +240,6 @@ the `codegen` workflow enforces.
   inline `--body` for multi-line content.
 - No backticks around commit SHAs in GitHub markdown.
 - No H1 headers (`#`) in PR or review comment bodies.
-- No hard-wrap in GitHub-rendered markdown (PR bodies, issue bodies,
-  comments). Hard-wrap only in commit message bodies, at 72 characters.
-  Converting the `.md` files that are still wrapped is tracked in #1730.
 - Use `git commit -F <file>` for commit messages longer than one line.
 - A maintainer's `push.default` is `upstream`. A branch created with
   `git checkout -b <name> origin/main` tracks `main`, so both `git push` and

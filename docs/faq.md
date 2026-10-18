@@ -69,6 +69,4 @@ Traditionally, questions about Pika have also been asked on the [RabbitMQ mailin
 
 ### How can I contribute to Pika?
 
-You can [fork the project on GitHub](https://help.github.com/en/articles/fork-a-repo/) and open
-[pull requests](https://help.github.com/en/articles/about-pull-requests/)
-when you believe you have something solid to add to the main repository.
+You can [fork the project on GitHub](https://help.github.com/en/articles/fork-a-repo/) and open [pull requests](https://help.github.com/en/articles/about-pull-requests/) when you believe you have something solid to add to the main repository.
