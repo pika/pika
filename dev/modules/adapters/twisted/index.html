@@ -4831,13 +4831,10 @@
 
 
 <h1 id="twisted-connection-adapter">Twisted Connection Adapter<a class="headerlink" href="#twisted-connection-adapter" title="Permanent link">&para;</a></h1>
-<blockquote>
-<p>[!WARNING]
-<code>TwistedProtocolConnection</code> is deprecated and will be removed in Pika 2.0.
-Use <a href="../thread_safe/"><code>Connection</code></a> instead, which runs its own
-IOLoop on a background thread and works with any framework, including
-Twisted.</p>
-</blockquote>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><code>TwistedProtocolConnection</code> is deprecated and will be removed in Pika 2.0. Use <a href="../thread_safe/"><code>Connection</code></a> instead, which runs its own IOLoop on a background thread and works with any framework, including Twisted.</p>
+</div>
 
 
 <div class="doc doc-object doc-module">

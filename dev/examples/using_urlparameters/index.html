@@ -2134,7 +2134,7 @@
 <p>Pika has two methods of encapsulating the data that lets it know how to connect to RabbitMQ, <code>pika.connection.ConnectionParameters</code> and <code>pika.connection.URLParameters</code>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>If you're connecting to RabbitMQ on localhost on port 5672, with the default virtual host of <em>/</em> and the default username and password of <em>guest</em> and <em>guest</em>, you do not need to specify connection parameters when connecting.</p>
+<p>If you're connecting to RabbitMQ on localhost on port 5672, with the default virtual host of <em>/</em> and the default username and password of <em>guest</em> and <em>guest</em>, <code>BlockingConnection</code> and the asynchronous adapters can be constructed without connection parameters at all. <code>pika.Connection</code> requires them, so pass <code>pika.ConnectionParameters()</code> to take the same defaults.</p>
 </div>
 <p>Using <code>pika.connection.URLParameters</code> is an easy way to minimize the variables required to connect to RabbitMQ and supports all of the directives that <code>pika.connection.ConnectionParameters</code> supports.</p>
 <p>The following is the format for the URLParameters connection value:</p>
@@ -2166,7 +2166,7 @@
 - heartbeat: Pass a value greater than zero to enable heartbeats between the server and your application. The integer value you pass here will be the number of seconds between heartbeats.
 - locale: Set the locale of the client using underscore delimited posix Locale code in ll_CC format (en_US, pt_BR, de_DE).
 - retry_delay: The number of seconds to wait before attempting to reconnect on a failed connection, if connection_attempts is &gt; 0.
-- socket_timeout: Change the default socket timeout duration from 0.25 seconds to another integer or float value. Adjust with caution.
+- socket_timeout: Change the <code>socket.connect()</code> timeout from its default of 10 seconds to another integer or float value, or <code>None</code> to disable it. Adjust with caution.
 - ssl_options: A url encoded dict of values for the SSL connection. The keys are the arguments the corresponding <code>ssl.SSLContext</code> methods take:
    - protocol, passed to <code>ssl.SSLContext</code>
    - ca_certs (or cafile), ca_path (or capath), ca_data (or cadata), passed to <code>SSLContext.load_verify_locations</code>

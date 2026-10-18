@@ -6183,14 +6183,10 @@
 
 
 <h1 id="blocking-connection-adapter">Blocking Connection Adapter<a class="headerlink" href="#blocking-connection-adapter" title="Permanent link">&para;</a></h1>
-<blockquote>
-<p>[!WARNING]
-<code>BlockingConnection</code> is deprecated and will be removed in Pika 2.0. Because
-the calling thread <em>is</em> the IOLoop, any blocking user code stalls heartbeats
-unless <code>process_data_events()</code> is called periodically, and the adapter is not
-thread-safe. Use <a href="../thread_safe/"><code>Connection</code></a> instead, which runs
-its own IOLoop on a background thread and provides a thread-safe blocking API.</p>
-</blockquote>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><code>BlockingConnection</code> is deprecated and will be removed in Pika 2.0. Because the calling thread <em>is</em> the IOLoop, any blocking user code stalls heartbeats unless <code>process_data_events()</code> is called periodically, and the adapter is not thread-safe. Use <a href="../thread_safe/"><code>Connection</code></a> instead, which runs its own IOLoop on a background thread and provides a thread-safe blocking API.</p>
+</div>
 
 
 <div class="doc doc-object doc-module">

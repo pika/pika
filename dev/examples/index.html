@@ -2042,7 +2042,7 @@
 
 
 <h1 id="usage-examples">Usage Examples<a class="headerlink" href="#usage-examples" title="Permanent link">&para;</a></h1>
-<p>Pika has various methods of use, between the synchronous BlockingConnection adapter and the various asynchronous connection adapter. The following examples illustrate the various ways that you can use Pika in your projects.</p>
+<p>These examples cover each way of using Pika: <code>Connection</code>, which is thread-safe and runs its own IOLoop on a background thread; the asynchronous adapters, which attach to an event loop you already have; and <code>BlockingConnection</code>, which is procedural and deprecated in favour of <code>Connection</code>.</p>
 <ul>
 <li><a href="using_urlparameters/">URLParameters</a></li>
 <li><a href="connecting_async/">Connecting asynchronously</a></li>

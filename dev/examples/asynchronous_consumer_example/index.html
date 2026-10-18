@@ -2042,7 +2042,7 @@
 
 
 <h1 id="asynchronous-consumer-example">Asynchronous consumer example<a class="headerlink" href="#asynchronous-consumer-example" title="Permanent link">&para;</a></h1>
-<p>The following example implements a consumer that will respond to RPC commands sent from RabbitMQ. For example, it will reconnect if RabbitMQ closes the connection and will shutdown if RabbitMQ cancels the consumer or closes the channel. While it may look intimidating, each method is very short and represents a individual actions that a consumer can do.</p>
+<p>The following example implements a consumer that will respond to RPC commands sent from RabbitMQ. For example, it will reconnect if RabbitMQ closes the connection and will shutdown if RabbitMQ cancels the consumer or closes the channel. While it may look intimidating, each method is very short and represents an individual action a consumer can take.</p>
 <div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
 </span><span id="__span-0-2"><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 </span><span id="__span-0-3"><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>

@@ -2160,7 +2160,7 @@
 </span></code></pre></div>
 <a id="intro_to_cps"></a></p>
 <h2 id="continuation-passing-style">Continuation-Passing Style<a class="headerlink" href="#continuation-passing-style" title="Permanent link">&para;</a></h2>
-<p>Interfacing with Pika asynchronously is done by passing in callback methods you would like to have invoked when a certain event completes. For example, if you are going to declare a queue, you pass in a method that will be called when the RabbitMQ server returns a <a href="https://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.declare">Queue.DeclareOk</a> response.</p>
+<p>Interfacing with Pika asynchronously is done by passing in callback methods you would like to have invoked when a certain event completes. For example, if you are going to declare a queue, you pass in a method that will be called when the RabbitMQ server returns a <a href="https://www.rabbitmq.com/amqp-0-9-1-reference">Queue.DeclareOk</a> response.</p>
 <p>In our example below we use the following five easy steps:</p>
 <ol>
 <li>We start by creating our connection object, then starting our event loop.</li>
@@ -2171,7 +2171,7 @@
 </ol>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Step #1 is on line #28 and Step #2 is on line #6. This is so that Python knows about the functions we'll call in Steps #2 through #5.</p>
+<p>The steps do not run in the order they are written. Step #1 comes last in the code below and Step #2 first, because Python has to have defined each function before the connection can call it.</p>
 </div>
 <p><a id="cps_example"></a></p>
 <p>Example:</p>
@@ -2210,7 +2210,7 @@
 </span><span id="__span-1-33">
 </span><span id="__span-1-34"><span class="c1"># Step #1: Connect to RabbitMQ using the default parameters</span>
 </span><span id="__span-1-35"><span class="n">parameters</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">ConnectionParameters</span><span class="p">()</span>
-</span><span id="__span-1-36"><span class="n">connection</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">SelectConnection</span><span class="p">(</span><span class="n">on_open_callback</span><span class="o">=</span><span class="n">on_connected</span><span class="p">,</span> <span class="n">on_close_callback</span><span class="o">=</span><span class="n">on_close</span><span class="p">)</span>
+</span><span id="__span-1-36"><span class="n">connection</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">SelectConnection</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="n">on_open_callback</span><span class="o">=</span><span class="n">on_connected</span><span class="p">,</span> <span class="n">on_close_callback</span><span class="o">=</span><span class="n">on_close</span><span class="p">)</span>
 </span><span id="__span-1-37">
 </span><span id="__span-1-38"><span class="k">try</span><span class="p">:</span>
 </span><span id="__span-1-39">    <span class="c1"># Loop so we can communicate with RabbitMQ</span>

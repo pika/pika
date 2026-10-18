@@ -2132,32 +2132,27 @@
 <li><a href="twisted/">TwistedProtocolConnection</a> <em>(deprecated, removed in Pika 2.0)</em></li>
 <li><a href="gevent/">GeventConnection</a> <em>(deprecated, removed in Pika 2.0)</em></li>
 </ul>
-<blockquote>
-<p>[!WARNING]
-<code>BlockingConnection</code>, <code>TornadoConnection</code>, <code>TwistedProtocolConnection</code>, and
-<code>GeventConnection</code> are deprecated and will be removed in Pika 2.0. The async
-adapters exist to integrate Pika into a framework's event loop — a constraint
-that no longer applies — and <code>BlockingConnection</code> runs the IOLoop on the
-calling thread, which makes heartbeats fragile and the adapter non-thread-safe.
-<a href="thread_safe/"><code>Connection</code></a> runs its own IOLoop on a background
-thread and works with any framework (asyncio, Tornado, Twisted, Gevent,
-Django, Flask, or plain synchronous code) without adapter-specific
-integration.</p>
-</blockquote>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><code>BlockingConnection</code>, <code>TornadoConnection</code>, <code>TwistedProtocolConnection</code>, and <code>GeventConnection</code> are deprecated and will be removed in Pika 2.0. The async adapters exist to integrate Pika into a framework's event loop, a constraint that no longer applies, and <code>BlockingConnection</code> runs the IOLoop on the calling thread, which makes heartbeats fragile and the adapter non-thread-safe. <a href="thread_safe/"><code>Connection</code></a> runs its own IOLoop on a background thread and works with any framework (asyncio, Tornado, Twisted, Gevent, Django, Flask, or plain synchronous code) without adapter-specific integration.</p>
+</div>
 <h2 id="threading">Threading<a class="headerlink" href="#threading" title="Permanent link">&para;</a></h2>
 <h3 id="using-connection-recommended">Using Connection (recommended)<a class="headerlink" href="#using-connection-recommended" title="Permanent link">&para;</a></h3>
-<p><a href="thread_safe/">Connection</a> is the simplest way to use Pika from multiple threads. It runs the IOLoop in a background thread and provides a blocking, thread-safe API. Consumer callbacks run on a dedicated worker thread, so slow processing never stalls heartbeats, and you can call <code>basic_ack</code>, <code>basic_publish</code>, and other channel methods directly from the callback without any special coordination:</p>
-<div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="kn">from</span><span class="w"> </span><span class="nn">pika.adapters.thread_safe_connection</span><span class="w"> </span><span class="kn">import</span> <span class="n">Connection</span>
+<p><a href="thread_safe/">Connection</a> is the simplest way to use Pika from multiple threads. It runs the IOLoop in a background thread and provides a blocking, thread-safe API. Consumer callbacks run on a dedicated worker thread, so slow processing does not stall heartbeats as long as the callback keeps pace with deliveries (<a href="thread_safe/#work-queue-bounds-and-back-pressure">what happens when it does not</a>), and you can call <code>basic_ack</code>, <code>basic_publish</code>, and other channel methods directly from the callback without any special coordination:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="kn">import</span><span class="w"> </span><span class="nn">pika</span>
 </span><span id="__span-0-2">
-</span><span id="__span-0-3"><span class="n">conn</span> <span class="o">=</span> <span class="n">Connection</span><span class="p">(</span><span class="n">pika</span><span class="o">.</span><span class="n">ConnectionParameters</span><span class="p">(</span><span class="s1">'localhost'</span><span class="p">))</span>
+</span><span id="__span-0-3"><span class="n">conn</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">Connection</span><span class="p">(</span><span class="n">pika</span><span class="o">.</span><span class="n">ConnectionParameters</span><span class="p">(</span><span class="s1">'localhost'</span><span class="p">))</span>
 </span><span id="__span-0-4"><span class="n">ch</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
 </span><span id="__span-0-5">
-</span><span id="__span-0-6"><span class="k">def</span><span class="w"> </span><span class="nf">on_message</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">properties</span><span class="p">,</span> <span class="n">body</span><span class="p">):</span>
-</span><span id="__span-0-7">    <span class="c1"># This runs on a worker thread - safe to do blocking work here</span>
-</span><span id="__span-0-8">    <span class="n">process</span><span class="p">(</span><span class="n">body</span><span class="p">)</span>
-</span><span id="__span-0-9">    <span class="n">channel</span><span class="o">.</span><span class="n">basic_ack</span><span class="p">(</span><span class="n">method</span><span class="o">.</span><span class="n">delivery_tag</span><span class="p">)</span>  <span class="c1"># safe, no add_callback_threadsafe needed</span>
-</span><span id="__span-0-10">
-</span><span id="__span-0-11"><span class="n">ch</span><span class="o">.</span><span class="n">basic_consume</span><span class="p">(</span><span class="s1">'work'</span><span class="p">,</span> <span class="n">on_message</span><span class="p">)</span>
+</span><span id="__span-0-6"><span class="c1"># RabbitMQ 4.3 and later refuse a queue that is neither durable nor exclusive.</span>
+</span><span id="__span-0-7"><span class="n">ch</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="s1">'work'</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-0-8">
+</span><span id="__span-0-9"><span class="k">def</span><span class="w"> </span><span class="nf">on_message</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">properties</span><span class="p">,</span> <span class="n">body</span><span class="p">):</span>
+</span><span id="__span-0-10">    <span class="c1"># This runs on a worker thread - safe to do blocking work here</span>
+</span><span id="__span-0-11">    <span class="n">process</span><span class="p">(</span><span class="n">body</span><span class="p">)</span>
+</span><span id="__span-0-12">    <span class="n">channel</span><span class="o">.</span><span class="n">basic_ack</span><span class="p">(</span><span class="n">method</span><span class="o">.</span><span class="n">delivery_tag</span><span class="p">)</span>  <span class="c1"># safe, no add_callback_threadsafe needed</span>
+</span><span id="__span-0-13">
+</span><span id="__span-0-14"><span class="n">ch</span><span class="o">.</span><span class="n">basic_consume</span><span class="p">(</span><span class="s1">'work'</span><span class="p">,</span> <span class="n">on_message</span><span class="p">)</span>
 </span></code></pre></div>
 <p>See the <a href="../../examples/threaded_consumer/">Thread-Safe Consumer</a> and <a href="../../examples/threaded_publisher/">Thread-Safe Publisher</a> examples.</p>
 <h3 id="using-add_callback_threadsafe-manual-approach">Using add_callback_threadsafe (manual approach)<a class="headerlink" href="#using-add_callback_threadsafe-manual-approach" title="Permanent link">&para;</a></h3>
@@ -2206,27 +2201,28 @@ Please see the documentation of other adapters for their specific methods.</p>
 </span><span id="__span-3-16">    <span class="k">except</span> <span class="n">pika</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">AMQPConnectionError</span><span class="p">:</span>
 </span><span id="__span-3-17">        <span class="k">continue</span>
 </span></code></pre></div>
-This example can be found in <code>examples/consume_recover.py</code>.</p>
+A variant that recovers across several nodes is in <code>examples/blocking_consume_recover_multiple_hosts.py</code>.</p>
 <p>Generic operation retry libraries such as <a href="https://github.com/invl/retry">retry</a> can be used. Decorators make it possible to configure some additional recovery behaviours, like delays between retries and limiting the number of retries:</p>
-<p><div class="highlight"><pre><span></span><code><span id="__span-4-1"><span class="kn">from</span><span class="w"> </span><span class="nn">retry</span><span class="w"> </span><span class="kn">import</span> <span class="n">retry</span>
-</span><span id="__span-4-2">
+<p><div class="highlight"><pre><span></span><code><span id="__span-4-1"><span class="kn">import</span><span class="w"> </span><span class="nn">pika</span>
+</span><span id="__span-4-2"><span class="kn">from</span><span class="w"> </span><span class="nn">retry</span><span class="w"> </span><span class="kn">import</span> <span class="n">retry</span>
 </span><span id="__span-4-3">
-</span><span id="__span-4-4"><span class="nd">@retry</span><span class="p">(</span><span class="n">pika</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">AMQPConnectionError</span><span class="p">,</span> <span class="n">delay</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">jitter</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
-</span><span id="__span-4-5"><span class="k">def</span><span class="w"> </span><span class="nf">consume</span><span class="p">():</span>
-</span><span id="__span-4-6">    <span class="n">connection</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">BlockingConnection</span><span class="p">()</span>
-</span><span id="__span-4-7">    <span class="n">channel</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
-</span><span id="__span-4-8">    <span class="n">channel</span><span class="o">.</span><span class="n">basic_consume</span><span class="p">(</span><span class="s1">'test'</span><span class="p">,</span> <span class="n">on_message_callback</span><span class="p">)</span>
-</span><span id="__span-4-9">
-</span><span id="__span-4-10">    <span class="k">try</span><span class="p">:</span>
-</span><span id="__span-4-11">        <span class="n">channel</span><span class="o">.</span><span class="n">start_consuming</span><span class="p">()</span>
-</span><span id="__span-4-12">    <span class="c1"># Don't recover connections closed by server</span>
-</span><span id="__span-4-13">    <span class="k">except</span> <span class="n">pika</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">ConnectionClosedByBroker</span><span class="p">:</span>
-</span><span id="__span-4-14">        <span class="k">pass</span>
-</span><span id="__span-4-15">
+</span><span id="__span-4-4">
+</span><span id="__span-4-5"><span class="nd">@retry</span><span class="p">(</span><span class="n">pika</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">AMQPConnectionError</span><span class="p">,</span> <span class="n">delay</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">jitter</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+</span><span id="__span-4-6"><span class="k">def</span><span class="w"> </span><span class="nf">consume</span><span class="p">():</span>
+</span><span id="__span-4-7">    <span class="n">connection</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">BlockingConnection</span><span class="p">()</span>
+</span><span id="__span-4-8">    <span class="n">channel</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
+</span><span id="__span-4-9">    <span class="n">channel</span><span class="o">.</span><span class="n">basic_consume</span><span class="p">(</span><span class="s1">'test'</span><span class="p">,</span> <span class="n">on_message_callback</span><span class="p">)</span>
+</span><span id="__span-4-10">
+</span><span id="__span-4-11">    <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-4-12">        <span class="n">channel</span><span class="o">.</span><span class="n">start_consuming</span><span class="p">()</span>
+</span><span id="__span-4-13">    <span class="c1"># Don't recover connections closed by server</span>
+</span><span id="__span-4-14">    <span class="k">except</span> <span class="n">pika</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">ConnectionClosedByBroker</span><span class="p">:</span>
+</span><span id="__span-4-15">        <span class="k">pass</span>
 </span><span id="__span-4-16">
-</span><span id="__span-4-17"><span class="n">consume</span><span class="p">()</span>
+</span><span id="__span-4-17">
+</span><span id="__span-4-18"><span class="n">consume</span><span class="p">()</span>
 </span></code></pre></div>
-This example can be found in <code>examples/consume_recover_retry.py</code>.</p>
+The same decorator applied across several nodes is in <code>examples/blocking_consume_recover_multiple_hosts_retry.py</code>.</p>
 <p>For asynchronous adapters, use <code>on_close_callback</code> to react to connection failure events. This callback can be used to clean up and recover the connection.</p>
 <p>An example of recovery using <code>on_close_callback</code> can be found in <code>examples/asynchronous_consumer_example.py</code>.</p>
 

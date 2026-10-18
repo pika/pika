@@ -2043,132 +2043,147 @@
 
 <h1 id="thread-safe-publisher-confirms">Thread-Safe Publisher Confirms<a class="headerlink" href="#thread-safe-publisher-confirms" title="Permanent link">&para;</a></h1>
 <p>This example demonstrates publisher confirms with <code>Connection</code>. It is the asynchronous counterpart to <a href="../blocking_delivery_confirmations/">Delivery Confirmations</a>, which uses <code>BlockingConnection</code>.</p>
-<p>Where the blocking version calls <code>confirm_delivery()</code> with no arguments and catches <code>UnroutableError</code> synchronously, <code>Channel.confirm_delivery(ack_nack_callback)</code> registers a callback that the broker's <code>Basic.Ack</code> / <code>Basic.Nack</code> frames are delivered to. That callback runs on the channel's worker thread — not the IOLoop thread — so a slow confirm handler never stalls heartbeats, and it may safely call any <code>Channel</code> method.</p>
-<p>Each publish is tagged with a monotonically increasing delivery tag, exposed through the <code>on_publish</code> callback and the <code>next_publish_seq_no</code> property.</p>
-<p><code>examples/publisher_confirms_threaded.py</code>:</p>
-<div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="sd">"""</span>
-</span><span id="__span-0-2"><span class="sd">Example: publisher confirms with Connection.</span>
-</span><span id="__span-0-3">
-</span><span id="__span-0-4"><span class="sd">This is the Connection counterpart to</span>
-</span><span id="__span-0-5"><span class="sd">examples/blocking_delivery_confirmations.py.  Where the BlockingConnection</span>
-</span><span id="__span-0-6"><span class="sd">version calls confirm_delivery() with no arguments and relies on</span>
-</span><span id="__span-0-7"><span class="sd">basic_publish raising UnroutableError synchronously, Channel is</span>
-</span><span id="__span-0-8"><span class="sd">fully asynchronous: confirm_delivery() takes an ack_nack_callback that the</span>
-</span><span id="__span-0-9"><span class="sd">broker's Basic.Ack / Basic.Nack frames are delivered to.</span>
+<p>Where the blocking version calls <code>confirm_delivery()</code> with no arguments and catches <code>UnroutableError</code> synchronously, <code>Channel.confirm_delivery(ack_nack_callback)</code> registers a callback that the broker's <code>Basic.Ack</code> / <code>Basic.Nack</code> frames are delivered to. That callback runs on the channel's worker thread rather than the IOLoop thread, so the confirm handler may safely call any <code>Channel</code> method and heartbeats keep flowing while it works. It shares the single worker thread and bounded queue with delivery callbacks, so a handler that cannot keep up with the confirm rate eventually blocks the IOLoop; see <a href="../../modules/adapters/thread_safe/#work-queue-bounds-and-back-pressure">work queue bounds</a>.</p>
+<p>The callback is required, and takes a single Basic.Ack or Basic.Nack frame. There is no separate nack callback, so <code>isinstance</code> is how the two are told apart; <code>delivery_tag</code> says which publish is confirmed and <code>multiple</code> says whether every earlier tag is confirmed with it.</p>
+<div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="kn">from</span><span class="w"> </span><span class="nn">pika</span><span class="w"> </span><span class="kn">import</span> <span class="n">spec</span>
+</span><span id="__span-0-2">
+</span><span id="__span-0-3"><span class="k">def</span><span class="w"> </span><span class="nf">on_confirm</span><span class="p">(</span><span class="n">method_frame</span><span class="p">):</span>
+</span><span id="__span-0-4">    <span class="n">tag</span> <span class="o">=</span> <span class="n">method_frame</span><span class="o">.</span><span class="n">method</span><span class="o">.</span><span class="n">delivery_tag</span>
+</span><span id="__span-0-5">    <span class="n">multiple</span> <span class="o">=</span> <span class="n">method_frame</span><span class="o">.</span><span class="n">method</span><span class="o">.</span><span class="n">multiple</span>
+</span><span id="__span-0-6">    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">method_frame</span><span class="o">.</span><span class="n">method</span><span class="p">,</span> <span class="n">spec</span><span class="o">.</span><span class="n">Basic</span><span class="o">.</span><span class="n">Ack</span><span class="p">):</span>
+</span><span id="__span-0-7">        <span class="o">...</span>   <span class="c1"># `tag`, and every earlier tag if `multiple`</span>
+</span><span id="__span-0-8">    <span class="k">else</span><span class="p">:</span>
+</span><span id="__span-0-9">        <span class="o">...</span>   <span class="c1"># Basic.Nack: the broker rejected it</span>
 </span><span id="__span-0-10">
-</span><span id="__span-0-11"><span class="sd">That callback is dispatched on the channel's per-channel worker thread - the</span>
-</span><span id="__span-0-12"><span class="sd">same thread that delivery callbacks use - not the IOLoop thread.  A slow</span>
-</span><span id="__span-0-13"><span class="sd">confirm handler therefore never stalls heartbeats, and the callback may</span>
-</span><span id="__span-0-14"><span class="sd">safely call any Channel method.</span>
-</span><span id="__span-0-15">
-</span><span id="__span-0-16"><span class="sd">Each publish is tagged with a monotonically increasing delivery tag, exposed</span>
-</span><span id="__span-0-17"><span class="sd">via the on_publish callback and the next_publish_seq_no property, matching</span>
-</span><span id="__span-0-18"><span class="sd">the behaviour of the RabbitMQ Java and .NET clients.  We track the</span>
-</span><span id="__span-0-19"><span class="sd">outstanding tags and block until the broker has confirmed every one.</span>
-</span><span id="__span-0-20">
-</span><span id="__span-0-21"><span class="sd">Pairs with examples/basic_consumer_threaded.py if you want to consume the</span>
-</span><span id="__span-0-22"><span class="sd">messages afterwards.</span>
-</span><span id="__span-0-23"><span class="sd">"""</span>
-</span><span id="__span-0-24">
-</span><span id="__span-0-25"><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
-</span><span id="__span-0-26"><span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
-</span><span id="__span-0-27">
-</span><span id="__span-0-28"><span class="kn">import</span><span class="w"> </span><span class="nn">pika</span>
-</span><span id="__span-0-29"><span class="kn">from</span><span class="w"> </span><span class="nn">pika</span><span class="w"> </span><span class="kn">import</span> <span class="n">spec</span>
-</span><span id="__span-0-30"><span class="kn">from</span><span class="w"> </span><span class="nn">pika.adapters.thread_safe_connection</span><span class="w"> </span><span class="kn">import</span> <span class="n">Connection</span>
-</span><span id="__span-0-31"><span class="kn">from</span><span class="w"> </span><span class="nn">pika.exchange_type</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExchangeType</span>
-</span><span id="__span-0-32">
-</span><span id="__span-0-33"><span class="n">LOG_FORMAT</span> <span class="o">=</span> <span class="p">(</span><span class="s1">'</span><span class="si">%(levelname) -10s</span><span class="s1"> </span><span class="si">%(asctime)s</span><span class="s1"> </span><span class="si">%(name) -30s</span><span class="s1"> %(funcName) '</span>
-</span><span id="__span-0-34">              <span class="s1">'-35s </span><span class="si">%(lineno) -5d</span><span class="s1">: </span><span class="si">%(message)s</span><span class="s1">'</span><span class="p">)</span>
-</span><span id="__span-0-35"><span class="n">LOGGER</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
-</span><span id="__span-0-36"><span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="n">LOG_FORMAT</span><span class="p">)</span>
-</span><span id="__span-0-37">
-</span><span id="__span-0-38"><span class="n">EXCHANGE_NAME</span> <span class="o">=</span> <span class="s1">'test_exchange'</span>
-</span><span id="__span-0-39"><span class="n">QUEUE_NAME</span> <span class="o">=</span> <span class="s1">'standard'</span>
-</span><span id="__span-0-40"><span class="n">ROUTING_KEY</span> <span class="o">=</span> <span class="s1">'standard_key'</span>
-</span><span id="__span-0-41"><span class="n">MESSAGE_COUNT</span> <span class="o">=</span> <span class="mi">10</span>
-</span><span id="__span-0-42">
-</span><span id="__span-0-43">
-</span><span id="__span-0-44"><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span id="__span-0-45">    <span class="n">parameters</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">ConnectionParameters</span><span class="p">(</span>
-</span><span id="__span-0-46">        <span class="n">credentials</span><span class="o">=</span><span class="n">pika</span><span class="o">.</span><span class="n">PlainCredentials</span><span class="p">(</span><span class="s1">'guest'</span><span class="p">,</span> <span class="s1">'guest'</span><span class="p">))</span>
-</span><span id="__span-0-47">
-</span><span id="__span-0-48">    <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Connecting ...'</span><span class="p">)</span>
-</span><span id="__span-0-49">    <span class="n">conn</span> <span class="o">=</span> <span class="n">Connection</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span>
-</span><span id="__span-0-50">    <span class="n">ch</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
-</span><span id="__span-0-51">
-</span><span id="__span-0-52">    <span class="n">ch</span><span class="o">.</span><span class="n">exchange_declare</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="n">EXCHANGE_NAME</span><span class="p">,</span>
-</span><span id="__span-0-53">                        <span class="n">exchange_type</span><span class="o">=</span><span class="n">ExchangeType</span><span class="o">.</span><span class="n">direct</span><span class="p">,</span>
-</span><span id="__span-0-54">                        <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-0-55">    <span class="n">ch</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="n">queue</span><span class="o">=</span><span class="n">QUEUE_NAME</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-0-56">    <span class="n">ch</span><span class="o">.</span><span class="n">queue_bind</span><span class="p">(</span><span class="n">queue</span><span class="o">=</span><span class="n">QUEUE_NAME</span><span class="p">,</span>
-</span><span id="__span-0-57">                  <span class="n">exchange</span><span class="o">=</span><span class="n">EXCHANGE_NAME</span><span class="p">,</span>
-</span><span id="__span-0-58">                  <span class="n">routing_key</span><span class="o">=</span><span class="n">ROUTING_KEY</span><span class="p">)</span>
-</span><span id="__span-0-59">
-</span><span id="__span-0-60">    <span class="c1"># Outstanding delivery tags awaiting a Basic.Ack / Basic.Nack from the</span>
-</span><span id="__span-0-61">    <span class="c1"># broker.  Touched from two threads - the IOLoop thread (on_publish) and</span>
-</span><span id="__span-0-62">    <span class="c1"># the worker thread (on_confirm) - so guard it with a condition and</span>
-</span><span id="__span-0-63">    <span class="c1"># signal completion once the set drains.</span>
-</span><span id="__span-0-64">    <span class="n">pending</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-</span><span id="__span-0-65">    <span class="n">all_confirmed</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Condition</span><span class="p">()</span>
-</span><span id="__span-0-66">
-</span><span id="__span-0-67">    <span class="k">def</span><span class="w"> </span><span class="nf">on_confirm</span><span class="p">(</span><span class="n">method_frame</span><span class="p">):</span>
-</span><span id="__span-0-68">        <span class="c1"># Runs on the per-channel worker thread, NOT the IOLoop thread.</span>
-</span><span id="__span-0-69">        <span class="n">tag</span> <span class="o">=</span> <span class="n">method_frame</span><span class="o">.</span><span class="n">method</span><span class="o">.</span><span class="n">delivery_tag</span>
-</span><span id="__span-0-70">        <span class="n">multiple</span> <span class="o">=</span> <span class="n">method_frame</span><span class="o">.</span><span class="n">method</span><span class="o">.</span><span class="n">multiple</span>
-</span><span id="__span-0-71">        <span class="n">acked</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">method_frame</span><span class="o">.</span><span class="n">method</span><span class="p">,</span> <span class="n">spec</span><span class="o">.</span><span class="n">Basic</span><span class="o">.</span><span class="n">Ack</span><span class="p">)</span>
-</span><span id="__span-0-72">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Worker thread </span><span class="si">%s</span><span class="s1">: </span><span class="si">%s</span><span class="s1"> delivery_tag=</span><span class="si">%s</span><span class="s1"> multiple=</span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span>
-</span><span id="__span-0-73">                    <span class="n">threading</span><span class="o">.</span><span class="n">get_ident</span><span class="p">(),</span> <span class="s1">'ack'</span> <span class="k">if</span> <span class="n">acked</span> <span class="k">else</span> <span class="s1">'NACK'</span><span class="p">,</span> <span class="n">tag</span><span class="p">,</span>
-</span><span id="__span-0-74">                    <span class="n">multiple</span><span class="p">)</span>
-</span><span id="__span-0-75">        <span class="k">with</span> <span class="n">all_confirmed</span><span class="p">:</span>
-</span><span id="__span-0-76">            <span class="k">if</span> <span class="n">multiple</span><span class="p">:</span>
-</span><span id="__span-0-77">                <span class="c1"># A multiple ack/nack confirms every outstanding tag up to</span>
-</span><span id="__span-0-78">                <span class="c1"># and including `tag`.</span>
-</span><span id="__span-0-79">                <span class="n">confirmed</span> <span class="o">=</span> <span class="p">{</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">pending</span> <span class="k">if</span> <span class="n">t</span> <span class="o">&lt;=</span> <span class="n">tag</span><span class="p">}</span>
-</span><span id="__span-0-80">            <span class="k">else</span><span class="p">:</span>
-</span><span id="__span-0-81">                <span class="n">confirmed</span> <span class="o">=</span> <span class="n">pending</span> <span class="o">&amp;</span> <span class="p">{</span><span class="n">tag</span><span class="p">}</span>
-</span><span id="__span-0-82">            <span class="n">pending</span><span class="o">.</span><span class="n">difference_update</span><span class="p">(</span><span class="n">confirmed</span><span class="p">)</span>
-</span><span id="__span-0-83">            <span class="k">if</span> <span class="ow">not</span> <span class="n">pending</span><span class="p">:</span>
-</span><span id="__span-0-84">                <span class="n">all_confirmed</span><span class="o">.</span><span class="n">notify_all</span><span class="p">()</span>
-</span><span id="__span-0-85">
-</span><span id="__span-0-86">    <span class="c1"># confirm_delivery blocks until Confirm.SelectOk arrives and arms the</span>
-</span><span id="__span-0-87">    <span class="c1"># delivery-tag counter (next_publish_seq_no starts at 1).</span>
-</span><span id="__span-0-88">    <span class="n">ch</span><span class="o">.</span><span class="n">confirm_delivery</span><span class="p">(</span><span class="n">on_confirm</span><span class="p">)</span>
-</span><span id="__span-0-89">
-</span><span id="__span-0-90">    <span class="k">def</span><span class="w"> </span><span class="nf">remember</span><span class="p">(</span><span class="n">tag</span><span class="p">):</span>
-</span><span id="__span-0-91">        <span class="c1"># on_publish runs on the IOLoop thread immediately after the publish</span>
-</span><span id="__span-0-92">        <span class="c1"># frame is written, with the tag the broker will confirm.</span>
-</span><span id="__span-0-93">        <span class="k">with</span> <span class="n">all_confirmed</span><span class="p">:</span>
-</span><span id="__span-0-94">            <span class="n">pending</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span>
-</span><span id="__span-0-95">
-</span><span id="__span-0-96">    <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Publishing </span><span class="si">%d</span><span class="s1"> messages with publisher confirms'</span><span class="p">,</span> <span class="n">MESSAGE_COUNT</span><span class="p">)</span>
-</span><span id="__span-0-97">    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">MESSAGE_COUNT</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
-</span><span id="__span-0-98">        <span class="n">ch</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span>
-</span><span id="__span-0-99">            <span class="n">exchange</span><span class="o">=</span><span class="n">EXCHANGE_NAME</span><span class="p">,</span>
-</span><span id="__span-0-100">            <span class="n">routing_key</span><span class="o">=</span><span class="n">ROUTING_KEY</span><span class="p">,</span>
-</span><span id="__span-0-101">            <span class="n">body</span><span class="o">=</span><span class="sa">f</span><span class="s1">'message </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">'</span><span class="o">.</span><span class="n">encode</span><span class="p">(),</span>
-</span><span id="__span-0-102">            <span class="n">properties</span><span class="o">=</span><span class="n">pika</span><span class="o">.</span><span class="n">BasicProperties</span><span class="p">(</span>
-</span><span id="__span-0-103">                <span class="n">content_type</span><span class="o">=</span><span class="s1">'text/plain'</span><span class="p">,</span>
-</span><span id="__span-0-104">                <span class="n">delivery_mode</span><span class="o">=</span><span class="n">pika</span><span class="o">.</span><span class="n">DeliveryMode</span><span class="o">.</span><span class="n">Persistent</span><span class="p">,</span>
-</span><span id="__span-0-105">            <span class="p">),</span>
-</span><span id="__span-0-106">            <span class="n">on_publish</span><span class="o">=</span><span class="n">remember</span><span class="p">,</span>
-</span><span id="__span-0-107">        <span class="p">)</span>
-</span><span id="__span-0-108">
-</span><span id="__span-0-109">    <span class="c1"># Block until every publish has been confirmed by the broker.</span>
-</span><span id="__span-0-110">    <span class="k">with</span> <span class="n">all_confirmed</span><span class="p">:</span>
-</span><span id="__span-0-111">        <span class="k">if</span> <span class="n">all_confirmed</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="ow">not</span> <span class="n">pending</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
-</span><span id="__span-0-112">            <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'All </span><span class="si">%d</span><span class="s1"> messages confirmed by the broker'</span><span class="p">,</span>
-</span><span id="__span-0-113">                        <span class="n">MESSAGE_COUNT</span><span class="p">)</span>
-</span><span id="__span-0-114">        <span class="k">else</span><span class="p">:</span>
-</span><span id="__span-0-115">            <span class="n">LOGGER</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">'Timed out waiting for confirms; still pending: </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span>
-</span><span id="__span-0-116">                           <span class="nb">sorted</span><span class="p">(</span><span class="n">pending</span><span class="p">))</span>
-</span><span id="__span-0-117">
-</span><span id="__span-0-118">    <span class="n">conn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-</span><span id="__span-0-119">    <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Done'</span><span class="p">)</span>
-</span><span id="__span-0-120">
-</span><span id="__span-0-121">
-</span><span id="__span-0-122"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">'__main__'</span><span class="p">:</span>
-</span><span id="__span-0-123">    <span class="n">main</span><span class="p">()</span>
+</span><span id="__span-0-11"><span class="n">ch</span><span class="o">.</span><span class="n">confirm_delivery</span><span class="p">(</span><span class="n">on_confirm</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Learn the tag to match against from <code>basic_publish</code>'s <code>on_publish</code> callback, which is handed the tag the broker will confirm. Do not read <code>next_publish_seq_no</code> after a publish to infer it, because the counter advances later on the IOLoop thread.</p>
+<p>An ack is not proof that the message reached a queue: an unroutable publish sent with <code>mandatory=True</code> is answered with Basic.Return <em>and then</em> Basic.Ack. Register <code>add_on_return_callback</code> as well when routing matters, as <a href="../blocking_publish_mandatory/">Mandatory publishing</a> does for the blocking adapter.</p>
+<p>Both hazards are measured, with the broker behaviour behind them, in <a href="https://github.com/pika/pika/blob/main/docs/internal/thread-safe-connection.md"><code>docs/internal/thread-safe-connection.md</code></a>, which is in the repository rather than on this site.</p>
+<p><code>examples/publisher_confirms_threaded.py</code>:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-1-1"><span class="sd">"""</span>
+</span><span id="__span-1-2"><span class="sd">Example: publisher confirms with Connection.</span>
+</span><span id="__span-1-3">
+</span><span id="__span-1-4"><span class="sd">This is the Connection counterpart to</span>
+</span><span id="__span-1-5"><span class="sd">examples/blocking_delivery_confirmations.py.  Where the BlockingConnection</span>
+</span><span id="__span-1-6"><span class="sd">version calls confirm_delivery() with no arguments and relies on</span>
+</span><span id="__span-1-7"><span class="sd">basic_publish raising UnroutableError synchronously, Channel is</span>
+</span><span id="__span-1-8"><span class="sd">fully asynchronous: confirm_delivery() takes an ack_nack_callback that the</span>
+</span><span id="__span-1-9"><span class="sd">broker's Basic.Ack / Basic.Nack frames are delivered to.</span>
+</span><span id="__span-1-10">
+</span><span id="__span-1-11"><span class="sd">That callback is dispatched on the channel's per-channel worker thread - the</span>
+</span><span id="__span-1-12"><span class="sd">same thread that delivery callbacks use - not the IOLoop thread.  Heartbeats</span>
+</span><span id="__span-1-13"><span class="sd">therefore keep flowing while a confirm handler works, and the callback may</span>
+</span><span id="__span-1-14"><span class="sd">safely call any Channel method.  A handler that cannot keep pace with the</span>
+</span><span id="__span-1-15"><span class="sd">confirm rate still blocks the IOLoop once that thread's bounded queue fills.</span>
+</span><span id="__span-1-16">
+</span><span id="__span-1-17"><span class="sd">Each publish is tagged with a monotonically increasing delivery tag, exposed</span>
+</span><span id="__span-1-18"><span class="sd">via the on_publish callback and the next_publish_seq_no property, matching</span>
+</span><span id="__span-1-19"><span class="sd">the behaviour of the RabbitMQ Java and .NET clients.  We track the</span>
+</span><span id="__span-1-20"><span class="sd">outstanding tags and block until the broker has confirmed every one.</span>
+</span><span id="__span-1-21">
+</span><span id="__span-1-22"><span class="sd">Pairs with examples/basic_consumer_threaded.py if you want to consume the</span>
+</span><span id="__span-1-23"><span class="sd">messages afterwards.</span>
+</span><span id="__span-1-24"><span class="sd">"""</span>
+</span><span id="__span-1-25">
+</span><span id="__span-1-26"><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+</span><span id="__span-1-27"><span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+</span><span id="__span-1-28">
+</span><span id="__span-1-29"><span class="kn">import</span><span class="w"> </span><span class="nn">pika</span>
+</span><span id="__span-1-30"><span class="kn">from</span><span class="w"> </span><span class="nn">pika</span><span class="w"> </span><span class="kn">import</span> <span class="n">spec</span>
+</span><span id="__span-1-31"><span class="kn">from</span><span class="w"> </span><span class="nn">pika.exchange_type</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExchangeType</span>
+</span><span id="__span-1-32">
+</span><span id="__span-1-33"><span class="n">LOG_FORMAT</span> <span class="o">=</span> <span class="p">(</span><span class="s1">'</span><span class="si">%(levelname) -10s</span><span class="s1"> </span><span class="si">%(asctime)s</span><span class="s1"> </span><span class="si">%(name) -30s</span><span class="s1"> %(funcName) '</span>
+</span><span id="__span-1-34">              <span class="s1">'-35s </span><span class="si">%(lineno) -5d</span><span class="s1">: </span><span class="si">%(message)s</span><span class="s1">'</span><span class="p">)</span>
+</span><span id="__span-1-35"><span class="n">LOGGER</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+</span><span id="__span-1-36"><span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="n">LOG_FORMAT</span><span class="p">)</span>
+</span><span id="__span-1-37">
+</span><span id="__span-1-38"><span class="n">EXCHANGE_NAME</span> <span class="o">=</span> <span class="s1">'test_exchange'</span>
+</span><span id="__span-1-39"><span class="n">QUEUE_NAME</span> <span class="o">=</span> <span class="s1">'standard'</span>
+</span><span id="__span-1-40"><span class="n">ROUTING_KEY</span> <span class="o">=</span> <span class="s1">'standard_key'</span>
+</span><span id="__span-1-41"><span class="n">MESSAGE_COUNT</span> <span class="o">=</span> <span class="mi">10</span>
+</span><span id="__span-1-42">
+</span><span id="__span-1-43">
+</span><span id="__span-1-44"><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+</span><span id="__span-1-45">    <span class="n">parameters</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">ConnectionParameters</span><span class="p">(</span>
+</span><span id="__span-1-46">        <span class="n">credentials</span><span class="o">=</span><span class="n">pika</span><span class="o">.</span><span class="n">PlainCredentials</span><span class="p">(</span><span class="s1">'guest'</span><span class="p">,</span> <span class="s1">'guest'</span><span class="p">))</span>
+</span><span id="__span-1-47">
+</span><span id="__span-1-48">    <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Connecting ...'</span><span class="p">)</span>
+</span><span id="__span-1-49">    <span class="n">conn</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">Connection</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span>
+</span><span id="__span-1-50">    <span class="n">ch</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
+</span><span id="__span-1-51">
+</span><span id="__span-1-52">    <span class="n">ch</span><span class="o">.</span><span class="n">exchange_declare</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="n">EXCHANGE_NAME</span><span class="p">,</span>
+</span><span id="__span-1-53">                        <span class="n">exchange_type</span><span class="o">=</span><span class="n">ExchangeType</span><span class="o">.</span><span class="n">direct</span><span class="p">,</span>
+</span><span id="__span-1-54">                        <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-1-55">    <span class="n">ch</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="n">queue</span><span class="o">=</span><span class="n">QUEUE_NAME</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-1-56">    <span class="n">ch</span><span class="o">.</span><span class="n">queue_bind</span><span class="p">(</span><span class="n">queue</span><span class="o">=</span><span class="n">QUEUE_NAME</span><span class="p">,</span>
+</span><span id="__span-1-57">                  <span class="n">exchange</span><span class="o">=</span><span class="n">EXCHANGE_NAME</span><span class="p">,</span>
+</span><span id="__span-1-58">                  <span class="n">routing_key</span><span class="o">=</span><span class="n">ROUTING_KEY</span><span class="p">)</span>
+</span><span id="__span-1-59">
+</span><span id="__span-1-60">    <span class="c1"># Outstanding delivery tags awaiting a Basic.Ack / Basic.Nack from the</span>
+</span><span id="__span-1-61">    <span class="c1"># broker.  Touched from two threads - the IOLoop thread (on_publish) and</span>
+</span><span id="__span-1-62">    <span class="c1"># the worker thread (on_confirm) - so guard it with a condition and</span>
+</span><span id="__span-1-63">    <span class="c1"># signal completion once the set drains.</span>
+</span><span id="__span-1-64">    <span class="n">pending</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+</span><span id="__span-1-65">    <span class="n">all_confirmed</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Condition</span><span class="p">()</span>
+</span><span id="__span-1-66">
+</span><span id="__span-1-67">    <span class="k">def</span><span class="w"> </span><span class="nf">on_confirm</span><span class="p">(</span><span class="n">method_frame</span><span class="p">):</span>
+</span><span id="__span-1-68">        <span class="c1"># Runs on the per-channel worker thread, NOT the IOLoop thread.</span>
+</span><span id="__span-1-69">        <span class="n">tag</span> <span class="o">=</span> <span class="n">method_frame</span><span class="o">.</span><span class="n">method</span><span class="o">.</span><span class="n">delivery_tag</span>
+</span><span id="__span-1-70">        <span class="n">multiple</span> <span class="o">=</span> <span class="n">method_frame</span><span class="o">.</span><span class="n">method</span><span class="o">.</span><span class="n">multiple</span>
+</span><span id="__span-1-71">        <span class="n">acked</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">method_frame</span><span class="o">.</span><span class="n">method</span><span class="p">,</span> <span class="n">spec</span><span class="o">.</span><span class="n">Basic</span><span class="o">.</span><span class="n">Ack</span><span class="p">)</span>
+</span><span id="__span-1-72">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Worker thread </span><span class="si">%s</span><span class="s1">: </span><span class="si">%s</span><span class="s1"> delivery_tag=</span><span class="si">%s</span><span class="s1"> multiple=</span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span>
+</span><span id="__span-1-73">                    <span class="n">threading</span><span class="o">.</span><span class="n">get_ident</span><span class="p">(),</span> <span class="s1">'ack'</span> <span class="k">if</span> <span class="n">acked</span> <span class="k">else</span> <span class="s1">'NACK'</span><span class="p">,</span> <span class="n">tag</span><span class="p">,</span>
+</span><span id="__span-1-74">                    <span class="n">multiple</span><span class="p">)</span>
+</span><span id="__span-1-75">        <span class="k">with</span> <span class="n">all_confirmed</span><span class="p">:</span>
+</span><span id="__span-1-76">            <span class="k">if</span> <span class="n">multiple</span><span class="p">:</span>
+</span><span id="__span-1-77">                <span class="c1"># A multiple ack/nack confirms every outstanding tag up to</span>
+</span><span id="__span-1-78">                <span class="c1"># and including `tag`.</span>
+</span><span id="__span-1-79">                <span class="n">confirmed</span> <span class="o">=</span> <span class="p">{</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">pending</span> <span class="k">if</span> <span class="n">t</span> <span class="o">&lt;=</span> <span class="n">tag</span><span class="p">}</span>
+</span><span id="__span-1-80">            <span class="k">else</span><span class="p">:</span>
+</span><span id="__span-1-81">                <span class="n">confirmed</span> <span class="o">=</span> <span class="n">pending</span> <span class="o">&amp;</span> <span class="p">{</span><span class="n">tag</span><span class="p">}</span>
+</span><span id="__span-1-82">            <span class="n">pending</span><span class="o">.</span><span class="n">difference_update</span><span class="p">(</span><span class="n">confirmed</span><span class="p">)</span>
+</span><span id="__span-1-83">            <span class="k">if</span> <span class="ow">not</span> <span class="n">pending</span><span class="p">:</span>
+</span><span id="__span-1-84">                <span class="n">all_confirmed</span><span class="o">.</span><span class="n">notify_all</span><span class="p">()</span>
+</span><span id="__span-1-85">
+</span><span id="__span-1-86">    <span class="c1"># confirm_delivery blocks until Confirm.SelectOk arrives and arms the</span>
+</span><span id="__span-1-87">    <span class="c1"># delivery-tag counter (next_publish_seq_no starts at 1).</span>
+</span><span id="__span-1-88">    <span class="n">ch</span><span class="o">.</span><span class="n">confirm_delivery</span><span class="p">(</span><span class="n">on_confirm</span><span class="p">)</span>
+</span><span id="__span-1-89">
+</span><span id="__span-1-90">    <span class="k">def</span><span class="w"> </span><span class="nf">remember</span><span class="p">(</span><span class="n">tag</span><span class="p">):</span>
+</span><span id="__span-1-91">        <span class="c1"># on_publish runs on the IOLoop thread immediately after the publish</span>
+</span><span id="__span-1-92">        <span class="c1"># frame is written, with the tag the broker will confirm.</span>
+</span><span id="__span-1-93">        <span class="k">with</span> <span class="n">all_confirmed</span><span class="p">:</span>
+</span><span id="__span-1-94">            <span class="n">pending</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span>
+</span><span id="__span-1-95">
+</span><span id="__span-1-96">    <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Publishing </span><span class="si">%d</span><span class="s1"> messages with publisher confirms'</span><span class="p">,</span> <span class="n">MESSAGE_COUNT</span><span class="p">)</span>
+</span><span id="__span-1-97">    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">MESSAGE_COUNT</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+</span><span id="__span-1-98">        <span class="n">ch</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span>
+</span><span id="__span-1-99">            <span class="n">exchange</span><span class="o">=</span><span class="n">EXCHANGE_NAME</span><span class="p">,</span>
+</span><span id="__span-1-100">            <span class="n">routing_key</span><span class="o">=</span><span class="n">ROUTING_KEY</span><span class="p">,</span>
+</span><span id="__span-1-101">            <span class="n">body</span><span class="o">=</span><span class="sa">f</span><span class="s1">'message </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">'</span><span class="o">.</span><span class="n">encode</span><span class="p">(),</span>
+</span><span id="__span-1-102">            <span class="n">properties</span><span class="o">=</span><span class="n">pika</span><span class="o">.</span><span class="n">BasicProperties</span><span class="p">(</span>
+</span><span id="__span-1-103">                <span class="n">content_type</span><span class="o">=</span><span class="s1">'text/plain'</span><span class="p">,</span>
+</span><span id="__span-1-104">                <span class="n">delivery_mode</span><span class="o">=</span><span class="n">pika</span><span class="o">.</span><span class="n">DeliveryMode</span><span class="o">.</span><span class="n">Persistent</span><span class="p">,</span>
+</span><span id="__span-1-105">            <span class="p">),</span>
+</span><span id="__span-1-106">            <span class="n">on_publish</span><span class="o">=</span><span class="n">remember</span><span class="p">,</span>
+</span><span id="__span-1-107">        <span class="p">)</span>
+</span><span id="__span-1-108">
+</span><span id="__span-1-109">    <span class="c1"># Block until every publish has been confirmed by the broker.</span>
+</span><span id="__span-1-110">    <span class="k">with</span> <span class="n">all_confirmed</span><span class="p">:</span>
+</span><span id="__span-1-111">        <span class="k">if</span> <span class="n">all_confirmed</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="ow">not</span> <span class="n">pending</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
+</span><span id="__span-1-112">            <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'All </span><span class="si">%d</span><span class="s1"> messages confirmed by the broker'</span><span class="p">,</span>
+</span><span id="__span-1-113">                        <span class="n">MESSAGE_COUNT</span><span class="p">)</span>
+</span><span id="__span-1-114">        <span class="k">else</span><span class="p">:</span>
+</span><span id="__span-1-115">            <span class="n">LOGGER</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">'Timed out waiting for confirms; still pending: </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span>
+</span><span id="__span-1-116">                           <span class="nb">sorted</span><span class="p">(</span><span class="n">pending</span><span class="p">))</span>
+</span><span id="__span-1-117">
+</span><span id="__span-1-118">    <span class="n">conn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span id="__span-1-119">    <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Done'</span><span class="p">)</span>
+</span><span id="__span-1-120">
+</span><span id="__span-1-121">
+</span><span id="__span-1-122"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">'__main__'</span><span class="p">:</span>
+</span><span id="__span-1-123">    <span class="n">main</span><span class="p">()</span>
 </span></code></pre></div>
 
 

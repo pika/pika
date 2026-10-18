@@ -2042,7 +2042,7 @@
 
 
 <h1 id="asynchronous-publisher-example">Asynchronous publisher example<a class="headerlink" href="#asynchronous-publisher-example" title="Permanent link">&para;</a></h1>
-<p>The following example implements a publisher that will respond to RPC commands sent from RabbitMQ and uses delivery confirmations. It will reconnect if RabbitMQ closes the connection and will shutdown if RabbitMQ closes the channel. While it may look intimidating, each method is very short and represents a individual actions that a publisher can do.</p>
+<p>The following example implements a publisher that will respond to RPC commands sent from RabbitMQ and uses delivery confirmations. It will reconnect if RabbitMQ closes the connection and will shutdown if RabbitMQ closes the channel. While it may look intimidating, each method is very short and represents an individual action a publisher can take.</p>
 <div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
 </span><span id="__span-0-2"><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 </span><span id="__span-0-3"><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>

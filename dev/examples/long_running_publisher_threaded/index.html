@@ -2043,7 +2043,7 @@
 
 <h1 id="thread-safe-long-running-publisher">Thread-Safe Long-Running Publisher<a class="headerlink" href="#thread-safe-long-running-publisher" title="Permanent link">&para;</a></h1>
 <p>This example demonstrates a long-running publisher with <code>Connection</code>. It is the counterpart to the <code>BlockingConnection</code>-based <code>examples/long_running_publisher.py</code>.</p>
-<p>The blocking version has to run its own background thread calling <code>process_data_events()</code> so heartbeats keep flowing while the application is idle, and it bounces every publish onto that thread with <code>add_callback_threadsafe</code> — the classic "heartbeat vs. work" tension of a single-threaded design.</p>
+<p>The blocking version has to run its own background thread calling <code>process_data_events()</code> so heartbeats keep flowing while the application is idle, and it bounces every publish onto that thread with <code>add_callback_threadsafe</code>, which is the "heartbeat vs. work" tension of a single-threaded design.</p>
 <p><code>Connection</code> removes that tension: its IOLoop runs on a dedicated background thread, so heartbeats are sent on time no matter how long the main thread sleeps between publishes. The main thread simply calls <code>basic_publish</code> whenever it has something to send.</p>
 <p><code>examples/long_running_publisher_threaded.py</code>:</p>
 <div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="sd">"""</span>
@@ -2070,55 +2070,54 @@
 </span><span id="__span-0-22"><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 </span><span id="__span-0-23">
 </span><span id="__span-0-24"><span class="kn">import</span><span class="w"> </span><span class="nn">pika</span>
-</span><span id="__span-0-25"><span class="kn">from</span><span class="w"> </span><span class="nn">pika.adapters.thread_safe_connection</span><span class="w"> </span><span class="kn">import</span> <span class="n">Connection</span>
-</span><span id="__span-0-26">
-</span><span id="__span-0-27"><span class="n">LOG_FORMAT</span> <span class="o">=</span> <span class="p">(</span><span class="s1">'</span><span class="si">%(levelname) -10s</span><span class="s1"> </span><span class="si">%(asctime)s</span><span class="s1"> </span><span class="si">%(name) -30s</span><span class="s1"> %(funcName) '</span>
-</span><span id="__span-0-28">              <span class="s1">'-35s </span><span class="si">%(lineno) -5d</span><span class="s1">: </span><span class="si">%(message)s</span><span class="s1">'</span><span class="p">)</span>
-</span><span id="__span-0-29"><span class="n">LOGGER</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
-</span><span id="__span-0-30"><span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="n">LOG_FORMAT</span><span class="p">)</span>
-</span><span id="__span-0-31">
-</span><span id="__span-0-32"><span class="n">QUEUE_NAME</span> <span class="o">=</span> <span class="s1">'downstream_queue'</span>
+</span><span id="__span-0-25">
+</span><span id="__span-0-26"><span class="n">LOG_FORMAT</span> <span class="o">=</span> <span class="p">(</span><span class="s1">'</span><span class="si">%(levelname) -10s</span><span class="s1"> </span><span class="si">%(asctime)s</span><span class="s1"> </span><span class="si">%(name) -30s</span><span class="s1"> %(funcName) '</span>
+</span><span id="__span-0-27">              <span class="s1">'-35s </span><span class="si">%(lineno) -5d</span><span class="s1">: </span><span class="si">%(message)s</span><span class="s1">'</span><span class="p">)</span>
+</span><span id="__span-0-28"><span class="n">LOGGER</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+</span><span id="__span-0-29"><span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="n">LOG_FORMAT</span><span class="p">)</span>
+</span><span id="__span-0-30">
+</span><span id="__span-0-31"><span class="n">QUEUE_NAME</span> <span class="o">=</span> <span class="s1">'downstream_queue'</span>
+</span><span id="__span-0-32">
 </span><span id="__span-0-33">
-</span><span id="__span-0-34">
-</span><span id="__span-0-35"><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span id="__span-0-36">    <span class="c1"># A short heartbeat shows that the IOLoop thread keeps the connection</span>
-</span><span id="__span-0-37">    <span class="c1"># alive even while the main thread spends most of its time sleeping -</span>
-</span><span id="__span-0-38">    <span class="c1"># far longer than the heartbeat interval.</span>
-</span><span id="__span-0-39">    <span class="n">parameters</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">ConnectionParameters</span><span class="p">(</span>
-</span><span id="__span-0-40">        <span class="n">credentials</span><span class="o">=</span><span class="n">pika</span><span class="o">.</span><span class="n">PlainCredentials</span><span class="p">(</span><span class="s1">'guest'</span><span class="p">,</span> <span class="s1">'guest'</span><span class="p">),</span>
-</span><span id="__span-0-41">        <span class="n">heartbeat</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-</span><span id="__span-0-42">    <span class="p">)</span>
-</span><span id="__span-0-43">
-</span><span id="__span-0-44">    <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Connecting ...'</span><span class="p">)</span>
-</span><span id="__span-0-45">    <span class="n">conn</span> <span class="o">=</span> <span class="n">Connection</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span>
-</span><span id="__span-0-46">    <span class="n">ch</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
-</span><span id="__span-0-47">    <span class="n">ch</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="n">queue</span><span class="o">=</span><span class="n">QUEUE_NAME</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-0-48">
-</span><span id="__span-0-49">    <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Publishing once every 10s.  Ctrl-C to stop.'</span><span class="p">)</span>
-</span><span id="__span-0-50">    <span class="k">try</span><span class="p">:</span>
-</span><span id="__span-0-51">        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span id="__span-0-52">        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-</span><span id="__span-0-53">            <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span id="__span-0-54">            <span class="n">message</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">'Message </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">'</span>
-</span><span id="__span-0-55">            <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Publishing: </span><span class="si">%r</span><span class="s1">'</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
-</span><span id="__span-0-56">            <span class="c1"># Fire-and-forget; no need to hand control back to pika to keep</span>
-</span><span id="__span-0-57">            <span class="c1"># the connection alive - the IOLoop thread does that for us.</span>
-</span><span id="__span-0-58">            <span class="n">ch</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span>
-</span><span id="__span-0-59">                             <span class="n">routing_key</span><span class="o">=</span><span class="n">QUEUE_NAME</span><span class="p">,</span>
-</span><span id="__span-0-60">                             <span class="n">body</span><span class="o">=</span><span class="n">message</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
-</span><span id="__span-0-61">            <span class="c1"># The main thread can sleep (or do slow CPU-bound work) for far</span>
-</span><span id="__span-0-62">            <span class="c1"># longer than the heartbeat interval without dropping the</span>
-</span><span id="__span-0-63">            <span class="c1"># connection.</span>
-</span><span id="__span-0-64">            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
-</span><span id="__span-0-65">    <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
-</span><span id="__span-0-66">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Interrupted, closing connection'</span><span class="p">)</span>
-</span><span id="__span-0-67">    <span class="k">finally</span><span class="p">:</span>
-</span><span id="__span-0-68">        <span class="n">conn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-</span><span id="__span-0-69">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Done'</span><span class="p">)</span>
+</span><span id="__span-0-34"><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+</span><span id="__span-0-35">    <span class="c1"># A short heartbeat shows that the IOLoop thread keeps the connection</span>
+</span><span id="__span-0-36">    <span class="c1"># alive even while the main thread spends most of its time sleeping -</span>
+</span><span id="__span-0-37">    <span class="c1"># far longer than the heartbeat interval.</span>
+</span><span id="__span-0-38">    <span class="n">parameters</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">ConnectionParameters</span><span class="p">(</span>
+</span><span id="__span-0-39">        <span class="n">credentials</span><span class="o">=</span><span class="n">pika</span><span class="o">.</span><span class="n">PlainCredentials</span><span class="p">(</span><span class="s1">'guest'</span><span class="p">,</span> <span class="s1">'guest'</span><span class="p">),</span>
+</span><span id="__span-0-40">        <span class="n">heartbeat</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+</span><span id="__span-0-41">    <span class="p">)</span>
+</span><span id="__span-0-42">
+</span><span id="__span-0-43">    <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Connecting ...'</span><span class="p">)</span>
+</span><span id="__span-0-44">    <span class="n">conn</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">Connection</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span>
+</span><span id="__span-0-45">    <span class="n">ch</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
+</span><span id="__span-0-46">    <span class="n">ch</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="n">queue</span><span class="o">=</span><span class="n">QUEUE_NAME</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-0-47">
+</span><span id="__span-0-48">    <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Publishing once every 10s.  Ctrl-C to stop.'</span><span class="p">)</span>
+</span><span id="__span-0-49">    <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-0-50">        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span id="__span-0-51">        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+</span><span id="__span-0-52">            <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span id="__span-0-53">            <span class="n">message</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">'Message </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">'</span>
+</span><span id="__span-0-54">            <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Publishing: </span><span class="si">%r</span><span class="s1">'</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
+</span><span id="__span-0-55">            <span class="c1"># Fire-and-forget; no need to hand control back to pika to keep</span>
+</span><span id="__span-0-56">            <span class="c1"># the connection alive - the IOLoop thread does that for us.</span>
+</span><span id="__span-0-57">            <span class="n">ch</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span>
+</span><span id="__span-0-58">                             <span class="n">routing_key</span><span class="o">=</span><span class="n">QUEUE_NAME</span><span class="p">,</span>
+</span><span id="__span-0-59">                             <span class="n">body</span><span class="o">=</span><span class="n">message</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
+</span><span id="__span-0-60">            <span class="c1"># The main thread can sleep (or do slow CPU-bound work) for far</span>
+</span><span id="__span-0-61">            <span class="c1"># longer than the heartbeat interval without dropping the</span>
+</span><span id="__span-0-62">            <span class="c1"># connection.</span>
+</span><span id="__span-0-63">            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</span><span id="__span-0-64">    <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+</span><span id="__span-0-65">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Interrupted, closing connection'</span><span class="p">)</span>
+</span><span id="__span-0-66">    <span class="k">finally</span><span class="p">:</span>
+</span><span id="__span-0-67">        <span class="n">conn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span id="__span-0-68">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Done'</span><span class="p">)</span>
+</span><span id="__span-0-69">
 </span><span id="__span-0-70">
-</span><span id="__span-0-71">
-</span><span id="__span-0-72"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">'__main__'</span><span class="p">:</span>
-</span><span id="__span-0-73">    <span class="n">main</span><span class="p">()</span>
+</span><span id="__span-0-71"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">'__main__'</span><span class="p">:</span>
+</span><span id="__span-0-72">    <span class="n">main</span><span class="p">()</span>
 </span></code></pre></div>
 
 
