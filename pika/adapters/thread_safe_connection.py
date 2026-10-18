@@ -180,6 +180,12 @@ class _BoundedWorkPool:
     back-pressure to the broker via TCP flow control - the same strategy
     as the RabbitMQ Java client's ``WorkPool``.
 
+    An exception out of a submitted item is logged and the next item runs, so
+    no submit site can cost the pool its worker and strand the queue behind it.
+    pika's own sites still wrap user callbacks before submitting, which is what
+    names the callback in the log line; this guard is what holds when one does
+    not.
+
     The worker thread starts lazily on first submit so that channels which
     never dispatch callbacks (e.g. publish-only channels) do not start one.
 
@@ -254,7 +260,13 @@ class _BoundedWorkPool:
                 # Wakeup ping from shutdown(); re-check the flag at the loop top.
                 continue
             fn, args = item
-            fn(*args)
+            try:
+                fn(*args)
+            except BaseException:
+                # BaseException, because SystemExit off the main thread ends only
+                # this worker. See docs/internal/thread-safe-connection.md, #1751.
+                LOGGER.exception('Unhandled exception in %s work item',
+                                 self._thread_name)
 
     def shutdown(self, wait: bool = True, timeout: float | None = None) -> bool:
         """

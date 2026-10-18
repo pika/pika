@@ -209,5 +209,58 @@ class TestSlowConsumerKeepingPaceDoesNotOverflow(
         self.assertTrue(conn.is_open)
 
 
+class TestConsumerRaisingOutsideExceptionKeepsConsuming(
+        ThreadSafeBoundedQueueTestCaseBase):
+    """
+    A delivery callback raising outside `Exception` must not cost the channel its worker.
+
+    `Channel._safe_dispatch` catches `Exception`, so a `SystemExit` reaches the
+    pool itself. Before `_run_worker` guarded the dispatch the worker exited
+    here, every message queued behind it was discarded, and the connection then
+    closed with a `WorkQueueFullError` once `work_queue_maxsize` further
+    deliveries had been lost: #1751.
+    """
+
+    def test(self):
+        n = 5
+        close_reason = []
+        conn = self._connect(
+            on_close_callback=lambda _c, reason: close_reason.append(reason))
+        ch = conn.channel()
+        queue = self._unique_queue()
+        self._declare_and_fill(ch, queue, count=n)
+
+        lock = threading.Lock()
+        received = []
+        raised = []
+
+        def consumer(channel, method, properties, body):
+            with lock:
+                received.append(body)
+                first = len(received) == 1
+            if first:
+                # Not an Exception, so _safe_dispatch does not contain it.
+                raised.append(True)
+                raise SystemExit('bail out of the first delivery')
+
+        ch.basic_consume(queue=queue,
+                         on_message_callback=consumer,
+                         auto_ack=True)
+
+        @retry_assertion(timeout_sec=BLOCKING_CALL_TIMEOUT * 2)
+        def assert_all_consumed():
+            with lock:
+                self.assertEqual(len(received), n)
+
+        assert_all_consumed()
+
+        self.assertEqual(raised, [True],
+                         'the callback never raised, so nothing was exercised')
+        self.assertEqual([], close_reason,
+                         f'connection closed unexpectedly: {close_reason}')
+        self.assertTrue(conn.is_open)
+        self.assertTrue(ch.is_open)
+
+
 if __name__ == '__main__':
     unittest.main()
