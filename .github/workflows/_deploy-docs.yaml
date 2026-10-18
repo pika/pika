@@ -42,8 +42,8 @@ on:
         type: boolean
         default: true
 
-# Deliberately no `permissions:` block here, at either level. A called workflow
-# may only maintain or reduce the caller's token, so declaring `contents: write`
+# No `permissions:` block here, at either level. A called workflow may only
+# maintain or reduce the caller's token, so declaring `contents: write`
 # unconditionally made GitHub reject any caller that granted less: `main.yaml`
 # pinning `contents: read` at the workflow level, with `validate-docs-deploy`
 # adding no grant of its own, produced a startup failure that ran no jobs at all.
@@ -55,9 +55,9 @@ on:
 # of `gh-pages`. A validation run touches no remote, so it gets a per-ref group
 # of its own rather than queueing behind, and delaying, the deploys that do.
 #
-# `queue: max` is as load-bearing as the group. Under the default
-# `queue: single` GitHub allows one pending run per group and "any existing
-# pending job or workflow run in the same group is canceled and replaced", which
+# `queue: max` matters as much as the group. Under the default `queue: single`
+# GitHub allows one pending run per group and "any existing pending job or
+# workflow run in the same group is canceled and replaced", which
 # `cancel-in-progress: false` does not prevent: a `main` push landing while a
 # release deploy waited its turn would evict the release's docs. `max` allows up
 # to 100 pending runs, processed first-in-first-out. It may not be combined with
@@ -310,7 +310,7 @@ jobs:
               exit 1
             fi
             # mike renders the redirect as href="<identifier>/", so match that
-            # exactly: an unanchored search for the alias would accept
+            # form: an unanchored search for the alias would accept
             # href="verylatest/" for an alias of `latest`.
             if ! git show "origin/gh-pages:index.html" \
                 | grep -qF "href=\"$ALIASES/\""; then

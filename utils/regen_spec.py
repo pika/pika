@@ -31,7 +31,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-# Deliberately a moving ref rather than a pinned SHA, for the same reason ruff
+# A moving ref rather than a pinned SHA, for the same reason ruff
 # is left unpinned: when upstream changes the AMQP spec, CI says so on the next
 # push instead of leaving `pika/spec.py` quietly behind. Pass `--ref` to
 # generate from some other revision, and see AGENTS.md for what to do when the

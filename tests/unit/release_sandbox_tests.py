@@ -32,7 +32,7 @@ import time
 import unittest
 from unittest import mock
 
-# Linux only, deliberately. These exercise git interaction, which does not vary
+# Linux only. These exercise git interaction, which does not vary
 # with the Python version, so running them on every leg of the matrix is twenty
 # times redundant - and the two platforms it drags in are the ones a release is
 # never cut from. Both cost a round of red CI for reasons that had nothing to do
