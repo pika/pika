@@ -5,22 +5,24 @@
 `HISTORY.md` is the changelog, and the release workflow does not touch it. `gh release create --generate-notes` writes the GitHub release body rather than this file, so without this step the documentation site's Changelog page stops at the previous release while PyPI carries the new one.
 
 ```bash
-release changelog --version 1.5.0
+hatch run docs:python .ci/release.py changelog --version 1.5.0
 ```
+
+The rest of this document shortens that to `release`, using the alias defined under [The steps](#the-steps).
 
 That builds the entry from the version's **milestone**, in `.ci/changelog.py`: the closed issues and merged pull requests it carries, plus a sweep of `git log` for merged pull requests that escaped it. It needs no token beyond the `gh` authentication the rest of the release already uses.
 
-It replaced `github_changelog_generator`, which fits pika badly. That tool crawled every tag and every closed issue by date, and pika has tags back to `v0.9a` and a 1,380-line changelog. It also wrote the heading link from the *previous* tag, which is why the committed 1.4.3 entry points at `tree/1.4.2`. Above all it ignored milestones, and pika curates those: 1.5.0 carries 38 closed issues and 84 merged pull requests. See #1731.
+It replaced `github_changelog_generator`, which fits pika badly. That tool crawled every tag and every closed issue by date, and pika has tags back to `v0.9a` and a 1,380-line changelog. It also wrote the heading link from the *previous* tag, which is why the committed 1.4.3 entry points at `tree/1.4.2`. Above all it ignored milestones, and pika curates those. See #1731.
 
 Only the new entry is generated, inserted above the newest existing one. It will not regenerate the whole file, because everything from `## Version History` down is hand-written history for 1.3.0 and earlier; it refuses rather than reaching past that heading.
 
 `--dry-run` prints the entry instead of writing it, which is the way to read it before it lands. Without it, the entry is written and committed on the current branch, which must not be `main`.
 
-`--since-tag` defaults to the newest tag **reachable from HEAD**, which `git describe` answers. The range is "what is new on this branch", and reachability is exactly that question. That is the opposite of how "has this version already shipped" is decided, which is **PEP 440 order**, because 1.4.1 through 1.4.4 were cut from `1.4.x` and are not ancestors of `main`. Reasoning from one rule to the other gives either a changelog that re-lists three released versions or a release that goes backwards; both rules are commented where they live.
+`--since-tag` defaults to the newest **final release reachable from HEAD**, which `release.py`'s `reachable_release` answers by taking every tag merged into HEAD and picking the newest by version order. The range is "what is new on this branch", and reachability is that question. Not `git describe --tags --abbrev=0`, for the reasons `docs/internal/release.md` records. That is also the opposite of how "has this version already shipped" is decided, which is **PEP 440 order**, because 1.4.1 through 1.4.4 were cut from `1.4.x` and are not ancestors of `main`. Reasoning from one rule to the other gives either a changelog that re-lists three released versions or a release that goes backwards; both rules are commented where they live.
 
-**Unmilestoned pull requests are excluded, and reported.** The milestone decides membership, so a pull request carrying none is not in the entry. There are 14 in `1.4.0..main`, mostly dependabot, and the numbers are printed so you can milestone them and re-run rather than discover the omission after publishing. One of them, #1694, is a substantive fix that never got milestoned.
+**Unmilestoned pull requests are excluded, and reported.** The milestone decides membership, so a pull request carrying none is not in the entry. They are mostly dependabot, and the numbers are printed so you can milestone them and re-run rather than discover the omission after publishing. Read that list before committing the entry: at least one substantive fix has turned up in it, #1694, which was milestoned once the report surfaced it.
 
-**Read the result before committing.** Grouping follows labels: `C-enhancement` to "Implemented enhancements", `C-bug` to "Fixed bugs", `A-documentation` to "Documentation", everything else to "Closed issues". An unlabelled issue lands in the catch-all, so this is the one operation whose output wants an editorial pass. `.github/release.yml` maps the same three labels for the GitHub release notes, and a test checks the two agree, because it previously named six labels pika does not have and every pull request fell through its catch-all.
+**Read the result before committing.** Grouping follows labels: `C-enhancement` to "Implemented enhancements", `C-bug` to "Fixed bugs", `A-documentation` to "Documentation", and anything else to "Closed issues" if it is an issue or "Merged pull requests" if it is a pull request. An unlabelled item lands in one of those two, so this is the one operation whose output wants an editorial pass. `.github/release.yml` maps the same three labels for the GitHub release notes, and a test checks the two agree, because it previously named six labels pika does not have and every pull request fell through its catch-all.
 
 Keep the file to a single `# ` heading. It is included verbatim into `docs/changelog.md`, so a second top-level heading becomes a second H1 on that page.
 
@@ -74,7 +76,7 @@ release tag --push
 
 Step 4 is the only irreversible one. Everything before it is a normal pull request that can be amended or abandoned.
 
-Every operation that changes something takes `--dry-run`, which prints the git, `gh` and file changes it would make and makes none of them. `compute`, `classify` and `check` have no such flag because they only read.
+Every operation that changes something takes `--dry-run`, which prints the git, `gh` and file changes it would make and makes none of them: `bump`, `changelog`, `pr` and `tag`. The read-only operations have no such flag, which is `compute`, `classify`, `verify` and `check`.
 
 `--` forwards the rest of the arguments to the tool an operation drives, so `release pr -- --draft --reviewer michaelklishin` adds flags to `gh pr create` without this script growing one for each. **Under `hatch run` you need two**, because `hatch` consumes the first: `release pr -- -- --draft`. Passthrough is placed *before* the flags the operation owns, since both `gh` and the changelog generator take the last occurrence of a repeated flag, so a passthrough `--base` cannot silently retarget the pull request.
 
@@ -207,7 +209,7 @@ A tag carries no review, so these are what stand between a mistyped `git push or
 
 Both sides share one implementation. `release.py tag` calls `tag_release.check` and the workflow calls `release.py verify`, which calls `tag_release.verify_tag`; the two differ only in what they can know, since one runs before the tag exists and the other after. The workflow used to carry its own shell copies instead, and they had drifted: nothing in them asked whether the version moved forwards, even though guard 4 below has always said it did. A hand-pushed `1.4.3` would have passed every check and published `main` under a version lower than `1.4.4`.
 
-1. **The tag is one this scheme publishes.** `X.Y.Z` with an optional canonical `a`/`b`/`rc` segment. `v1.5.0`, `1.5`, `1.5.0.dev3`, `1.5.0.post1`, `1.5.0+local` and `1.05.0` are all refused, the last because `packaging` would normalise it to a version the tag does not spell. The `on.push.tags` glob is deliberately *broader* than that rule, matching anything starting with a digit or `v`, so a refused tag produces a named failing step rather than no workflow run at all. A narrow glob made those tags a silent no-op while this document called them refused
+1. **The tag is one this scheme publishes.** `X.Y.Z` with an optional canonical `a`/`b`/`rc` segment. `v1.5.0`, `1.5`, `1.5.0.dev3`, `1.5.0.post1`, `1.5.0+local` and `1.05.0` are all refused, the last because `packaging` would normalise it to a version the tag does not spell. The `on.push.tags` glob is *broader* than that rule, matching anything starting with a digit or `v`, so a refused tag produces a named failing step rather than no workflow run at all. A narrow glob made those tags a silent no-op while this document called them refused
 2. **The tag matches both version files.** The artifact is built from the files at that commit, not from the tag text, so a disagreement would publish one version under another's name. This catches the realistic mistake: tagging before the bump commit landed, or tagging the wrong commit
 3. **The tagged commit is an ancestor of `origin/main`.** `main` is the only branch whose content passed `tests-passed`
 4. **PyPI does not already hold the version, and the version sorts above the newest released one.** A tag can be deleted and re-pushed; a PyPI version cannot be re-uploaded even after deletion. Only a 404 from PyPI counts as "not published": any other status fails the step, because treating, say, a 503 as a green light would wave an already-published version through to `twine`
@@ -241,9 +243,9 @@ Both the `HISTORY.md` entry and the GitHub release notes group by label, from th
 | `C-enhancement` | Implemented enhancements |
 | `C-bug` | Fixed bugs |
 | `A-documentation` | Documentation |
-| everything else | Closed issues, or Merged pull requests |
+| everything else | `HISTORY.md`: Closed issues, or Merged pull requests. Release notes: Other changes |
 
-`.ci/changelog.py` applies this to the changelog and `.github/release.yml` to the release notes, and a test asserts the two agree on the *mapping*, not merely on the set of labels. `C-refactor`, `C-performance`, `dependencies` and `github_actions` fall to the catch-all deliberately.
+`.ci/changelog.py` applies this to the changelog and `.github/release.yml` to the release notes, and a test asserts the two agree on the *mapping*, not merely on the set of labels. `C-refactor`, `C-performance`, `dependencies` and `github_actions` fall to the catch-all.
 
 This table previously listed `enhancement`, `feature`, `bug`, `fix`, `documentation` and `docs`, none of which pika has: its labels are namespaced `C-` and `A-`. `release.yml` named the same six, so every pull request fell through its catch-all and the generated release notes were never categorised. A maintainer labelling from the old table would have reproduced the bug. See #1731.
 
@@ -377,11 +379,11 @@ Five things about the mapping are deliberate and easy to get wrong:
 - **`to_url` carries `latest/`.** The new site is versioned by `mike` and has no unversioned page paths: `/pika/intro/` is a 404 and `/pika/latest/intro/` is not. The site root is the one exception, because `/pika/` serves a redirect that follows the `latest` alias and so survives an alias change.
 - **`force: true`**, so a rule fires even where the old page still builds, and **`http_status: 301`**, so search engines move their index rather than treating it as temporary.
 - **Verify against the deployed site, never `mkdocs serve`.** A local server has no version directories, so every one of these paths resolves locally whether or not it is right in production.
-- **Directory roots need rules of their own.** Sphinx writes `index.html` but serves `/en/stable/` and `/en/stable/modules/` as directory indexes, and a rule on `/index.html` does not match `/`. Three such paths existed, and they were still serving the retired docs at 200 after every explicit `.html` path already redirected. That is the shape that hides this: the links a mapping is derived from all work, while the URL a person actually types does not, and `/en/stable/` is where the bare `readthedocs.io` domain sends its visitors.
+- **Directory roots need rules of their own.** Sphinx writes `index.html` but serves `/en/stable/` and `/en/stable/modules/` as directory indexes, and a rule on `/index.html` does not match `/`. Three such paths existed, and they were still serving the retired docs at 200 after every explicit `.html` path already redirected. That is the shape that hides this: the links a mapping is derived from all work, while the URL a person types does not, and `/en/stable/` is where the bare `readthedocs.io` domain sends its visitors.
 
 Re-running is safe: matching rules are left alone, differing ones are updated in place, and rules on RTD that the mapping does not describe are reported but never deleted, so anything set by hand in the dashboard survives.
 
-`--verify` probes a wildcard rule with a deliberately unmapped path rather than with its own `from_url`. Substituting `/en/*` builds `https://pika.readthedocs.io/en/stable/en/*`, which the catch-all then answers, so the check would report success having tested nothing.
+`--verify` probes a wildcard rule with an unmapped path rather than with its own `from_url`. Substituting `/en/*` builds `https://pika.readthedocs.io/en/stable/en/*`, which the catch-all then answers, so the check would report success having tested nothing.
 
 Two things confirmed against the live API in October 2026, so they need not be re-derived:
 

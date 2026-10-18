@@ -494,8 +494,8 @@ class ChannelTests(unittest.TestCase):
         )
 
     def test_basic_publish_callback_swallows_channel_wrong_state_error(self):
-        """ChannelWrongStateError inside the scheduled callback must not propagate to the IOLoop —
-        that would crash the IOLoop thread.
+        """ChannelWrongStateError inside the scheduled callback must not propagate to the IOLoop,
+        which would crash the IOLoop thread.
         """
         from pika.exceptions import ChannelWrongStateError
         ch, raw_ch, wrapper = self._make_channel()
@@ -3337,7 +3337,7 @@ class ConnectionTests(unittest.TestCase):
             'already closing')
 
         def run_callback_inline(cb):
-            cb()  # execute synchronously — must not raise
+            cb()  # execute synchronously; must not raise
 
         mock_conn.ioloop.add_callback_threadsafe.side_effect = run_callback_inline
         conn.close()  # must not raise

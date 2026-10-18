@@ -1,11 +1,8 @@
 # Blocking Connection Adapter
 
-> [!WARNING]
-> `BlockingConnection` is deprecated and will be removed in Pika 2.0. Because
-> the calling thread *is* the IOLoop, any blocking user code stalls heartbeats
-> unless `process_data_events()` is called periodically, and the adapter is not
-> thread-safe. Use [`Connection`](thread_safe.md) instead, which runs
-> its own IOLoop on a background thread and provides a thread-safe blocking API.
+!!! warning
+
+    `BlockingConnection` is deprecated and will be removed in Pika 2.0. Because the calling thread *is* the IOLoop, any blocking user code stalls heartbeats unless `process_data_events()` is called periodically, and the adapter is not thread-safe. Use [`Connection`](thread_safe.md) instead, which runs its own IOLoop on a background thread and provides a thread-safe blocking API.
 
 ::: pika.adapters.blocking_connection
 

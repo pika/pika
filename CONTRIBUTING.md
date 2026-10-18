@@ -29,7 +29,7 @@ To run unit tests only (no RabbitMQ required), use
 
     hatch run unit
 
-Tests run in parallel by default via `pytest-xdist` (`-n auto --dist=loadscope`). `loadscope` keeps tests from the same class on the same worker, which some suites (e.g. `tests/unit/io_services_test_stubs_test.py`) require — their `tearDownClass` asserts that every dynamically generated test method ran. Pass `-n 0` to disable parallelism if needed.
+Tests run in parallel by default via `pytest-xdist` (`-n auto --dist=loadscope`). `loadscope` keeps tests from the same class on the same worker, which some suites (e.g. `tests/unit/io_services_test_stubs_test.py`) require, because their `tearDownClass` asserts that every dynamically generated test method ran. Pass `-n 0` to disable parallelism if needed.
 
 To start RabbitMQ via Docker for acceptance tests, use
 
@@ -37,18 +37,22 @@ To start RabbitMQ via Docker for acceptance tests, use
 
 Note that some tests are OS-specific (e.g. epoll on Linux or kqueue on MacOS and BSD). Those will be skipped automatically.
 
-If you would like to run TLS/SSL tests, use the following procedure:
+If you would like to run TLS/SSL tests, the quickest route is a broker in Docker with the TLS config and the test certificates already mounted:
 
-* Create a `rabbitmq.conf` file:
+    hatch run rabbitmq-tls
 
-    ```
-    sed -e "s#PIKA_DIR#$PWD#g" ./testdata/rabbitmq.conf.in > ./testdata/rabbitmq.conf
-    ```
+That listens on 5671 as well as 5672. To run a broker yourself instead, build a config from the shared template:
 
-* Start RabbitMQ and use the configuration file you just created. An example command that works with the `generic-unix` package is as follows:
+* Create a `rabbitmq.conf` from `.ci/rabbitmq.conf.in`, substituting the repository path so the `ssl_options` entries resolve against `tests/certs/`:
 
     ```
-    $ RABBITMQ_CONFIG_FILE=/path/to/pika/testdata/rabbitmq.conf ./sbin/rabbitmq-server
+    sed -e "s#PIKA_DIR#$PWD#g" ./.ci/rabbitmq.conf.in > /tmp/pika-rabbitmq.conf
+    ```
+
+* Start RabbitMQ with it. `RABBITMQ_CONFIG_FILE` takes the path with or without the `.conf` extension: the broker uses the path as given when it names a file that exists, and otherwise appends `.conf` or `.config` and retries. An example that works with the `generic-unix` package:
+
+    ```
+    $ RABBITMQ_CONFIG_FILE=/tmp/pika-rabbitmq.conf ./sbin/rabbitmq-server
     ```
 
 * Run the tests indicating that TLS/SSL connections should be used:

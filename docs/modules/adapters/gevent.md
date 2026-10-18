@@ -1,9 +1,8 @@
 # Gevent Connection Adapter
 
-> [!WARNING]
-> `GeventConnection` is deprecated and will be removed in Pika 2.0. Use
-> [`Connection`](thread_safe.md) instead, which runs its own IOLoop
-> on a background thread and works with any framework, including Gevent.
+!!! warning
+
+    `GeventConnection` is deprecated and will be removed in Pika 2.0. Use [`Connection`](thread_safe.md) instead, which runs its own IOLoop on a background thread and works with any framework, including Gevent.
 
 ::: pika.adapters.gevent_connection
 
