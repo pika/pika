@@ -9,9 +9,10 @@ fully asynchronous: confirm_delivery() takes an ack_nack_callback that the
 broker's Basic.Ack / Basic.Nack frames are delivered to.
 
 That callback is dispatched on the channel's per-channel worker thread - the
-same thread that delivery callbacks use - not the IOLoop thread.  A slow
-confirm handler therefore never stalls heartbeats, and the callback may
-safely call any Channel method.
+same thread that delivery callbacks use - not the IOLoop thread.  Heartbeats
+therefore keep flowing while a confirm handler works, and the callback may
+safely call any Channel method.  A handler that cannot keep pace with the
+confirm rate still blocks the IOLoop once that thread's bounded queue fills.
 
 Each publish is tagged with a monotonically increasing delivery tag, exposed
 via the on_publish callback and the next_publish_seq_no property, matching
