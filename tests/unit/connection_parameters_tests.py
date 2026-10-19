@@ -797,8 +797,6 @@ class URLParametersTests(ParametersTestsBase):
                          pika.URLParameters.DEFAULT_PASSWORD)
 
     def test_uses_default_password_if_only_username_specified(self):
-        # The password is optional in an AMQP URI; `amqp://user@host` names a
-        # user without one.
         for url, username in (('amqp://bob@myserver.mycompany.com', 'bob'),
                               ('amqp://b%40b@myserver.mycompany.com', 'b@b')):
             parameters = pika.URLParameters(url)
