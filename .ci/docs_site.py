@@ -3,8 +3,9 @@ Decisions for the documentation-site deploy workflow.
 
 `mike` records published versions and their aliases in a `versions.json`.
 
-Both subcommands read that structure as JSON on stdin, so the caller can supply either the local
-branch (`mike list --json`) or what is actually published (`git show`).
+Three of the four subcommands read that structure as JSON on stdin, so a caller can supply either
+the local branch (`mike list --json`) or what is published (`git show`); `check-version` needs no
+input.
 
 The alias decision lives here, not in the workflow, because it governs a site-wide change: the
 `latest` alias also backs the site-root redirect and every `latest/` URL compiled into a released
@@ -12,8 +13,8 @@ wheel. Expressed as shell it was both untestable and wrong, comparing versions w
 ranks `1.5.0rc1` above `1.5` and `dev` above everything.
 
 Every failure here is a hard failure. An earlier version treated an unreadable payload as "no
-versions published", which reads as "nothing holds the alias" and hands the alias over: exactly the
-outcome the check exists to prevent.
+versions published", which reads as "nothing holds the alias" and hands the alias over: the outcome
+the check exists to prevent.
 """
 
 from __future__ import annotations

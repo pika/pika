@@ -314,11 +314,11 @@ def reachable_release() -> str:
     """
     Return the newest released tag reachable from HEAD.
 
-    The range a changelog covers is "what is new on this branch", and reachability is exactly that
-    question, so the ancestry of HEAD is right here. It is wrong for "what is the newest released
-    version", which `previous_release` answers by PEP 440 order, because 1.4.1 through 1.4.4 were
-    cut from `1.4.x` and are not ancestors of `main`. Confusing the two produces either a changelog
-    that re-lists three released versions or a release that goes backwards.
+    The range a changelog covers is "what is new on this branch", and reachability is that question,
+    so the ancestry of HEAD is right here. It is wrong for "what is the newest released version",
+    which `previous_release` answers by PEP 440 order, because 1.4.1 through 1.4.4 were cut from
+    `1.4.x` and are not ancestors of `main`. Confusing the two produces either a changelog that
+    repeats three released versions or a release that goes backwards.
 
     Not `git describe --tags --abbrev=0`; docs/internal/release.md records why. Instead: take every
     tag that is an ancestor of HEAD, keep the ones this scheme publishes, and pick the newest by
@@ -766,8 +766,8 @@ def cmd_changelog(args: argparse.Namespace) -> int:
     # line rewrites the file as CRLF on Windows.
     with history.open('w', encoding='utf-8', newline='') as handle:
         # One blank line, because `render` already ends in a newline and every
-        # committed `## [` heading is preceded by exactly one. The old `\n\n`
-        # was correct only for the generator's `.strip()`ed output.
+        # committed `## [` heading has a single blank line before it. The old
+        # `\n\n` was correct only for the generator's `.strip()`ed output.
         handle.write(body[:anchor] + entry + '\n' + body[anchor:])
     print(f'  prepended {len(entry.splitlines())} lines to HISTORY.md')
     run(('git', 'add', 'HISTORY.md'))

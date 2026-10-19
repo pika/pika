@@ -61,9 +61,7 @@ def ack_message(channel, delivery_tag):
 ```
 The code running in the other thread may request the `ack_message()` function to be executed in the connection adapter's I/O loop thread using an adapter-specific mechanism:
 
-- `pika.BlockingConnection` abstracts its I/O loop from the application and
-  thus exposes `pika.BlockingConnection.add_callback_threadsafe()`. Refer to
-  this method's docstring for additional information. For example:
+- `pika.BlockingConnection` abstracts its I/O loop from the application and thus exposes `pika.BlockingConnection.add_callback_threadsafe()`. Refer to this method's docstring for additional information. For example:
 
 ```python
 connection.add_callback_threadsafe(functools.partial(ack_message, channel, delivery_tag))

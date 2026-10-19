@@ -172,7 +172,7 @@ def probe_url(from_url):
 
     A wildcard rule cannot be probed by substituting its own `from_url`: appending `/en/*` to
     `/en/stable` builds `/en/stable/en/*`, which the catch-all then answers, so the check reports
-    success having tested nothing. Probing a deliberately unmapped path instead proves the rule both
+    success having tested nothing. Probing a path no specific rule maps instead proves this one both
     fires and loses to the specific rules above it.
     """
     if '*' in from_url:

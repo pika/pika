@@ -15,10 +15,10 @@ on:
   #
   # 1. A person pushes the tag, not a workflow. Events triggered by
   #    `GITHUB_TOKEN` do not create workflow runs; only `workflow_dispatch` and
-  #    `repository_dispatch` are exempt. #1614 hit exactly this and its commit
-  #    message says "tag push cannot trigger it", which was true of the tag
-  #    *that workflow* pushed and is not true of one pushed from a terminal.
-  #    That same commit kept the tag trigger "for manually pushed tags".
+  #    `repository_dispatch` are exempt. #1614 hit this and its commit message
+  #    says "tag push cannot trigger it", which was true of the tag *that
+  #    workflow* pushed and is not true of one pushed from a terminal. That
+  #    same commit kept the tag trigger "for manually pushed tags".
   # 2. One tag per push. GitHub creates no events at all when more than three
   #    tags are pushed at once, so `release.py tag` pushes a single tag by name
   #    rather than `git push --tags` or `--follow-tags`.
@@ -26,11 +26,11 @@ on:
   #    reads the workflow from the pushed ref, not from the default branch, so
   #    tagging a commit from before this landed would do nothing.
   push:
-    # Deliberately broader than `RELEASABLE_TAG`, which `classify` enforces. A
-    # narrow glob means a tag this scheme refuses starts no run at all: no
-    # annotation, no failure, nothing to notice, while three documents promise it
-    # is "refused". Catch anything that looks like a version or carries the `v`
-    # prefix pika does not use, and let the tested helper reject it by name.
+    # Broader than `RELEASABLE_TAG`, which `classify` enforces. A narrow glob
+    # means a tag this scheme refuses starts no run at all: no annotation, no
+    # failure, nothing to notice, while three documents promise it is "refused".
+    # Catch anything that looks like a version or carries the `v` prefix pika
+    # does not use, and let the tested helper reject it by name.
     tags:
       - '[0-9]*'
       - 'v[0-9]*'
@@ -46,8 +46,8 @@ on:
           #           GitHub Release. Repeatable.
           # dry-run:  compute the version and build, but publish nothing
           #
-          # `release` and `prerelease` are deliberately absent: both come from
-          # pushing a tag, so there is no dispatch that publishes to PyPI.
+          # `release` and `prerelease` are absent: both come from pushing
+          # a tag, so there is no dispatch that publishes to PyPI.
           - dry-run
           - test
       bump:
@@ -70,9 +70,9 @@ on:
 
 # Serialize releases so a tag push and a dispatch cannot publish at once.
 #
-# `queue: max` is as load-bearing here as in `_deploy-docs.yaml`, which explains
-# it at length: under the default `queue: single` GitHub keeps one pending run
-# per group and cancels and replaces any other, which `cancel-in-progress: false`
+# `queue: max` matters as much here as in `_deploy-docs.yaml`, which explains it
+# at length: under the default `queue: single` GitHub keeps one pending run per
+# group and cancels and replaces any other, which `cancel-in-progress: false`
 # does not prevent. A second tag push while the first still ran would evict the
 # first's pending work and publish nothing, silently.
 concurrency:
@@ -303,9 +303,9 @@ jobs:
   smoke-test:
     name: Smoke-test the published wheel
     needs: [release, publish-pypi, publish-test-pypi]
-    # Run for whichever publish actually happened. This is skipped for
-    # dry-run (neither publish ran) and fires for the one publish job whose
-    # index received the wheel.
+    # Run for whichever publish happened. This is skipped for dry-run
+    # (neither publish ran) and fires for the one publish job whose index
+    # received the wheel.
     if: >-
       always() && needs.release.result == 'success' &&
       (needs.publish-pypi.result == 'success' ||

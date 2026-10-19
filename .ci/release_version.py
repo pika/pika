@@ -31,9 +31,8 @@ import re
 
 from packaging.version import InvalidVersion, Version
 
-#: Canonical PEP 440 pre-release segments, spelled exactly. No leading zeros:
-#: `b01` normalizes to `b1`, so the git tag and the version PyPI indexes would
-#: differ.
+#: Canonical PEP 440 pre-release segments. No leading zeros: `b01` normalizes
+#: to `b1`, so the git tag and the version PyPI indexes would differ.
 PRERELEASE_TAG = re.compile(r'^(a|b|rc)(0|[1-9][0-9]*)$')
 
 #: Bumps that move the base version, and the one that does not. `none` exists

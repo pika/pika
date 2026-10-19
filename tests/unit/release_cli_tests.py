@@ -3,7 +3,7 @@ Tests for the release command line in `.ci/release.py`.
 
 The operations that touch the repository are driven through `--dry-run` or with the git layer
 patched, because the point of this file is the argument handling and the refusals, not git. Two
-things here are load-bearing beyond their size.
+things here matter beyond their size.
 
 `classify` is the one operation a machine runs: `release.yaml` appends its stdout straight to
 `$GITHUB_OUTPUT`, so a stray line or a half-written failure becomes a workflow variable holding

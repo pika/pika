@@ -128,7 +128,7 @@ def _rows(raw: str, what: str) -> list:
     :param raw: Captured stdout.
     :param what: The query, for the message.
     :returns: The parsed rows.
-    :raises ChangelogError: if unusable, or exactly `LIMIT` long.
+    :raises ChangelogError: if unusable, or `LIMIT` rows or longer.
     """
     rows = _json(raw, what)
     if len(rows) >= LIMIT:

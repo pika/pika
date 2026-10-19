@@ -37,8 +37,8 @@ jobs:
   # macOS is slow and occasionally flaky, so it is not run across the full
   # matrix like Linux and Windows. This single leg exercises only the latest
   # supported CPython on macos-latest (both TLS modes), enough to keep the
-  # BSD-only KQueuePoller path covered by real runs. Deliberately absent from
-  # the `tests-passed` needs list so a macOS flake does not block a merge; its
+  # BSD-only KQueuePoller path covered by real runs. Absent from the
+  # `tests-passed` needs list so a macOS flake does not block a merge; its
   # coverage still feeds Codecov (see the `coverage` job). Bump the Python
   # version here when a newer stable release joins `test-modern`.
   test-macos:
