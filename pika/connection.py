@@ -682,6 +682,9 @@ class URLParameters(Parameters):
 
          amqp://username:password@host:port/<virtual_host>[?query-string]
 
+    The password may be omitted, as `amqp://username@host`, and the default is
+    used for it.
+
     Ensure that the virtual host is URI encoded when specified. For example if
     you are using the default "/" virtual host, the value should be `%2f`.
 
@@ -776,9 +779,14 @@ class URLParameters(Parameters):
                          if self.ssl_options else self.DEFAULT_PORT)
 
         if parts.username is not None:
-            assert parts.password is not None
+            # The password is optional in an AMQP URI (`amqp://user@host` is
+            # valid), and `urlparse` reports an absent one as None, not ''.
+            if parts.password is None:
+                password = self.DEFAULT_PASSWORD
+            else:
+                password = url_unquote(parts.password)
             self.credentials = pika.credentials.PlainCredentials(
-                url_unquote(parts.username), url_unquote(parts.password))
+                url_unquote(parts.username), password)
 
         # Get the Virtual Host
         if len(parts.path) > 1:
