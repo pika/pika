@@ -2115,13 +2115,9 @@
 <ol>
 <li>Setup the connection to RabbitMQ</li>
 <li>Start the IOLoop</li>
-<li>Once connected, the on_open method will be called by Pika with a handle to
-   the connection. In this method, a new channel will be opened on the connection.</li>
-<li>Once the channel is opened, you can do your other actions, whether they be
-   publishing messages, consuming messages or other RabbitMQ related activities.
-   Here that means declaring the exchange to publish to.</li>
-<li>Once the exchange is declared, publish, then close the connection. Closing it
-   does not stop the IOLoop, so on_close does that and the process exits.</li>
+<li>Once connected, the on_open method will be called by Pika with a handle to the connection. In this method, a new channel will be opened on the connection.</li>
+<li>Once the channel is opened, you can do your other actions, whether they be publishing messages, consuming messages or other RabbitMQ related activities. Here that means declaring the exchange to publish to.</li>
+<li>Once the exchange is declared, publish, then close the connection. Closing it does not stop the IOLoop, so on_close does that and the process exits.</li>
 </ol>
 <div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="kn">import</span><span class="w"> </span><span class="nn">pika</span>
 </span><span id="__span-0-2"><span class="kn">from</span><span class="w"> </span><span class="nn">pika.exchange_type</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExchangeType</span>
