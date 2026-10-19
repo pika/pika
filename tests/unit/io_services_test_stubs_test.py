@@ -79,7 +79,7 @@ class TestStartCalledFromOtherThreadAndWithVaryingNativeLoops(
         self.assertNotEqual(threading.current_thread().ident,
                             self._runner_thread_id)
 
-        # And make sure the loop actually works using this rudimentary test.
+        # And make sure the loop works using this rudimentary test.
         #
         # NOTE: stop is scheduled two turns out rather than one. On Windows,
         # Tornado wraps the Proactor loop in an AddThreadSelectorEventLoop

@@ -920,7 +920,7 @@ class BlockingConnection:
             parameter is NEW in pika 0.10.0.
         """
         with self._acquire_event_dispatch() as dispatch_acquired:
-            # Check if we can actually process pending events
+            # Check whether we can process pending events
             def common_terminator() -> bool:
                 return bool(
                     dispatch_acquired and

@@ -284,7 +284,7 @@ class AbstractFileDescriptorIOServices(AbstractIOServices,
     """
     Combination of `AbstractIOServices` and `AbstractFileDescriptorServices`.
 
-    This is the interface actually required by the socket/stream connectors and transports in
+    This is the interface required by the socket/stream connectors and transports in
     `pika.adapters.utils.io_services_utils`: they rely on the base asynchronous services (e.g.
     `add_callback_threadsafe`) as well as the file-descriptor watcher services (e.g.
     `set_reader`/`set_writer`). The concrete I/O services adapters implement both.

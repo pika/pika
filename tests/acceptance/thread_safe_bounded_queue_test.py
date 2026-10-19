@@ -164,7 +164,7 @@ class TestSlowConsumerKeepingPaceDoesNotOverflow(
 
     This is the back-pressure negative control - it proves the bounded queue
     applies back-pressure to merely-slow consumers rather than tearing the
-    connection down, so overflow is reserved for genuinely stuck callbacks.
+    connection down, so overflow is reserved for stuck callbacks.
     """
 
     def test(self):
