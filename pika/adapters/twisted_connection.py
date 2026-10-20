@@ -131,6 +131,9 @@ class TwistedChannel:
         # We need this mapping to close the ClosableDeferredQueue when a queue
         # is deleted.
         self._queue_name_to_consumer_tags: dict[str, set[str]] = {}
+        # Tags consuming with auto_ack, whose deliveries must not be rejected
+        # when the consumer is cancelled: the broker kept no delivery tag.
+        self._consumers_with_noack: set[str] = set()
         # Whether RabbitMQ delivery confirmation has been enabled
         self._delivery_confirmation = False
         self._delivery_message_id: int | None = None
@@ -203,8 +206,10 @@ class TwistedChannel:
         # queue rather than being rejected by the channel (#1389), and close()
         # discards whatever is pending, so reject them first: nothing else will
         # consume them and the broker holds them unacknowledged until the
-        # channel closes.
-        for pending in list(queue_obj.pending):
+        # channel closes.  Not for an auto_ack consumer, where the broker kept
+        # no delivery tag and answers 406, which closes the channel.
+        for pending in ([] if consumer_tag in self._consumers_with_noack else
+                        list(queue_obj.pending)):
             delivery_tag = getattr(getattr(pending, 'method', None),
                                    'delivery_tag', None)
             if delivery_tag is None:
@@ -218,6 +223,7 @@ class TwistedChannel:
                     delivery_tag,
                     consumer_tag,
                     exc_info=True)
+        self._consumers_with_noack.discard(consumer_tag)
         queue_obj.close(exceptions.ConsumerCancelled())
         del self._consumers[consumer_tag]
         # Remove from the queue-to-ctags index:
@@ -457,6 +463,8 @@ class TwistedChannel:
             self._queue_name_to_consumer_tags.setdefault(
                 queue, set()).add(consumer_tag)
             self._consumers[consumer_tag] = queue_obj
+            if auto_ack:
+                self._consumers_with_noack.add(consumer_tag)
             self._calls.discard(d)
             d.callback((queue_obj, consumer_tag))
 

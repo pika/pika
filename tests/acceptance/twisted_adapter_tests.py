@@ -341,8 +341,12 @@ class TwistedChannelTestCase(TestCase):
     @pytest.mark.timeout(5)
     def test_basic_cancel(self):
         # Verify that basic_cancels calls clean up the consumer queue.
-        queue_obj = mock.Mock()
-        queue_obj_2 = mock.Mock()
+        # Real queues rather than bare Mocks: the cancel reads their pending
+        # deliveries, and a Mock makes that raise.
+        queue_obj = mock.Mock(wraps=ClosableDeferredQueue())
+        queue_obj.pending = []
+        queue_obj_2 = mock.Mock(wraps=ClosableDeferredQueue())
+        queue_obj_2.pending = []
         self.channel._consumers['test-consumer'] = queue_obj
         self.channel._consumers['test-consumer-2'] = queue_obj_2
         self.channel._queue_name_to_consumer_tags.update({
@@ -351,23 +355,26 @@ class TwistedChannelTestCase(TestCase):
         })
         d = self.channel.basic_cancel('test-consumer')
 
-        def check(result):
-            self.assertTrue(isinstance(result, Method))
-            queue_obj.close.assert_called_once()
-            self.assertTrue(
-                isinstance(queue_obj.close.call_args[0][0], ConsumerCancelled))
-            self.assertEqual(len(self.channel._consumers), 1)
-            queue_obj_2.close.assert_not_called()
-            self.assertEqual(
-                self.channel._queue_name_to_consumer_tags['testqueue'], set())
-
-        d.addCallback(check)
         self.pika_channel.basic_cancel.assert_called_once()
         self.pika_channel.basic_cancel.call_args[1]['callback'](Method(
             1, spec.Basic.CancelOk(consumer_tag='test-consumer')))
         assert d.called
 
-    @pytest.mark.timeout(5)
+        # Asserted here rather than in a Deferred callback: this TestCase is a
+        # plain unittest one, so a failure raised in a callback stays in the
+        # Deferred and the test passes with an unhandled-error warning.
+        results = []
+        d.addCallback(results.append)
+        self.assertEqual(len(results), 1)
+        self.assertTrue(isinstance(results[0], Method))
+        queue_obj.close.assert_called_once()
+        self.assertTrue(
+            isinstance(queue_obj.close.call_args[0][0], ConsumerCancelled))
+        self.assertEqual(len(self.channel._consumers), 1)
+        queue_obj_2.close.assert_not_called()
+        self.assertEqual(self.channel._queue_name_to_consumer_tags['testqueue'],
+                         set())
+
     def test_basic_cancel_no_consumer(self):
         # Verify that basic_cancel does not crash if there is no consumer.
         d = self.channel.basic_cancel('test-consumer')
@@ -402,6 +409,29 @@ class TwistedChannelTestCase(TestCase):
             Method(1, spec.Basic.CancelOk(consumer_tag='test-consumer')))
 
         self.pika_channel.basic_reject.assert_called_once_with(7, requeue=True)
+        queue_obj.close.assert_called_once()
+
+    def test_cancel_does_not_reject_for_an_auto_ack_consumer(self):
+        # The broker keeps no delivery tag for an auto_ack delivery, so
+        # rejecting one draws 406 PRECONDITION_FAILED and closes the channel,
+        # taking every other consumer on it down with it.
+        queue_obj = mock.Mock(wraps=ClosableDeferredQueue())
+        queue_obj.pending = [
+            ReceivedMessage(channel=self.channel,
+                            method=spec.Basic.Deliver(delivery_tag=3),
+                            properties=None,
+                            body=b'body')
+        ]
+        self.channel._consumers['noack-consumer'] = queue_obj
+        self.channel._consumers_with_noack.add('noack-consumer')
+        self.channel._queue_name_to_consumer_tags['testqueue'] = {
+            'noack-consumer'
+        }
+
+        self.channel._on_consumer_cancelled(
+            Method(1, spec.Basic.CancelOk(consumer_tag='noack-consumer')))
+
+        self.pika_channel.basic_reject.assert_not_called()
         queue_obj.close.assert_called_once()
 
     def test_consumer_cancelled_by_broker(self):

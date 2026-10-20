@@ -9,8 +9,9 @@ import unittest
 import weakref
 from unittest.mock import ANY, MagicMock, patch
 
-from pika import spec
+from pika import frame, spec
 from pika.adapters.thread_safe_connection import (
+    _CLOSE_HANDSHAKE_FLOOR,
     DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
     Channel,
     Connection,
@@ -29,6 +30,11 @@ from pika.exceptions import (
 #: Stand-in owner for pools built without a `Connection`.  Module level so the
 #: pool's weak reference stays live for the test's duration.
 STANDALONE = type('StandaloneOwner', (), {})()
+
+
+def _cancel_ok(consumer_tag):
+    """A Basic.CancelOk frame for *consumer_tag*, as the broker would send."""
+    return frame.Method(1, spec.Basic.CancelOk(consumer_tag=consumer_tag))
 
 
 class SubmitOrTerminateTests(unittest.TestCase):
@@ -316,37 +322,6 @@ class BoundedWorkPoolTests(unittest.TestCase):
             f'drain() waited {elapsed[0]:.1f}s on its own worker instead of '
             f'refusing at once')
         pool.shutdown(wait=True, timeout=5)
-
-    def test_live_consumer_tags_does_not_wait_for_the_ioloop(self):
-        """
-        Reading the consumers must not depend on the IOLoop answering.
-
-        Marshalling that read onto the IOLoop thread lost messages: the IOLoop stays inside one
-        socket read dispatching a burst of deliveries, each blocking in `submit` against a full
-        queue, so it does not return to its callback queue for longer than any cap worth waiting,
-        and a cap that fires means nothing is cancelled at all. Measured with a 25 ms callback and
-        2000 messages, a 5 s cap lost 1543 of them.
-        """
-        raw_ch = MagicMock()
-        raw_ch.channel_number = 1
-        raw_ch._consumers = {'a': None, 'b': None}
-        raw_ch._cancelled = {'b'}
-        wrapper = MagicMock()
-        wrapper._connection._error = None
-        # Nothing scheduled on the IOLoop ever runs, standing in for one that is
-        # wedged in submit or has crashed.
-        wrapper._schedule_unchecked.side_effect = lambda cb: None
-        ch = Channel(raw_ch, wrapper)
-
-        started = time.monotonic()
-        tags = ch._live_consumer_tags(timeout=None)
-        elapsed = time.monotonic() - started
-
-        self.assertEqual(tags, ['a'])
-        self.assertLess(
-            elapsed, 1,
-            f'reading the consumers took {elapsed:.1f}s, so it is waiting on '
-            f'the IOLoop and a busy one will cost the cancellations')
 
     def test_drain_gives_up_on_a_dead_worker_with_a_full_queue(self):
         """
@@ -2671,7 +2646,7 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
             # A real basic_cancel records the tag before sending the frame, and
             # the wrapper checks that to tell a sent cancel from a no-op one.
             raw_ch._cancelled.add(kw['consumer_tag'])
-            kw['callback'](None)
+            kw['callback'](_cancel_ok(kw['consumer_tag']))
 
         raw_ch.basic_cancel.side_effect = answer_cancel
         captured = {}
@@ -2713,11 +2688,10 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
             asked.append(kw['consumer_tag'])
             # A real basic_cancel records the tag before sending the frame.
             raw_ch._cancelled.add(kw['consumer_tag'])
-            kw['callback'](None)
+            kw['callback'](_cancel_ok(kw['consumer_tag']))
 
         raw_ch.basic_cancel.side_effect = record
 
-        self.assertEqual(ch._live_consumer_tags(timeout=5), ['live'])
         ch._cancel_consumers(deadline=None)
         self.assertEqual(
             asked, ['live'],
@@ -2743,10 +2717,11 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
 
         def defer_reply(**kw):
             raw_ch._cancelled.add(kw['consumer_tag'])
-            replies.append(kw['callback'])
+            replies.append((kw['callback'], kw['consumer_tag']))
 
         raw_ch.basic_cancel.side_effect = defer_reply
-        threading.Timer(0.4, lambda: replies[0](None)).start()
+        threading.Timer(0.4, lambda: replies[0][0]
+                        (_cancel_ok(replies[0][1]))).start()
 
         started = time.monotonic()
         ch._cancel_consumers(deadline=time.monotonic() + 30)
@@ -2759,6 +2734,47 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
         self.assertLess(
             elapsed, 5,
             f'the cancel took {elapsed:.1f}s after its reply arrived at 0.4s')
+
+    def test_a_foreign_cancel_ok_does_not_end_the_wait(self):
+        """
+        Only this sweep's own replies may satisfy it.
+
+        The underlying `basic_cancel` registers its `Basic.CancelOk` callback with no arguments, so
+        it runs for every CancelOk on the channel. Counting those down ended the wait early, and
+        because `Basic.Cancel` is synchronous that left this sweep's later cancels sitting unsent in
+        the channel's blocked queue while their consumers kept receiving.
+        """
+        ch, raw_ch, wrapper = self._make_channel()
+        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
+        wrapper._ioloop_thread.is_alive.return_value = True
+        wrapper._closed_reason = None
+        raw_ch._consumers = {'mine': None}
+        raw_ch._cancelled = set()
+        raw_ch.is_closed = False
+        replies = []
+
+        def defer(**kw):
+            raw_ch._cancelled.add(kw['consumer_tag'])
+            replies.append((kw['callback'], kw['consumer_tag']))
+
+        raw_ch.basic_cancel.side_effect = defer
+
+        def answer():
+            # A user cancel on another thread completes first; its reply must
+            # not be taken for ours.
+            replies[0][0](_cancel_ok('someone-elses'))
+            time.sleep(0.3)
+            replies[0][0](_cancel_ok('mine'))
+
+        threading.Timer(0.1, answer).start()
+        started = time.monotonic()
+        ch._cancel_consumers(deadline=time.monotonic() + 30)
+        elapsed = time.monotonic() - started
+
+        self.assertGreater(
+            elapsed, 0.35,
+            f'the wait ended after {elapsed:.2f}s, on a CancelOk for another '
+            f'consumer rather than on its own')
 
     def test_cancel_gives_up_when_the_ioloop_thread_dies(self):
         """
@@ -2839,7 +2855,7 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
         elapsed = time.monotonic() - started
 
         self.assertLess(
-            elapsed, 1.6,
+            elapsed, 1.0 + _CLOSE_HANDSHAKE_FLOOR + 0.5,
             f'close(timeout=1) took {elapsed:.2f}s, so the pool shutdown was '
             f'handed a second full budget')
 
@@ -2865,8 +2881,10 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
         ch.close(timeout=1)
         elapsed = time.monotonic() - started
 
+        # The budget plus the close handshake's floor, and no more: handing a
+        # phase the full timeout again would double it.
         self.assertLess(
-            elapsed, 1.5,
+            elapsed, 1.0 + _CLOSE_HANDSHAKE_FLOOR + 0.5,
             f'close(timeout=1) took {elapsed:.2f}s, so a phase was handed the '
             f'full timeout instead of the remaining budget')
 

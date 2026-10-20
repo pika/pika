@@ -578,48 +578,6 @@ class Channel:
                 '%s seconds; abandoning its worker thread',
                 self._channel.channel_number, timeout)
 
-    def _live_consumer_tags(self, timeout: float | None) -> list[str]:
-        """
-        Snapshot the tags the underlying channel still has a consumer for.
-
-        Read from the calling thread, retrying a torn read rather than asking the IOLoop thread for
-        it.  Marshalling the read was tried and lost messages: the IOLoop sits inside a single
-        socket read dispatching a burst of deliveries, each blocking in ``submit`` against a full
-        queue, so it does not return to its callback queue for far longer than any cap worth
-        waiting, and a cap that fires means nothing is cancelled and the broker keeps dispatching.
-        Measured with a 25 ms callback and 2000 messages, a 5 s cap lost 1543 of them, which is what
-        not cancelling costs.
-
-        The read is only mutated on the IOLoop thread, so the worst case is a stale answer or a
-        `RuntimeError` from iterating during a mutation; the retry covers the second and the per-
-        cancel bound in :meth:`_cancel_consumers` covers the first.
-
-        Tags already in ``_cancelled`` are excluded: the underlying ``basic_cancel`` logs and
-        returns without sending a frame for those, leaving the caller waiting for a reply nobody
-        asked for (#1763).
-
-        :param timeout: Unused; kept so callers can pass their remaining budget without caring that
-            this no longer waits for anything.
-        :returns: The tags with a live consumer, or an empty list if every read tore.
-        """
-        del timeout  # The read does not wait, so there is no budget to spend.
-        for _ in range(5):
-            try:
-                cancelled = set(self._channel._cancelled)
-                return [
-                    tag for tag in list(self._channel._consumers)
-                    if tag not in cancelled
-                ]
-            except RuntimeError:
-                # Mutated by the IOLoop thread mid-iteration; the window is a
-                # few instructions, so retrying beats locking a mapping the
-                # underlying channel does not lock either.
-                continue
-        LOGGER.warning(
-            'Channel %s could not read its consumers; closing without '
-            'cancelling them', self._channel.channel_number)
-        return []
-
     def _cancel_consumers(self, deadline: float | None) -> None:
         """
         Cancel every consumer this channel still has, so the broker stops dispatching.
@@ -639,12 +597,16 @@ class Channel:
             return max(0.0, deadline - time.monotonic())
 
         done = threading.Event()
-        outstanding = [0]
-        issued = threading.Event()
+        pending: set[str] = set()
 
-        def _reply(_frame) -> None:
-            outstanding[0] -= 1
-            if outstanding[0] <= 0:
+        def _reply(frame) -> None:
+            # Matched by tag, not counted: the underlying basic_cancel registers
+            # its Basic.CancelOk callback with no arguments, so this runs for
+            # every CancelOk on the channel, including one a user cancel on
+            # another thread asked for.  Counting those down ended the wait with
+            # this sweep's later cancels still unsent (#1763).
+            pending.discard(getattr(frame.method, 'consumer_tag', None))
+            if not pending:
                 done.set()
 
         def _cancel_all() -> None:
@@ -659,23 +621,22 @@ class Channel:
                         if t not in self._channel._cancelled
                 ]:
                     try:
-                        outstanding[0] += 1
+                        pending.add(tag)
                         self._channel.basic_cancel(consumer_tag=tag,
                                                    callback=_reply)
                         if tag not in self._channel._cancelled:
                             # It returned without sending, so no reply is
                             # coming.  The converse is not a sound test: the tag
                             # is recorded before the frame goes out.
-                            outstanding[0] -= 1
+                            pending.discard(tag)
                     except Exception:
-                        outstanding[0] -= 1
+                        pending.discard(tag)
                         LOGGER.debug('Quiesce: cancelling consumer %s failed',
                                      tag,
                                      exc_info=True)
             finally:
-                if outstanding[0] <= 0:
+                if not pending:
                     done.set()
-                issued.set()
 
         self._wrapper._schedule_unchecked(_cancel_all)
         # Liveness as well as the budget: the replies come from the IOLoop
@@ -689,8 +650,6 @@ class Channel:
             with self._wrapper._channel_waiters_lock:
                 if self._wrapper._closed_reason is not None:
                     return
-            if issued.is_set() and self._channel.is_closed:
-                return
             budget = _remaining()
             if budget is not None and budget <= 0:
                 LOGGER.warning(
@@ -725,6 +684,9 @@ class Channel:
             0.0, deadline - time.monotonic()))
         pool = self._consumer_work_pool
         if pool.drain(timeout=remaining):
+            return
+        if pool._shutdown:
+            # Already drained by an earlier close; nothing was left to run.
             return
         if pool._thread is threading.current_thread():
             # A callback closing its own channel cannot wait for a marker queued
@@ -1757,11 +1719,13 @@ class Channel:
 
         *timeout* bounds the whole call, shared across the cancellations, the queued callbacks, the
         wait for Channel.CloseOk and the pool shutdown, so a slow or wedged delivery callback cannot
-        stall ``close`` past *timeout*.  No phase is given a reserved share of it: a cancellation's
-        reply and a drain both take as long as the worker needs to consume the backlog, so a share
-        caps them below the work they are waiting on.  A worker still running when the budget is
-        exhausted is left to finish on its own (it is a daemon thread), and what it has not
-        acknowledged the broker redelivers.
+        stall ``close`` past *timeout* plus one second.  That second is a floor on the wait for
+        Channel.CloseOk: the pool shutdown that follows makes the pool reject at ``submit``, and a
+        delivery rejected there is discarded, so the channel has to be closed first.  No phase is
+        given a reserved share of it: a cancellation's reply and a drain both take as long as the
+        worker needs to consume the backlog, so a share caps them below the work they are waiting
+        on.  A worker still running when the budget is exhausted is left to finish on its own (it is
+        a daemon thread), and what it has not acknowledged the broker redelivers.
 
         :param reply_code: Close reason code to send to the broker.
         :param reply_text: Close reason text to send to the broker.
@@ -1805,14 +1769,35 @@ class Channel:
             # the acknowledgements they issue still have a live channel (#1763).
             self._quiesce(deadline)
             self._wrapper._schedule_unchecked(_close)
-            # Every phase shares the caller's budget, so the whole close honors
-            # *timeout* rather than some multiple of it.
-            if not ready.wait(timeout=_remaining()):
+            # The phases share the caller's budget, except that the close itself
+            # gets a floor: shutting the pool down below makes it reject at
+            # submit, and a delivery rejected there is discarded, so the channel
+            # has to be closed first.  A quiesce that spent the whole budget
+            # would otherwise leave this zero and drop whatever the broker was
+            # still dispatching (#1763).  The floor is one round trip, which
+            # does not depend on the backlog.
+            if deadline is None:
+                close_wait: float | None = None
+            else:
+                close_wait = max(_CLOSE_HANDSHAKE_FLOOR,
+                                 deadline - time.monotonic())
+            if not ready.wait(timeout=close_wait):
                 LOGGER.warning('Channel %s close timed out after %s seconds',
                                self._channel.channel_number, timeout)
-            # The quiesce above ran the backlog; this shuts the pool down and
-            # picks up anything that arrived while the channel was closing.
-            self._shutdown_pool(timeout=_remaining())
+            if ready.is_set():
+                # The quiesce ran the backlog; this picks up anything that
+                # arrived while the channel was closing.
+                self._shutdown_pool(timeout=_remaining())
+            else:
+                # The channel is not closed, so the broker may still be
+                # dispatching.  Shutting the pool down here would make submit
+                # reject those deliveries, and a rejected one is discarded, so
+                # leave it to the connection's own sweep once the IOLoop has
+                # stopped and nothing more can arrive (#1763).
+                LOGGER.warning(
+                    'Channel %s did not close within the budget; its consumer '
+                    'work pool is left for the connection to shut down',
+                    self._channel.channel_number)
         finally:
             self._unregister_waiter(ready, error)
 
@@ -2309,10 +2294,11 @@ class Connection:
         :param timeout: Seconds for a clean close before force-stopping the IOLoop, shared across
             the cancellations, the queued callbacks and the join. Defaults to 10 seconds, which is
             sufficient for a healthy broker on any reasonable network. The pathological force path
-            may wait up to twice this (once for the clean phases and join, once for the forced
-            join). Pass ``None`` to wait indefinitely. On a pool worker thread it is enforced
-            asynchronously without blocking the worker, and the queued callbacks are not run first,
-            since a worker cannot wait for its own queue.
+            may wait up to twice this plus one second (once for the clean phases and join, once for
+            the forced join, and a floor on the close handshake so a drain that spent the budget
+            cannot leave it nothing). Pass ``None`` to wait indefinitely. On a pool worker thread it
+            is enforced asynchronously without blocking the worker, and the queued callbacks are not
+            run first, since a worker cannot wait for its own queue.
         """
         if threading.current_thread() is self._ioloop_thread:
             try:
