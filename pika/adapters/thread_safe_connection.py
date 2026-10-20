@@ -19,6 +19,7 @@ import logging
 import queue
 import threading
 import time
+import weakref
 from threading import Event
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -196,6 +197,9 @@ class _BoundedWorkPool:
         finite; an infinite (``None``) timeout would let a full queue block
         the IOLoop thread forever.
     :param thread_name: Name of the worker thread.
+    :param owner: The `Connection` whose IOLoop thread this pool's worker must not join.  Held
+        weakly and stamped on the worker thread, so a callback can ask whose worker it is in O(1).
+        The per-channel pools pass their connection, not their channel.
     """
 
     # Best-effort wakeup ping enqueued by shutdown() to rouse a worker idling
@@ -204,11 +208,15 @@ class _BoundedWorkPool:
     # queue) is harmless - a busy worker re-checks the flag between items.
     _SENTINEL = object()
 
-    def __init__(self, maxsize: int, put_timeout: float,
-                 thread_name: str) -> None:
+    def __init__(self, maxsize: int, put_timeout: float, thread_name: str,
+                 owner: Connection) -> None:
         self._queue: queue.Queue[Any] = queue.Queue(maxsize=maxsize)
         self._put_timeout = put_timeout
         self._thread_name = thread_name
+        # Both edges stay weak -- here, and the stamp in submit() holds this
+        # ref rather than its referent: a running thread is a GC root, so
+        # either held strongly would pin the connection and its socket (#1761).
+        self._owner = weakref.ref(owner)
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
         self._shutdown = False
@@ -229,6 +237,8 @@ class _BoundedWorkPool:
                     name=self._thread_name,
                     daemon=True,
                 )
+                # Read back by Connection._is_pool_worker_thread (#1761).
+                self._thread._pika_pool_owner = self._owner  # type: ignore[attr-defined]
                 self._thread.start()
         try:
             self._queue.put((fn, args), timeout=self._put_timeout)
@@ -388,6 +398,7 @@ class Channel:
             maxsize=work_queue_maxsize,
             put_timeout=work_queue_put_timeout,
             thread_name='pika-consumer',
+            owner=wrapper,
         )
         self._pool_shutdown = False
         self._next_publish_seq_no: int | None = None
@@ -1683,6 +1694,7 @@ class Connection:
             maxsize=work_queue_maxsize,
             put_timeout=work_queue_put_timeout,
             thread_name=f'pika-conn-{self._instance_id}',
+            owner=self,
         )
         self._connection_pool_shutdown = False
 
@@ -1815,23 +1827,17 @@ class Connection:
         True if the calling thread is one of this connection's pool worker threads.
 
         Covers every channel's consumer worker plus the connection's own event-callback worker
-        ([`_connection_work_pool`][pika.adapters.thread_safe_connection.Connection._connection_work_pool]).  [`close`][pika.adapters.thread_safe_connection.Channel.close] uses this to detect that it is running from
-        inside a delivery/event callback so it can avoid joining [`_ioloop_thread`][pika.adapters.thread_safe_connection.Connection._ioloop_thread]: that thread's
-        post-``ioloop.start()`` cleanup tail ([`_shutdown_all_consumer_pools`][pika.adapters.thread_safe_connection.Connection._shutdown_all_consumer_pools],
-        [`_shutdown_connection_pool`][pika.adapters.thread_safe_connection.Connection._shutdown_connection_pool]) joins every pool worker in turn, including this one, so
-        joining it here would deadlock each thread waiting on the other (issue #1686).
+        ([`_connection_work_pool`][pika.adapters.thread_safe_connection.Connection._connection_work_pool]).  [`close`][pika.adapters.thread_safe_connection.Channel.close] uses it to avoid joining
+        [`_ioloop_thread`][pika.adapters.thread_safe_connection.Connection._ioloop_thread] from inside a delivery or event callback, which would deadlock
+        against the IOLoop thread's own cleanup tail joining that same worker (issue #1686).
 
-        Reading each pool's ``_thread`` without its lock is safe here: a worker only executes this
-        check from within its own run loop, by which point ``_thread`` was already assigned (under
-        the pool's lock, before ``start()``) by the thread that created it - that assignment
-        happens-before anything the worker itself observes.
+        The answer is a stamp each pool puts on its worker thread, not a search of any collection: a
+        thread is one of our workers for as long as it runs, and a registry that gets pruned cannot
+        express that.  See `docs/internal/thread-safe-connection.md` for the window this closes and
+        the design it replaced (#1761).
         """
-        current = threading.current_thread()
-        if current is self._connection_work_pool._thread:
-            return True
-        with self._channel_waiters_lock:
-            channels = list(self._channels)
-        return any(current is ch._consumer_work_pool._thread for ch in channels)
+        owner = getattr(threading.current_thread(), '_pika_pool_owner', None)
+        return owner is not None and owner() is self
 
     def _shutdown_connection_pool(self, timeout: float | None = None) -> None:
         """
@@ -2002,7 +2008,10 @@ class Connection:
         self._connection.ioloop.add_callback_threadsafe(_safe_close)
 
         if is_pool_worker:
-            # The IOLoop cleanup joins this worker, so the worker must not join it.
+            # The IOLoop thread's cleanup tail joins this worker, so joining
+            # that thread from here would deadlock both (#1686). The close is
+            # already scheduled. What this forfeits is on
+            # docs/internal/thread-safe-connection.md.
             return
 
         self._ioloop_thread.join(timeout=timeout)
