@@ -893,12 +893,19 @@ class TestCloseUnderBackPressureLosesNothing(ThreadSafeTestCaseBase):
             time.sleep(0.01)
         queued = ch._consumer_work_pool._queue.qsize()
         conn.close(timeout=BLOCKING_CALL_TIMEOUT * 3)
-        time.sleep(1.0)
+        # Counted the instant close() returns, with no settling time: the
+        # contract is that the queued callbacks have run by then. Allowing the
+        # daemon worker to catch up afterwards would let a close that cancelled
+        # nothing pass on the strength of work it did after returning.
         with lock:
             delivered = len(ran)
 
-        self.assertEqual(
-            queued, self.MAXSIZE,
+        # Near-full rather than exactly full: the worker can take an item
+        # between the sample and the close, which is what made this fail on
+        # Windows and macOS. What the test needs is a queue deep enough that
+        # the IOLoop is blocked in submit, not an exact depth.
+        self.assertGreaterEqual(
+            queued, self.MAXSIZE - 2,
             f'the work queue held {queued} of {self.MAXSIZE} at close, so the '
             f'back-pressure this test needs was not present')
         remaining = self._ready_count(queue)
