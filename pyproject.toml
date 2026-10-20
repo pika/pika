@@ -207,6 +207,10 @@ addopts = [
     "--strict-config",
     "--tb=short",
 ]
+# A test that waits on something which can stop being able to answer should
+# fail rather than stall the run. Generous enough that no current test is near
+# it; the slowest acceptance test is a few seconds.
+timeout = 300
 filterwarnings = [
     "ignore:.*will be removed in Pika 2\\.0:DeprecationWarning",
 ]
