@@ -43,6 +43,14 @@ The `on_message_callback` registered with `basic_consume` is dispatched on a per
 - Messages are delivered to the callback in order (single worker thread per channel)
 - All `Channel` methods (`basic_ack`, `basic_nack`, `basic_reject`, `basic_publish`) are safe to call from within the callback
 
+## What a close does to queued callbacks
+
+`Connection.close` and `Channel.close` cancel the channel's consumers, wait for the broker to confirm each cancellation, and then run the callbacks already queued before closing anything. A delivery that has reached the client is therefore passed to your callback, and the acknowledgement that callback issues still reaches the broker. Note that closing a channel or connection cancels its consumers, which is visible to the broker and to anything watching consumer counts.
+
+All of it is bounded by the `timeout` you pass to `close`, shared across the cancellations, the queued callbacks and the close itself. A `Connection.close` whose broker never answers can take up to twice that, because force-stopping the IOLoop is given a second budget. If the budget runs out with callbacks still queued, the close proceeds and a warning names the pool. The queued callbacks still run, on a daemon thread that is no longer waited for, so they are lost only if the process exits first; what they can no longer do is acknowledge anything. Anything unacknowledged is redelivered by the broker, while with `auto_ack=True` the broker has already discarded its copy. Pass `timeout=None` to wait as long as the callbacks take.
+
+Two cases skip this and behave as they did before 1.5.0, running queued callbacks after the teardown instead: `close()` called from the connection's own IOLoop thread, and `close()` called from inside a delivery or event callback, where waiting for the queue would mean waiting for the calling callback to return.
+
 ## Work queue bounds and back-pressure
 
 Each worker thread consumes from a bounded queue holding at most `work_queue_maxsize` pending dispatches (default 1000, matching the RabbitMQ Java client). When a slow callback lets the queue fill up, further enqueues block the IOLoop thread, which stops reading from the socket and applies back-pressure to the broker through TCP flow control instead of buffering events in memory without limit.
