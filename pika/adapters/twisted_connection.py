@@ -198,7 +198,27 @@ class TwistedChannel:
             LOGGER.warning('basic_cancel - consumer not found: %s',
                            consumer_tag)
             return frame
-        self._consumers[consumer_tag].close(exceptions.ConsumerCancelled())
+        queue_obj = self._consumers[consumer_tag]
+        # Deliveries that arrived while the cancel was in flight now reach this
+        # queue rather than being rejected by the channel (#1389), and close()
+        # discards whatever is pending, so reject them first: nothing else will
+        # consume them and the broker holds them unacknowledged until the
+        # channel closes.
+        for pending in list(queue_obj.pending):
+            delivery_tag = getattr(getattr(pending, 'method', None),
+                                   'delivery_tag', None)
+            if delivery_tag is None:
+                continue
+            try:
+                self._channel.basic_reject(delivery_tag, requeue=True)
+            except Exception:
+                LOGGER.debug(
+                    'Could not reject delivery %s for cancelled '
+                    'consumer %s',
+                    delivery_tag,
+                    consumer_tag,
+                    exc_info=True)
+        queue_obj.close(exceptions.ConsumerCancelled())
         del self._consumers[consumer_tag]
         # Remove from the queue-to-ctags index:
         for ctags in self._queue_name_to_consumer_tags.values():

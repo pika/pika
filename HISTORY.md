@@ -4,7 +4,7 @@ Notes for each release are also published on the [GitHub releases page](https://
 
 ## Upgrading to 1.5.0
 
-Three changes are worth reading before you upgrade. None is a behaviour change to a working application, but two can turn a passing build red.
+Four changes are worth reading before you upgrade. Two can turn a passing build red, and one changes what a working application observes when it cancels a consumer.
 
 ### `pika.Connection` is new, and is the connection to use
 
@@ -41,6 +41,12 @@ python -W 'ignore:BlockingConnection is deprecated' your_app.py
 ```
 
 or migrate to `Connection`, which runs its own IOLoop on a background thread and provides a thread-safe blocking API that does not stall heartbeats on slow message processing.
+
+### Cancelling a consumer no longer rejects the messages still arriving for it
+
+A `Basic.Cancel` does not stop the broker immediately: the specification allows it to keep dispatching until it sends `Basic.CancelOk`, and pika used to reject every delivery that arrived in that window, or discard it outright for an `auto_ack` consumer. Discarding loses the message, because an `auto_ack` delivery has no copy left at the broker, and rejecting is a decision pika was making on your behalf that no other client makes. Measured on RabbitMQ 4.3.6, closing a channel with an `auto_ack` consumer part way through 400 messages of 8 KiB: 245 to 339 of them lost across runs, and none after this change. Body size decides whether the loss appears at all, because a stream that fits in one socket read is fully dispatched before the cancel lands: at 64 bytes nothing is lost even before this change.
+
+Those deliveries are now passed to your callback instead, which is what the Java client does. Two things follow for existing code. A consumer callback can now run for a message that arrives after you called `basic_cancel`, so a callback that assumed cancellation was immediate may see one more delivery than before. `BlockingChannel.basic_cancel` still rejects them for an `auto_ack=False` consumer, so they return to the queue at once as before, and its return value is unchanged; the channel no longer does that rejecting, the wrapper does. The generator-style `BlockingChannel.cancel` discards them instead, which #1767 covers.
 
 ### `pika.spec` is now annotated, which may fail your type checker
 

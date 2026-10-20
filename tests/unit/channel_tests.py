@@ -229,22 +229,20 @@ class ChannelTests(unittest.TestCase):
         self.assertTrue(self.obj._rpc.called)
         self.assertFalse(self.callbacks.add.called)
 
-    def _cancel_nowait(self, consumer_tag, auto_ack=True):
+    def _cancel_nowait(self, consumer_tag):
         """Register a consumer, then cancel it with nowait."""
         self.obj._consumers[consumer_tag] = logging.debug
-        if auto_ack:
-            self.obj._consumers_with_noack.add(consumer_tag)
         self.obj.basic_cancel(consumer_tag=consumer_tag)
 
     def test_basic_cancel_asynch_retains_tag(self):
-        # The tag is kept so a delivery already in flight is rejected rather
-        # than left unacknowledged; see Channel._on_deliver.
+        # The tag is kept so basic_consume cannot reissue it while a delivery
+        # dispatched before the cancel is still arriving, and the callback is
+        # kept so that delivery still has somewhere to go; see _on_deliver.
         self.obj._set_state(self.obj.OPEN)
         self._cancel_nowait('ctag0')
 
         self.assertIn('ctag0', self.obj._cancelled)
-        self.assertIn('ctag0', self.obj._consumers_with_noack)
-        self.assertNotIn('ctag0', self.obj._consumers)
+        self.assertIn('ctag0', self.obj._consumers)
         self.assertEqual(list(self.obj._nowait_cancelled), ['ctag0'])
 
     def test_basic_cancel_asynch_evicts_oldest_tag_beyond_cap(self):
@@ -258,8 +256,6 @@ class ChannelTests(unittest.TestCase):
         self.assertEqual(list(self.obj._nowait_cancelled),
                          ['ctag2', 'ctag3', 'ctag4'])
         self.assertEqual(self.obj._cancelled, {'ctag2', 'ctag3', 'ctag4'})
-        self.assertEqual(self.obj._consumers_with_noack,
-                         {'ctag2', 'ctag3', 'ctag4'})
 
     def test_basic_cancel_asynch_retention_is_bounded_by_default(self):
         self.obj._set_state(self.obj.OPEN)
@@ -269,7 +265,6 @@ class ChannelTests(unittest.TestCase):
             self._cancel_nowait(f'ctag{index}')
 
         self.assertEqual(len(self.obj._cancelled), cap)
-        self.assertEqual(len(self.obj._consumers_with_noack), cap)
         self.assertEqual(len(self.obj._nowait_cancelled), cap)
 
     def test_basic_cancel_asynch_evicted_tag_may_be_reused(self):
@@ -284,15 +279,78 @@ class ChannelTests(unittest.TestCase):
         self.assertIn('ctag0', self.obj._consumers)
         self.assertNotIn('ctag0', self.obj._cancelled)
 
+    def test_consumer_tags_excludes_a_cancelled_consumer(self):
+        # The callback is kept past a cancel so an in-flight delivery still
+        # reaches it, but the consumer is no longer active, and callers from
+        # TwistedChannel to Connection's close read this to decide what to
+        # cancel (#1389).
+        self.obj._set_state(self.obj.OPEN)
+        self.obj._consumers['live'] = logging.debug
+        self.obj._consumers['gone'] = logging.debug
+        self.obj.basic_cancel(consumer_tag='gone')
+
+        self.assertIn('gone', self.obj._consumers)
+        self.assertEqual(self.obj.consumer_tags, ['live'])
+
+    def test_delivery_in_the_cancel_window_reaches_the_consumer(self):
+        # A cancel that expects Basic.CancelOk keeps the consumer registered
+        # until the reply arrives, so a delivery the broker had already
+        # dispatched must still be handled rather than rejected (#1389).
+        self.obj._set_state(self.obj.OPEN)
+        received = []
+        self.obj._consumers['ctag0'] = lambda *args: received.append(args)
+        self.obj.basic_cancel('ctag0', callback=mock.Mock())
+        self.assertIn('ctag0', self.obj._cancelled)
+
+        method = frame.Method(self.obj.channel_number,
+                              spec.Basic.Deliver('ctag0', 1))
+        header = frame.Header(self.obj.channel_number, 10,
+                              spec.BasicProperties())
+        with mock.patch.object(self.obj, 'basic_reject') as reject:
+            self.obj._on_deliver(method, header, b'body')
+
+        self.assertEqual(
+            len(received), 1,
+            'the delivery never reached the consumer, so it was '
+            'dropped in the cancel window')
+        self.assertEqual(received[0][3], b'body')
+        reject.assert_not_called()
+
+    def test_nowait_cancelled_consumer_still_receives_a_delivery_in_flight(
+            self):
+        # A nowait cancel has no CancelOk to order against, so the broker may
+        # already have dispatched a delivery. Dropping it would lose the only
+        # copy of an auto_ack message, so the callback is kept and the delivery
+        # reaches it (#1389).
+        self.obj._set_state(self.obj.OPEN)
+        received = []
+        self.obj._consumers['ctag0'] = lambda *args: received.append(args)
+        self.obj.basic_cancel(consumer_tag='ctag0')
+        self.assertIn('ctag0', self.obj._cancelled)
+
+        method = frame.Method(self.obj.channel_number,
+                              spec.Basic.Deliver('ctag0', 1))
+        header = frame.Header(self.obj.channel_number, 10,
+                              spec.BasicProperties())
+        with mock.patch.object(self.obj, 'basic_reject') as reject:
+            self.obj._on_deliver(method, header, b'body')
+
+        self.assertEqual(
+            len(received), 1,
+            'the delivery was dropped, so an auto_ack message '
+            'would have been lost')
+        self.assertEqual(received[0][3], b'body')
+        reject.assert_not_called()
+
     def test_basic_cancel_asynch_evicted_tag_delivery_is_not_rejected(self):
-        # Once a tag is evicted past the cap its retention lapses: a straggling
-        # delivery for it can no longer be rejected, so _on_deliver logs it as
-        # unexpected and leaves it unacknowledged. This documents the residual
-        # window the cap trades for bounded retention.
+        # Once a tag is evicted past the cap the reservation lapses, so a
+        # straggling delivery for it is logged as unexpected rather than as a
+        # cancelled consumer's. Either way it is left unacknowledged for the
+        # broker to redeliver, and nothing is rejected.
         self.obj._set_state(self.obj.OPEN)
         self.obj._MAX_RETAINED_CANCELLED_TAGS = 1
-        self._cancel_nowait('ctag0', auto_ack=False)
-        self._cancel_nowait('ctag1', auto_ack=False)
+        self._cancel_nowait('ctag0')
+        self._cancel_nowait('ctag1')
 
         self.assertNotIn('ctag0', self.obj._cancelled)
         self.assertNotIn('ctag0', self.obj._consumers)
@@ -1367,7 +1425,6 @@ class ChannelTests(unittest.TestCase):
 
         self.assertEqual(self.obj._consumers, {})
         self.assertEqual(self.obj._cancelled, set())
-        self.assertEqual(self.obj._consumers_with_noack, set())
         self.assertEqual(len(self.obj._nowait_cancelled), 0)
 
     def test_handle_content_frame_method_returns_none(self):

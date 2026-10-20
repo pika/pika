@@ -12,6 +12,7 @@ from twisted.python.failure import Failure
 from pika import spec
 from pika.adapters.twisted_connection import (
     ClosableDeferredQueue,
+    ReceivedMessage,
     TwistedChannel,
     TwistedProtocolConnection,
     _TimerHandle,
@@ -380,11 +381,37 @@ class TwistedChannelTestCase(TestCase):
             1, spec.Basic.CancelOk(consumer_tag='test-consumer')))
         assert d.called
 
+    def test_cancel_rejects_deliveries_pending_on_the_queue(self):
+        # A delivery that arrives while the cancel is in flight now reaches the
+        # queue rather than being rejected by the channel (#1389), and close()
+        # discards what is pending, so the cancel must reject them first or the
+        # broker holds them unacknowledged until the channel closes.
+        queue_obj = mock.Mock(wraps=ClosableDeferredQueue())
+        queue_obj.pending = [
+            ReceivedMessage(channel=self.channel,
+                            method=spec.Basic.Deliver(delivery_tag=7),
+                            properties=None,
+                            body=b'body')
+        ]
+        self.channel._consumers['test-consumer'] = queue_obj
+        self.channel._queue_name_to_consumer_tags['testqueue'] = {
+            'test-consumer'
+        }
+
+        self.channel._on_consumer_cancelled(
+            Method(1, spec.Basic.CancelOk(consumer_tag='test-consumer')))
+
+        self.pika_channel.basic_reject.assert_called_once_with(7, requeue=True)
+        queue_obj.close.assert_called_once()
+
     def test_consumer_cancelled_by_broker(self):
         # Verify that server-originating cancels are handled.
         self.pika_channel.add_on_cancel_callback.assert_called_with(
             self.channel._on_consumer_cancelled_by_broker)
-        queue_obj = mock.Mock()
+        # A real queue rather than a bare Mock: the cancel path reads its
+        # pending deliveries to reject them before discarding the queue.
+        queue_obj = mock.Mock(wraps=ClosableDeferredQueue())
+        queue_obj.pending = []
         self.channel._consumers['test-consumer'] = queue_obj
         self.channel._queue_name_to_consumer_tags['testqueue'] = {
             'test-consumer'

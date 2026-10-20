@@ -118,7 +118,6 @@ class Channel:
         # them `_cancelled` retains; see `_retain_cancelled_tag`.
         self._nowait_cancelled: deque = deque()
         self._consumers: dict = {}
-        self._consumers_with_noack: set = set()
         self._on_flowok_callback: Callable[..., Any] | None = None
         self._on_getok_callback: Callable[..., Any] | None = None
         self._on_ack_nack_callback: _OnAckNackCallback | None = None
@@ -324,15 +323,16 @@ class Channel:
         basic.cancel from the client). This allows clients to be notified of the loss of consumers
         due to events such as queue deletion.
 
-        A cancelled consumer's tag is retained so that a delivery already in flight when the cancel
-        was sent is rejected rather than left unacknowledged. A cancel that expects a Basic.CancelOk
-        retires its own entry on arrival; a nowait cancel has no reply to retire it, so its tag is
-        kept only until `_MAX_RETAINED_CANCELLED_TAGS` later nowait cancels displace it (see
-        `_retain_cancelled_tag`). Past that point its retention lapses: a straggling delivery for it
-        is logged as unexpected and left unacknowledged rather than rejected, and the tag may be
-        reused by `basic_consume`, so reusing the same explicit consumer_tag risks a delivery for
-        the old consumer reaching the new one. The cap is a generous approximation of the broker's
-        in-flight window, so this only bites under extreme nowait-cancel churn.
+        A cancelled consumer keeps its callback and its tag, so a delivery already in flight when
+        the cancel was sent still reaches the consumer; the specification allows the broker to keep
+        dispatching until it answers. A cancel that expects a Basic.CancelOk retires its own entry
+        on arrival; a nowait cancel has no reply to retire it, so its entry is kept only until
+        `_MAX_RETAINED_CANCELLED_TAGS` later nowait cancels displace it (see
+        `_retain_cancelled_tag`). Past that point the retention lapses: a straggling delivery for it
+        is logged as unexpected and left unacknowledged, and the tag may be reused by
+        `basic_consume`, so reusing the same explicit consumer_tag risks a delivery for the old
+        consumer reaching the new one. The cap is a generous approximation of the broker's in-flight
+        window, so this only bites under extreme nowait-cancel churn.
 
         :param consumer_tag: Identifier for the consumer
         :param callback: callback(pika.frame.Method) for method Basic.CancelOk. If None, do not
@@ -344,8 +344,8 @@ class Channel:
         nowait = validators.rpc_completion_callback(callback)
 
         if consumer_tag in self._cancelled:
-            # We check for cancelled first, because basic_cancel removes
-            # consumers closed with nowait from self._consumers
+            # Before the _consumers check below, so a tag already cancelling
+            # reports that rather than reporting itself as unknown.
             LOGGER.warning('basic_cancel - consumer is already cancelling: %s',
                            consumer_tag)
             return
@@ -359,11 +359,6 @@ class Channel:
         LOGGER.debug('Cancelling consumer: %s (nowait=%s)', consumer_tag,
                      nowait)
 
-        if nowait:
-            # This is our last opportunity while the channel is open to remove
-            # this consumer callback and help gc.
-            del self._consumers[consumer_tag]
-
         if callback is not None:
             self.callbacks.add(self.channel_number, spec.Basic.CancelOk,
                                callback)
@@ -371,6 +366,10 @@ class Channel:
         self._cancelled.add(consumer_tag)
 
         if nowait:
+            # The callback stays until the tag is evicted or the channel is
+            # cleaned up, so a delivery the broker had already dispatched still
+            # reaches the consumer rather than being dropped (#1389).  There is
+            # no CancelOk to retire the entry, hence the bounded retention.
             self._retain_cancelled_tag(consumer_tag)
 
         self._rpc(spec.Basic.Cancel(consumer_tag=consumer_tag, nowait=nowait),
@@ -429,9 +428,6 @@ class Channel:
 
         if consumer_tag in self._consumers or consumer_tag in self._cancelled:
             raise exceptions.DuplicateConsumerTag(consumer_tag)
-
-        if auto_ack:
-            self._consumers_with_noack.add(consumer_tag)
 
         self._consumers[consumer_tag] = on_message_callback
 
@@ -726,8 +722,13 @@ class Channel:
 
     @property
     def consumer_tags(self) -> list[str]:
-        """Property method that returns a list of currently active consumers."""
-        return list(self._consumers.keys())
+        """
+        Property method that returns a list of currently active consumers.
+
+        Excludes a consumer that has been cancelled but whose callback is retained so that a
+        delivery already in flight still reaches it; see `basic_cancel`.
+        """
+        return [tag for tag in self._consumers if tag not in self._cancelled]
 
     def exchange_bind(self,
                       destination: str,
@@ -1128,7 +1129,6 @@ class Channel:
         self._consumers = {}
         self._cancelled = set()
         self._nowait_cancelled = deque()
-        self._consumers_with_noack = set()
         self.callbacks.cleanup(str(self.channel_number))
         self._cookie = None
 
@@ -1138,7 +1138,6 @@ class Channel:
 
         :param consumer_tag: The consumer tag to cleanup
         """
-        self._consumers_with_noack.discard(consumer_tag)
         self._consumers.pop(consumer_tag, None)
         self._cancelled.discard(consumer_tag)
 
@@ -1146,21 +1145,21 @@ class Channel:
         """
         Retain a nowait-cancelled consumer tag, evicting the oldest once the cap is reached.
 
-        A cancelled tag stays in `_cancelled` (and `_consumers_with_noack`) so that a delivery the
-        broker had already dispatched when `Basic.Cancel` was sent is rejected rather than left
-        unacknowledged; see `_on_deliver`.  A cancel that expects a `Basic.CancelOk` retires its own
-        entry in `_on_cancelok`, but a nowait cancel asks the broker for no reply, so nothing
-        retires it and the entries would otherwise accumulate for the life of the channel.
+        A cancelled tag stays in `_cancelled` so that `basic_consume` cannot hand the same tag to a
+        new consumer while a delivery the broker dispatched before `Basic.Cancel` is still arriving.
+        A cancel that expects a `Basic.CancelOk` retires its own entry in `_on_cancelok`, but a
+        nowait cancel asks the broker for no reply, so nothing retires it and the entries would
+        otherwise accumulate for the life of the channel.
 
         Bound them here instead.  The number of deliveries that can still be in flight for a
         cancelled consumer is bounded by what the broker had already dispatched, so a cap on
         retained nowait-cancelled tags approximates that window: evicting in cancellation order past
         `_MAX_RETAINED_CANCELLED_TAGS` keeps retention constant in the number of cancels.  The cap
         is not the true window, though, since it is measured in cancels rather than deliveries, so
-        once a tag is evicted its reject-and-reserve behaviour lapses: a straggling delivery for it
-        is logged as unexpected and left unacknowledged (see `_on_deliver`), and `basic_consume`
-        will accept the tag again.  The default is large enough that this only occurs under extreme
-        nowait-cancel churn.
+        once a tag is evicted the reservation lapses: a straggling delivery for it is logged as
+        unexpected rather than as a cancelled consumer's, and `basic_consume` will accept the tag
+        again.  The default is large enough that this only occurs under extreme nowait-cancel
+        churn.
 
         A tag cannot be queued twice: `basic_consume` refuses a tag that is still in `_cancelled`,
         and on the nowait path only eviction takes it back out again.
@@ -1340,12 +1339,10 @@ class Channel:
         """
         consumer_tag = method_frame.method.consumer_tag
 
-        if consumer_tag in self._cancelled:
-            if self.is_open and consumer_tag not in self._consumers_with_noack:
-                self.basic_reject(method_frame.method.delivery_tag)
-            return
-
         if consumer_tag not in self._consumers:
+            # Either never known, or retained past the cancelled-tag cap. The
+            # delivery is left unacknowledged for the broker to redeliver;
+            # rejecting it here is what #1389 removed.
             LOGGER.error('Unexpected delivery: %r', method_frame)
             return
 
