@@ -582,13 +582,13 @@ class Channel:
         """
         Cancel every consumer this channel still has, so the broker stops dispatching.
 
-        The first half of :meth:`_quiesce`, separate so a connection-wide close can stop every
-        channel before draining any of them.  Draining one channel while another still has a live
-        consumer lets that other channel's queue grow during the drain, which is the starvation
-        :meth:`~Connection._shutdown_all_consumer_pools` avoids for the same reason.
+        The first half of `_quiesce`, separate so a connection-wide close can stop every channel
+        before draining any of them.  Draining one channel while another still has a live consumer
+        lets that other channel's queue grow during the drain, which is the starvation
+        `Connection._shutdown_all_consumer_pools` avoids for the same reason.
 
-        :param deadline: :func:`time.monotonic` value the cancellations must finish by, or ``None``
-            to wait indefinitely.
+        :param deadline:`time.monotonic` value the cancellations must finish by, or ``None`` to wait
+            indefinitely.
         """
 
         def _remaining() -> float | None:
@@ -665,11 +665,11 @@ class Channel:
         """
         Run the callbacks already queued on this channel's pool.
 
-        The second half of :meth:`_quiesce`.  The pool is left open rather than shut down, so a
-        confirm or a return arriving between this and the close is still accepted; the caller's own
-        post-close shutdown runs those.
+        The second half of `_quiesce`.  The pool is left open rather than shut down, so a confirm or
+        a return arriving between this and the close is still accepted; the caller's own post-close
+        shutdown runs those.
 
-        :param deadline: :func:`time.monotonic` value the drain must finish by, or ``None`` to wait
+        :param deadline:`time.monotonic` value the drain must finish by, or ``None`` to wait
             indefinitely.
         """
         remaining = (None if deadline is None else max(
@@ -699,11 +699,11 @@ class Channel:
         """
         Stop further deliveries, then drain the pool while the connection still works.
 
-        :meth:`_cancel_consumers` followed by :meth:`_drain_pool`, under one deadline.  The broker
-        may dispatch more deliveries before it answers a cancel, so the cancel does not by itself
-        bound what arrives; what it gives is a point after which the broker sends no more, which is
-        what lets the drain finish.  Draining then runs with the connection open, so the
-        acknowledgements those callbacks issue still reach the broker.
+        `_cancel_consumers` followed by `_drain_pool`, under one deadline.  The broker may dispatch
+        more deliveries before it answers a cancel, so the cancel does not by itself bound what
+        arrives; what it gives is a point after which the broker sends no more, which is what lets
+        the drain finish.  Draining then runs with the connection open, so the acknowledgements
+        those callbacks issue still reach the broker.
 
         Draining after the close instead is what #1763 measured: the callbacks run, their
         acknowledgements never reach the broker, and it redelivers work that was already performed.
@@ -718,8 +718,8 @@ class Channel:
         that costs nothing, because a drain cannot land an acknowledgement through a broker that is
         not answering either.
 
-        :param deadline: :func:`time.monotonic` value the whole quiesce must finish by, or ``None``
-            to wait indefinitely.
+        :param deadline:`time.monotonic` value the whole quiesce must finish by, or ``None`` to wait
+            indefinitely.
         """
         self._cancel_consumers(deadline)
         self._drain_pool(deadline)
@@ -2112,7 +2112,7 @@ class Connection:
         """
         Cancel every consumer and run every pool's queued callbacks, with the connection open.
 
-        The counterpart to :meth:`_shutdown_all_consumer_pools`, which runs after the IOLoop has
+        The counterpart to `_shutdown_all_consumer_pools`, which runs after the IOLoop has
         stopped and so cannot carry an acknowledgement.  Running the backlog here instead is what
         keeps a close from repeating work the broker will redeliver, or discarding the only copy of
         an ``auto_ack`` delivery: #1763 measures both.
@@ -2126,7 +2126,7 @@ class Connection:
         reply legitimately takes as long as the worker needs to consume that channel's backlog, so
         a share caps it below the work it waits on and abandons live cancels (#1763).
 
-        :param deadline: :func:`time.monotonic` value the whole sweep must finish by, or ``None`` to
+        :param deadline: `time.monotonic` value the whole sweep must finish by, or ``None`` to
             wait indefinitely.
         """
         with self._channel_waiters_lock:
