@@ -291,6 +291,28 @@ class ChannelTests(unittest.TestCase):
         self.assertIn('gone', self.obj._consumers)
         self.assertEqual(self.obj.consumer_tags, ['live'])
 
+    def test_delivery_while_closing_is_discarded(self):
+        # A callback could not acknowledge this delivery: the channel refuses
+        # the frame, and that exception would escape _on_deliver into frame
+        # processing and abort the transport, which is what a routine
+        # channel.close() did on SelectConnection. Discarded instead, as the
+        # Java client discards while quiescing (#1389).
+        self.obj._set_state(self.obj.CLOSING)
+        received = []
+        self.obj._consumers['ctag0'] = lambda *args: received.append(args)
+
+        method = frame.Method(self.obj.channel_number,
+                              spec.Basic.Deliver('ctag0', 1))
+        header = frame.Header(self.obj.channel_number, 10,
+                              spec.BasicProperties())
+        with mock.patch.object(self.obj, 'basic_reject') as reject:
+            self.obj._on_deliver(method, header, b'body')
+
+        self.assertEqual(
+            received, [], 'the delivery reached a callback that cannot '
+            'acknowledge it')
+        reject.assert_not_called()
+
     def test_delivery_in_the_cancel_window_reaches_the_consumer(self):
         # A cancel that expects Basic.CancelOk keeps the consumer registered
         # until the reply arrives, so a delivery the broker had already

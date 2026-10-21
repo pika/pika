@@ -1339,6 +1339,19 @@ class Channel:
         """
         consumer_tag = method_frame.method.consumer_tag
 
+        if not self.is_open:
+            # Closing or closed. A callback could not acknowledge this delivery
+            # even if it ran: the channel refuses the frame and that exception
+            # would escape into frame processing and abort the transport. The
+            # delivery is left unacknowledged, which the broker redelivers on a
+            # manual-ack consumer, and the RabbitMQ Java client discards the
+            # same way (ChannelN.processAsync while quiescing).  A caller that
+            # needs the backlog run first cancels its consumers and waits for
+            # Basic.CancelOk before closing, which pika.Connection and
+            # BlockingChannel both do (#1389).
+            LOGGER.debug('Delivery while %s: %r', self._state, method_frame)
+            return
+
         if consumer_tag not in self._consumers:
             # Either never known, or retained past the cancelled-tag cap. The
             # delivery is left unacknowledged for the broker to redeliver;
