@@ -160,7 +160,7 @@ class BaseConnection(connection.Connection):
             with default values for optional args. Type:
             `connection_workflow.AbstractAMQPConnectionWorkflow | None`.
         :param on_done: as defined in
-            :py:meth:`connection_workflow.AbstractAMQPConnectionWorkflow.start()`.
+            `connection_workflow.AbstractAMQPConnectionWorkflow.start()`.
         :returns: Connection workflow instance in use. The user should limit
             their interaction with this object only to it's `abort()` method.
         """
@@ -265,7 +265,7 @@ class BaseConnection(connection.Connection):
         """
 
         :param user_on_done: user's `on_done` callback as defined in
-            :py:meth:`connection_workflow.AbstractAMQPConnectionWorkflow.start()`.
+            `connection_workflow.AbstractAMQPConnectionWorkflow.start()`.
         :param shim_or_exc: `_StreamingProtocolShim | Exception`
         """
         result: BaseConnection | BaseException
@@ -415,7 +415,7 @@ class BaseConnection(connection.Connection):
         """
         Introduces transport to protocol after transport is connected.
 
-        :py:class:`.utils.nbio_interface.AbstractStreamProtocol` implementation.
+        `AbstractStreamProtocol` implementation.
 
         :param transport:
         :raises Exception: Exception-based exception on error
@@ -429,7 +429,7 @@ class BaseConnection(connection.Connection):
         """
         Called upon loss or closing of TCP connection.
 
-        :py:class:`.utils.nbio_interface.AbstractStreamProtocol` implementation.
+        `AbstractStreamProtocol` implementation.
 
         NOTE: `connection_made()` and `connection_lost()` are each called just
         once and in that order. All other callbacks are called between them.
@@ -470,7 +470,8 @@ class BaseConnection(connection.Connection):
     def _proto_eof_received(self) -> bool:
         """
         Called after the remote peer shuts its write end of the connection.
-        :py:class:`.utils.nbio_interface.AbstractStreamProtocol` implementation.
+
+        `AbstractStreamProtocol` implementation.
 
         :returns: A falsy value (including None) will cause the transport to close itself, resulting
             in an eventual `connection_lost()` call from the transport. If a truthy value is
@@ -492,7 +493,7 @@ class BaseConnection(connection.Connection):
         """
         Called to deliver incoming data from the server to the protocol.
 
-        :py:class:`.utils.nbio_interface.AbstractStreamProtocol` implementation.
+        `AbstractStreamProtocol` implementation.
 
         :param data: Non-empty data bytes.
         :raises Exception: Exception-based exception on error

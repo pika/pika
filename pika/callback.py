@@ -270,7 +270,7 @@ class CallbackManager:
         :param arguments: Optional arguments to match against; only honored together with
             ``callback_value``
         :returns: True if the prefix and key exist, whether or not a callback was actually removed;
-            see :meth:`remove_matching` when the caller needs to know that a removal occurred
+            see `remove_matching` when the caller needs to know that a removal occurred
         """
         if callback_value:
             offsets_to_remove = []
@@ -309,7 +309,7 @@ class CallbackManager:
         """
         Remove callbacks under prefix/key whose stored callable satisfies predicate.
 
-        Unlike :meth:`remove`, which matches by equality and reports success whenever the prefix/key
+        Unlike `remove`, which matches by equality and reports success whenever the prefix/key
         exist, this returns True only if at least one callback was actually removed. That makes it
         suitable for backing public ``remove_on_*_callback`` APIs that report whether removal
         occurred, and for matching callbacks that were wrapped (e.g. in ``functools.partial``) at

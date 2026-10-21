@@ -141,13 +141,13 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
                                 nbio_interface.AbstractFileDescriptorIOServices
                                ):
     """Implements the
-    :py:class:`.nbio_interface.AbstractIOServices` interface
+    `AbstractIOServices` interface
     on top of selector-style native loop having the
-    :py:class:`AbstractSelectorIOLoop` interface, such as
-    :py:class:`pika.selection_connection.IOLoop` and :py:class:`tornado.IOLoop`.
+    `AbstractSelectorIOLoop` interface, such as
+    [`pika.adapters.select_connection.IOLoop`][pika.adapters.select_connection.IOLoop] and `tornado.IOLoop`.
 
     NOTE:
-    :py:class:`.nbio_interface.AbstractFileDescriptorServices`
+    `AbstractFileDescriptorServices`
     interface is only required by the mixins.
 
     """
@@ -216,7 +216,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         :param family: Socket address family (e.g. ``socket.AF_INET``)
         :param socktype: Socket type (e.g. ``socket.SOCK_STREAM``)
         :param proto: Protocol number (0 for default)
-        :param flags: :func:`socket.getaddrinfo` flags
+        :param flags: `socket.getaddrinfo` flags
         """
         return _SelectorIOLoopIOHandle(
             _AddressResolver(native_loop=self._loop,

@@ -709,7 +709,7 @@ class URLParameters(Parameters):
             Override the default `en_US` locale value
         - ssl_options:
             None for plaintext; for SSL: dict of public ssl context-related
-            arguments that may be passed to :meth:`ssl.SSLSocket` as kwargs,
+            arguments that may be passed to `ssl.SSLSocket` as kwargs,
             except `sock`, `server_side`,`do_handshake_on_connect`, `family`,
             `type`, `proto`, `fileno`.
         - retry_delay:
@@ -1277,7 +1277,8 @@ class Connection(abc.ABC):
     def remove_on_close_callback(
             self, callback: Callable[[Connection, Exception], Any]) -> bool:
         """
-        Remove a callback registered via :meth:`add_on_close_callback`.
+        Remove a callback registered via
+        [`add_on_close_callback`][pika.connection.Connection.add_on_close_callback].
 
         :param callback: The callback to remove
         :returns: True if a callback was removed, otherwise False
@@ -1290,11 +1291,12 @@ class Connection(abc.ABC):
         callback: Callable[[Connection, frame.Method[spec.Connection.Blocked]],
                            Any]
     ) -> bool:
-        """Remove a callback registered via
-        :meth:`add_on_connection_blocked_callback`.
+        """
+        Remove a previously registered Connection.Blocked callback.
 
-        The callback was wrapped in a ``functools.partial`` at registration time,
-        so it is matched here by the original callable rather than by equality.
+        Pairs with [`add_on_connection_blocked_callback`][pika.connection.Connection.add_on_connection_blocked_callback].
+        The callback was wrapped in a ``functools.partial`` at registration time, so it is matched
+        here by the original callable rather than by equality.
 
         :param callback: The callback to remove
         :returns: True if a callback was removed, otherwise False
@@ -1311,11 +1313,12 @@ class Connection(abc.ABC):
         self, callback: Callable[
             [Connection, frame.Method[spec.Connection.Unblocked]], Any]
     ) -> bool:
-        """Remove a callback registered via
-        :meth:`add_on_connection_unblocked_callback`.
+        """
+        Remove a previously registered Connection.Unblocked callback.
 
-        The callback was wrapped in a ``functools.partial`` at registration time,
-        so it is matched here by the original callable rather than by equality.
+        Pairs with [`add_on_connection_unblocked_callback`][pika.connection.Connection.add_on_connection_unblocked_callback].
+        The callback was wrapped in a ``functools.partial`` at registration time, so it is matched
+        here by the original callable rather than by equality.
 
         :param callback: The callback to remove
         :returns: True if a callback was removed, otherwise False
@@ -1331,7 +1334,8 @@ class Connection(abc.ABC):
     def remove_on_open_callback(self, callback: Callable[[Connection],
                                                          Any]) -> bool:
         """
-        Remove a callback registered via :meth:`add_on_open_callback`.
+        Remove a callback registered via
+        [`add_on_open_callback`][pika.connection.Connection.add_on_open_callback].
 
         :param callback: The callback to remove
         :returns: True if a callback was removed, otherwise False
@@ -1343,7 +1347,8 @@ class Connection(abc.ABC):
             self, callback: Callable[[Connection, BaseException | None],
                                      Any]) -> bool:
         """
-        Remove a callback registered via :meth:`add_on_open_error_callback`.
+        Remove a callback registered via
+        [`add_on_open_error_callback`][pika.connection.Connection.add_on_open_error_callback].
 
         :param callback: The callback to remove
         :returns: True if a callback was removed, otherwise False

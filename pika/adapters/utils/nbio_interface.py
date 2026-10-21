@@ -144,7 +144,7 @@ class AbstractIOServices(abc.ABC):
         :param family: Socket address family (e.g. ``socket.AF_INET``)
         :param socktype: Socket type (e.g. ``socket.SOCK_STREAM``)
         :param proto: Protocol number (0 for default)
-        :param flags: :func:`socket.getaddrinfo` flags
+        :param flags:`socket.getaddrinfo` flags
         """
 
     @abc.abstractmethod

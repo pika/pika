@@ -79,3 +79,14 @@ conn = pika.Connection(
 ::: pika.adapters.thread_safe_connection.Channel
     options:
       members: true
+
+## Defaults
+
+::: pika.adapters.thread_safe_connection
+    options:
+      members:
+        - DEFAULT_RPC_TIMEOUT
+        - DEFAULT_WORK_QUEUE_MAXSIZE
+        - DEFAULT_WORK_QUEUE_PUT_TIMEOUT
+      show_if_no_docstring: true
+      show_root_heading: false

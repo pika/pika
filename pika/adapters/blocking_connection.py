@@ -5,8 +5,8 @@ adapter, it attempts to remain true to the asynchronous RPC nature of the AMQP p
 server sent RPC commands.
 
 The user facing classes in the module consist of the
-:py:class:`~pika.adapters.blocking_connection.BlockingConnection`
-and the :class:`~pika.adapters.blocking_connection.BlockingChannel`
+:py[`BlockingConnection`][pika.adapters.blocking_connection.BlockingConnection]
+and the [`BlockingChannel`][pika.adapters.blocking_connection.BlockingChannel]
 classes.
 """
 
@@ -287,20 +287,20 @@ class _ConnectionUnblockedEvt(_ConnectionBlockedUnblockedEvtBase):
 
 
 class BlockingConnection:
-    """The BlockingConnection creates a layer on top of Pika's asynchronous core
-    providing methods that will block until their expected response has
-    returned. Due to the asynchronous nature of the `Basic.Deliver` and
-    `Basic.Return` calls from RabbitMQ to your application, you can still
-    implement continuation-passing style asynchronous methods if you'd like to
-    receive messages from RabbitMQ using
-    :meth:`basic_consume <BlockingChannel.basic_consume>` or if you want to be
-    notified of a delivery failure when using
-    :meth:`basic_publish <BlockingChannel.basic_publish>`.
+    """
+    The BlockingConnection creates a layer on top of Pika's asynchronous core providing methods that
+    will block until their expected response has returned. Due to the asynchronous nature of the
+    `Basic.Deliver` and `Basic.Return` calls from RabbitMQ to your application, you can still
+    implement continuation-passing style asynchronous methods if you'd like to receive messages from
+    RabbitMQ using
+    [`basic_consume`][pika.adapters.blocking_connection.BlockingChannel.basic_consume] or if you
+    want to be notified of a delivery failure when using
+    [`basic_publish`][pika.adapters.blocking_connection.BlockingChannel.basic_publish].
 
     For more information about communicating with the blocking_connection
     adapter, be sure to check out the
-    :class:`BlockingChannel <BlockingChannel>` class which implements the
-    :class:`Channel <pika.channel.Channel>` based communication for the
+    [`BlockingChannel`][pika.adapters.blocking_connection.BlockingChannel] class which implements the
+    [`Channel`][pika.channel.Channel] based communication for the
     blocking_connection adapter.
 
     To prevent recursion/reentrancy, the blocking connection and channel
@@ -334,7 +334,6 @@ class BlockingConnection:
     connection timeout, this adapter will raise ConnectionBlockedTimeout
     exception`. See `pika.connection.ConnectionParameters` documentation to
     learn more about the `blocked_connection_timeout` configuration.
-
     """
 
     class _OnClosedArgs(NamedTuple):
@@ -1255,7 +1254,7 @@ class _QueueConsumerGeneratorInfo:
 class BlockingChannel:
     """The BlockingChannel implements blocking semantics for most things that
     one would use callback-passing-style for with the
-    :py:class:`~pika.channel.Channel` class. In addition,
+    :py[`Channel`][pika.channel.Channel] class. In addition,
     the `BlockingChannel` class implements a :term:`generator` that allows
     you to :doc:`consume messages </examples/blocking_consumer_generator>`
     without using callbacks.

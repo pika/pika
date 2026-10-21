@@ -58,8 +58,7 @@ class ClosableDeferredQueue(defer.DeferredQueue):
     def put(  # type: ignore[override]
             self, obj: Any) -> defer.Deferred[Any] | None:
         """
-        Like the original :meth:`DeferredQueue.put` method, but returns an errback if the queue is
-        closed.
+        Like the original `DeferredQueue.put` method, but returns an errback if the queue is closed.
 
         :param obj: Object to put into the queue
         :returns: Nothing on success, or a failed Deferred if the queue is closed
@@ -90,7 +89,7 @@ class ClosableDeferredQueue(defer.DeferredQueue):
         """
         Closes the queue.
 
-        Errback the pending calls to :meth:`get()`.
+        Errback the pending calls to [`get()`][pika.adapters.twisted_connection.ClosableDeferredQueue.get].
 
         :param reason: The reason for closing the queue
         """
@@ -373,7 +372,7 @@ class TwistedChannel:
         basic.cancel from the client). This allows clients to be notified of the loss of consumers
         due to events such as queue deletion.
 
-        This method wraps :meth:`Channel.basic_cancel <pika.channel.Channel.basic_cancel>` and
+        This method wraps [`Channel.basic_cancel`][pika.channel.Channel.basic_cancel] and
         closes any deferred queue associated with that consumer.
 
         :param consumer_tag: Identifier for the consumer
@@ -396,7 +395,7 @@ class TwistedChannel:
 
         Sends the AMQP 0-9-1 command Basic.Consume to the broker and binds
         messages for the consumer_tag to a
-        :class:`ClosableDeferredQueue`. If you do not pass in a
+        [`ClosableDeferredQueue`][pika.adapters.twisted_connection.ClosableDeferredQueue]. If you do not pass in a
         consumer_tag, one will be automatically generated for you.
 
         For more information on basic_consume, see:
@@ -415,10 +414,10 @@ class TwistedChannel:
         :param arguments: Custom key/value pair arguments for the consumer
         :returns: Deferred that fires with a tuple
             ``(queue_object, consumer_tag)``. The Deferred will errback with an
-            instance of :class:`exceptions.ChannelClosed` if the call fails.
-            The queue object is an instance of :class:`ClosableDeferredQueue`,
+            instance of [`exceptions.ChannelClosed`][pika.exceptions.ChannelClosed] if the call fails.
+            The queue object is an instance of [`ClosableDeferredQueue`][pika.adapters.twisted_connection.ClosableDeferredQueue],
             where data received from the queue will be stored. Clients should
-            use its :meth:`get() <ClosableDeferredQueue.get>` method to fetch
+            use its [`get()`][pika.adapters.twisted_connection.ClosableDeferredQueue.get] method to fetch
             an individual message, which will return a Deferred firing with a
             namedtuple whose attributes are:
             - channel: this TwistedChannel
@@ -482,8 +481,8 @@ class TwistedChannel:
 
         https://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
 
-        This method wraps :meth:`Channel.basic_get
-        <pika.channel.Channel.basic_get>`.
+        This method wraps
+        [`Channel.basic_get`][pika.channel.Channel.basic_get].
 
         :param queue: The queue from which to get a message. Use the empty
                       string to specify the most recent server-named queue
@@ -556,7 +555,7 @@ class TwistedChannel:
         """
         Publish to the channel with the given exchange, routing key and body.
 
-        This method wraps :meth:`Channel.basic_publish <pika.channel.Channel.basic_publish>`, but
+        This method wraps [`Channel.basic_publish`][pika.channel.Channel.basic_publish], but
         makes sure the channel is not closed before publishing.
 
         For more information on basic_publish and what the parameters do, see:
@@ -965,7 +964,7 @@ class TwistedChannel:
         """
         Delete a queue from the broker.
 
-        This method wraps :meth:`Channel.queue_delete <pika.channel.Channel.queue_delete>`, and
+        This method wraps [`Channel.queue_delete`][pika.channel.Channel.queue_delete], and
         removes the reference to the queue object after it gets deleted on the server.
 
         :param queue: The queue to delete

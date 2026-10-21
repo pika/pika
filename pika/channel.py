@@ -224,9 +224,10 @@ class Channel:
             callback: Callable[..., Any],
             replies: Sequence[type[amqp_object.Method]] | None = None) -> bool:
         """
-        Remove a callback previously registered via :meth:`add_callback`.
+        Remove a callback previously registered via
+        [`add_callback`][pika.channel.Channel.add_callback].
 
-        Mirrors :meth:`add_callback`: the callback is matched by identity and removed
+        Mirrors [`add_callback`][pika.channel.Channel.add_callback]: the callback is matched by identity and removed
         from each reply key it is registered under. If ``replies`` is ``None``, the
         callback is removed from every reply key it is currently registered under.
 
@@ -246,7 +247,8 @@ class Channel:
 
     def remove_on_cancel_callback(self, callback: _OnCancelCallback) -> bool:
         """
-        Remove a callback registered via :meth:`add_on_cancel_callback`.
+        Remove a callback registered via
+        [`add_on_cancel_callback`][pika.channel.Channel.add_on_cancel_callback].
 
         :param callback: The callback to remove
         :returns:``True`` if the callback was removed, ``False`` if it was absent
@@ -257,7 +259,8 @@ class Channel:
 
     def remove_on_close_callback(self, callback: _OnCloseCallback) -> bool:
         """
-        Remove a callback registered via :meth:`add_on_close_callback`.
+        Remove a callback registered via
+        [`add_on_close_callback`][pika.channel.Channel.add_on_close_callback].
 
         :param callback: The callback to remove
         :returns:``True`` if the callback was removed, ``False`` if it was absent
@@ -268,7 +271,8 @@ class Channel:
 
     def remove_on_flow_callback(self, callback: _OnFlowCallback) -> bool:
         """
-        Remove a callback registered via :meth:`add_on_flow_callback`.
+        Remove a callback registered via
+        [`add_on_flow_callback`][pika.channel.Channel.add_on_flow_callback].
 
         :param callback: The callback to remove
         :returns:``True`` if the callback was removed, ``False`` if it was absent
@@ -279,7 +283,8 @@ class Channel:
 
     def remove_on_return_callback(self, callback: _OnReturnCallback) -> bool:
         """
-        Remove a callback registered via :meth:`add_on_return_callback`.
+        Remove a callback registered via
+        [`add_on_return_callback`][pika.channel.Channel.add_on_return_callback].
 
         :param callback: The callback to remove
         :returns:``True`` if the callback was removed, ``False`` if it was absent
