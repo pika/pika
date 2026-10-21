@@ -1940,6 +1940,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#is-pika-fork-safe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Is Pika fork safe?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#why-does-mypy-report-new-errors-on-my-consumer-callback-after-upgrading" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2108,6 +2119,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#is-pika-fork-safe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Is Pika fork safe?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#why-does-mypy-report-new-errors-on-my-consumer-callback-after-upgrading" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2239,6 +2261,9 @@
 </span><span id="__span-0-8"><span class="n">ch</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">routing_key</span><span class="o">=</span><span class="s1">'q'</span><span class="p">,</span> <span class="n">body</span><span class="o">=</span><span class="sa">b</span><span class="s1">'hello'</span><span class="p">)</span>
 </span></code></pre></div>
 <p>The other connection adapters (<code>BlockingConnection</code>, <code>SelectConnection</code>, <code>AsyncioConnection</code>, etc.) are <strong>not</strong> thread-safe. Each connection instance is confined to the thread that created it. The only safe cross-thread operation on these adapters is calling <code>add_callback_threadsafe</code> to schedule a callback in the connection's IOLoop thread. See <a href="../modules/adapters/">connection adapters</a> for details.</p>
+<h3 id="is-pika-fork-safe">Is Pika fork safe?<a class="headerlink" href="#is-pika-fork-safe" title="Permanent link">&para;</a></h3>
+<p>No. No pika connection survives <code>os.fork()</code>, and that includes <code>multiprocessing</code> under the <code>fork</code> start method, which is the default on Linux before Python 3.14. Create the connection in the child, after the fork, or start the child with the <code>spawn</code> method.</p>
+<p>The child inherits the parent's socket descriptor but none of its threads, so for <code>pika.Connection</code> the IOLoop thread and every consumer worker exist only in the parent: nothing in the child reads from the socket or sends heartbeats, and a blocking call there waits for a reply that no thread will deliver. Both processes can still write to that one socket, and interleaved frames corrupt the connection for the parent as well. Using the connection in the child is undefined, whatever the state of its attributes suggests.</p>
 <h3 id="why-does-mypy-report-new-errors-on-my-consumer-callback-after-upgrading">Why does mypy report new errors on my consumer callback after upgrading?<a class="headerlink" href="#why-does-mypy-report-new-errors-on-my-consumer-callback-after-upgrading" title="Permanent link">&para;</a></h3>
 <p>Pika ships a <code>py.typed</code> marker, so a type checker reads pika's own annotations. <code>pika.spec</code> is generated code, and it was previously excluded from pika's <code>mypy</code> configuration, which left every field of a decoded frame typed as <code>Any</code>. <code>Any</code> silences all checking, so code like this passed:</p>
 <div class="highlight"><pre><span></span><code><span id="__span-1-1"><span class="k">def</span><span class="w"> </span><span class="nf">on_message</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">properties</span><span class="p">,</span> <span class="n">body</span><span class="p">):</span>
