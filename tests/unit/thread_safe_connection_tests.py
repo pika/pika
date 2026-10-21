@@ -345,7 +345,8 @@ class BoundedWorkPoolTests(unittest.TestCase):
         """A callback draining its own pool must not wait for a marker it blocks."""
         pool = _BoundedWorkPool(maxsize=10,
                                 put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
-                                thread_name='test-pool')
+                                thread_name='test-pool',
+                                owner=STANDALONE)
         result = []
         elapsed = []
         finished = threading.Event()
@@ -377,7 +378,8 @@ class BoundedWorkPoolTests(unittest.TestCase):
         """
         pool = _BoundedWorkPool(maxsize=1,
                                 put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
-                                thread_name='test-pool')
+                                thread_name='test-pool',
+                                owner=STANDALONE)
 
         # The worker starts on first submit. Then a malformed queue item, since
         # #1751 made a work item's own exception non-fatal: the unpack above the
@@ -416,7 +418,8 @@ class BoundedWorkPoolTests(unittest.TestCase):
         """
         pool = _BoundedWorkPool(maxsize=10,
                                 put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
-                                thread_name='test-pool')
+                                thread_name='test-pool',
+                                owner=STANDALONE)
 
         # The worker starts on first submit. Then a malformed queue item, since
         # #1751 made a work item's own exception non-fatal: the unpack above the
@@ -3615,7 +3618,13 @@ class ConnectionTests(unittest.TestCase):
             # a worker a test leaves wedged would leak and fail whichever later
             # test scans for stray IOLoop threads instead of this one.
             with conn._channel_waiters_lock:
-                pools = [ch._consumer_work_pool for ch in conn._channels]
+                # `getattr`, because a test may put a stub in `_channels` that
+                # carries only the attributes that test needs.
+                pools = [
+                    pool for pool in (getattr(ch, '_consumer_work_pool', None)
+                                      for ch in conn._channels)
+                    if pool is not None
+                ]
             pools.append(conn._connection_work_pool)
             for pool in pools:
                 pool.shutdown(wait=False)
@@ -4080,7 +4089,8 @@ class ConnectionTests(unittest.TestCase):
         conn._connection_work_pool = _BoundedWorkPool(
             maxsize=10,
             put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
-            thread_name='test-conn-pool')
+            thread_name='test-conn-pool',
+            owner=conn)
         conn._connection_pool_shutdown = False
         observed = []
 
