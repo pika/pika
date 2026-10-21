@@ -135,6 +135,10 @@ class Channel:
         # via _set_cookie
         self._cookie: object = None
 
+        # Deliveries dropped by `_on_deliver` because the channel was no longer
+        # open, reported once on the transition to CLOSED.
+        self._discarded_while_closing: int = 0
+
     def __int__(self) -> int:
         """Return the channel object as its channel number."""
         return self.channel_number
@@ -628,6 +632,14 @@ class Channel:
 
         If channel is OPENING, transition to CLOSING and suppress the incoming Channel.OpenOk, if
         any.
+
+        Each consumer is cancelled without waiting for the broker to confirm, so a delivery the
+        broker had already dispatched is discarded rather than passed to the consumer callback: a
+        callback could not acknowledge it on a closing channel. Those deliveries are redelivered to
+        the next consumer with `auto_ack=False`, and lost with `auto_ack=True`. To receive them
+        instead, cancel each consumer with a callback and close the channel from the last
+        `Basic.CancelOk`, which is what `pika.Connection` and `BlockingConnection` do. See
+        [Closing a channel with active consumers](#closing-a-channel-with-active-consumers).
 
         :param reply_code: The reason code to send to broker
         :param reply_text: The reason text to send to broker
@@ -1256,6 +1268,14 @@ class Channel:
         assert not self.is_closed
         assert self._closing_reason is not None
 
+        if self._discarded_while_closing:
+            LOGGER.warning(
+                'Discarded %i deliveries that arrived while channel %i was '
+                'closing; cancel each consumer and wait for Basic.CancelOk '
+                'before closing to have them delivered instead',
+                self._discarded_while_closing, self.channel_number)
+            self._discarded_while_closing = 0
+
         self._set_state(self.CLOSED)
 
         try:
@@ -1349,6 +1369,7 @@ class Channel:
             # needs the backlog run first cancels its consumers and waits for
             # Basic.CancelOk before closing, which pika.Connection and
             # BlockingChannel both do (#1389).
+            self._discarded_while_closing += 1
             LOGGER.debug('Delivery while %s: %r', self._state, method_frame)
             return
 

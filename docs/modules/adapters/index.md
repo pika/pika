@@ -15,6 +15,10 @@ Pika uses connection adapters to provide a flexible method for adapting pika's c
 
     `BlockingConnection`, `TornadoConnection`, `TwistedProtocolConnection`, and `GeventConnection` are deprecated and will be removed in Pika 2.0. The async adapters exist to integrate Pika into a framework's event loop, a constraint that no longer applies, and `BlockingConnection` runs the IOLoop on the calling thread, which makes heartbeats fragile and the adapter non-thread-safe. [`Connection`](thread_safe.md) runs its own IOLoop on a background thread and works with any framework (asyncio, Tornado, Twisted, Gevent, Django, Flask, or plain synchronous code) without adapter-specific integration.
 
+## Closing a channel
+
+`channel.close()` on an asynchronous adapter discards any delivery the broker had already dispatched for a consumer it cancels, which loses the message outright for an `auto_ack` consumer. [Closing a channel with active consumers](../channel.md#closing-a-channel-with-active-consumers) has the detail and the pattern that avoids it. `Connection` and `BlockingConnection` are unaffected.
+
 ## Threading
 
 ### Using Connection (recommended)

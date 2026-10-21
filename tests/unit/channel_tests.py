@@ -313,6 +313,37 @@ class ChannelTests(unittest.TestCase):
             'acknowledge it')
         reject.assert_not_called()
 
+    def test_discarded_deliveries_are_reported_once_on_close(self):
+        self.obj._set_state(self.obj.CLOSING)
+        self.obj._closing_reason = exceptions.ChannelClosedByClient(0, 'bye')
+        self.obj._consumers['ctag0'] = logging.debug
+        method = frame.Method(self.obj.channel_number,
+                              spec.Basic.Deliver('ctag0', 1))
+        header = frame.Header(self.obj.channel_number, 10,
+                              spec.BasicProperties())
+        for _ in range(3):
+            self.obj._on_deliver(method, header, b'body')
+
+        with self.assertLogs('pika.channel', level='WARNING') as logs:
+            self.obj._transition_to_closed()
+
+        discarded = [r for r in logs.records if 'Discarded' in r.getMessage()]
+        self.assertEqual(len(discarded), 1, logs.output)
+        self.assertIn('Discarded 3 deliveries', discarded[0].getMessage())
+        # Reset, so reopening the channel does not re-report the same count.
+        self.assertEqual(self.obj._discarded_while_closing, 0)
+
+    def test_close_without_discarded_deliveries_warns_about_nothing(self):
+        self.obj._set_state(self.obj.CLOSING)
+        self.obj._closing_reason = exceptions.ChannelClosedByClient(0, 'bye')
+
+        with mock.patch.object(channel.LOGGER, 'warning') as warning:
+            self.obj._transition_to_closed()
+
+        self.assertEqual([
+            call for call in warning.call_args_list if 'Discarded' in call[0][0]
+        ], [])
+
     def test_delivery_in_the_cancel_window_reaches_the_consumer(self):
         # A cancel that expects Basic.CancelOk keeps the consumer registered
         # until the reply arrives, so a delivery the broker had already
