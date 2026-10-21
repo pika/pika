@@ -2316,8 +2316,8 @@ class Connection:
         # Separate from close_deadline: this one arms the IOLoop timer that is
         # the only bound on a pool worker's close (#1706), where close_deadline
         # bounds the phases this thread waits through itself. Merging the two
-        # would arm the timer on every close and stop the IOLoop ahead of the
-        # close handshake.
+        # would arm the timer on every close and stop the IOLoop ahead of
+        # _CLOSE_HANDSHAKE_FLOOR.
         worker_force_deadline = close_deadline if is_pool_worker else None
 
         def _force_close_on_timeout() -> None:
@@ -2394,8 +2394,8 @@ class Connection:
             # the queued callbacks take the whole of it.
             self._record_forced_close(
                 'the close timeout expired while running queued callbacks, so '
-                'the broker was never asked' if budget_spent_before_handshake
-                else None)
+                'the broker was never asked'
+                if budget_spent_before_handshake else None)
             # Normally the IOLoop tail already claimed these pools, making the
             # calls no-ops; bound them in case this thread reaches them first.
             self._shutdown_all_consumer_pools(timeout=_remaining())

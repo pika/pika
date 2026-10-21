@@ -4277,6 +4277,26 @@ class ConnectionTests(unittest.TestCase):
                     ioloop.stop.assert_called_once()
                     conn._ioloop_thread.join.assert_not_called()
 
+    def test_ordinary_close_does_not_arm_the_worker_force_timer(self):
+        """
+        The force timer belongs to the pool-worker path alone (#1706).
+
+        On any other thread the close is bounded by the join, which allows the handshake
+        ``_CLOSE_HANDSHAKE_FLOOR`` beyond a budget the drain may have spent; a timer armed at the
+        budget would stop the IOLoop inside that floor and abandon the socket open. Nothing else in
+        the suite fails when the two deadlines are merged, which is the resolution this guards.
+        """
+        conn, raw, ioloop = self._make_connection()
+        conn._ioloop_thread = MagicMock()
+        conn._ioloop_thread.is_alive.return_value = False
+
+        conn.close(timeout=0.125)
+        ioloop.add_callback_threadsafe.call_args[0][0]()
+
+        raw.close.assert_called_once()
+        ioloop.call_later.assert_not_called()
+        ioloop.stop.assert_not_called()
+
     def test_pool_worker_close_timeout_preserves_clean_close_reason(self):
         conn, raw, ioloop = self._make_connection()
         self._pose_as_pool_worker(conn)
