@@ -372,17 +372,18 @@ class BoundedWorkPoolTests(unittest.TestCase):
         """
         The enqueue must check liveness too, not only the wait after it.
 
-        A worker killed by a `BaseException` frees no slot and runs no marker, so a `put` that only
-        honours the budget never returns under `close(timeout=None)`.
+        A worker that dies frees no slot and runs no marker, so a `put` that only honours the budget
+        never returns under `close(timeout=None)`.
         """
         pool = _BoundedWorkPool(maxsize=1,
                                 put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
                                 thread_name='test-pool')
 
-        def kill_worker():
-            raise SystemExit('worker gone')
-
-        pool.submit(kill_worker)
+        # The worker starts on first submit. Then a malformed queue item, since
+        # #1751 made a work item's own exception non-fatal: the unpack above the
+        # guard is what still ends a worker.
+        pool.submit(lambda: None)
+        pool._queue.put(object())
         for _ in range(100):
             if pool._thread is not None and not pool._thread.is_alive():
                 break
@@ -409,18 +410,19 @@ class BoundedWorkPoolTests(unittest.TestCase):
         """
         A drain must stop when the worker can no longer run its marker.
 
-        A BaseException escapes `_run_worker`, so the worker exits and leaves a queue nothing will
-        drain. Waiting out the budget for it makes `close(timeout=None)` hang, which is the one
-        outcome ruled out. `shutdown` has always checked liveness; this must too.
+        A worker that exits leaves a queue nothing will drain. Waiting out the budget for it makes
+        `close(timeout=None)` hang, which is the one outcome ruled out. `shutdown` has always
+        checked liveness; this must too.
         """
         pool = _BoundedWorkPool(maxsize=10,
                                 put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
                                 thread_name='test-pool')
 
-        def kill_worker():
-            raise SystemExit('worker gone')
-
-        pool.submit(kill_worker)
+        # The worker starts on first submit. Then a malformed queue item, since
+        # #1751 made a work item's own exception non-fatal: the unpack above the
+        # guard is what still ends a worker.
+        pool.submit(lambda: None)
+        pool._queue.put(object())
         for _ in range(100):
             if pool._thread is not None and not pool._thread.is_alive():
                 break
