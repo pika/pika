@@ -26,10 +26,13 @@ import argparse
 import statistics
 import threading
 import time
+from typing import TYPE_CHECKING
 
 import pika
-import pika.channel
 from pika.adapters.thread_safe_connection import Connection
+
+if TYPE_CHECKING:
+    from pika.adapters.blocking_connection import BlockingChannel
 
 #: What `--help` shows, rather than a slice of the module docstring.
 DESCRIPTION = 'Measure how many messages a close loses, against a live broker.'
@@ -66,7 +69,7 @@ def _publish(params: pika.ConnectionParameters, count: int,
         conn.close()
 
 
-def _depth_on(channel: pika.channel.Channel) -> int:
+def _depth_on(channel: BlockingChannel) -> int:
     """
     Report the queue's depth over an existing channel.
 
@@ -120,15 +123,16 @@ def _run_once(args: argparse.Namespace) -> dict[str, int]:
 
     if args.close == 'connection':
         conn.close(timeout=args.timeout)
-        at_close = len(seen)
+        at_close, remaining = len(seen), _depth(params)
     else:
         channel.close(timeout=args.timeout)
-        # Before the connection close, which is unbounded and would otherwise
-        # let the daemon worker finish what this close abandoned.
-        at_close = len(seen)
+        # Both readings come before the connection close, which is unbounded:
+        # it would otherwise let the daemon worker finish what this close
+        # abandoned, crediting the bounded close with those callbacks and with
+        # the acknowledgements they issue.
+        at_close, remaining = len(seen), _depth(params)
         conn.close(timeout=None)
 
-    remaining = _depth(params)
     settled = len(seen)
     result = {
         'published': args.messages,
