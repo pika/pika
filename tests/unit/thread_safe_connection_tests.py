@@ -3017,10 +3017,94 @@ class CallbackRegistrationFailureTests(unittest.TestCase):
                       mock_logger.debug.call_args[0][0])
 
 
-class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
-    """Tests for connection-level consumer pool lifecycle management."""
+class _ConnectionHarness:
+    """
+    Builds a `Connection` over a mocked `SelectConnection`, two ways.
 
-    def _make_connection(self):
+    The difference is whether the IOLoop thread is still inside `start()`, which decides whether the
+    connection has pools that accept work. Five near-copies of this used to disagree about that, and
+    a reader could not tell which one a test inherited (#1765).
+    """
+
+    def _make_connection(self,
+                         on_open_error_callback=None,
+                         on_close_callback=None):
+        """
+        Construct a Connection with a mocked SelectConnection.
+
+        The mock fires on_open_callback at once so ``__init__`` unblocks, then holds
+        ``ioloop.start()`` open so the connection stays open: an IOLoop thread that has returned
+        from ``start()`` has already run the tail that shuts every pool down. Cleanup releases it.
+        """
+        running = threading.Event()
+        with patch('pika.adapters.thread_safe_connection.SelectConnection'
+                  ) as MockSelectConn:
+            mock_conn = MagicMock()
+            mock_ioloop = MagicMock()
+            mock_conn.ioloop = mock_ioloop
+            mock_conn.is_open = True
+            mock_conn.is_closed = False
+            mock_conn.is_closing = False
+            # A healthy connection has no pending error; _submit_or_terminate
+            # short-circuits when _error is set, so it must be None here.
+            mock_conn._error = None
+
+            # Capture the on_open_callback passed to SelectConnection
+            # and call it immediately so _connected_event gets set.
+            def fake_init(parameters, on_open_callback, on_open_error_callback,
+                          on_close_callback):
+                on_open_callback(mock_conn)
+                return mock_conn
+
+            MockSelectConn.side_effect = fake_init
+            MockSelectConn.return_value = mock_conn
+            mock_ioloop.start.side_effect = (lambda: running.wait(timeout=30))
+
+            conn = Connection(
+                parameters='params',
+                on_open_error_callback=on_open_error_callback,
+                on_close_callback=on_close_callback,
+            )
+        # The loop is held open rather than allowed to return at once: a
+        # connection whose IOLoop thread has exited has had its pools shut
+        # down by `_run_ioloop`'s tail, so tests cannot submit to the pools
+        # the connection actually built.
+        ioloop_thread = conn._ioloop_thread
+
+        def _release_ioloop():
+            # Bound the join here: the tail joins pools with `timeout=None`, so
+            # a worker a test leaves wedged would leak and fail whichever later
+            # test scans for stray IOLoop threads instead of this one.
+            with conn._channel_waiters_lock:
+                # `getattr`, because a test may put a stub in `_channels` that
+                # carries only the attributes that test needs.
+                pools = [
+                    pool for pool in (getattr(ch, '_consumer_work_pool', None)
+                                      for ch in conn._channels)
+                    if pool is not None
+                ]
+            pools.append(conn._connection_work_pool)
+            for pool in pools:
+                pool.shutdown(wait=False)
+            for pool in pools:
+                pool.shutdown(wait=True, timeout=5)
+            running.set()
+            ioloop_thread.join(timeout=10)
+            self.assertFalse(
+                ioloop_thread.is_alive(),
+                f'{ioloop_thread.name} outlived its test; a later test that '
+                f'scans for stray IOLoop threads would be blamed for it')
+
+        self.addCleanup(_release_ioloop)
+        return conn, mock_conn, mock_ioloop
+
+    def _make_connection_after_ioloop_exit(self):
+        """
+        A connection whose IOLoop thread has already returned from `start()`.
+
+        `_run_ioloop`'s tail has therefore shut every pool down, so this one cannot accept submitted
+        work. Use `_make_connection` when the test needs a usable pool (#1765).
+        """
         with patch('pika.adapters.thread_safe_connection.SelectConnection'
                   ) as MockSelectConn:
             mock_conn = MagicMock()
@@ -3043,11 +3127,15 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
 
             conn = Connection(parameters='params')
             conn._ioloop_thread.join(timeout=1)
-
         return conn, mock_conn, mock_ioloop
 
+
+class ConsumerPoolConnectionIntegrationTests(_ConnectionHarness,
+                                             unittest.TestCase):
+    """Tests for connection-level consumer pool lifecycle management."""
+
     def test_connection_tracks_channels(self):
-        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn, mock_conn, mock_ioloop = self._make_connection_after_ioloop_exit()
 
         def execute_scheduled(cb):
             mock_raw_ch = MagicMock()
@@ -3069,7 +3157,7 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         churn retains every Channel it ever opened, along with that channel's work pool, raw channel
         and per-RPC callbacks.
         """
-        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn, mock_conn, mock_ioloop = self._make_connection_after_ioloop_exit()
 
         def execute_scheduled(cb):
             mock_raw_ch = MagicMock()
@@ -3093,7 +3181,8 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         Mutating the list from _shutdown_pool is safe during the sweep because
         _shutdown_all_consumer_pools snapshots it under the lock before iterating.
         """
-        conn, _mock_conn, _mock_ioloop = self._make_connection()
+        conn, _mock_conn, _mock_ioloop = self._make_connection_after_ioloop_exit(
+        )
 
         channels = [Channel(MagicMock(), conn) for _ in range(3)]
         with conn._channel_waiters_lock:
@@ -3111,7 +3200,7 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         The hook is what drops a broker-closed channel from tracking, so a channel that opened
         without it would leak until connection teardown.
         """
-        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn, mock_conn, mock_ioloop = self._make_connection_after_ioloop_exit()
 
         def execute_scheduled(cb):
             mock_raw_ch = MagicMock()
@@ -3134,7 +3223,8 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         would deadlock, so it must use shutdown(wait=False) rather than _shutdown_pool's join.
         """
         from pika.exceptions import ChannelClosedByBroker
-        conn, _mock_conn, _mock_ioloop = self._make_connection()
+        conn, _mock_conn, _mock_ioloop = self._make_connection_after_ioloop_exit(
+        )
         ch = Channel(MagicMock(), conn)
         ch._consumer_work_pool = MagicMock()
         with conn._channel_waiters_lock:
@@ -3155,7 +3245,8 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         not pre-empt it: the channel stays tracked and the pool untouched until then.
         """
         from pika.exceptions import ChannelClosedByClient
-        conn, _mock_conn, _mock_ioloop = self._make_connection()
+        conn, _mock_conn, _mock_ioloop = self._make_connection_after_ioloop_exit(
+        )
         ch = Channel(MagicMock(), conn)
         ch._consumer_work_pool = MagicMock()
         with conn._channel_waiters_lock:
@@ -3172,7 +3263,7 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         """Pool shutdown happens after ioloop.start() returns, not inside _on_connection_closed
         (which runs on the IOLoop thread).
         """
-        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn, mock_conn, mock_ioloop = self._make_connection_after_ioloop_exit()
 
         def execute_scheduled(cb):
             mock_raw_ch = MagicMock()
@@ -3203,7 +3294,8 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         is order-based and deterministic: when the first (wedged) channel's
         blocking join begins, every other channel's pool flag is already set.
         """
-        conn, _mock_conn, _mock_ioloop = self._make_connection()
+        conn, _mock_conn, _mock_ioloop = self._make_connection_after_ioloop_exit(
+        )
 
         wedged = Channel(MagicMock(), conn)
         healthy = Channel(MagicMock(), conn)
@@ -3245,7 +3337,8 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
 
     def test_concurrent_channel_close_runs_shutdown_once(self):
         """Two concurrent close() calls must not both run the pool join."""
-        conn, _mock_conn, _mock_ioloop = self._make_connection()
+        conn, _mock_conn, _mock_ioloop = self._make_connection_after_ioloop_exit(
+        )
         ch = Channel(MagicMock(), conn)
 
         calls = []
@@ -3317,7 +3410,8 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
 
     def test_force_stop_shuts_down_channel_pools(self):
         """Force-stop path in close() must shut down channel pools."""
-        conn, _mock_conn, _mock_ioloop = self._make_connection()
+        conn, _mock_conn, _mock_ioloop = self._make_connection_after_ioloop_exit(
+        )
         conn._ioloop_thread = MagicMock()
         conn._ioloop_thread.is_alive.return_value = True
 
@@ -3331,7 +3425,8 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
 
     def test_force_stop_with_none_timeout_shuts_down_pools(self):
         """Force-stop path with timeout=None must drain pools with an unbounded budget."""
-        conn, _mock_conn, mock_ioloop = self._make_connection()
+        conn, _mock_conn, mock_ioloop = self._make_connection_after_ioloop_exit(
+        )
         # Run scheduled callbacks inline: the close asks the IOLoop thread which
         # consumers are live, and a mock that silently drops that would make the
         # test wait out the whole answer timeout instead.
@@ -3352,7 +3447,8 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
 
     def test_shutdown_connection_pool_warns_when_worker_wedged(self):
         """A wedged connection-event worker must be abandoned (not hang) with a warning logged."""
-        conn, _mock_conn, _mock_ioloop = self._make_connection()
+        conn, _mock_conn, _mock_ioloop = self._make_connection_after_ioloop_exit(
+        )
         # _make_connection runs the IOLoop tail, which already shut the
         # connection pool down.  Replace it with a fresh pool wedged in a
         # never-releasing callback and reset the guard so the shutdown runs.
@@ -3504,7 +3600,7 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
 
     def test_channel_raises_timeout_error(self):
         """Channel() must raise TimeoutError if Channel.OpenOk never arrives."""
-        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn, mock_conn, mock_ioloop = self._make_connection_after_ioloop_exit()
 
         def never_respond(cb):
             # Schedule the callback but Channel.OpenOk never fires
@@ -3520,7 +3616,7 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
 
     def test_channel_timeout_unregisters_waiter(self):
         """Channel() timeout must not leak a waiter."""
-        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn, mock_conn, mock_ioloop = self._make_connection_after_ioloop_exit()
 
         def never_respond(cb):
             mock_conn.channel = MagicMock()
@@ -3541,7 +3637,7 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         Without the race guard, a Channel would be appended to _channels after
         _shutdown_all_consumer_pools() had already run, leaking the per-channel consumer pool.
         """
-        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn, mock_conn, mock_ioloop = self._make_connection_after_ioloop_exit()
         mock_raw_ch = MagicMock()
         reason = Exception('connection lost')
 
@@ -3566,7 +3662,7 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         self.assertEqual(conn._channels, [])
 
 
-class ConnectionTests(unittest.TestCase):
+class ConnectionTests(_ConnectionHarness, unittest.TestCase):
 
     def _pose_as_pool_worker(self, conn):
         """
@@ -3580,78 +3676,6 @@ class ConnectionTests(unittest.TestCase):
         current._pika_pool_owner = weakref.ref(conn)
         self.addCleanup(lambda: delattr(current, '_pika_pool_owner')
                         if hasattr(current, '_pika_pool_owner') else None)
-
-    def _make_connection(self,
-                         on_open_error_callback=None,
-                         on_close_callback=None):
-        """
-        Construct a Connection with a mocked SelectConnection.
-
-        The mock fires on_open_callback at once so ``__init__`` unblocks, then holds
-        ``ioloop.start()`` open so the connection stays open: an IOLoop thread that has returned
-        from ``start()`` has already run the tail that shuts every pool down. Cleanup releases it.
-        """
-        running = threading.Event()
-        with patch('pika.adapters.thread_safe_connection.SelectConnection'
-                  ) as MockSelectConn:
-            mock_conn = MagicMock()
-            mock_ioloop = MagicMock()
-            mock_conn.ioloop = mock_ioloop
-            mock_conn.is_open = True
-            mock_conn.is_closed = False
-            mock_conn.is_closing = False
-            # A healthy connection has no pending error; _submit_or_terminate
-            # short-circuits when _error is set, so it must be None here.
-            mock_conn._error = None
-
-            # Capture the on_open_callback passed to SelectConnection
-            # and call it immediately so _connected_event gets set.
-            def fake_init(parameters, on_open_callback, on_open_error_callback,
-                          on_close_callback):
-                on_open_callback(mock_conn)
-                return mock_conn
-
-            MockSelectConn.side_effect = fake_init
-            MockSelectConn.return_value = mock_conn
-            mock_ioloop.start.side_effect = (lambda: running.wait(timeout=30))
-
-            conn = Connection(
-                parameters='params',
-                on_open_error_callback=on_open_error_callback,
-                on_close_callback=on_close_callback,
-            )
-        # The loop is held open rather than allowed to return at once: a
-        # connection whose IOLoop thread has exited has had its pools shut
-        # down by `_run_ioloop`'s tail, so tests cannot submit to the pools
-        # the connection actually built.
-        ioloop_thread = conn._ioloop_thread
-
-        def _release_ioloop():
-            # Bound the join here: the tail joins pools with `timeout=None`, so
-            # a worker a test leaves wedged would leak and fail whichever later
-            # test scans for stray IOLoop threads instead of this one.
-            with conn._channel_waiters_lock:
-                # `getattr`, because a test may put a stub in `_channels` that
-                # carries only the attributes that test needs.
-                pools = [
-                    pool for pool in (getattr(ch, '_consumer_work_pool', None)
-                                      for ch in conn._channels)
-                    if pool is not None
-                ]
-            pools.append(conn._connection_work_pool)
-            for pool in pools:
-                pool.shutdown(wait=False)
-            for pool in pools:
-                pool.shutdown(wait=True, timeout=5)
-            running.set()
-            ioloop_thread.join(timeout=10)
-            self.assertFalse(
-                ioloop_thread.is_alive(),
-                f'{ioloop_thread.name} outlived its test; a later test that '
-                f'scans for stray IOLoop threads would be blamed for it')
-
-        self.addCleanup(_release_ioloop)
-        return conn, mock_conn, mock_ioloop
 
     def _call_on_pool_worker(self, pool, fn):
         """
@@ -4097,14 +4121,6 @@ class ConnectionTests(unittest.TestCase):
         conn, _mock_conn, mock_ioloop = self._make_connection()
         conn._ioloop_thread = MagicMock()
         conn._ioloop_thread.is_alive.return_value = False
-        # This harness lets the mocked ioloop.start() return, so the IOLoop
-        # tail has already shut the real pool down; #1765 unifies the copies.
-        conn._connection_work_pool = _BoundedWorkPool(
-            maxsize=10,
-            put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
-            thread_name='test-conn-pool',
-            owner=conn)
-        conn._connection_pool_shutdown = False
         observed = []
 
         def queued_callback():
@@ -4689,39 +4705,14 @@ class ConnectionInitErrorPathTests(unittest.TestCase):
         user_cb.assert_called_once_with(mock_conn, error)
 
 
-class ConnectionCloseFromIOLoopTests(unittest.TestCase):
+class ConnectionCloseFromIOLoopTests(_ConnectionHarness, unittest.TestCase):
     """Cover the close-from-IOLoop-thread path in Connection.close()."""
-
-    def _make_connection(self):
-        with patch('pika.adapters.thread_safe_connection.SelectConnection'
-                  ) as MockSelectConn:
-            mock_conn = MagicMock()
-            mock_ioloop = MagicMock()
-            mock_conn.ioloop = mock_ioloop
-            mock_conn.is_open = True
-            mock_conn.is_closed = False
-            mock_conn.is_closing = False
-            # A healthy connection has no pending error; _submit_or_terminate
-            # short-circuits when _error is set, so it must be None here.
-            mock_conn._error = None
-
-            def fake_init(parameters, on_open_callback, on_open_error_callback,
-                          on_close_callback):
-                on_open_callback(mock_conn)
-                return mock_conn
-
-            MockSelectConn.side_effect = fake_init
-            MockSelectConn.return_value = mock_conn
-
-            conn = Connection(parameters='params')
-            conn._ioloop_thread.join(timeout=1)
-        return conn, mock_conn, mock_ioloop
 
     def test_close_from_ioloop_thread_suppresses_connection_close_error(self):
         """When close() runs on the IOLoop thread and connection.close() raises (e.g. already
         closing), the exception must be swallowed and logged, not propagated.
         """
-        conn, mock_conn, _ = self._make_connection()
+        conn, mock_conn, _ = self._make_connection_after_ioloop_exit()
         # Make `current_thread() is self._ioloop_thread` true.
         conn._ioloop_thread = threading.current_thread()
         mock_conn.close.side_effect = RuntimeError('already closing')
@@ -4731,38 +4722,14 @@ class ConnectionCloseFromIOLoopTests(unittest.TestCase):
         mock_conn.close.assert_called_once()
 
 
-class ConnectionEventRegistrationFailureTests(unittest.TestCase):
+class ConnectionEventRegistrationFailureTests(_ConnectionHarness,
+                                              unittest.TestCase):
     """Cover the LOGGER.warning branch when the raw connection's blocked/unblocked registration
     method raises.
     """
 
-    def _make_connection(self):
-        with patch('pika.adapters.thread_safe_connection.SelectConnection'
-                  ) as MockSelectConn:
-            mock_conn = MagicMock()
-            mock_ioloop = MagicMock()
-            mock_conn.ioloop = mock_ioloop
-            mock_conn.is_open = True
-            mock_conn.is_closed = False
-            mock_conn.is_closing = False
-            # A healthy connection has no pending error; _submit_or_terminate
-            # short-circuits when _error is set, so it must be None here.
-            mock_conn._error = None
-
-            def fake_init(parameters, on_open_callback, on_open_error_callback,
-                          on_close_callback):
-                on_open_callback(mock_conn)
-                return mock_conn
-
-            MockSelectConn.side_effect = fake_init
-            MockSelectConn.return_value = mock_conn
-
-            conn = Connection(parameters='params')
-            conn._ioloop_thread.join(timeout=1)
-        return conn, mock_conn, mock_ioloop
-
     def test_blocked_registration_failure_is_logged(self):
-        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn, mock_conn, mock_ioloop = self._make_connection_after_ioloop_exit()
         mock_conn.add_on_connection_blocked_callback.side_effect = RuntimeError(
             'register boom')
         mock_ioloop.add_callback_threadsafe.side_effect = lambda cb: cb()
@@ -4775,38 +4742,13 @@ class ConnectionEventRegistrationFailureTests(unittest.TestCase):
                       mock_logger.warning.call_args[0][1])
 
 
-class ChannelOpenExceptionPathTests(unittest.TestCase):
+class ChannelOpenExceptionPathTests(_ConnectionHarness, unittest.TestCase):
     """Cover the exception path inside Connection.channel() when the inner connection.channel() call
     itself raises.
     """
 
-    def _make_connection(self):
-        with patch('pika.adapters.thread_safe_connection.SelectConnection'
-                  ) as MockSelectConn:
-            mock_conn = MagicMock()
-            mock_ioloop = MagicMock()
-            mock_conn.ioloop = mock_ioloop
-            mock_conn.is_open = True
-            mock_conn.is_closed = False
-            mock_conn.is_closing = False
-            # A healthy connection has no pending error; _submit_or_terminate
-            # short-circuits when _error is set, so it must be None here.
-            mock_conn._error = None
-
-            def fake_init(parameters, on_open_callback, on_open_error_callback,
-                          on_close_callback):
-                on_open_callback(mock_conn)
-                return mock_conn
-
-            MockSelectConn.side_effect = fake_init
-            MockSelectConn.return_value = mock_conn
-
-            conn = Connection(parameters='params')
-            conn._ioloop_thread.join(timeout=1)
-        return conn, mock_conn, mock_ioloop
-
     def test_channel_open_propagates_inner_exception(self):
-        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn, mock_conn, mock_ioloop = self._make_connection_after_ioloop_exit()
         boom = RuntimeError('connection.channel raised')
         mock_conn.channel.side_effect = boom
         mock_ioloop.add_callback_threadsafe.side_effect = lambda cb: cb()
