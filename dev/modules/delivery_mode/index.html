@@ -2203,23 +2203,23 @@ integer is expected, including the wire encoder for
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pika/delivery_mode.py</code></summary>
-                <div class="highlight"><pre><span></span><code><span id="__span-0-4"><span class="linenos" data-linenos=" 4 "></span><span class="k">class</span><span class="w"> </span><span class="nc">DeliveryMode</span><span class="p">(</span><span class="n">IntEnum</span><span class="p">):</span>
-</span><span id="__span-0-5"><span class="linenos" data-linenos=" 5 "></span><span class="w">    </span><span class="sd">"""</span>
-</span><span id="__span-0-6"><span class="linenos" data-linenos=" 6 "></span><span class="sd">    Enum for specifying the message delivery mode.</span>
-</span><span id="__span-0-7"><span class="linenos" data-linenos=" 7 "></span>
-</span><span id="__span-0-8"><span class="linenos" data-linenos=" 8 "></span><span class="sd">    Inherits from :class:`enum.IntEnum` so members are usable wherever an</span>
-</span><span id="__span-0-9"><span class="linenos" data-linenos=" 9 "></span><span class="sd">    integer is expected, including the wire encoder for</span>
-</span><span id="__span-0-10"><span class="linenos" data-linenos="10 "></span><span class="sd">    :class:`pika.spec.BasicProperties.delivery_mode`.</span>
-</span><span id="__span-0-11"><span class="linenos" data-linenos="11 "></span>
-</span><span id="__span-0-12"><span class="linenos" data-linenos="12 "></span><span class="sd">    Attributes:</span>
-</span><span id="__span-0-13"><span class="linenos" data-linenos="13 "></span><span class="sd">        Transient: The message is not written to disk and may be lost if the</span>
-</span><span id="__span-0-14"><span class="linenos" data-linenos="14 "></span><span class="sd">            broker crashes.</span>
-</span><span id="__span-0-15"><span class="linenos" data-linenos="15 "></span><span class="sd">        Persistent: The message is written to disk and will survive broker</span>
-</span><span id="__span-0-16"><span class="linenos" data-linenos="16 "></span><span class="sd">            crashes.</span>
-</span><span id="__span-0-17"><span class="linenos" data-linenos="17 "></span><span class="sd">    """</span>
-</span><span id="__span-0-18"><span class="linenos" data-linenos="18 "></span>
-</span><span id="__span-0-19"><span class="linenos" data-linenos="19 "></span>    <span class="n">Transient</span> <span class="o">=</span> <span class="mi">1</span>
-</span><span id="__span-0-20"><span class="linenos" data-linenos="20 "></span>    <span class="n">Persistent</span> <span class="o">=</span> <span class="mi">2</span>
+                <div class="highlight"><pre><span></span><code><span id="pika.delivery_mode.DeliveryMode--source--__span-0-4"><span class="linenos" data-linenos=" 4 "></span><span class="k">class</span><span class="w"> </span><span class="nc">DeliveryMode</span><span class="p">(</span><span class="n">IntEnum</span><span class="p">):</span>
+</span><span id="pika.delivery_mode.DeliveryMode--source--__span-0-5"><span class="linenos" data-linenos=" 5 "></span><span class="w">    </span><span class="sd">"""</span>
+</span><span id="pika.delivery_mode.DeliveryMode--source--__span-0-6"><span class="linenos" data-linenos=" 6 "></span><span class="sd">    Enum for specifying the message delivery mode.</span>
+</span><span id="pika.delivery_mode.DeliveryMode--source--__span-0-7"><span class="linenos" data-linenos=" 7 "></span>
+</span><span id="pika.delivery_mode.DeliveryMode--source--__span-0-8"><span class="linenos" data-linenos=" 8 "></span><span class="sd">    Inherits from :class:`enum.IntEnum` so members are usable wherever an</span>
+</span><span id="pika.delivery_mode.DeliveryMode--source--__span-0-9"><span class="linenos" data-linenos=" 9 "></span><span class="sd">    integer is expected, including the wire encoder for</span>
+</span><span id="pika.delivery_mode.DeliveryMode--source--__span-0-10"><span class="linenos" data-linenos="10 "></span><span class="sd">    :class:`pika.spec.BasicProperties.delivery_mode`.</span>
+</span><span id="pika.delivery_mode.DeliveryMode--source--__span-0-11"><span class="linenos" data-linenos="11 "></span>
+</span><span id="pika.delivery_mode.DeliveryMode--source--__span-0-12"><span class="linenos" data-linenos="12 "></span><span class="sd">    Attributes:</span>
+</span><span id="pika.delivery_mode.DeliveryMode--source--__span-0-13"><span class="linenos" data-linenos="13 "></span><span class="sd">        Transient: The message is not written to disk and may be lost if the</span>
+</span><span id="pika.delivery_mode.DeliveryMode--source--__span-0-14"><span class="linenos" data-linenos="14 "></span><span class="sd">            broker crashes.</span>
+</span><span id="pika.delivery_mode.DeliveryMode--source--__span-0-15"><span class="linenos" data-linenos="15 "></span><span class="sd">        Persistent: The message is written to disk and will survive broker</span>
+</span><span id="pika.delivery_mode.DeliveryMode--source--__span-0-16"><span class="linenos" data-linenos="16 "></span><span class="sd">            crashes.</span>
+</span><span id="pika.delivery_mode.DeliveryMode--source--__span-0-17"><span class="linenos" data-linenos="17 "></span><span class="sd">    """</span>
+</span><span id="pika.delivery_mode.DeliveryMode--source--__span-0-18"><span class="linenos" data-linenos="18 "></span>
+</span><span id="pika.delivery_mode.DeliveryMode--source--__span-0-19"><span class="linenos" data-linenos="19 "></span>    <span class="n">Transient</span> <span class="o">=</span> <span class="mi">1</span>
+</span><span id="pika.delivery_mode.DeliveryMode--source--__span-0-20"><span class="linenos" data-linenos="20 "></span>    <span class="n">Persistent</span> <span class="o">=</span> <span class="mi">2</span>
 </span></code></pre></div>
               </details>
 
