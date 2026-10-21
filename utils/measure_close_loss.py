@@ -26,70 +26,80 @@ import argparse
 import statistics
 import threading
 import time
-from typing import TYPE_CHECKING
 
 import pika
-from pika.adapters.thread_safe_connection import Connection
-
-if TYPE_CHECKING:
-    from pika.adapters.blocking_connection import BlockingChannel
+from pika.adapters.thread_safe_connection import Channel, Connection
 
 #: What `--help` shows, rather than a slice of the module docstring.
 DESCRIPTION = 'Measure how many messages a close loses, against a live broker.'
 
-#: Queue used for every run, deleted and redeclared each time.
+#: Default queue. Overridable, because two runs sharing one would each delete
+#: the other's messages.
 QUEUE = 'pika-close-loss-measurement'
 
+#: How long to wait for the first delivery before giving up on the run.
+FIRST_DELIVERY_TIMEOUT = 30.0
 
-def _publish(params: pika.ConnectionParameters, count: int,
+#: How long to wait for the broker to report every publish.
+PUBLISH_SETTLE_TIMEOUT = 60.0
+
+
+def _publish(params: pika.ConnectionParameters, queue: str, count: int,
              body_size: int) -> None:
     """
-    Fill the queue, and confirm the broker has all of it before returning.
+    Fill the queue, and wait for the broker to report all of it before returning.
 
-    Publisher confirms are what make the count below trustworthy: without them `queue_declare`
-    can report a depth that is still short, which reads as a message lost before the test began.
+    `basic_publish` here is fire-and-forget, so the depth is polled rather than read once: a single
+    read returns a depth that is still short, which then reads as a message lost before the run
+    began.
 
     :param params: Where to connect
+    :param queue: Queue to publish to, deleted first
     :param count: How many messages to publish
     :param body_size: Bytes per message body
     """
-    conn = pika.BlockingConnection(params)
+    conn = Connection(params)
     try:
         channel = conn.channel()
-        channel.queue_delete(QUEUE)
-        channel.queue_declare(QUEUE, durable=True)
-        channel.confirm_delivery()
+        channel.queue_delete(queue)
+        channel.queue_declare(queue, durable=True)
         body = b'x' * body_size
         for _ in range(count):
-            channel.basic_publish('', QUEUE, body)
-        depth = _depth_on(channel)
+            channel.basic_publish('', queue, body)
+        deadline = time.monotonic() + PUBLISH_SETTLE_TIMEOUT
+        depth = _depth_on(channel, queue)
+        while depth != count and time.monotonic() < deadline:
+            time.sleep(0.1)
+            depth = _depth_on(channel, queue)
         if depth != count:
             raise RuntimeError(f'published {count} but the queue holds {depth}')
     finally:
-        conn.close()
+        conn.close(timeout=None)
 
 
-def _depth_on(channel: BlockingChannel) -> int:
+def _depth_on(channel: Channel, queue: str) -> int:
     """
     Report the queue's depth over an existing channel.
 
     :param channel: An open channel
+    :param queue: Queue to measure
     """
-    return channel.queue_declare(QUEUE, durable=True,
+    return channel.queue_declare(queue, durable=True,
                                  passive=True).method.message_count
 
 
-def _depth(params: pika.ConnectionParameters) -> int:
+def _depth(params: pika.ConnectionParameters, queue: str) -> int:
     """
     Report the queue's depth over a connection of its own.
 
     :param params: Where to connect
+    :param queue: Queue to measure
     """
-    conn = pika.BlockingConnection(params)
+    conn = Connection(params)
     try:
-        return _depth_on(conn.channel())
+        return _depth_on(conn.channel(), queue)
     finally:
-        conn.close()
+        conn.close(timeout=None)
 
 
 def _run_once(args: argparse.Namespace) -> dict[str, int]:
@@ -99,38 +109,43 @@ def _run_once(args: argparse.Namespace) -> dict[str, int]:
     :param args: The parsed command line
     """
     params = pika.ConnectionParameters(args.host)
-    _publish(params, args.messages, args.body_size)
+    _publish(params, args.queue, args.messages, args.body_size)
 
     seen: list[int] = []
     first = threading.Event()
     auto_ack = args.ack == 'auto'
 
     conn = Connection(params, work_queue_maxsize=args.queue_maxsize)
-    channel = conn.channel()
+    try:
+        channel = conn.channel()
 
-    def on_message(ch, method, _properties, _body) -> None:
-        seen.append(method.delivery_tag)
-        first.set()
-        time.sleep(args.callback_ms / 1000.0)
-        if not auto_ack:
-            ch.basic_ack(method.delivery_tag)
+        def on_message(ch, method, _properties, _body) -> None:
+            seen.append(method.delivery_tag)
+            first.set()
+            time.sleep(args.callback_ms / 1000.0)
+            if not auto_ack:
+                ch.basic_ack(method.delivery_tag)
 
-    channel.basic_consume(QUEUE, on_message, auto_ack=auto_ack)
-    if not first.wait(args.settle + 30):
-        raise RuntimeError('no delivery arrived; is the queue being consumed '
-                           'by something else?')
-    time.sleep(args.settle)
+        channel.basic_consume(args.queue, on_message, auto_ack=auto_ack)
+        if not first.wait(FIRST_DELIVERY_TIMEOUT):
+            raise RuntimeError('no delivery arrived; is the queue being '
+                               'consumed by something else?')
+        time.sleep(args.settle)
 
-    if args.close == 'connection':
-        conn.close(timeout=args.timeout)
-        at_close, remaining = len(seen), _depth(params)
-    else:
-        channel.close(timeout=args.timeout)
-        # Both readings come before the connection close, which is unbounded:
-        # it would otherwise let the daemon worker finish what this close
-        # abandoned, crediting the bounded close with those callbacks and with
-        # the acknowledgements they issue.
-        at_close, remaining = len(seen), _depth(params)
+        if args.close == 'connection':
+            conn.close(timeout=args.timeout)
+            at_close, remaining = len(seen), _depth(params, args.queue)
+        else:
+            channel.close(timeout=args.timeout)
+            # Both readings come before the connection close, which is
+            # unbounded: it would otherwise let the daemon worker finish what
+            # this close abandoned, crediting the bounded close with those
+            # callbacks and with the acknowledgements they issue.
+            at_close, remaining = len(seen), _depth(params, args.queue)
+    finally:
+        # The IOLoop thread is a daemon, so an abandoned connection costs a
+        # socket until the process exits rather than hanging it; closing here
+        # keeps a failed run from leaving one behind for every --runs.
         conn.close(timeout=None)
 
     settled = len(seen)
@@ -172,7 +187,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--callback-ms', type=float, default=50)
     parser.add_argument('--timeout',
                         type=_parse_timeout,
-                        default=10,
+                        default=_parse_timeout('10'),
                         help="seconds, or 'none' to wait indefinitely")
     parser.add_argument('--close',
                         choices=('channel', 'connection'),
@@ -184,6 +199,9 @@ def main(argv: list[str] | None = None) -> int:
                         help='seconds between the first delivery and the close')
     parser.add_argument('--runs', type=int, default=1)
     parser.add_argument('--host', default='localhost')
+    parser.add_argument('--queue',
+                        default=QUEUE,
+                        help='two concurrent runs must not share one')
     args = parser.parse_args(argv)
 
     print(f'pika {pika.__version__} from {pika.__file__}')
@@ -199,7 +217,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f'  run {run}: {result}')
     if args.runs > 1:
         print(f'{key}: range {min(totals)}-{max(totals)}, '
-              f'median {int(statistics.median(totals))}')
+              f'median {statistics.median(totals):g}')
     return 0
 
 
