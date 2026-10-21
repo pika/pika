@@ -5,6 +5,7 @@ import contextlib
 import threading
 import traceback
 import unittest
+import weakref
 from unittest.mock import ANY, MagicMock, patch
 
 from pika import spec
@@ -23,6 +24,10 @@ from pika.exceptions import (
     ConnectionWrongStateError,
     WorkQueueFullError,
 )
+
+#: Stand-in owner for pools built without a `Connection`.  Module level so the
+#: pool's weak reference stays live for the test's duration.
+STANDALONE = type('StandaloneOwner', (), {})()
 
 
 class SubmitOrTerminateTests(unittest.TestCase):
@@ -196,7 +201,8 @@ class BoundedWorkPoolTests(unittest.TestCase):
         """
         pool = _BoundedWorkPool(maxsize=maxsize,
                                 put_timeout=put_timeout,
-                                thread_name='test-pool')
+                                thread_name='test-pool',
+                                owner=STANDALONE)
         release = threading.Event()
         started = threading.Event()
 
@@ -283,7 +289,8 @@ class BoundedWorkPoolTests(unittest.TestCase):
         """An idle worker blocked in get() must still process work submitted after it goes idle."""
         pool = _BoundedWorkPool(maxsize=10,
                                 put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
-                                thread_name='test-pool')
+                                thread_name='test-pool',
+                                owner=STANDALONE)
 
         # Signal when the worker re-enters get() with an empty queue after the
         # first item has run: that is the worker going idle, detected without
@@ -335,7 +342,8 @@ class BoundedWorkPoolTests(unittest.TestCase):
         """A submit() on a shut-down pool must raise RuntimeError."""
         pool = _BoundedWorkPool(maxsize=1,
                                 put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
-                                thread_name='test-pool')
+                                thread_name='test-pool',
+                                owner=STANDALONE)
         pool.shutdown(wait=True)
         with self.assertRaises(RuntimeError):
             pool.submit(lambda: None)
@@ -351,7 +359,8 @@ class BoundedWorkPoolTests(unittest.TestCase):
         """
         pool = _BoundedWorkPool(maxsize=10,
                                 put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
-                                thread_name='test-pool')
+                                thread_name='test-pool',
+                                owner=STANDALONE)
         real_put = pool._queue.put
 
         def put_then_shutdown(*args, **kwargs):
@@ -369,7 +378,8 @@ class BoundedWorkPoolTests(unittest.TestCase):
         """The worker thread must not start until the first submit."""
         pool = _BoundedWorkPool(maxsize=1,
                                 put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
-                                thread_name='test-pool')
+                                thread_name='test-pool',
+                                owner=STANDALONE)
         self.assertIsNone(pool._thread)
         pool.submit(lambda: None)
         self.assertIsNotNone(pool._thread)
@@ -379,7 +389,8 @@ class BoundedWorkPoolTests(unittest.TestCase):
         """Calling shutdown() multiple times must not raise."""
         pool = _BoundedWorkPool(maxsize=1,
                                 put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
-                                thread_name='test-pool')
+                                thread_name='test-pool',
+                                owner=STANDALONE)
         pool.submit(lambda: None)
         pool.shutdown(wait=True)
         pool.shutdown(wait=True)
@@ -388,7 +399,8 @@ class BoundedWorkPoolTests(unittest.TestCase):
         """A work item that shuts its own pool down must not join the worker thread it runs on."""
         pool = _BoundedWorkPool(maxsize=1,
                                 put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
-                                thread_name='test-pool')
+                                thread_name='test-pool',
+                                owner=STANDALONE)
         result: list[bool] = []
 
         def self_shutdown():
@@ -412,7 +424,8 @@ class BoundedWorkPoolTests(unittest.TestCase):
         """
         pool = _BoundedWorkPool(maxsize=10,
                                 put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
-                                thread_name='test-pool')
+                                thread_name='test-pool',
+                                owner=STANDALONE)
         ran = []
         healthy_ran = threading.Event()
 
@@ -2866,7 +2879,8 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
 
         pool = _BoundedWorkPool(maxsize=10,
                                 put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
-                                thread_name='test-conn-pool')
+                                thread_name='test-conn-pool',
+                                owner=conn)
         conn._connection_work_pool = pool
         conn._connection_pool_shutdown = False
 
@@ -3068,14 +3082,30 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
 
 class ConnectionTests(unittest.TestCase):
 
+    def _pose_as_pool_worker(self, conn):
+        """
+        Stamp this thread as one of *conn*'s pool workers, the way a real pool does (#1761).
+
+        Assigning a pool's `_thread` no longer answers `_is_pool_worker_thread`, which reads the
+        stamp instead. The stamp outlives the test, since it lands on the test runner's own thread,
+        so it is removed on cleanup rather than left for the next test to read.
+        """
+        current = threading.current_thread()
+        current._pika_pool_owner = weakref.ref(conn)
+        self.addCleanup(lambda: delattr(current, '_pika_pool_owner')
+                        if hasattr(current, '_pika_pool_owner') else None)
+
     def _make_connection(self,
                          on_open_error_callback=None,
                          on_close_callback=None):
         """
         Construct a Connection with a mocked SelectConnection.
 
-        The mock immediately fires on_open_callback so __init__ unblocks.
+        The mock fires on_open_callback at once so ``__init__`` unblocks, then holds
+        ``ioloop.start()`` open so the connection stays open: an IOLoop thread that has returned
+        from ``start()`` has already run the tail that shuts every pool down. Cleanup releases it.
         """
+        running = threading.Event()
         with patch('pika.adapters.thread_safe_connection.SelectConnection'
                   ) as MockSelectConn:
             mock_conn = MagicMock()
@@ -3097,16 +3127,69 @@ class ConnectionTests(unittest.TestCase):
 
             MockSelectConn.side_effect = fake_init
             MockSelectConn.return_value = mock_conn
+            mock_ioloop.start.side_effect = (lambda: running.wait(timeout=30))
 
             conn = Connection(
                 parameters='params',
                 on_open_error_callback=on_open_error_callback,
                 on_close_callback=on_close_callback,
             )
-            # Stop the background thread immediately since ioloop.start is mocked
-            conn._ioloop_thread.join(timeout=1)
+        # The loop is held open rather than allowed to return at once: a
+        # connection whose IOLoop thread has exited has had its pools shut
+        # down by `_run_ioloop`'s tail, so tests cannot submit to the pools
+        # the connection actually built.
+        ioloop_thread = conn._ioloop_thread
 
+        def _release_ioloop():
+            # Bound the join here: the tail joins pools with `timeout=None`, so
+            # a worker a test leaves wedged would leak and fail whichever later
+            # test scans for stray IOLoop threads instead of this one.
+            with conn._channel_waiters_lock:
+                pools = [ch._consumer_work_pool for ch in conn._channels]
+            pools.append(conn._connection_work_pool)
+            for pool in pools:
+                pool.shutdown(wait=False)
+            for pool in pools:
+                pool.shutdown(wait=True, timeout=5)
+            running.set()
+            ioloop_thread.join(timeout=10)
+            self.assertFalse(
+                ioloop_thread.is_alive(),
+                f'{ioloop_thread.name} outlived its test; a later test that '
+                f'scans for stray IOLoop threads would be blamed for it')
+
+        self.addCleanup(_release_ioloop)
         return conn, mock_conn, mock_ioloop
+
+    def _call_on_pool_worker(self, pool, fn):
+        """
+        Run *fn* on one of *pool*'s real worker threads and return its result.
+
+        Submitted through `_BoundedWorkPool.submit` rather than stamping a thread by hand, so the
+        production stamping is part of what these tests cover.  Hand-stamping left ``owner=`` free
+        to be mutated to ``None`` with every test still passing.
+
+        :param pool: The `_BoundedWorkPool` whose worker should run *fn*.
+        :param fn: Zero-argument callable.
+        :returns: Whatever *fn* returned.
+        """
+        box = {}
+        done = threading.Event()
+
+        def body():
+            try:
+                box['value'] = fn()
+            except BaseException as exc:  # re-raised on the calling thread
+                box['error'] = exc
+            finally:
+                done.set()
+
+        pool.submit(body)
+        self.assertTrue(done.wait(timeout=5),
+                        'the pool worker never ran the call')
+        if 'error' in box:
+            raise box['error']
+        return box.get('value')
 
     def test_ioloop_thread_is_started(self):
         _conn, _, mock_ioloop = self._make_connection()
@@ -3570,10 +3653,8 @@ class ConnectionTests(unittest.TestCase):
         """
         conn, mock_conn, mock_ioloop = self._make_connection()
         conn._ioloop_thread = MagicMock()
-        # Simulate close() running on the connection's event-callback worker.
-        conn._connection_work_pool._thread = threading.current_thread()
 
-        conn.close()
+        self._call_on_pool_worker(conn._connection_work_pool, conn.close)
 
         mock_ioloop.add_callback_threadsafe.assert_called_once()
         # The close must still be scheduled onto the IOLoop...
@@ -3597,12 +3678,10 @@ class ConnectionTests(unittest.TestCase):
         conn, mock_conn, mock_ioloop = self._make_connection()
         conn._ioloop_thread = MagicMock()
         ch = Channel(MagicMock(), conn)
-        # Simulate close() running on this channel's consumer worker thread.
-        ch._consumer_work_pool._thread = threading.current_thread()
         with conn._channel_waiters_lock:
             conn._channels.append(ch)
 
-        conn.close()
+        self._call_on_pool_worker(ch._consumer_work_pool, conn.close)
 
         mock_ioloop.add_callback_threadsafe.assert_called_once()
         mock_ioloop.add_callback_threadsafe.call_args[0][0]()
@@ -3616,13 +3695,13 @@ class ConnectionTests(unittest.TestCase):
                                   already_closing=already_closing):
                     conn, raw, ioloop = self._make_connection()
                     conn._ioloop_thread = MagicMock()
-                    if pool_kind == 'connection':
-                        pool = conn._connection_work_pool
-                    else:
-                        channel = Channel(MagicMock(), conn)
-                        conn._channels.append(channel)
-                        pool = channel._consumer_work_pool
-                    pool._thread = threading.current_thread()
+                    if pool_kind == 'consumer':
+                        # A consumer pool belongs to a channel, so the channel
+                        # has to be present for this to be that case. The stamp
+                        # is the same either way, which is the point of #1761:
+                        # the answer no longer depends on what a list holds.
+                        conn._channels.append(Channel(MagicMock(), conn))
+                    self._pose_as_pool_worker(conn)
                     if already_closing:
                         raw.close.side_effect = ConnectionWrongStateError(
                             'already closing')
@@ -3650,7 +3729,7 @@ class ConnectionTests(unittest.TestCase):
 
     def test_pool_worker_close_timeout_preserves_clean_close_reason(self):
         conn, raw, ioloop = self._make_connection()
-        conn._connection_work_pool._thread = threading.current_thread()
+        self._pose_as_pool_worker(conn)
         conn.close(timeout=0.1)
         ioloop.add_callback_threadsafe.call_args[0][0]()
         ioloop.call_later.assert_called_once()
@@ -3667,7 +3746,7 @@ class ConnectionTests(unittest.TestCase):
 
     def test_pool_worker_close_without_timeout_keeps_waiting_for_broker(self):
         conn, raw, ioloop = self._make_connection()
-        conn._connection_work_pool._thread = threading.current_thread()
+        self._pose_as_pool_worker(conn)
         conn.close(timeout=None)
         ioloop.add_callback_threadsafe.call_args[0][0]()
 
@@ -3678,7 +3757,7 @@ class ConnectionTests(unittest.TestCase):
 
     def test_pool_worker_close_timeout_includes_scheduling_delay(self):
         conn, _raw, ioloop = self._make_connection()
-        conn._connection_work_pool._thread = threading.current_thread()
+        self._pose_as_pool_worker(conn)
         with patch('pika.adapters.thread_safe_connection.time.monotonic',
                    side_effect=(10, 11)):
             conn.close(timeout=0.1)
@@ -3687,23 +3766,78 @@ class ConnectionTests(unittest.TestCase):
         ioloop.call_later.assert_called_once_with(0, ANY)
 
     def test_is_pool_worker_thread_false_for_unrelated_thread(self):
-        """
-        A thread that owns none of this connection's pools must not be misidentified.
+        """A thread carrying no pool stamp must not be misidentified as a worker."""
+        conn, _mock_conn, _mock_ioloop = self._make_connection()
+        ch = Channel(MagicMock(), conn)
+        with conn._channel_waiters_lock:
+            conn._channels.append(ch)
 
-        The pools point at real but distinct worker threads (not ``None``), so this exercises a
-        genuine thread-identity mismatch rather than the current thread being compared against an
-        unset ``_thread``.
+        self.assertFalse(conn._is_pool_worker_thread())
+
+        # A stamp belonging to someone else must not match either, so the
+        # check cannot degrade into "carries any stamp at all".
+        box = {}
+
+        def ask():
+            box['classified'] = conn._is_pool_worker_thread()
+
+        stranger = threading.Thread(target=ask)
+        stranger._pika_pool_owner = weakref.ref(STANDALONE)
+        stranger.start()
+        stranger.join(timeout=5)
+        self.assertFalse(stranger.is_alive())
+        self.assertFalse(box['classified'])
+
+    def test_is_pool_worker_thread_false_for_another_connections_worker(self):
+        """A worker belonging to a different connection must not be claimed as ours."""
+        conn, _mock_conn, _mock_ioloop = self._make_connection()
+        other, _oc, _oi = self._make_connection()
+
+        self.assertFalse(
+            self._call_on_pool_worker(other._connection_work_pool,
+                                      conn._is_pool_worker_thread))
+
+    def test_is_pool_worker_thread_survives_its_channel_being_dropped(self):
+        """
+        A live worker must still be identified after its channel leaves ``_channels``.
+
+        `Channel._claim_pool_shutdown` drops the channel, and `_on_broker_close` calls it as soon
+        as the broker closes that channel.  An earlier implementation searched ``_channels``, so
+        the worker was reported as not-a-worker and `close` took the joining branch the check
+        exists to avoid: #1761.
         """
         conn, _mock_conn, _mock_ioloop = self._make_connection()
         ch = Channel(MagicMock(), conn)
         with conn._channel_waiters_lock:
             conn._channels.append(ch)
-        # Distinct thread objects that are never this thread; the check must
-        # compare identities and return False, not match on a shared default.
-        conn._connection_work_pool._thread = threading.Thread()
-        ch._consumer_work_pool._thread = threading.Thread()
 
-        self.assertFalse(conn._is_pool_worker_thread())
+        holding = threading.Event()
+        pruned = threading.Event()
+        answer = {}
+
+        def ask_after_prune():
+            # No assertions here: `_run_worker` calls `fn(*args)` bare, so a
+            # failed assertion would kill the worker and surface only as a
+            # warning, and this test would then blame the production fix.
+            holding.set()
+            answer['saw_prune'] = pruned.wait(timeout=5)
+            answer['classified'] = conn._is_pool_worker_thread()
+
+        ch._consumer_work_pool.submit(ask_after_prune)
+        self.assertTrue(holding.wait(timeout=5), 'worker never started')
+
+        ch._claim_pool_shutdown()
+        self.assertNotIn(ch, conn._channels)
+        pruned.set()
+        ch._consumer_work_pool.shutdown(wait=True, timeout=5)
+
+        self.assertTrue(
+            answer.get('saw_prune'),
+            'the worker never observed the prune, so nothing was exercised')
+        self.assertTrue(
+            answer.get('classified'),
+            'the worker was not identified once its channel was '
+            'dropped, so close() would join the IOLoop thread')
 
     def test_abort_swallows_close_errors(self):
         conn, _mock_conn, _ = self._make_connection()
@@ -3737,13 +3871,6 @@ class ConnectionTests(unittest.TestCase):
 
     def test_blocked_callback_dispatches_on_worker_thread(self):
         conn, mock_conn, mock_ioloop = self._make_connection()
-        # Recreate the work pool because _make_connection lets _run_ioloop
-        # exit, which shuts the pool down.
-        conn._connection_work_pool = _BoundedWorkPool(
-            maxsize=1000,
-            put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
-            thread_name='pika-conn-test')
-        conn._connection_pool_shutdown = False
         callback_thread = []
         received = []
 
@@ -3802,11 +3929,6 @@ class ConnectionTests(unittest.TestCase):
 
     def test_unblocked_callback_dispatches_on_worker_thread(self):
         conn, mock_conn, mock_ioloop = self._make_connection()
-        conn._connection_work_pool = _BoundedWorkPool(
-            maxsize=1000,
-            put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
-            thread_name='pika-conn-test')
-        conn._connection_pool_shutdown = False
         received = []
 
         def user_cb(connection, method_frame):
@@ -3858,11 +3980,6 @@ class ConnectionTests(unittest.TestCase):
         Future.
         """
         conn, mock_conn, mock_ioloop = self._make_connection()
-        conn._connection_work_pool = _BoundedWorkPool(
-            maxsize=1000,
-            put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
-            thread_name='pika-conn-test')
-        conn._connection_pool_shutdown = False
 
         def boom(connection, method_frame):
             raise RuntimeError('blocked-listener boom')

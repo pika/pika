@@ -9,6 +9,7 @@ Each test covers a scenario that unit tests with mocks cannot: real socket I/O,
 real AMQP frame exchange, and real concurrent threads.
 """
 
+import contextlib
 import threading
 import time
 import unittest
@@ -385,6 +386,67 @@ class TestConcurrentClose(ThreadSafeTestCaseBase):
 
         self.assertEqual([], errors)
         self.assertTrue(conn.is_closed)
+
+
+class TestCloseFromConsumerCallbackOnBrokerClosedChannel(
+        ThreadSafeTestCaseBase):
+    """
+    A broker-closed channel must not stop close() from returning promptly.
+
+    Acking an unknown delivery tag makes the broker answer 406 and close the
+    channel, which runs `_on_broker_close` and drops it from `_channels` while
+    this callback is still on the worker.  Distinct from
+    `TestCloseFromConsumerCallback`, whose channel stays open and tracked.
+
+    This passes under the pre-#1761 `_channels` search as well, because the
+    prune that misclassified the worker also dropped its pool from the
+    shutdown sweep that would have joined it back, so neither predicate hangs
+    here.  The predicate itself is pinned by
+    `ConnectionTests.test_is_pool_worker_thread_survives_its_channel_being_dropped`;
+    this is an end-to-end no-hang guard over the same path.
+    """
+
+    def test_returns_promptly(self):
+        conn = self._connect()
+        ch = conn.channel()
+        queue = self._unique_queue()
+        ch.queue_declare(queue=queue, durable=False, exclusive=True)
+        ch.basic_publish(exchange='', routing_key=queue, body=b'stop')
+
+        done = threading.Event()
+        elapsed = []
+        tracked = []
+
+        def on_message(channel, method, properties, body):
+            # 406 PRECONDITION_FAILED closes the channel broker-side.
+            with contextlib.suppress(Exception):
+                channel.basic_ack(delivery_tag=method.delivery_tag + 10000)
+            # Record rather than assert: an exception here is swallowed by
+            # _safe_dispatch, which would fail this as a missing close().
+            deadline = time.monotonic() + BLOCKING_CALL_TIMEOUT
+            while ch in conn._channels and time.monotonic() < deadline:
+                time.sleep(0.05)
+            tracked.append(ch in conn._channels)
+            start = time.monotonic()
+            conn.close(timeout=BLOCKING_CALL_TIMEOUT)
+            elapsed.append(time.monotonic() - start)
+            done.set()
+
+        ch.basic_consume(queue=queue,
+                         on_message_callback=on_message,
+                         auto_ack=True)
+
+        self.assertTrue(
+            done.wait(timeout=BLOCKING_CALL_TIMEOUT * 3),
+            'close() from a consumer callback on a broker-closed channel did '
+            'not return')
+        self.assertEqual(
+            tracked, [False], 'the broker never closed the channel, so the '
+            'pruned-channel path was not exercised')
+        self.assertLess(
+            elapsed[0], 2,
+            f'close() blocked for {elapsed[0]:.2f}s instead of returning '
+            f'immediately from a pool worker')
 
 
 class TestCloseFromConsumerCallback(ThreadSafeTestCaseBase):
