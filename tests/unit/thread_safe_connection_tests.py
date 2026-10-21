@@ -32,6 +32,51 @@ from pika.exceptions import (
 STANDALONE = type('StandaloneOwner', (), {})()
 
 
+def _wire_cancel(wrapper,
+                 raw_ch,
+                 consumers,
+                 cancelled=None,
+                 answer=True,
+                 sends=True):
+    """
+    Make a mocked raw channel behave like a real one for a cancel sweep.
+
+    The real `basic_cancel` records the tag in `_cancelled` before sending, and the tag leaves
+    `_consumers` only when `Basic.CancelOk` arrives (`_on_cancelok` -> `_cleanup_consumer_ref`). The
+    sweep reads `_consumers` to know when it is done, so a mock that does not model that waits out
+    its whole budget.
+
+    :param answer: confirm each cancel at once; pass False and call ``raw_ch.complete(tag)``.
+    :param sends: pass False for a `basic_cancel` that returns without sending, which the real one
+        does for a tag it no longer knows.
+    """
+    wrapper._schedule_unchecked.side_effect = lambda cb: cb()
+    wrapper._ioloop_thread.is_alive.return_value = True
+    wrapper._closed_reason = None
+    raw_ch.is_closed = False
+    raw_ch._consumers = dict(consumers)
+    raw_ch._cancelled = set(cancelled or ())
+    raw_ch.cancels_asked = []
+
+    def complete(tag):
+        raw_ch._consumers.pop(tag, None)
+        raw_ch._cancelled.discard(tag)
+
+    raw_ch.complete = complete
+
+    def cancel(**kw):
+        tag = kw['consumer_tag']
+        raw_ch.cancels_asked.append(tag)
+        if not sends:
+            return
+        raw_ch._cancelled.add(tag)
+        if answer:
+            complete(tag)
+
+    raw_ch.basic_cancel.side_effect = cancel
+    return raw_ch
+
+
 def _cancel_ok(consumer_tag):
     """A Basic.CancelOk frame for *consumer_tag*, as the broker would send."""
     return frame.Method(1, spec.Basic.CancelOk(consumer_tag=consumer_tag))
@@ -2676,52 +2721,33 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
         A cancel already in flight must not be reissued.
 
         The underlying `basic_cancel` logs and returns without sending a frame for a tag it has
-        already cancelled, so a second cancel would wait for a `Basic.CancelOk` nobody requested.
+        already cancelled, so a second cancel would wait for a confirmation that never comes.
         """
         ch, raw_ch, wrapper = self._make_channel()
-        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
-        raw_ch._consumers = {'live': None, 'already-cancelling': None}
-        raw_ch._cancelled = {'already-cancelling'}
-        asked = []
+        _wire_cancel(wrapper,
+                     raw_ch, {
+                         'live': None,
+                         'already-cancelling': None
+                     },
+                     cancelled={'already-cancelling'})
 
-        def record(**kw):
-            asked.append(kw['consumer_tag'])
-            # A real basic_cancel records the tag before sending the frame.
-            raw_ch._cancelled.add(kw['consumer_tag'])
-            kw['callback'](_cancel_ok(kw['consumer_tag']))
+        ch._cancel_consumers(deadline=time.monotonic() + 10)
 
-        raw_ch.basic_cancel.side_effect = record
-
-        ch._cancel_consumers(deadline=None)
         self.assertEqual(
-            asked, ['live'],
-            'a consumer that was already cancelling was cancelled again, so '
-            'the close waits for a reply that will never arrive')
+            raw_ch.cancels_asked, ['live'],
+            'a consumer that was already cancelling was cancelled again')
 
     def test_cancel_waits_for_the_reply_within_the_budget(self):
         """
-        Cancelling waits for `Basic.CancelOk`, and is not capped below the broker's pace.
+        Cancelling waits for the confirmation, and is not capped below the broker's pace.
 
         The reply cannot arrive until the IOLoop has submitted the backlog, which takes as long as
         the worker needs to consume it, so any cap short enough to catch a lost reply also abandons
         a live cancel, and abandoning one leaves the broker dispatching into a pool about to close.
         """
         ch, raw_ch, wrapper = self._make_channel()
-        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
-        wrapper._ioloop_thread.is_alive.return_value = True
-        wrapper._closed_reason = None
-        raw_ch._consumers = {'ctag': None}
-        raw_ch._cancelled = set()
-        raw_ch.is_closed = False
-        replies = []
-
-        def defer_reply(**kw):
-            raw_ch._cancelled.add(kw['consumer_tag'])
-            replies.append((kw['callback'], kw['consumer_tag']))
-
-        raw_ch.basic_cancel.side_effect = defer_reply
-        threading.Timer(0.4, lambda: replies[0][0]
-                        (_cancel_ok(replies[0][1]))).start()
+        _wire_cancel(wrapper, raw_ch, {'ctag': None}, answer=False)
+        threading.Timer(0.4, lambda: raw_ch.complete('ctag')).start()
 
         started = time.monotonic()
         ch._cancel_consumers(deadline=time.monotonic() + 30)
@@ -2729,69 +2755,54 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
 
         self.assertGreater(
             elapsed, 0.3,
-            'the cancel returned before its reply, so the broker may still be '
-            'dispatching when the drain starts')
+            'the cancel returned before its confirmation, so the broker may '
+            'still be dispatching when the drain starts')
         self.assertLess(
             elapsed, 5,
             f'the cancel took {elapsed:.1f}s after its reply arrived at 0.4s')
 
     def test_a_foreign_cancel_ok_does_not_end_the_wait(self):
         """
-        Only this sweep's own replies may satisfy it.
+        Another consumer's confirmation must not satisfy this sweep.
 
-        The underlying `basic_cancel` registers its `Basic.CancelOk` callback with no arguments, so
-        it runs for every CancelOk on the channel. Counting those down ended the wait early, and
-        because `Basic.Cancel` is synchronous that left this sweep's later cancels sitting unsent in
-        the channel's blocked queue while their consumers kept receiving.
+        `basic_cancel` registers its `Basic.CancelOk` callback with no arguments, and
+        `CallbackManager` collapses identical callables into one reference-counted one-shot entry,
+        so any CancelOk on the channel consumes one registration whoever asked for it. Counting them
+        ended the wait early or never; completion is read from the channel's own consumer map
+        instead, which only this sweep's tags can clear.
         """
         ch, raw_ch, wrapper = self._make_channel()
-        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
-        wrapper._ioloop_thread.is_alive.return_value = True
-        wrapper._closed_reason = None
-        raw_ch._consumers = {'mine': None}
-        raw_ch._cancelled = set()
-        raw_ch.is_closed = False
-        replies = []
-
-        def defer(**kw):
-            raw_ch._cancelled.add(kw['consumer_tag'])
-            replies.append((kw['callback'], kw['consumer_tag']))
-
-        raw_ch.basic_cancel.side_effect = defer
+        _wire_cancel(wrapper, raw_ch, {'mine': None}, answer=False)
 
         def answer():
-            # A user cancel on another thread completes first; its reply must
-            # not be taken for ours.
-            replies[0][0](_cancel_ok('someone-elses'))
+            # A user cancel on another thread completes first.
+            raw_ch.complete('someone-elses')
             time.sleep(0.3)
-            replies[0][0](_cancel_ok('mine'))
+            raw_ch.complete('mine')
 
         threading.Timer(0.1, answer).start()
         started = time.monotonic()
-        ch._cancel_consumers(deadline=time.monotonic() + 30)
+        ch._cancel_consumers(deadline=time.monotonic() + 10)
         elapsed = time.monotonic() - started
 
         self.assertGreater(
             elapsed, 0.35,
-            f'the wait ended after {elapsed:.2f}s, on a CancelOk for another '
-            f'consumer rather than on its own')
+            f"the wait ended after {elapsed:.2f}s, on another consumer's "
+            f"confirmation rather than its own")
+        self.assertLess(
+            elapsed, 5,
+            f'the wait took {elapsed:.1f}s though its own confirmation '
+            f'arrived at 0.4s, so it is not reading completion correctly')
 
     def test_cancel_gives_up_when_the_ioloop_thread_dies(self):
         """
-        A cancel must stop waiting once nothing can deliver its reply.
+        A cancel must stop waiting once nothing can deliver its confirmation.
 
-        The replies come from the IOLoop thread, so a `BaseException` that kills it leaves a wait
-        that the budget alone would never end under `close(timeout=None)`.
+        The confirmations are processed on the IOLoop thread, so a `BaseException` that kills it
+        leaves a wait the budget alone would never end under `close(timeout=None)`.
         """
         ch, raw_ch, wrapper = self._make_channel()
-        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
-        wrapper._closed_reason = None
-        raw_ch._consumers = {'ctag': None}
-        raw_ch._cancelled = set()
-        raw_ch.is_closed = False
-        # Issued but never answered, with the IOLoop thread gone.
-        raw_ch.basic_cancel.side_effect = (
-            lambda **kw: raw_ch._cancelled.add(kw['consumer_tag']))
+        _wire_cancel(wrapper, raw_ch, {'ctag': None}, answer=False)
         wrapper._ioloop_thread.is_alive.return_value = False
 
         finished = threading.Event()
@@ -2804,20 +2815,13 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
         self.assertTrue(
             returned,
             f'still waiting after {time.monotonic() - started:.1f}s for a '
-            f'reply from a dead IOLoop thread, so close(timeout=None) hangs')
+            f'confirmation from a dead IOLoop thread, so close(timeout=None) '
+            f'hangs')
 
     def test_cancel_that_sends_no_frame_is_not_waited_for(self):
-        """A cancel the channel returns from without sending must not be counted."""
+        """A cancel the channel returns from without sending must not be waited on."""
         ch, raw_ch, wrapper = self._make_channel()
-        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
-        wrapper._ioloop_thread.is_alive.return_value = True
-        wrapper._closed_reason = None
-        raw_ch._consumers = {'ctag': None}
-        raw_ch._cancelled = set()
-        raw_ch.is_closed = False
-        # Records nothing and raises nothing, as the real call does for a tag it
-        # no longer knows.
-        raw_ch.basic_cancel.side_effect = lambda **_kw: None
+        _wire_cancel(wrapper, raw_ch, {'ctag': None}, sends=False)
 
         started = time.monotonic()
         ch._cancel_consumers(deadline=time.monotonic() + 30)
@@ -2825,8 +2829,8 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
 
         self.assertLess(
             elapsed, 2,
-            f'waited {elapsed:.1f}s for a reply to a cancel that was never '
-            f'sent, so close(timeout=None) would hang')
+            f'waited {elapsed:.1f}s on a cancel that was never sent, so '
+            f'close(timeout=None) would hang')
 
     def test_close_does_not_spend_the_budget_twice_on_the_pool(self):
         """

@@ -411,6 +411,34 @@ class TwistedChannelTestCase(TestCase):
         self.pika_channel.basic_reject.assert_called_once_with(7, requeue=True)
         queue_obj.close.assert_called_once()
 
+    def test_basic_consume_records_an_auto_ack_consumer(self):
+        # The cancel path reads this to decide whether rejecting is safe, so the
+        # recording is what stands between an auto_ack consumer and a 406 that
+        # closes the channel.
+        d = self.channel.basic_consume(queue='testqueue', auto_ack=True)
+        self.pika_channel.basic_consume.assert_called_once()
+        kwargs = self.pika_channel.basic_consume.call_args_list[0][1]
+        kwargs['callback'](Method(
+            1, spec.Basic.ConsumeOk(consumer_tag='noack-tag')))
+
+        self.assertTrue(d.called)
+        self.assertIn('noack-tag', self.channel._consumers_with_noack)
+
+    def test_queue_delete_forgets_an_auto_ack_consumer(self):
+        # Left behind, the entry makes a later consumer that reuses the tag skip
+        # the reject it needs, and the set grows for the life of the channel.
+        self.channel._consumers['t'] = mock.Mock(wraps=ClosableDeferredQueue())
+        self.channel._consumers_with_noack.add('t')
+        self.channel._queue_name_to_consumer_tags['q'] = {'t'}
+        self.pika_channel.queue_delete.return_value = None
+
+        d = self.channel.queue_delete('q')
+        self.pika_channel.queue_delete.call_args[1]['callback'](Method(
+            1, spec.Queue.DeleteOk(message_count=0)))
+
+        self.assertTrue(d.called)
+        self.assertNotIn('t', self.channel._consumers_with_noack)
+
     def test_cancel_does_not_reject_for_an_auto_ack_consumer(self):
         # The broker keeps no delivery tag for an auto_ack delivery, so
         # rejecting one draws 406 PRECONDITION_FAILED and closes the channel,

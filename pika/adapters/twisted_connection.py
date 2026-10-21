@@ -168,6 +168,7 @@ class TwistedChannel:
         self._calls = set()
         self._deliveries = {}
         self._consumers = {}
+        self._consumers_with_noack = set()
         self.on_closed.callback(self._closed)
 
     def _on_consumer_cancelled_by_broker(
@@ -1011,6 +1012,7 @@ class TwistedChannel:
                     exceptions.ConsumerCancelled(
                         f'Queue {queue_name} was deleted.'))
                 del self._consumers[consumer_tag]
+                self._consumers_with_noack.discard(consumer_tag)
                 self._queue_name_to_consumer_tags[queue_name].remove(
                     consumer_tag)
             return ret

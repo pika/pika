@@ -296,19 +296,19 @@ class _BoundedWorkPool:
 
         Submits a marker and waits for it.  The queue is FIFO and one worker services it, so the
         marker running means every item queued ahead of it has returned.  The pool stays open, so
-        work arriving afterwards is still accepted rather than rejected - which is the difference
+        work arriving afterwards is still accepted rather than rejected, which is the difference
         that matters to a caller draining before a close, since an item rejected at submit is an
         item lost (#1763).
 
         The marker is enqueued under *timeout* rather than ``put_timeout``, so a full queue cannot
         stretch a close past the budget its caller was given.
 
-        :param timeout: Seconds for the whole drain, the enqueue and the wait together.  ``None``
+        :param timeout: Seconds for the whole drain, the enqueue and the wait together. ``None``
             waits indefinitely.
-        :returns: ``True`` if the queued work completed.  ``False`` if *timeout* expired, if the
-            pool is already shut down, if the queue stayed full, or if called from the pool's own
-            worker thread, where waiting could never succeed: the marker cannot run until the
-            calling callback returns.
+        :returns:``True`` if the queued work completed. ``False`` if *timeout* expired, if the pool
+            is already shut down, if the queue stayed full, or if called from the pool's own worker
+            thread, where waiting could never succeed: the marker cannot run until the calling
+            callback returns.
         """
         thread = self._thread
         if thread is None:
@@ -596,18 +596,11 @@ class Channel:
                 return None
             return max(0.0, deadline - time.monotonic())
 
-        done = threading.Event()
-        pending: set[str] = set()
+        asked: list[set[str]] = [set()]
+        issued = threading.Event()
 
-        def _reply(frame) -> None:
-            # Matched by tag, not counted: the underlying basic_cancel registers
-            # its Basic.CancelOk callback with no arguments, so this runs for
-            # every CancelOk on the channel, including one a user cancel on
-            # another thread asked for.  Counting those down ended the wait with
-            # this sweep's later cancels still unsent (#1763).
-            pending.discard(getattr(frame.method, 'consumer_tag', None))
-            if not pending:
-                done.set()
+        def _noop(_frame) -> None:
+            """Make the cancel synchronous; completion is read from the channel."""
 
         def _cancel_all() -> None:
             # Reading the consumers and cancelling them in one IOLoop callback
@@ -621,53 +614,52 @@ class Channel:
                         if t not in self._channel._cancelled
                 ]:
                     try:
-                        pending.add(tag)
                         self._channel.basic_cancel(consumer_tag=tag,
-                                                   callback=_reply)
-                        if tag not in self._channel._cancelled:
-                            # It returned without sending, so no reply is
-                            # coming.  The converse is not a sound test: the tag
-                            # is recorded before the frame goes out.
-                            pending.discard(tag)
+                                                   callback=_noop)
+                        if tag in self._channel._cancelled:
+                            asked[0].add(tag)
                     except Exception:
-                        pending.discard(tag)
                         LOGGER.debug('Quiesce: cancelling consumer %s failed',
                                      tag,
                                      exc_info=True)
             finally:
-                if not pending:
-                    done.set()
+                issued.set()
 
         self._wrapper._schedule_unchecked(_cancel_all)
+
+        def _outstanding() -> set[str]:
+            # The channel drops a tag from _consumers when its Basic.CancelOk
+            # arrives, so its own bookkeeping says when this sweep is done.
+            # Counting the replies instead cannot work: basic_cancel registers
+            # its callback with no arguments and CallbackManager collapses
+            # identical callables into one reference-counted one-shot entry, so
+            # any CancelOk on the channel consumes one of this sweep's
+            # registrations and the last tag's reply never arrives (#1763).
+            return {t for t in asked[0] if t in self._channel._consumers}
+
         # Liveness as well as the budget: the replies come from the IOLoop
         # thread, so if it has gone there is nothing left to wait for.  This is
         # the only wait here the broker's pace governs, and capping it below
         # that pace abandons live cancels and costs messages, so it is not
         # capped (#1763).
-        while not done.wait(timeout=_LIVENESS_POLL_INTERVAL):
+        while True:
+            if issued.is_set() and not _outstanding():
+                return
             if not self._wrapper._ioloop_thread.is_alive():
                 return
             with self._wrapper._channel_waiters_lock:
                 if self._wrapper._closed_reason is not None:
                     return
+            if self._channel.is_closed:
+                return
             budget = _remaining()
             if budget is not None and budget <= 0:
                 LOGGER.warning(
                     'Channel %s did not finish cancelling its consumers '
                     'before the close budget expired',
-                    self._channel_number_or_unknown())
+                    self._channel.channel_number)
                 return
-
-    def _channel_number_or_unknown(self) -> object:
-        """
-        The underlying channel number, or ``'unknown'`` once the channel is gone.
-
-        Only for log messages, which must not raise while reporting a close.
-        """
-        try:
-            return self._channel.channel_number
-        except Exception:
-            return 'unknown'
+            time.sleep(_LIVENESS_POLL_INTERVAL)
 
     def _drain_pool(self, deadline: float | None) -> None:
         """
@@ -686,7 +678,9 @@ class Channel:
         if pool.drain(timeout=remaining):
             return
         if pool._shutdown:
-            # Already drained by an earlier close; nothing was left to run.
+            # Shut down already, by an earlier close or by _on_broker_close,
+            # which sets the flag without draining.  Either way nothing here can
+            # run the queue, and warning about a budget would be wrong.
             return
         if pool._thread is threading.current_thread():
             # A callback closing its own channel cannot wait for a marker queued
@@ -2125,7 +2119,12 @@ class Connection:
 
         Every channel is cancelled before any is drained, so no channel is still receiving while
         another drains; draining one at a time would let a later channel's queue grow throughout.
-        All of it shares one deadline, so a slow channel cannot starve a later one.
+
+        One deadline covers the whole sweep, which does mean a channel whose cancel goes unanswered
+        can spend it and leave later channels nothing: their consumers are not cancelled and their
+        queued callbacks do not run.  Reserving a share per channel is worse, because a cancel's
+        reply legitimately takes as long as the worker needs to consume that channel's backlog, so
+        a share caps it below the work it waits on and abandons live cancels (#1763).
 
         :param deadline: :func:`time.monotonic` value the whole sweep must finish by, or ``None`` to
             wait indefinitely.
