@@ -1566,11 +1566,28 @@ class Channel:
 
     @property
     def is_open(self) -> bool:
-        return self._channel.is_open
+        """
+        Whether this channel can still be used.
+
+        False once the connection has recorded a close reason, because a channel outlives neither
+        its connection nor the IOLoop thread that serves it. See
+        [`Connection.is_open`][pika.adapters.thread_safe_connection.Connection.is_open].
+
+        :returns: True while the channel is usable.
+        """
+        return self._wrapper._closed_reason is None and self._channel.is_open
 
     @property
     def is_closed(self) -> bool:
-        return self._channel.is_closed
+        """
+        Whether this channel is finished.
+
+        True once this channel closes or the connection records a close reason.
+
+        :returns: True when the channel can no longer be used.
+        """
+        return (self._wrapper._closed_reason is not None or
+                self._channel.is_closed)
 
 
 class Connection:
@@ -2256,8 +2273,27 @@ class Connection:
 
     @property
     def is_open(self) -> bool:
-        return self._connection.is_open
+        """
+        Whether this connection can still be used.
+
+        False once a close reason has been recorded, which includes an IOLoop thread that exited on
+        an unhandled callback exception.  The underlying connection's own state does not move in
+        that case, so asking it alone would report an open connection with no IOLoop behind it.
+
+        :returns: True while the connection is usable.
+        """
+        # Read without `_channel_waiters_lock`: only the reason is needed here,
+        # not the traceback it is paired with.  See #1743.
+        return self._closed_reason is None and self._connection.is_open
 
     @property
     def is_closed(self) -> bool:
-        return self._connection.is_closed
+        """
+        Whether this connection is finished.
+
+        True once a close reason has been recorded, for the reason
+        [`is_open`][pika.adapters.thread_safe_connection.Connection.is_open] gives.
+
+        :returns: True when the connection can no longer be used.
+        """
+        return self._closed_reason is not None or self._connection.is_closed
