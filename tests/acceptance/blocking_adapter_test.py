@@ -3125,6 +3125,57 @@ class TestConsumeGeneratorCancelEncountersCancelFromBroker(
             self.assertIsNone(ch._queue_consumer_generator)
 
 
+class TestConsumeGeneratorCancelRequeuesAnInFlightDelivery(
+        BlockingTestCaseBase):
+
+    def test(self):
+        """`cancel()` requeues a delivery that arrives while the cancel is in flight."""
+        connection = self._connect()
+        ch = connection.channel()
+        q_name = ('TestConsumeGeneratorCancelRequeuesAnInFlightDelivery_q' +
+                  uuid.uuid1().hex)
+        ch.queue_declare(q_name, exclusive=True)
+        for _ in range(2):
+            ch.basic_publish('', q_name, body=b'x')
+
+        for _ in ch.consume(q_name, auto_ack=False, inactivity_timeout=0.1):
+            # The first message is now delivered and unacknowledged, which is
+            # what a reader of the generator would do before stopping.
+            break
+
+        assert ch._queue_consumer_generator is not None
+        pending = ch._queue_consumer_generator.pending_events
+        while not pending:
+            connection.process_data_events(time_limit=0.1)
+        # Held back so `cancel()` cannot see it on entry, then put back while
+        # the cancel is in flight: the specification lets the broker dispatch
+        # until it answers, and that is the window #1767 is about.
+        in_flight = pending.popleft()
+        self.assertIsInstance(in_flight,
+                              blocking_connection._ConsumerDeliveryEvt)
+
+        original_basic_cancel = ch._impl.basic_cancel
+
+        def cancel_with_a_delivery_in_flight(*args, **kwargs):
+            pending.append(in_flight)
+            return original_basic_cancel(*args, **kwargs)
+
+        ch._impl.basic_cancel = cancel_with_a_delivery_in_flight
+        ch.cancel()
+
+        self.assertFalse(
+            pending, 'the in-flight delivery was left in the '
+            'generator buffer')
+        # Read from the broker rather than from the client: the first message
+        # stays unacknowledged and so is not counted, while the second must
+        # have been requeued rather than stranded.
+        # Read from the broker, retried because the requeue is its own
+        # bookkeeping: the first message stays unacknowledged and so is not
+        # counted, while the second must be ready again rather than stranded
+        # invisible to every other consumer until this channel closes.
+        self._assert_exact_message_count_with_retries(ch, q_name, 1)
+
+
 class TestConsumeGeneratorPassesChannelClosedOnSameChannelFailure(
         BlockingTestCaseBase):
 
