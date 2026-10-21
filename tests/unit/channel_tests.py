@@ -281,9 +281,8 @@ class ChannelTests(unittest.TestCase):
 
     def test_consumer_tags_excludes_a_cancelled_consumer(self):
         # The callback is kept past a cancel so an in-flight delivery still
-        # reaches it, but the consumer is no longer active, and callers from
-        # TwistedChannel to Connection's close read this to decide what to
-        # cancel (#1389).
+        # reaches it, but the consumer is no longer active, and this is what
+        # TwistedChannel.consumer_tags publishes (#1389).
         self.obj._set_state(self.obj.OPEN)
         self.obj._consumers['live'] = logging.debug
         self.obj._consumers['gone'] = logging.debug

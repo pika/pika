@@ -375,6 +375,7 @@ class TwistedChannelTestCase(TestCase):
         self.assertEqual(self.channel._queue_name_to_consumer_tags['testqueue'],
                          set())
 
+    @pytest.mark.timeout(5)
     def test_basic_cancel_no_consumer(self):
         # Verify that basic_cancel does not crash if there is no consumer.
         d = self.channel.basic_cancel('test-consumer')

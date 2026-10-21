@@ -2841,7 +2841,6 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
         """
         ch, raw_ch, wrapper = self._make_channel()
         wrapper._schedule_unchecked.side_effect = lambda cb: cb()
-        raw_ch.consumer_tags = []
         raw_ch._cancelled = set()
         release = threading.Event()
         self.addCleanup(release.set)
