@@ -17,6 +17,12 @@ ch.basic_publish(exchange='', routing_key='q', body=b'hello')
 
 The other connection adapters (`BlockingConnection`, `SelectConnection`, `AsyncioConnection`, etc.) are **not** thread-safe. Each connection instance is confined to the thread that created it. The only safe cross-thread operation on these adapters is calling `add_callback_threadsafe` to schedule a callback in the connection's IOLoop thread. See [connection adapters](modules/adapters/index.md) for details.
 
+### Is Pika fork safe?
+
+No. No pika connection survives `os.fork()`, and that includes `multiprocessing` under the `fork` start method, which is the default on Linux before Python 3.14. Create the connection in the child, after the fork, or start the child with the `spawn` method.
+
+The child inherits the parent's socket descriptor but none of its threads, so for `pika.Connection` the IOLoop thread and every consumer worker exist only in the parent: nothing in the child reads from the socket or sends heartbeats, and a blocking call there waits for a reply that no thread will deliver. Both processes can still write to that one socket, and interleaved frames corrupt the connection for the parent as well. Using the connection in the child is undefined, whatever the state of its attributes suggests.
+
 ### Why does mypy report new errors on my consumer callback after upgrading?
 
 Pika ships a `py.typed` marker, so a type checker reads pika's own annotations. `pika.spec` is generated code, and it was previously excluded from pika's `mypy` configuration, which left every field of a decoded frame typed as `Any`. `Any` silences all checking, so code like this passed:
