@@ -928,6 +928,78 @@ class TestCloseUnderBackPressureLosesNothing(ThreadSafeTestCaseBase):
             safe_close(conn)
 
 
+class TestChannelCloseWithoutATimeoutLosesNothing(ThreadSafeTestCaseBase):
+    """
+    `Channel.close(timeout=None)` is the setting documented to lose nothing, so it is asserted.
+
+    `TestCloseUnderBackPressureLosesNothing` covers the connection close under a generous finite
+    budget. This covers the two things that one does not: the channel's own close, and the `None`
+    the documentation tells a reader to pass when losing no message matters more than bounding the
+    call.
+    """
+
+    N = 200
+    MAXSIZE = 10
+
+    def test_nothing_is_lost(self):
+        queue = self._unique_queue()
+        setup = self._connect()
+        sch = setup.channel()
+        sch.queue_declare(queue=queue, durable=True)
+        self.addCleanup(self._delete_queue, queue)
+        for _ in range(self.N):
+            sch.basic_publish(exchange='', routing_key=queue, body=b'x' * 8192)
+        setup.close(timeout=BLOCKING_CALL_TIMEOUT)
+
+        conn = Connection(DEFAULT_PARAMS, work_queue_maxsize=self.MAXSIZE)
+        self.addCleanup(safe_close, conn)
+        ch = conn.channel()
+        lock = threading.Lock()
+        ran = []
+
+        def consumer(channel, method, properties, body):
+            time.sleep(0.005)
+            with lock:
+                ran.append(1)
+
+        ch.basic_consume(queue=queue,
+                         on_message_callback=consumer,
+                         auto_ack=True)
+        deadline = time.monotonic() + BLOCKING_CALL_TIMEOUT
+        while time.monotonic() < deadline:
+            with lock:
+                if len(ran) >= 5:
+                    break
+            time.sleep(0.01)
+
+        ch.close(timeout=None)
+        # Counted the instant close() returns: with no timeout the contract is
+        # that every queued callback has already run, so letting the daemon
+        # worker catch up afterwards would let a broken close pass.
+        with lock:
+            delivered = len(ran)
+
+        remaining = self._ready_count(queue)
+        self.assertEqual(
+            delivered + remaining, self.N,
+            f'{self.N - delivered - remaining} of {self.N} auto_ack messages '
+            f'reached neither a callback nor the queue under timeout=None, '
+            f'which is the one setting documented to lose none')
+
+    def _ready_count(self, queue):
+        conn = self._connect()
+        ch = conn.channel()
+        return ch.queue_declare(queue=queue, durable=True,
+                                passive=True).method.message_count
+
+    def _delete_queue(self, queue):
+        conn = Connection(DEFAULT_PARAMS)
+        try:
+            conn.channel().queue_delete(queue=queue)
+        finally:
+            safe_close(conn)
+
+
 class TestCloseCompletesTheHandshakeAfterALongDrain(ThreadSafeTestCaseBase):
     """
     A close whose callbacks use the whole budget must still close the connection.
