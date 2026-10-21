@@ -41,7 +41,8 @@ The `on_message_callback` registered with `basic_consume` is dispatched on a per
 - Blocking operations (database writes, HTTP calls, even `queue_declare` or `basic_qos`) are safe inside delivery callbacks
 - Slow consumer processing does not starve the IOLoop thread, so heartbeats keep flowing while a callback works. Filling the work queue is the one case that blocks the IOLoop; see below
 - Messages are delivered to the callback in order (single worker thread per channel)
-- All `Channel` methods (`basic_ack`, `basic_nack`, `basic_reject`, `basic_publish`) are safe to call from within the callback
+- Acknowledging and publishing (`basic_ack`, `basic_nack`, `basic_reject`, `basic_publish`) are safe to call from within the callback
+- `close()` is the one method that is not: see [What a close does to queued callbacks](#what-a-close-does-to-queued-callbacks)
 
 ## What a close does to queued callbacks
 
@@ -51,7 +52,7 @@ All of it is bounded by the `timeout` you pass to `close`, shared across the can
 
 If the budget runs out before the backlog is done, the close proceeds and a warning names the pool, and messages are lost for an `auto_ack` consumer. The callbacks already queued still run on a daemon thread, but they can no longer acknowledge anything, and deliveries the broker sends after the pool is shut down are discarded without ever reaching a callback. How many depends on `work_queue_maxsize` and on how fast your callback is. Anything unacknowledged is redelivered; with `auto_ack=True` the broker has already discarded its copy, so those are gone. **Pass `timeout=None` if losing none of them matters more than bounding the close**, which is the only setting that guarantees it.
 
-Two cases skip this and behave as they did before 1.5.0, running queued callbacks after the teardown instead: `close()` called from the connection's own IOLoop thread, and `close()` called from inside a delivery or event callback, where waiting for the queue would mean waiting for the calling callback to return.
+Two cases skip this and behave as they did before 1.5.0, running queued callbacks after the teardown instead: `close()` called from the connection's own IOLoop thread, and `close()` called from inside a delivery or event callback, where waiting for the queue would mean waiting for the calling callback to return. Neither can be fixed on the close path, since the guarantee needs a queue to drain and the caller is sitting in it, so a callback that wants to shut the connection down should set a flag the thread that owns the connection watches and close from there. #1770 covers whether pika should refuse the call instead.
 
 ## Work queue bounds and back-pressure
 
