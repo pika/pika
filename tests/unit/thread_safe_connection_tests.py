@@ -105,7 +105,7 @@ def _expect_raised(test, exc_type):
     Assert the block raises *exc_type*, leaving the exception's traceback intact.
 
     :meth:`unittest.TestCase.assertRaises` calls ``with_traceback(None)`` on what it catches, which
-    erases exactly what the traceback-growth tests measure and makes them pass vacuously.
+    erases what the traceback-growth tests measure and makes them pass vacuously.
 
     :param test: The test case, used to fail when nothing is raised.
     :param exc_type: The exception type expected.

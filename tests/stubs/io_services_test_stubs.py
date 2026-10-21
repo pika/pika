@@ -73,7 +73,7 @@ class IOServicesTestStubs:
         running, and closing it fails: asyncio and tornado raise `RuntimeError: Cannot close a
         running event loop`, and `select_connection` asserts `Cannot call close() before start()
         unwinds.`. Reported from cleanup, either one buries the `AssertionError: The test timed
-        out.` that says why the test actually failed.
+        out.` that says why the test failed.
 
         So request a stop first, which an abandoned loop honors from its own thread, and warn rather
         than raise if the close still does not take. There is only one attempt to make: tornado

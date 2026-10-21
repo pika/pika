@@ -309,8 +309,8 @@ jobs:
               echo "::error::no index.html at the root of gh-pages, so the site root will 404"
               exit 1
             fi
-            # mike renders the redirect as href="<identifier>/", so match that
-            # form: an unanchored search for the alias would accept
+            # mike renders the redirect as href="<identifier>/", so match
+            # that whole string: an unanchored search for the alias accepts
             # href="verylatest/" for an alias of `latest`.
             if ! git show "origin/gh-pages:index.html" \
                 | grep -qF "href=\"$ALIASES/\""; then

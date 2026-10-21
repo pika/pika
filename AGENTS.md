@@ -143,7 +143,13 @@ _TRY_IO_AGAIN_SOCK_ERROR_CODES = (errno.EAGAIN, errno.EWOULDBLOCK)
 - No run-up sentences, no closing lines that repeat the paragraph, no point made
   twice.
 - No inflation or empty intensifiers: crucial, critical, key, robust,
-  comprehensive, load-bearing, deliberately, actually, exactly, genuinely.
+  comprehensive, load-bearing, deliberately, actually, exactly, genuinely. The
+  test is whether the word adds information. Three uses carry some and stay:
+  a quantity (`exactly one of A or B must be non-None` is a different contract
+  from `one of A or B`), a contrast between what happened and what was asked
+  (`the number of bytes actually sent`, `the errno the OS actually raises`),
+  and a decision whose reason the sentence would otherwise lose (`deliberately
+  absent from the needs list, so a flake does not block a merge`).
 - Bold only for the one thing a reader must not miss. No em dashes anywhere,
   in prose or in any git and GitHub text; write `--` instead. No spaced hyphen
   as a dash in a sentence, though separating a label from its text in a list is
