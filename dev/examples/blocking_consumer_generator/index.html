@@ -2047,7 +2047,7 @@
 <p>When you escape out of the loop, be sure to call <code>BlockingChannel.cancel</code> to requeue any messages the generator is still holding.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p><code>cancel</code> returns 0 and nothing else. The count has been vestigial since 0.10.0: only messages consumed with <code>auto_ack=False</code> can be requeued, and any arriving after the <code>Basic.Cancel</code> are rejected by the implementation channel, so the number is not knowable. Do not read the return value as a requeue count.</p>
+<p><code>cancel</code> returns 0 and nothing else. The count has been vestigial since 0.10.0: only messages consumed with <code>auto_ack=False</code> can be requeued, and any arriving after the <code>Basic.Cancel</code> are discarded unacknowledged rather than counted, so the number is not knowable. Do not read the return value as a requeue count.</p>
 </div>
 <p>Example of consuming messages and acknowledging them:</p>
 <p><div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="kn">import</span><span class="w"> </span><span class="nn">pika</span>

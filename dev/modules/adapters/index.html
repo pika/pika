@@ -1985,6 +1985,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#closing-a-channel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Closing a channel
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#threading" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2136,6 +2147,8 @@
 <p class="admonition-title">Warning</p>
 <p><code>BlockingConnection</code>, <code>TornadoConnection</code>, <code>TwistedProtocolConnection</code>, and <code>GeventConnection</code> are deprecated and will be removed in Pika 2.0. The async adapters exist to integrate Pika into a framework's event loop, a constraint that no longer applies, and <code>BlockingConnection</code> runs the IOLoop on the calling thread, which makes heartbeats fragile and the adapter non-thread-safe. <a href="thread_safe/"><code>Connection</code></a> runs its own IOLoop on a background thread and works with any framework (asyncio, Tornado, Twisted, Gevent, Django, Flask, or plain synchronous code) without adapter-specific integration.</p>
 </div>
+<h2 id="closing-a-channel">Closing a channel<a class="headerlink" href="#closing-a-channel" title="Permanent link">&para;</a></h2>
+<p><code>channel.close()</code> on an asynchronous adapter discards any delivery the broker had already dispatched for a consumer it cancels, which loses the message outright for an <code>auto_ack</code> consumer. <a href="../channel/#closing-a-channel-with-active-consumers">Closing a channel with active consumers</a> has the detail and the pattern that avoids it. <code>Connection</code> and <code>BlockingConnection</code> are unaffected.</p>
 <h2 id="threading">Threading<a class="headerlink" href="#threading" title="Permanent link">&para;</a></h2>
 <h3 id="using-connection-recommended">Using Connection (recommended)<a class="headerlink" href="#using-connection-recommended" title="Permanent link">&para;</a></h3>
 <p><a href="thread_safe/">Connection</a> is the simplest way to use Pika from multiple threads. It runs the IOLoop in a background thread and provides a blocking, thread-safe API. Consumer callbacks run on a dedicated worker thread, so slow processing does not stall heartbeats as long as the callback keeps pace with deliveries (<a href="thread_safe/#work-queue-bounds-and-back-pressure">what happens when it does not</a>), and you can call <code>basic_ack</code>, <code>basic_publish</code>, and other channel methods directly from the callback without any special coordination:</p>

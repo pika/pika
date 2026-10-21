@@ -1983,6 +1983,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#cancelling-a-consumer-no-longer-rejects-the-messages-still-arriving-for-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cancelling a consumer no longer rejects the messages still arriving for it
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#channelclose-on-an-asynchronous-adapter-still-discards-those-deliveries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        channel.close() on an asynchronous adapter still discards those deliveries
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pikaspec-is-now-annotated-which-may-fail-your-type-checker" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2466,6 +2488,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#cancelling-a-consumer-no-longer-rejects-the-messages-still-arriving-for-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cancelling a consumer no longer rejects the messages still arriving for it
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#channelclose-on-an-asynchronous-adapter-still-discards-those-deliveries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        channel.close() on an asynchronous adapter still discards those deliveries
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pikaspec-is-now-annotated-which-may-fail-your-type-checker" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2915,7 +2959,7 @@
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <p>Notes for each release are also published on the <a href="https://github.com/pika/pika/releases">GitHub releases page</a>, generated from the pull requests and issues the release contains.</p>
 <h2 id="upgrading-to-150">Upgrading to 1.5.0<a class="headerlink" href="#upgrading-to-150" title="Permanent link">&para;</a></h2>
-<p>Three changes are worth reading before you upgrade. None is a behaviour change to a working application, but two can turn a passing build red.</p>
+<p>Five changes are worth reading before you upgrade. Two can turn a passing build red, and two change what a working application observes when it cancels a consumer or closes a channel.</p>
 <h3 id="pikaconnection-is-new-and-is-the-connection-to-use"><code>pika.Connection</code> is new, and is the connection to use<a class="headerlink" href="#pikaconnection-is-new-and-is-the-connection-to-use" title="Permanent link">&para;</a></h3>
 <p>1.5.0 introduces <code>pika.Connection</code> and its <code>Channel</code>, a connection that runs its own IOLoop on a background thread and offers a thread-safe blocking API that does not stall heartbeats while your code processes a message. There is nothing to migrate <em>from</em>: these classes are new in this release, and <code>pika.Connection</code> is the documented import.</p>
 <p><code>from pika.adapters.thread_safe_connection import Connection</code> also works, though the module moves in 2.0 (see #1681). <code>Channel</code> is not exported from <code>pika</code>, because channels come from <code>Connection.channel()</code>.</p>
@@ -2936,6 +2980,13 @@
 <div class="highlight"><pre><span></span><code><span id="__span-2-1">python<span class="w"> </span>-W<span class="w"> </span><span class="s1">'ignore:BlockingConnection is deprecated'</span><span class="w"> </span>your_app.py
 </span></code></pre></div>
 <p>or migrate to <code>Connection</code>, which runs its own IOLoop on a background thread and provides a thread-safe blocking API that does not stall heartbeats on slow message processing.</p>
+<h3 id="cancelling-a-consumer-no-longer-rejects-the-messages-still-arriving-for-it">Cancelling a consumer no longer rejects the messages still arriving for it<a class="headerlink" href="#cancelling-a-consumer-no-longer-rejects-the-messages-still-arriving-for-it" title="Permanent link">&para;</a></h3>
+<p>A <code>Basic.Cancel</code> does not stop the broker immediately: the specification allows it to keep dispatching until it sends <code>Basic.CancelOk</code>, and pika used to reject every delivery that arrived in that window, or discard it outright for an <code>auto_ack</code> consumer. Discarding loses the message, because an <code>auto_ack</code> delivery has no copy left at the broker, and rejecting is a decision pika was making on your behalf that no other client makes. Measured on RabbitMQ 4.3.6, closing a channel with an <code>auto_ack</code> consumer half a second after its first delivery, 400 messages, <code>work_queue_maxsize=50</code> and a 50 ms callback. At 8 KiB bodies with <code>close(timeout=10)</code>: 339 of 400 lost before this change, 179 to 189 across five runs after it. <code>close(timeout=None)</code> loses none after the change, at either body size, and lost the same 339 before it, because that loss was the cancel window rather than the budget. At 64 bytes the deliveries still queued when a bounded close returns fit in the work queue, so the worker finishes them and nothing is lost; at 8 KiB they do not fit and the excess is discarded when the pool shuts. Quote the whole configuration with any figure from this area, because the message count, body size, queue size, callback cost and timeout all move it. <code>utils/measure_close_loss.py</code> in the repository reproduces each of them.</p>
+<p>Those deliveries are now passed to your callback instead, which is what the Java client does, as long as the channel is still open.</p>
+<p>One thing follows for existing code: a consumer callback can now run for a message that arrives after you called <code>basic_cancel</code>, so a callback that assumed cancellation was immediate may see further deliveries. <code>BlockingChannel.basic_cancel</code> still rejects them for an <code>auto_ack=False</code> consumer, so they return to the queue at once as before, and its return value is unchanged; the channel no longer does that rejecting, the wrapper does. The generator-style <code>BlockingChannel.cancel</code> discards them instead, which #1767 covers.</p>
+<h3 id="channelclose-on-an-asynchronous-adapter-still-discards-those-deliveries"><code>channel.close()</code> on an asynchronous adapter still discards those deliveries<a class="headerlink" href="#channelclose-on-an-asynchronous-adapter-still-discards-those-deliveries" title="Permanent link">&para;</a></h3>
+<p>A channel that is closing discards them, because a callback could not acknowledge one anyway and the attempt would abort the connection; the Java client discards them at the same point. <code>Channel.close</code> cancels each consumer without waiting for the broker to confirm, so this is what a bare <code>channel.close()</code> does on <code>SelectConnection</code>, <code>AsyncioConnection</code>, <code>TornadoConnection</code> and <code>GeventConnection</code>. A discarded delivery is redelivered to the next consumer with <code>auto_ack=False</code> and lost with <code>auto_ack=True</code>. Pika now logs a warning naming the count as the channel closes.</p>
+<p><code>pika.Connection</code> and <code>BlockingConnection</code> are unaffected and keep every delivery across a close, since both cancel their consumers and wait for the broker to confirm before closing anything. To get the same guarantee from an asynchronous adapter, cancel each consumer with a callback and close the channel from the last <code>Basic.CancelOk</code>; the <a href="https://pika.github.io/pika/latest/modules/channel/#closing-a-channel-with-active-consumers">channel documentation</a> has the pattern. Pika 2.0 removes these adapters, which leaves <code>Connection</code> and its <code>Channel</code> as the only close path and so retires the gap rather than fixing it.</p>
 <h3 id="pikaspec-is-now-annotated-which-may-fail-your-type-checker"><code>pika.spec</code> is now annotated, which may fail your type checker<a class="headerlink" href="#pikaspec-is-now-annotated-which-may-fail-your-type-checker" title="Permanent link">&para;</a></h3>
 <p>Pika ships a <code>py.typed</code> marker, so a type checker reads pika's own annotations. <code>pika.spec</code> is generated code and was previously excluded from pika's <code>mypy</code> configuration, which left every field of a decoded frame typed as <code>Any</code>. <code>Any</code> silences all checking, so a downstream <code>mypy</code> run that was clean can go red on upgrade without any change on your end. The most common line in every pika tutorial is affected:</p>
 <div class="highlight"><pre><span></span><code><span id="__span-3-1">error: Argument "delivery_tag" to "basic_ack" of "BlockingChannel" has incompatible type "int | None"; expected "int"  [arg-type]
