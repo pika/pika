@@ -2291,7 +2291,8 @@ class Connection:
         """
         Whether this connection is finished.
 
-        True once a close reason has been recorded, for the reason :attr:`is_open` gives.
+        True once a close reason has been recorded, for the reason
+        [`is_open`][pika.adapters.thread_safe_connection.Connection.is_open] gives.
 
         :returns: True when the connection can no longer be used.
         """
