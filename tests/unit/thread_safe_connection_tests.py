@@ -424,7 +424,8 @@ class BoundedWorkPoolTests(unittest.TestCase):
         """
         pool = _BoundedWorkPool(maxsize=10,
                                 put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
-                                thread_name='test-pool')
+                                thread_name='test-pool',
+                                owner=STANDALONE)
         ran = []
         healthy_ran = threading.Event()
 
@@ -3020,6 +3021,19 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
 
 class ConnectionTests(unittest.TestCase):
 
+    def _pose_as_pool_worker(self, conn):
+        """
+        Stamp this thread as one of *conn*'s pool workers, the way a real pool does (#1761).
+
+        Assigning a pool's `_thread` no longer answers `_is_pool_worker_thread`, which reads the
+        stamp instead. The stamp outlives the test, since it lands on the test runner's own thread,
+        so it is removed on cleanup rather than left for the next test to read.
+        """
+        current = threading.current_thread()
+        current._pika_pool_owner = weakref.ref(conn)
+        self.addCleanup(lambda: delattr(current, '_pika_pool_owner')
+                        if hasattr(current, '_pika_pool_owner') else None)
+
     def _make_connection(self,
                          on_open_error_callback=None,
                          on_close_callback=None):
@@ -3555,13 +3569,13 @@ class ConnectionTests(unittest.TestCase):
                                   already_closing=already_closing):
                     conn, raw, ioloop = self._make_connection()
                     conn._ioloop_thread = MagicMock()
-                    if pool_kind == 'connection':
-                        pool = conn._connection_work_pool
-                    else:
-                        channel = Channel(MagicMock(), conn)
-                        conn._channels.append(channel)
-                        pool = channel._consumer_work_pool
-                    pool._thread = threading.current_thread()
+                    if pool_kind == 'consumer':
+                        # A consumer pool belongs to a channel, so the channel
+                        # has to be present for this to be that case. The stamp
+                        # is the same either way, which is the point of #1761:
+                        # the answer no longer depends on what a list holds.
+                        conn._channels.append(Channel(MagicMock(), conn))
+                    self._pose_as_pool_worker(conn)
                     if already_closing:
                         raw.close.side_effect = ConnectionWrongStateError(
                             'already closing')
@@ -3589,7 +3603,7 @@ class ConnectionTests(unittest.TestCase):
 
     def test_pool_worker_close_timeout_preserves_clean_close_reason(self):
         conn, raw, ioloop = self._make_connection()
-        conn._connection_work_pool._thread = threading.current_thread()
+        self._pose_as_pool_worker(conn)
         conn.close(timeout=0.1)
         ioloop.add_callback_threadsafe.call_args[0][0]()
         ioloop.call_later.assert_called_once()
@@ -3606,7 +3620,7 @@ class ConnectionTests(unittest.TestCase):
 
     def test_pool_worker_close_without_timeout_keeps_waiting_for_broker(self):
         conn, raw, ioloop = self._make_connection()
-        conn._connection_work_pool._thread = threading.current_thread()
+        self._pose_as_pool_worker(conn)
         conn.close(timeout=None)
         ioloop.add_callback_threadsafe.call_args[0][0]()
 
@@ -3617,7 +3631,7 @@ class ConnectionTests(unittest.TestCase):
 
     def test_pool_worker_close_timeout_includes_scheduling_delay(self):
         conn, _raw, ioloop = self._make_connection()
-        conn._connection_work_pool._thread = threading.current_thread()
+        self._pose_as_pool_worker(conn)
         with patch('pika.adapters.thread_safe_connection.time.monotonic',
                    side_effect=(10, 11)):
             conn.close(timeout=0.1)
