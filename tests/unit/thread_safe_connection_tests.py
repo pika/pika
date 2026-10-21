@@ -1,5 +1,6 @@
 """Tests for pika.adapters.thread_safe_connection."""
 
+import asyncio
 import contextlib
 import threading
 import traceback
@@ -400,6 +401,79 @@ class BoundedWorkPoolTests(unittest.TestCase):
         self.assertFalse(pool._thread.is_alive())
         # shutdown() returned True (worker exits on its own) rather than raising.
         self.assertEqual(result, [True])
+
+    def _drain_past(self, error):
+        """
+        Submit an item raising *error* followed by a healthy one and return what ran.
+
+        Submits directly, bypassing the `_safe_dispatch` wrapper every pika call site applies, so
+        the pool's own guard is what is under test. Fails rather than returning if the second item
+        never runs, since every assertion below would otherwise race the worker.
+        """
+        pool = _BoundedWorkPool(maxsize=10,
+                                put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
+                                thread_name='test-pool')
+        ran = []
+        healthy_ran = threading.Event()
+
+        def raiser():
+            ran.append('raiser')
+            raise error
+
+        def healthy():
+            ran.append('healthy')
+            healthy_ran.set()
+
+        try:
+            pool.submit(raiser)
+            pool.submit(healthy)
+            self.assertTrue(
+                healthy_ran.wait(timeout=5),
+                f'the worker did not survive {type(error).__name__}, so the '
+                f'queue behind it stopped draining')
+            return ran
+        finally:
+            pool.shutdown(wait=True, timeout=5)
+
+    def test_worker_keeps_draining_after_a_work_item_raises(self):
+        """An Exception out of a work item must leave the worker running the next item."""
+        self.assertEqual(self._drain_past(RuntimeError('boom')),
+                         ['raiser', 'healthy'])
+
+    def test_worker_keeps_draining_after_system_exit(self):
+        """`SystemExit` must be contained: off the main thread it ends only the worker, and Python
+        prints nothing for it, so it is the case that failed silently.
+        """
+        self.assertEqual(self._drain_past(SystemExit(1)), ['raiser', 'healthy'])
+
+    def test_worker_keeps_draining_after_keyboard_interrupt(self):
+        """`KeyboardInterrupt` reaches a worker only when user code raises it, since CPython
+        delivers SIGINT to the main thread.
+        """
+        self.assertEqual(self._drain_past(KeyboardInterrupt()),
+                         ['raiser', 'healthy'])
+
+    def test_worker_keeps_draining_after_cancelled_error(self):
+        """`asyncio.CancelledError` stopped subclassing `Exception` in 3.8, so a callback awaiting a
+        cancelled future reaches the `BaseException` arm.
+        """
+        self.assertEqual(self._drain_past(asyncio.CancelledError()),
+                         ['raiser', 'healthy'])
+
+    def test_work_item_exception_is_logged_with_its_traceback(self):
+        """The exception must reach pika's logger, with its traceback, rather than only Python's
+        per-thread hook, which an application capturing logging never sees.
+        """
+        with self.assertLogs('pika.adapters.thread_safe_connection',
+                             level='ERROR') as captured:
+            self._drain_past(SystemExit('bang'))
+        self.assertEqual(len(captured.records), 1)
+        record = captured.records[0]
+        self.assertIn('test-pool', record.getMessage())
+        # exc_info is the whole point of logging this: without it the record says
+        # a work item failed but not where.
+        self.assertIsNotNone(record.exc_info)
+        self.assertIs(record.exc_info[0], SystemExit)
 
     def test_connection_params_propagate_to_channel_pool(self):
         """Work-queue parameters passed to Channel must reach its pool."""
