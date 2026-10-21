@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
     from typing_extensions import Literal, Self
 
-from pika import spec
+from pika import frame, spec
 from pika.adapters.select_connection import SelectConnection
 from pika.exceptions import ConnectionWrongStateError, WorkQueueFullError
 
@@ -783,11 +783,13 @@ class Channel:
 
         self._wrapper._schedule_unchecked(_reject)
 
-    def basic_qos(self,
-                  prefetch_size: int = 0,
-                  prefetch_count: int = 0,
-                  global_qos: bool = False,
-                  timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
+    def basic_qos(
+        self,
+        prefetch_size: int = 0,
+        prefetch_count: int = 0,
+        global_qos: bool = False,
+        timeout: float | None = DEFAULT_RPC_TIMEOUT
+    ) -> frame.Method[spec.Basic.QosOk]:
         """Set channel QoS and block until Basic.QosOk arrives.
 
         Safe to call from any thread.
@@ -959,9 +961,11 @@ class Channel:
 
         self._wrapper._schedule_unchecked(_register)
 
-    def confirm_delivery(self,
-                         ack_nack_callback,
-                         timeout: float | None = DEFAULT_RPC_TIMEOUT):
+    def confirm_delivery(
+        self,
+        ack_nack_callback,
+        timeout: float | None = DEFAULT_RPC_TIMEOUT
+    ) -> frame.Method[spec.Confirm.SelectOk]:
         """
         Enable publisher confirms and block until Confirm.SelectOk arrives.
 
@@ -1072,7 +1076,7 @@ class Channel:
                       exclusive: bool = False,
                       consumer_tag=None,
                       arguments=None,
-                      timeout: float | None = DEFAULT_RPC_TIMEOUT):
+                      timeout: float | None = DEFAULT_RPC_TIMEOUT) -> str:
         """
         Register a consumer and block until Basic.ConsumeOk arrives.
 
@@ -1118,9 +1122,11 @@ class Channel:
         )
         return frame.method.consumer_tag
 
-    def basic_cancel(self,
-                     consumer_tag,
-                     timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
+    def basic_cancel(
+        self,
+        consumer_tag,
+        timeout: float | None = DEFAULT_RPC_TIMEOUT
+    ) -> frame.Method[spec.Basic.CancelOk]:
         """
         Cancel a consumer and block until Basic.CancelOk arrives.
 
@@ -1140,14 +1146,16 @@ class Channel:
             consumer_tag=consumer_tag,
         )
 
-    def queue_declare(self,
-                      queue,
-                      passive: bool = False,
-                      durable: bool = False,
-                      exclusive: bool = False,
-                      auto_delete: bool = False,
-                      arguments=None,
-                      timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
+    def queue_declare(
+        self,
+        queue,
+        passive: bool = False,
+        durable: bool = False,
+        exclusive: bool = False,
+        auto_delete: bool = False,
+        arguments=None,
+        timeout: float | None = DEFAULT_RPC_TIMEOUT
+    ) -> frame.Method[spec.Queue.DeclareOk]:
         """
         Declare a queue and block the calling thread until Queue.DeclareOk arrives.
 
@@ -1177,15 +1185,17 @@ class Channel:
             arguments=arguments,
         )
 
-    def exchange_declare(self,
-                         exchange,
-                         exchange_type: str = 'direct',
-                         passive: bool = False,
-                         durable: bool = False,
-                         auto_delete: bool = False,
-                         internal: bool = False,
-                         arguments=None,
-                         timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
+    def exchange_declare(
+        self,
+        exchange,
+        exchange_type: str = 'direct',
+        passive: bool = False,
+        durable: bool = False,
+        auto_delete: bool = False,
+        internal: bool = False,
+        arguments=None,
+        timeout: float | None = DEFAULT_RPC_TIMEOUT
+    ) -> frame.Method[spec.Exchange.DeclareOk]:
         """
         Declare an exchange and block until Exchange.DeclareOk arrives.
 
@@ -1217,12 +1227,14 @@ class Channel:
             arguments=arguments,
         )
 
-    def queue_bind(self,
-                   queue,
-                   exchange,
-                   routing_key=None,
-                   arguments=None,
-                   timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
+    def queue_bind(
+        self,
+        queue,
+        exchange,
+        routing_key=None,
+        arguments=None,
+        timeout: float | None = DEFAULT_RPC_TIMEOUT
+    ) -> frame.Method[spec.Queue.BindOk]:
         """
         Bind a queue to an exchange and block until Queue.BindOk arrives.
 
@@ -1248,12 +1260,14 @@ class Channel:
             arguments=arguments,
         )
 
-    def queue_unbind(self,
-                     queue,
-                     exchange=None,
-                     routing_key=None,
-                     arguments=None,
-                     timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
+    def queue_unbind(
+        self,
+        queue,
+        exchange=None,
+        routing_key=None,
+        arguments=None,
+        timeout: float | None = DEFAULT_RPC_TIMEOUT
+    ) -> frame.Method[spec.Queue.UnbindOk]:
         """
         Unbind a queue from an exchange and block until Queue.UnbindOk arrives.
 
@@ -1279,11 +1293,13 @@ class Channel:
             arguments=arguments,
         )
 
-    def queue_delete(self,
-                     queue,
-                     if_unused: bool = False,
-                     if_empty: bool = False,
-                     timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
+    def queue_delete(
+        self,
+        queue,
+        if_unused: bool = False,
+        if_empty: bool = False,
+        timeout: float | None = DEFAULT_RPC_TIMEOUT
+    ) -> frame.Method[spec.Queue.DeleteOk]:
         """
         Delete a queue and block until Queue.DeleteOk arrives.
 
@@ -1307,9 +1323,11 @@ class Channel:
             if_empty=if_empty,
         )
 
-    def queue_purge(self,
-                    queue,
-                    timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
+    def queue_purge(
+        self,
+        queue,
+        timeout: float | None = DEFAULT_RPC_TIMEOUT
+    ) -> frame.Method[spec.Queue.PurgeOk]:
         """
         Purge all messages from a queue and block until Queue.PurgeOk arrives.
 
@@ -1329,12 +1347,14 @@ class Channel:
             queue=queue,
         )
 
-    def exchange_bind(self,
-                      destination,
-                      source,
-                      routing_key: str = '',
-                      arguments=None,
-                      timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
+    def exchange_bind(
+        self,
+        destination,
+        source,
+        routing_key: str = '',
+        arguments=None,
+        timeout: float | None = DEFAULT_RPC_TIMEOUT
+    ) -> frame.Method[spec.Exchange.BindOk]:
         """
         Bind an exchange to another exchange and block until Exchange.BindOk.
 
@@ -1360,12 +1380,14 @@ class Channel:
             arguments=arguments,
         )
 
-    def exchange_unbind(self,
-                        destination,
-                        source,
-                        routing_key: str = '',
-                        arguments=None,
-                        timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
+    def exchange_unbind(
+        self,
+        destination,
+        source,
+        routing_key: str = '',
+        arguments=None,
+        timeout: float | None = DEFAULT_RPC_TIMEOUT
+    ) -> frame.Method[spec.Exchange.UnbindOk]:
         """
         Unbind an exchange from another exchange and block until Exchange.UnbindOk.
 
@@ -1391,10 +1413,12 @@ class Channel:
             arguments=arguments,
         )
 
-    def exchange_delete(self,
-                        exchange=None,
-                        if_unused: bool = False,
-                        timeout: float | None = DEFAULT_RPC_TIMEOUT) -> None:
+    def exchange_delete(
+        self,
+        exchange=None,
+        if_unused: bool = False,
+        timeout: float | None = DEFAULT_RPC_TIMEOUT
+    ) -> frame.Method[spec.Exchange.DeleteOk]:
         """
         Delete an exchange and block until Exchange.DeleteOk arrives.
 
@@ -1525,15 +1549,15 @@ class Channel:
         return self._next_publish_seq_no + 1
 
     @property
-    def channel_number(self):
+    def channel_number(self) -> int:
         return self._channel.channel_number
 
     @property
-    def is_open(self):
+    def is_open(self) -> bool:
         return self._channel.is_open
 
     @property
-    def is_closed(self):
+    def is_closed(self) -> bool:
         return self._channel.is_closed
 
 
