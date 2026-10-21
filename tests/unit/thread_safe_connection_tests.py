@@ -18,6 +18,7 @@ from pika.adapters.thread_safe_connection import (
     _BoundedWorkPool,
     _reraisable,
     _submit_or_terminate,
+    _validate_shutdown_drain_timeout,
     _with_close_traceback,
 )
 from pika.exceptions import (
@@ -741,6 +742,18 @@ class BoundedWorkPoolTests(unittest.TestCase):
         for bad in (None, 0, -1.0, float('nan')):
             with self.assertRaises(ValueError):
                 Connection(parameters='params', work_queue_put_timeout=bad)
+
+    def test_connection_rejects_invalid_shutdown_drain_timeout(self):
+        """
+        `None` and a negative value are refused, and unlike a put timeout, `0` is allowed.
+
+        Validation happens ahead of SelectConnection construction, so a bad value raises without any
+        connection machinery or patching.
+        """
+        for bad in (None, -1.0, float('nan')):
+            with self.assertRaises(ValueError):
+                Connection(parameters='params', shutdown_drain_timeout=bad)
+        self.assertEqual(_validate_shutdown_drain_timeout(0), 0)
 
 
 class ChannelTests(unittest.TestCase):
@@ -4288,6 +4301,33 @@ class ConnectionTests(unittest.TestCase):
                     self.assertEqual(conn._blocking_waiters, [])
                     ioloop.stop.assert_called_once()
                     conn._ioloop_thread.join.assert_not_called()
+
+    def test_the_ioloop_tail_drains_under_the_connection_s_budget(self):
+        """
+        The tail bounds its pool joins, and by the connection's own setting rather than a global.
+
+        Without a bound a wedged consumer callback holds the IOLoop thread after `ioloop.start()`
+        has returned, which no caller asked for (#1761). The value is per connection because the two
+        neighbouring knobs are (#1762).
+        """
+        conn, _raw, _ioloop = self._make_connection()
+        self.addCleanup(setattr, conn, '_shutdown_drain_timeout',
+                        conn._shutdown_drain_timeout)
+        conn._shutdown_drain_timeout = 0.25
+        observed = []
+        for name in ('_shutdown_all_consumer_pools',
+                     '_shutdown_connection_pool'):
+            original = getattr(conn, name)
+            setattr(conn,
+                    name,
+                    lambda timeout=None, _n=name, _o=original: (observed.append(
+                        (_n, timeout)), _o(timeout=timeout))[1])
+
+        # Run the tail the way the IOLoop thread does once its loop returns.
+        conn._drain_pools_after_ioloop()
+
+        self.assertEqual(observed, [('_shutdown_all_consumer_pools', 0.25),
+                                    ('_shutdown_connection_pool', 0.25)])
 
     def test_ordinary_close_does_not_arm_the_worker_force_timer(self):
         """

@@ -67,10 +67,13 @@ conn = pika.Connection(
     pika.ConnectionParameters('localhost'),
     work_queue_maxsize=1000,     # 0 means unbounded
     work_queue_put_timeout=30.0, # seconds; must be positive, default 30 s
+    shutdown_drain_timeout=30.0, # seconds; 0 abandons queued work, default 30 s
 )
 ```
 
 `work_queue_put_timeout` defaults to 30 seconds and must be a positive number; `None` (infinite) is rejected with `ValueError` because it lets a full queue stall or deadlock the IOLoop thread. Set an override comfortably below the negotiated heartbeat-death window (twice the heartbeat interval) so a stall surfaces as `WorkQueueFullError` rather than an opaque broker-side close. When the queue stays full for that long, `pika.exceptions.WorkQueueFullError` is raised on the IOLoop thread, tearing the connection down rather than silently dropping the event (which would lose an auto-acked delivery or force redelivery of a manually-acked one).
+
+`shutdown_drain_timeout` bounds a different wait: once the IOLoop thread's loop has exited, it runs the work already queued for each pool before the thread ends. Without a bound a wedged callback holds that thread forever, which no caller asked for. It defaults to 30 seconds and must not be negative; `0` is allowed and abandons the queued work immediately, which is coherent for a caller who wants the process gone, and `None` is rejected. A worker still running when the budget expires is left to finish on its daemon thread, with a warning. It compounds with `work_queue_put_timeout`: a wedged consumer can hold the IOLoop in `submit` for one budget and here for another.
 
 ## Comparison with other adapters
 

@@ -49,6 +49,15 @@ DEFAULT_WORK_QUEUE_MAXSIZE = 1000
 # with an opaque StreamLostError.
 DEFAULT_WORK_QUEUE_PUT_TIMEOUT = 30.0
 
+# Default seconds the IOLoop thread waits, after its loop has exited, for
+# every pool worker to finish the work already queued.  Long enough for a
+# slow but healthy callback to complete, short enough that process exit is
+# not visibly stalled by a wedged one, which is then abandoned on its daemon
+# thread with a warning.  It compounds with the put timeout above: a wedged
+# consumer can hold the IOLoop in `submit` for one budget and here for
+# another.
+DEFAULT_SHUTDOWN_DRAIN_TIMEOUT = 30.0
+
 # How often a bounded wait rechecks whether the thing it waits for can still
 # happen, rather than only whether the budget has run out.
 _LIVENESS_POLL_INTERVAL = 0.05
@@ -60,6 +69,31 @@ _LIVENESS_POLL_INTERVAL = 0.05
 # whereas a drain that spent the whole budget would otherwise leave the join
 # nothing and abandon the connection half-closed (#1763).
 _CLOSE_HANDSHAKE_FLOOR = 1.0
+
+
+def _validate_shutdown_drain_timeout(drain_timeout: float) -> float:
+    """
+    Validate a public shutdown drain timeout.
+
+    ``None`` is rejected for the reason `_validate_put_timeout` gives: a wedged callback would hold
+    the IOLoop thread after its loop has exited, and nothing else bounds that wait. ``0`` is
+    allowed, unlike a put timeout, because abandoning the queued work immediately is a coherent
+    choice for a caller who wants the process gone.
+
+    :param drain_timeout: Seconds the IOLoop thread waits for the queued work to finish.
+    :returns: *drain_timeout* unchanged.
+    :raises ValueError: if *drain_timeout* is ``None`` or is negative.
+    """
+    if drain_timeout is None:
+        raise ValueError(
+            'shutdown_drain_timeout must be a number of seconds, not None; an '
+            'infinite timeout lets a wedged callback hold the IOLoop thread '
+            'after its loop has exited')
+    # ``not drain_timeout >= 0`` also rejects float('nan').
+    if not drain_timeout >= 0:
+        raise ValueError(f'shutdown_drain_timeout must not be negative, got '
+                         f'{drain_timeout!r}')
+    return drain_timeout
 
 
 def _validate_put_timeout(put_timeout: float) -> float:
@@ -1950,13 +1984,16 @@ class Connection:
             on_close_callback=None,
             timeout: float | None = DEFAULT_RPC_TIMEOUT,
             work_queue_maxsize: int = DEFAULT_WORK_QUEUE_MAXSIZE,
-            work_queue_put_timeout: float = DEFAULT_WORK_QUEUE_PUT_TIMEOUT
+            work_queue_put_timeout: float = DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
+            shutdown_drain_timeout: float = DEFAULT_SHUTDOWN_DRAIN_TIMEOUT
     ) -> None:
         self._user_on_open_error_callback = on_open_error_callback
         self._user_on_close_callback = on_close_callback
         self._work_queue_maxsize = work_queue_maxsize
         self._work_queue_put_timeout = _validate_put_timeout(
             work_queue_put_timeout)
+        self._shutdown_drain_timeout = _validate_shutdown_drain_timeout(
+            shutdown_drain_timeout)
 
         self._connect_error = None
         self._connected_event = threading.Event()
@@ -2018,9 +2055,7 @@ class Connection:
                 if not self._connected_event.is_set():
                     self._connect_error = exc
                     self._connected_event.set()
-            # IOLoop has exited - safe to block waiting for pool workers.
-            self._shutdown_all_consumer_pools()
-            self._shutdown_connection_pool()
+            self._drain_pools_after_ioloop()
 
         self._ioloop_thread = threading.Thread(
             target=_run_ioloop,
@@ -2076,6 +2111,18 @@ class Connection:
             self._blocking_waiters.clear()
         if self._user_on_close_callback:
             self._user_on_close_callback(_connection, reason)
+
+    def _drain_pools_after_ioloop(self) -> None:
+        """
+        Run the queued pool work once the IOLoop has exited, under this connection's budget.
+
+        Waiting here is safe because the loop has returned, but it is still bounded: a wedged
+        callback would otherwise hold the IOLoop thread forever and no caller asked for that
+        (#1761).  A worker still running when the budget expires is left to finish on its daemon
+        thread, with a warning from the pool.
+        """
+        self._shutdown_all_consumer_pools(timeout=self._shutdown_drain_timeout)
+        self._shutdown_connection_pool(timeout=self._shutdown_drain_timeout)
 
     def _shutdown_all_consumer_pools(self,
                                      timeout: float | None = None) -> None:
