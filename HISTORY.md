@@ -4,7 +4,7 @@ Notes for each release are also published on the [GitHub releases page](https://
 
 ## Upgrading to 1.5.0
 
-Three changes are worth reading before you upgrade. None is a behaviour change to a working application, but two can turn a passing build red.
+Five changes are worth reading before you upgrade. Two can turn a passing build red, and two change what a working application observes when it cancels a consumer or closes a channel.
 
 ### `pika.Connection` is new, and is the connection to use
 
@@ -41,6 +41,20 @@ python -W 'ignore:BlockingConnection is deprecated' your_app.py
 ```
 
 or migrate to `Connection`, which runs its own IOLoop on a background thread and provides a thread-safe blocking API that does not stall heartbeats on slow message processing.
+
+### Cancelling a consumer no longer rejects the messages still arriving for it
+
+A `Basic.Cancel` does not stop the broker immediately: the specification allows it to keep dispatching until it sends `Basic.CancelOk`, and pika used to reject every delivery that arrived in that window, or discard it outright for an `auto_ack` consumer. Discarding loses the message, because an `auto_ack` delivery has no copy left at the broker, and rejecting is a decision pika was making on your behalf that no other client makes. Measured on RabbitMQ 4.3.6, closing a channel with an `auto_ack` consumer half a second after its first delivery, 400 messages, `work_queue_maxsize=50` and a 50 ms callback. At 8 KiB bodies with `close(timeout=10)`: 339 of 400 lost before this change, 179 to 189 across five runs after it. `close(timeout=None)` loses none after the change, at either body size, and lost the same 339 before it, because that loss was the cancel window rather than the budget. At 64 bytes the deliveries still queued when a bounded close returns fit in the work queue, so the worker finishes them and nothing is lost; at 8 KiB they do not fit and the excess is discarded when the pool shuts. Quote the whole configuration with any figure from this area, because the message count, body size, queue size, callback cost and timeout all move it. `utils/measure_close_loss.py` in the repository reproduces each of them.
+
+Those deliveries are now passed to your callback instead, which is what the Java client does, as long as the channel is still open.
+
+One thing follows for existing code: a consumer callback can now run for a message that arrives after you called `basic_cancel`, so a callback that assumed cancellation was immediate may see further deliveries. `BlockingChannel.basic_cancel` still rejects them for an `auto_ack=False` consumer, so they return to the queue at once as before, and its return value is unchanged; the channel no longer does that rejecting, the wrapper does. The generator-style `BlockingChannel.cancel` discards them instead, which #1767 covers.
+
+### `channel.close()` on an asynchronous adapter still discards those deliveries
+
+A channel that is closing discards them, because a callback could not acknowledge one anyway and the attempt would abort the connection; the Java client discards them at the same point. `Channel.close` cancels each consumer without waiting for the broker to confirm, so this is what a bare `channel.close()` does on `SelectConnection`, `AsyncioConnection`, `TornadoConnection` and `GeventConnection`. A discarded delivery is redelivered to the next consumer with `auto_ack=False` and lost with `auto_ack=True`. Pika now logs a warning naming the count as the channel closes.
+
+`pika.Connection` and `BlockingConnection` are unaffected and keep every delivery across a close, since both cancel their consumers and wait for the broker to confirm before closing anything. To get the same guarantee from an asynchronous adapter, cancel each consumer with a callback and close the channel from the last `Basic.CancelOk`; the [channel documentation](https://pika.github.io/pika/latest/modules/channel/#closing-a-channel-with-active-consumers) has the pattern. Pika 2.0 removes these adapters, which leaves `Connection` and its `Channel` as the only close path and so retires the gap rather than fixing it.
 
 ### `pika.spec` is now annotated, which may fail your type checker
 

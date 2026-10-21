@@ -169,7 +169,7 @@ directing the session.
 Read the relevant page before changing that area.
 
 - `docs/internal/release.md` - how a release is driven and verified, the designs that were tried and rejected, and the two known gaps.
-- `docs/internal/thread-safe-connection.md` - how `pika.Connection` dispatches callbacks, the back-pressure that bounds it, and the broker measurements behind the publisher-confirm contract.
+- `docs/internal/thread-safe-connection.md` - how `pika.Connection` dispatches callbacks, the back-pressure that bounds it, the broker measurements behind the publisher-confirm contract, and what a close guarantees: the cancel-drain-close order, why every wait is bounded by liveness rather than a clock, and where this diverges from the Java client.
 
 ## Code style
 

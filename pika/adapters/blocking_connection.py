@@ -1843,10 +1843,11 @@ class BlockingChannel:
         cancel-ok reply.
 
         NOTE: When cancelling an auto_ack=False consumer, this implementation
-        automatically Nacks and suppresses any incoming messages that have not
-        yet been dispatched to the consumer's callback. However, when cancelling
-        a auto_ack=True consumer, this method will return any pending messages
-        that arrived before broker confirmed the cancellation.
+        Nacks any messages that have not yet been dispatched to the consumer's
+        callback, including those that arrive before the broker confirms the
+        cancellation, so the broker returns them to the queue. However, when
+        cancelling a auto_ack=True consumer, this method will return any pending
+        messages that arrived before broker confirmed the cancellation.
 
         :param consumer_tag: Identifier for the consumer; the result of
             passing a consumer_tag that was created on another channel is
@@ -1902,9 +1903,8 @@ class BlockingChannel:
                             assert delivery_tag is not None
                             self._impl.basic_reject(delivery_tag, requeue=True)
 
-                # Cancel the consumer; impl takes care of rejecting any
-                # additional deliveries that arrive for a auto_ack=False
-                # consumer
+                # Cancel the consumer.  Deliveries that arrive before the
+                # broker confirms it are handled below.
                 self._impl.basic_cancel(consumer_tag=consumer_tag,
                                         callback=cancel_ok_result.signal_once)
 
@@ -1919,10 +1919,16 @@ class BlockingChannel:
                 return [(evt.method, evt.properties, evt.body)
                         for evt in self._remove_pending_deliveries(consumer_tag)
                        ]
-            # impl takes care of rejecting any incoming deliveries during
-            # cancellation
-            messages = self._remove_pending_deliveries(consumer_tag)
-            assert not messages, messages
+            # Deliveries that arrived while the cancel was in flight now reach
+            # this wrapper rather than being rejected by the channel (#1389),
+            # and nothing else will consume them, so reject them here: left
+            # unacknowledged they stay invisible to every other consumer until
+            # this channel closes, and the broker's consumer_timeout eventually
+            # closes it with a 406.
+            for evt in self._remove_pending_deliveries(consumer_tag):
+                delivery_tag = evt.method.delivery_tag
+                assert delivery_tag is not None
+                self._impl.basic_reject(delivery_tag, requeue=True)
 
             return []
         finally:
@@ -2185,6 +2191,11 @@ class BlockingChannel:
         Cancel the queue consumer created by `BlockingChannel.consume`, rejecting all pending
         ackable messages.
 
+        Rejecting covers the deliveries that arrive while the cancel is in flight as well as those
+        already buffered, so an `auto_ack=False` consumer leaves nothing unacknowledged. An
+        `auto_ack=True` consumer has nothing to reject and those deliveries are discarded, which is
+        what that mode means: the broker dropped its copy when it dispatched them.
+
         NOTE: If you're looking to cancel a consumer issued with
         BlockingChannel.basic_consume then you should call
         BlockingChannel.basic_cancel.
@@ -2199,11 +2210,11 @@ class BlockingChannel:
 
         try:
             _, auto_ack, _ = self._queue_consumer_generator.params
+            pending_events = self._queue_consumer_generator.pending_events
             if not auto_ack:
                 # Reject messages held by queue consumer generator; NOTE: we
                 # can't use basic_nack with the multiple option to avoid nacking
                 # messages already held by our client.
-                pending_events = self._queue_consumer_generator.pending_events
                 # NOTE `get_waiting_message_count` adjusts for `Basic.Cancel`
                 #      from the server at the end (if any)
                 for _ in range(self.get_waiting_message_count()):
@@ -2212,14 +2223,28 @@ class BlockingChannel:
                                             requeue=True)
 
             self.basic_cancel(self._queue_consumer_generator.consumer_tag)
+
+            if not auto_ack:
+                # A delivery that arrived while the cancel was in flight lands
+                # in the generator's own buffer, which `basic_cancel` does not
+                # drain, and the `finally` below drops the generator with it.
+                # Left unacknowledged it stays invisible to every other
+                # consumer until this channel closes, which `stop_consuming`
+                # does not do, so the broker's `consumer_timeout` ends it with
+                # a 406 half an hour later (#1767).
+                for evt in pending_events:
+                    if not isinstance(evt, _ConsumerDeliveryEvt):
+                        continue
+                    delivery_tag = evt.method.delivery_tag
+                    assert delivery_tag is not None
+                    self._impl.basic_reject(delivery_tag, requeue=True)
+                pending_events.clear()
+                self._flush_output()
         finally:
             self._queue_consumer_generator = None
 
-        # Return 0 for compatibility with legacy implementation; the number of
-        # nacked messages is not meaningful since only messages consumed with
-        # auto_ack=False may be nacked, and those arriving after calling
-        # basic_cancel will be rejected automatically by impl channel, so we'll
-        # never know how many of those were nacked.
+        # Return 0 for compatibility with the legacy implementation, which is
+        # why the count is not reported even though it is now known.
         return 0
 
     def basic_ack(self, delivery_tag: int = 0, multiple: bool = False) -> None:

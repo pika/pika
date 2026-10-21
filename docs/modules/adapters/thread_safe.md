@@ -41,7 +41,18 @@ The `on_message_callback` registered with `basic_consume` is dispatched on a per
 - Blocking operations (database writes, HTTP calls, even `queue_declare` or `basic_qos`) are safe inside delivery callbacks
 - Slow consumer processing does not starve the IOLoop thread, so heartbeats keep flowing while a callback works. Filling the work queue is the one case that blocks the IOLoop; see below
 - Messages are delivered to the callback in order (single worker thread per channel)
-- All `Channel` methods (`basic_ack`, `basic_nack`, `basic_reject`, `basic_publish`) are safe to call from within the callback
+- Acknowledging and publishing (`basic_ack`, `basic_nack`, `basic_reject`, `basic_publish`) are safe to call from within the callback
+- `close()` is the one method that is not: see [What a close does to queued callbacks](#what-a-close-does-to-queued-callbacks)
+
+## What a close does to queued callbacks
+
+`Connection.close` and `Channel.close` cancel the channel's consumers, wait for the broker to confirm each cancellation, and then run the callbacks already queued before closing anything. A delivery that has reached the client is therefore passed to your callback, and the acknowledgement that callback issues still reaches the broker. Note that closing a channel or connection cancels its consumers, which is visible to the broker and to anything watching consumer counts.
+
+All of it is bounded by the `timeout` you pass to `close`, shared across the cancellations, the queued callbacks and the close itself, plus a one-second floor on the close handshake. A `Connection.close` whose broker never answers can take up to twice the timeout plus that second, because force-stopping the IOLoop is given a second budget.
+
+If the budget runs out before the backlog is done, the close proceeds and a warning names the pool, and messages are lost for an `auto_ack` consumer. The callbacks already queued still run on a daemon thread, but they can no longer acknowledge anything, and deliveries the broker sends after the pool is shut down are discarded without ever reaching a callback. How many depends on `work_queue_maxsize` and on how fast your callback is. Anything unacknowledged is redelivered; with `auto_ack=True` the broker has already discarded its copy, so those are gone. **Pass `timeout=None` if losing none of them matters more than bounding the close**, which is the only setting that guarantees it.
+
+Two cases skip this and behave as they did before 1.5.0, running queued callbacks after the teardown instead: `close()` called from the connection's own IOLoop thread, and `close()` called from inside a delivery or event callback, where waiting for the queue would mean waiting for the calling callback to return. Neither can be fixed on the close path, since the guarantee needs a queue to drain and the caller is sitting in it, so a callback that wants to shut the connection down should set a flag the thread that owns the connection watches and close from there. #1770 covers whether pika should refuse the call instead.
 
 ## Work queue bounds and back-pressure
 
@@ -56,10 +67,13 @@ conn = pika.Connection(
     pika.ConnectionParameters('localhost'),
     work_queue_maxsize=1000,     # 0 means unbounded
     work_queue_put_timeout=30.0, # seconds; must be positive, default 30 s
+    shutdown_drain_timeout=30.0, # seconds; 0 abandons queued work, default 30 s
 )
 ```
 
 `work_queue_put_timeout` defaults to 30 seconds and must be a positive number; `None` (infinite) is rejected with `ValueError` because it lets a full queue stall or deadlock the IOLoop thread. Set an override comfortably below the negotiated heartbeat-death window (twice the heartbeat interval) so a stall surfaces as `WorkQueueFullError` rather than an opaque broker-side close. When the queue stays full for that long, `pika.exceptions.WorkQueueFullError` is raised on the IOLoop thread, tearing the connection down rather than silently dropping the event (which would lose an auto-acked delivery or force redelivery of a manually-acked one).
+
+`shutdown_drain_timeout` bounds a different wait: once the IOLoop thread's loop has exited, it runs the work already queued for each pool before the thread ends. Without a bound a wedged callback holds that thread forever, which no caller asked for. It defaults to 30 seconds and must not be negative; `0` is allowed and abandons the queued work immediately, which is coherent for a caller who wants the process gone, and `None` is rejected. A worker still running when the budget expires is left to finish on its daemon thread, with a warning. It compounds with `work_queue_put_timeout`: a wedged consumer can hold the IOLoop in `submit` for one budget and here for another.
 
 ## Comparison with other adapters
 

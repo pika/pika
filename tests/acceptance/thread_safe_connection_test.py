@@ -764,3 +764,295 @@ class TestConfirmDeliveryRetryAgainstRealChannel(ThreadSafeTestCaseBase):
 
         self.assertEqual(reported, [('A', 1), ('B', 2)])
         self.assertEqual(ch.next_publish_seq_no, 3)
+
+
+class TestCloseRunsQueuedCallbacksWhileConnectionWorks(ThreadSafeTestCaseBase):
+    """
+    A close must not leave the broker holding work the callbacks already did.
+
+    #1763: the pools used to drain after the connection was torn down, so the acknowledgements those
+    callbacks issued never reached the broker and it redelivered work that had already been
+    performed. The broker's own count is the assertion because it is the only place the outcome is
+    visible: on this path `basic_ack` raises inside the callback, and on the channel-close path it
+    fails as a log line while the caller sees success.
+    """
+
+    N = 30
+
+    def test_every_ack_lands(self):
+        queue = self._unique_queue()
+        setup = self._connect()
+        sch = setup.channel()
+        sch.queue_declare(queue=queue, durable=True)
+        self.addCleanup(self._delete_queue, queue)
+        for _ in range(self.N):
+            sch.basic_publish(exchange='', routing_key=queue, body=b'x')
+        setup.close(timeout=BLOCKING_CALL_TIMEOUT)
+
+        conn = self._connect()
+        ch = conn.channel()
+        lock = threading.Lock()
+        ran = []
+
+        def consumer(channel, method, properties, body):
+            # Slow enough that a backlog builds up behind the first few.
+            time.sleep(0.05)
+            with lock:
+                ran.append(method.delivery_tag)
+            channel.basic_ack(delivery_tag=method.delivery_tag)
+
+        ch.basic_consume(queue=queue,
+                         on_message_callback=consumer,
+                         auto_ack=False)
+        # Close once the consumer is under way but well short of the end, so a
+        # backlog is queued rather than drained. Waiting on observed progress
+        # rather than a fixed sleep keeps this independent of machine speed.
+        deadline = time.monotonic() + BLOCKING_CALL_TIMEOUT
+        while time.monotonic() < deadline:
+            with lock:
+                if len(ran) >= 3:
+                    break
+            time.sleep(0.02)
+        queued = ch._consumer_work_pool._queue.qsize()
+        conn.close(timeout=BLOCKING_CALL_TIMEOUT)
+
+        self.assertGreater(
+            queued, 0, 'nothing was queued when close() was called, so this '
+            'test did not exercise the drain')
+        with lock:
+            delivered = len(ran)
+        remaining = self._ready_count(queue)
+        self.assertEqual(
+            remaining, 0,
+            f'the broker still holds {remaining} of {self.N} messages after '
+            f'{delivered} callbacks ran, so their acknowledgements '
+            f'never reached it and that work will be redelivered')
+
+    def _ready_count(self, queue):
+        conn = self._connect()
+        ch = conn.channel()
+        frame = ch.queue_declare(queue=queue, durable=True, passive=True)
+        return frame.method.message_count
+
+    def _delete_queue(self, queue):
+        conn = Connection(DEFAULT_PARAMS)
+        try:
+            conn.channel().queue_delete(queue=queue)
+        finally:
+            safe_close(conn)
+
+
+class TestCloseUnderBackPressureLosesNothing(ThreadSafeTestCaseBase):
+    """
+    A close must cancel the consumer even while the IOLoop is applying back-pressure.
+
+    With the work queue full the IOLoop blocks in `submit`, so anything the close needs it to do is
+    answered slowly. A bound that fires there abandons the cancellation, the broker keeps
+    dispatching into a pool that is about to shut down, and those deliveries are dropped at submit.
+    `auto_ack` makes that unrecoverable, since the broker keeps no copy.
+
+    This asserts the end-to-end outcome for a backlog that is still arriving; it is kept cheap, so
+    it does not reach the regime where a seconds-long cap would fire. The bounds themselves are
+    pinned by `ChannelCloseErrorPathTests`, and the cost of getting them wrong is recorded on
+    `docs/internal/thread-safe-connection.md`.
+    """
+
+    N = 400
+    MAXSIZE = 10
+
+    def test_nothing_is_lost(self):
+        queue = self._unique_queue()
+        setup = self._connect()
+        sch = setup.channel()
+        sch.queue_declare(queue=queue, durable=True)
+        self.addCleanup(self._delete_queue, queue)
+        for _ in range(self.N):
+            sch.basic_publish(exchange='', routing_key=queue, body=b'x' * 8192)
+        setup.close(timeout=BLOCKING_CALL_TIMEOUT)
+
+        conn = Connection(DEFAULT_PARAMS, work_queue_maxsize=self.MAXSIZE)
+        self.addCleanup(safe_close, conn)
+        ch = conn.channel()
+        lock = threading.Lock()
+        ran = []
+
+        def consumer(channel, method, properties, body):
+            time.sleep(0.005)
+            with lock:
+                ran.append(1)
+
+        ch.basic_consume(queue=queue,
+                         on_message_callback=consumer,
+                         auto_ack=True)
+        # Close while the broker is still dispatching and the queue is full.
+        deadline = time.monotonic() + BLOCKING_CALL_TIMEOUT
+        while time.monotonic() < deadline:
+            with lock:
+                if len(ran) >= 5:
+                    break
+            time.sleep(0.01)
+        queued = ch._consumer_work_pool._queue.qsize()
+        conn.close(timeout=BLOCKING_CALL_TIMEOUT * 3)
+        # Counted the instant close() returns, with no settling time: the
+        # contract is that the queued callbacks have run by then. Allowing the
+        # daemon worker to catch up afterwards would let a close that cancelled
+        # nothing pass on the strength of work it did after returning.
+        with lock:
+            delivered = len(ran)
+
+        # Near-full rather than exactly full: the worker can take an item
+        # between the sample and the close, which is what made this fail on
+        # Windows and macOS. What the test needs is a queue deep enough that
+        # the IOLoop is blocked in submit, not an exact depth.
+        self.assertGreaterEqual(
+            queued, self.MAXSIZE - 2,
+            f'the work queue held {queued} of {self.MAXSIZE} at close, so the '
+            f'back-pressure this test needs was not present')
+        remaining = self._ready_count(queue)
+        self.assertEqual(
+            delivered + remaining, self.N,
+            f'{self.N - delivered - remaining} of {self.N} auto_ack messages '
+            f'reached neither a callback nor the queue, so they are lost')
+
+    def _ready_count(self, queue):
+        conn = self._connect()
+        ch = conn.channel()
+        return ch.queue_declare(queue=queue, durable=True,
+                                passive=True).method.message_count
+
+    def _delete_queue(self, queue):
+        conn = Connection(DEFAULT_PARAMS)
+        try:
+            conn.channel().queue_delete(queue=queue)
+        finally:
+            safe_close(conn)
+
+
+class TestChannelCloseWithoutATimeoutLosesNothing(ThreadSafeTestCaseBase):
+    """
+    `Channel.close(timeout=None)` is the setting documented to lose nothing, so it is asserted.
+
+    `TestCloseUnderBackPressureLosesNothing` covers the connection close under a generous finite
+    budget. This covers the two things that one does not: the channel's own close, and the `None`
+    the documentation tells a reader to pass when losing no message matters more than bounding the
+    call.
+    """
+
+    N = 200
+    MAXSIZE = 10
+
+    def test_nothing_is_lost(self):
+        queue = self._unique_queue()
+        setup = self._connect()
+        sch = setup.channel()
+        sch.queue_declare(queue=queue, durable=True)
+        self.addCleanup(self._delete_queue, queue)
+        for _ in range(self.N):
+            sch.basic_publish(exchange='', routing_key=queue, body=b'x' * 8192)
+        setup.close(timeout=BLOCKING_CALL_TIMEOUT)
+
+        conn = Connection(DEFAULT_PARAMS, work_queue_maxsize=self.MAXSIZE)
+        self.addCleanup(safe_close, conn)
+        ch = conn.channel()
+        lock = threading.Lock()
+        ran = []
+
+        def consumer(channel, method, properties, body):
+            time.sleep(0.005)
+            with lock:
+                ran.append(1)
+
+        ch.basic_consume(queue=queue,
+                         on_message_callback=consumer,
+                         auto_ack=True)
+        deadline = time.monotonic() + BLOCKING_CALL_TIMEOUT
+        while time.monotonic() < deadline:
+            with lock:
+                if len(ran) >= 5:
+                    break
+            time.sleep(0.01)
+
+        ch.close(timeout=None)
+        # Counted the instant close() returns: with no timeout the contract is
+        # that every queued callback has already run, so letting the daemon
+        # worker catch up afterwards would let a broken close pass.
+        with lock:
+            delivered = len(ran)
+
+        remaining = self._ready_count(queue)
+        self.assertEqual(
+            delivered + remaining, self.N,
+            f'{self.N - delivered - remaining} of {self.N} auto_ack messages '
+            f'reached neither a callback nor the queue under timeout=None, '
+            f'which is the one setting documented to lose none')
+
+    def _ready_count(self, queue):
+        conn = self._connect()
+        ch = conn.channel()
+        return ch.queue_declare(queue=queue, durable=True,
+                                passive=True).method.message_count
+
+    def _delete_queue(self, queue):
+        conn = Connection(DEFAULT_PARAMS)
+        try:
+            conn.channel().queue_delete(queue=queue)
+        finally:
+            safe_close(conn)
+
+
+class TestCloseCompletesTheHandshakeAfterALongDrain(ThreadSafeTestCaseBase):
+    """
+    A close whose callbacks use the whole budget must still close the connection.
+
+    No phase reserves a share of the budget, because capping a phase below the broker's pace costs
+    messages (#1763). The handshake is the exception: it is one round trip whose duration does not
+    depend on the backlog, so it gets a floor. Without it the join is handed zero, `ioloop.stop`
+    runs ahead of the reply, and the socket is abandoned open with the broker still holding the
+    connection.
+    """
+
+    N = 400
+
+    def test_connection_is_really_closed(self):
+        queue = self._unique_queue()
+        setup = self._connect()
+        sch = setup.channel()
+        sch.queue_declare(queue=queue, durable=True)
+        self.addCleanup(self._delete_queue, queue)
+        for _ in range(self.N):
+            sch.basic_publish(exchange='', routing_key=queue, body=b'x' * 100)
+        setup.close(timeout=BLOCKING_CALL_TIMEOUT)
+
+        conn = Connection(DEFAULT_PARAMS)
+        self.addCleanup(safe_close, conn)
+        ch = conn.channel()
+        ran = []
+
+        def consumer(channel, method, properties, body):
+            time.sleep(0.02)
+            ran.append(1)
+            channel.basic_ack(delivery_tag=method.delivery_tag)
+
+        ch.basic_consume(queue=queue,
+                         on_message_callback=consumer,
+                         auto_ack=False)
+        # A budget far smaller than the backlog needs, so the drain spends all
+        # of it and the handshake has to come out of the floor.
+        deadline = time.monotonic() + BLOCKING_CALL_TIMEOUT
+        while time.monotonic() < deadline and len(ran) < 3:
+            time.sleep(0.01)
+        conn.close(timeout=1)
+
+        impl = conn._connection
+        self.assertTrue(
+            impl.is_closed,
+            f'the connection is in state {impl.connection_state} with its '
+            f'transport still attached, so the close was abandoned half done')
+        self.assertIsNone(impl._transport)
+
+    def _delete_queue(self, queue):
+        conn = Connection(DEFAULT_PARAMS)
+        try:
+            conn.channel().queue_delete(queue=queue)
+        finally:
+            safe_close(conn)

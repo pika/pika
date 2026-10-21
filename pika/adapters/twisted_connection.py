@@ -131,6 +131,9 @@ class TwistedChannel:
         # We need this mapping to close the ClosableDeferredQueue when a queue
         # is deleted.
         self._queue_name_to_consumer_tags: dict[str, set[str]] = {}
+        # Tags consuming with auto_ack, whose deliveries must not be rejected
+        # when the consumer is cancelled: the broker kept no delivery tag.
+        self._consumers_with_noack: set[str] = set()
         # Whether RabbitMQ delivery confirmation has been enabled
         self._delivery_confirmation = False
         self._delivery_message_id: int | None = None
@@ -165,6 +168,7 @@ class TwistedChannel:
         self._calls = set()
         self._deliveries = {}
         self._consumers = {}
+        self._consumers_with_noack = set()
         self.on_closed.callback(self._closed)
 
     def _on_consumer_cancelled_by_broker(
@@ -198,7 +202,30 @@ class TwistedChannel:
             LOGGER.warning('basic_cancel - consumer not found: %s',
                            consumer_tag)
             return frame
-        self._consumers[consumer_tag].close(exceptions.ConsumerCancelled())
+        queue_obj = self._consumers[consumer_tag]
+        # Deliveries that arrived while the cancel was in flight now reach this
+        # queue rather than being rejected by the channel (#1389), and close()
+        # discards whatever is pending, so reject them first: nothing else will
+        # consume them and the broker holds them unacknowledged until the
+        # channel closes.  Not for an auto_ack consumer, where the broker kept
+        # no delivery tag and answers 406, which closes the channel.
+        for pending in ([] if consumer_tag in self._consumers_with_noack else
+                        list(queue_obj.pending)):
+            delivery_tag = getattr(getattr(pending, 'method', None),
+                                   'delivery_tag', None)
+            if delivery_tag is None:
+                continue
+            try:
+                self._channel.basic_reject(delivery_tag, requeue=True)
+            except Exception:
+                LOGGER.debug(
+                    'Could not reject delivery %s for cancelled '
+                    'consumer %s',
+                    delivery_tag,
+                    consumer_tag,
+                    exc_info=True)
+        self._consumers_with_noack.discard(consumer_tag)
+        queue_obj.close(exceptions.ConsumerCancelled())
         del self._consumers[consumer_tag]
         # Remove from the queue-to-ctags index:
         for ctags in self._queue_name_to_consumer_tags.values():
@@ -437,6 +464,8 @@ class TwistedChannel:
             self._queue_name_to_consumer_tags.setdefault(
                 queue, set()).add(consumer_tag)
             self._consumers[consumer_tag] = queue_obj
+            if auto_ack:
+                self._consumers_with_noack.add(consumer_tag)
             self._calls.discard(d)
             d.callback((queue_obj, consumer_tag))
 
@@ -983,6 +1012,7 @@ class TwistedChannel:
                     exceptions.ConsumerCancelled(
                         f'Queue {queue_name} was deleted.'))
                 del self._consumers[consumer_tag]
+                self._consumers_with_noack.discard(consumer_tag)
                 self._queue_name_to_consumer_tags[queue_name].remove(
                     consumer_tag)
             return ret

@@ -7,7 +7,7 @@ The `BlockingChannel.consume` method is a generator that will return a tuple of 
 When you escape out of the loop, be sure to call `BlockingChannel.cancel` to requeue any messages the generator is still holding.
 
 !!! note
-    `cancel` returns 0 and nothing else. The count has been vestigial since 0.10.0: only messages consumed with `auto_ack=False` can be requeued, and any arriving after the `Basic.Cancel` are rejected by the implementation channel, so the number is not knowable. Do not read the return value as a requeue count.
+    `cancel` returns 0 and nothing else. The count has been vestigial since 0.10.0: only messages consumed with `auto_ack=False` can be requeued, and any arriving after the `Basic.Cancel` are discarded unacknowledged rather than counted, so the number is not knowable. Do not read the return value as a requeue count.
 
 Example of consuming messages and acknowledging them:
 

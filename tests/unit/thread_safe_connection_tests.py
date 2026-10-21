@@ -3,19 +3,22 @@
 import asyncio
 import contextlib
 import threading
+import time
 import traceback
 import unittest
 import weakref
 from unittest.mock import ANY, MagicMock, patch
 
-from pika import spec
+from pika import frame, spec
 from pika.adapters.thread_safe_connection import (
+    _CLOSE_HANDSHAKE_FLOOR,
     DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
     Channel,
     Connection,
     _BoundedWorkPool,
     _reraisable,
     _submit_or_terminate,
+    _validate_shutdown_drain_timeout,
     _with_close_traceback,
 )
 from pika.exceptions import (
@@ -28,6 +31,56 @@ from pika.exceptions import (
 #: Stand-in owner for pools built without a `Connection`.  Module level so the
 #: pool's weak reference stays live for the test's duration.
 STANDALONE = type('StandaloneOwner', (), {})()
+
+
+def _wire_cancel(wrapper,
+                 raw_ch,
+                 consumers,
+                 cancelled=None,
+                 answer=True,
+                 sends=True):
+    """
+    Make a mocked raw channel behave like a real one for a cancel sweep.
+
+    The real `basic_cancel` records the tag in `_cancelled` before sending, and the tag leaves
+    `_consumers` only when `Basic.CancelOk` arrives (`_on_cancelok` -> `_cleanup_consumer_ref`). The
+    sweep reads `_consumers` to know when it is done, so a mock that does not model that waits out
+    its whole budget.
+
+    :param answer: confirm each cancel at once; pass False and call ``raw_ch.complete(tag)``.
+    :param sends: pass False for a `basic_cancel` that returns without sending, which the real one
+        does for a tag it no longer knows.
+    """
+    wrapper._schedule_unchecked.side_effect = lambda cb: cb()
+    wrapper._ioloop_thread.is_alive.return_value = True
+    wrapper._closed_reason = None
+    raw_ch.is_closed = False
+    raw_ch._consumers = dict(consumers)
+    raw_ch._cancelled = set(cancelled or ())
+    raw_ch.cancels_asked = []
+
+    def complete(tag):
+        raw_ch._consumers.pop(tag, None)
+        raw_ch._cancelled.discard(tag)
+
+    raw_ch.complete = complete
+
+    def cancel(**kw):
+        tag = kw['consumer_tag']
+        raw_ch.cancels_asked.append(tag)
+        if not sends:
+            return
+        raw_ch._cancelled.add(tag)
+        if answer:
+            complete(tag)
+
+    raw_ch.basic_cancel.side_effect = cancel
+    return raw_ch
+
+
+def _cancel_ok(consumer_tag):
+    """A Basic.CancelOk frame for *consumer_tag*, as the broker would send."""
+    return frame.Method(1, spec.Basic.CancelOk(consumer_tag=consumer_tag))
 
 
 class SubmitOrTerminateTests(unittest.TestCase):
@@ -256,6 +309,164 @@ class BoundedWorkPoolTests(unittest.TestCase):
         release.set()
         pool.shutdown(wait=True)
         self.assertEqual(done, list(range(5)))
+
+    def test_drain_runs_queued_work_and_leaves_the_pool_open(self):
+        """Drain must run what is queued and still accept work afterwards."""
+        pool, release = self._make_blocked_pool(maxsize=10)
+        done = []
+        for i in range(5):
+            pool.submit(done.append, i)
+        release.set()
+        self.assertTrue(pool.drain(timeout=5))
+        self.assertEqual(done, list(range(5)))
+        # Still open is the point: an item rejected at submit is an item lost,
+        # so a close drains before shutting down rather than instead of it.
+        pool.submit(done.append, 5)
+        self.assertTrue(pool.drain(timeout=5))
+        self.assertEqual(done, list(range(6)))
+        pool.shutdown(wait=True, timeout=5)
+
+    def test_drain_returns_false_when_the_worker_outlasts_the_timeout(self):
+        """A wedged callback must bound the drain rather than hang the caller."""
+        pool, release = self._make_blocked_pool(maxsize=10)
+        ran = []
+        pool.submit(ran.append, 'queued')
+        try:
+            started = time.monotonic()
+            self.assertFalse(pool.drain(timeout=0.2))
+            self.assertLess(time.monotonic() - started, 2)
+            self.assertEqual(
+                ran, [], 'the worker was not wedged, so the timeout path '
+                'was not exercised')
+        finally:
+            release.set()
+            pool.shutdown(wait=True, timeout=5)
+
+    def test_drain_does_not_deadlock_on_its_own_worker(self):
+        """A callback draining its own pool must not wait for a marker it blocks."""
+        pool = _BoundedWorkPool(maxsize=10,
+                                put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
+                                thread_name='test-pool',
+                                owner=STANDALONE)
+        result = []
+        elapsed = []
+        finished = threading.Event()
+
+        def from_worker():
+            # The timeout is far longer than the assertion below allows, so
+            # returning by waiting it out cannot pass for returning at once.
+            started = time.monotonic()
+            result.append(pool.drain(timeout=30))
+            elapsed.append(time.monotonic() - started)
+            finished.set()
+
+        pool.submit(from_worker)
+        self.assertTrue(finished.wait(timeout=10),
+                        'drain() deadlocked on its own worker thread')
+        self.assertEqual(result, [False])
+        self.assertLess(
+            elapsed[0], 1,
+            f'drain() waited {elapsed[0]:.1f}s on its own worker instead of '
+            f'refusing at once')
+        pool.shutdown(wait=True, timeout=5)
+
+    def test_drain_gives_up_on_a_dead_worker_with_a_full_queue(self):
+        """
+        The enqueue must check liveness too, not only the wait after it.
+
+        A worker that dies frees no slot and runs no marker, so a `put` that only honours the budget
+        never returns under `close(timeout=None)`.
+        """
+        pool = _BoundedWorkPool(maxsize=1,
+                                put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
+                                thread_name='test-pool',
+                                owner=STANDALONE)
+
+        # The worker starts on first submit. Then a malformed queue item, since
+        # #1751 made a work item's own exception non-fatal: the unpack above the
+        # guard is what still ends a worker.
+        pool.submit(lambda: None)
+        pool._queue.put(object())
+        for _ in range(100):
+            if pool._thread is not None and not pool._thread.is_alive():
+                break
+            time.sleep(0.05)
+        self.assertFalse(pool._thread.is_alive())
+        pool._queue.put(('filler', ()))  # no slot will ever free
+        self.assertTrue(pool._queue.full())
+
+        answer: list = []
+        drainer = threading.Thread(
+            target=lambda: answer.append(pool.drain(timeout=None)), daemon=True)
+        started = time.monotonic()
+        drainer.start()
+        drainer.join(timeout=5)
+        elapsed = time.monotonic() - started
+
+        self.assertFalse(
+            drainer.is_alive(),
+            f'the enqueue was still waiting for a slot after {elapsed:.1f}s on '
+            f'a dead worker, so close(timeout=None) would never return')
+        self.assertEqual(answer, [False])
+
+    def test_drain_gives_up_when_the_worker_dies(self):
+        """
+        A drain must stop when the worker can no longer run its marker.
+
+        A worker that exits leaves a queue nothing will drain. Waiting out the budget for it makes
+        `close(timeout=None)` hang, which is the one outcome ruled out. `shutdown` has always
+        checked liveness; this must too.
+        """
+        pool = _BoundedWorkPool(maxsize=10,
+                                put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
+                                thread_name='test-pool',
+                                owner=STANDALONE)
+
+        # The worker starts on first submit. Then a malformed queue item, since
+        # #1751 made a work item's own exception non-fatal: the unpack above the
+        # guard is what still ends a worker.
+        pool.submit(lambda: None)
+        pool._queue.put(object())
+        for _ in range(100):
+            if pool._thread is not None and not pool._thread.is_alive():
+                break
+            time.sleep(0.05)
+        self.assertFalse(
+            pool._thread.is_alive(),
+            'the worker survived, so this test did not exercise '
+            'the dead-worker path')
+
+        # Run it on its own thread and join with a bound: calling it inline
+        # would make a regression hang this test rather than fail it, and a
+        # hung suite is harder to read than a red one.
+        answer: list = []
+        drainer = threading.Thread(
+            target=lambda: answer.append(pool.drain(timeout=None)), daemon=True)
+        started = time.monotonic()
+        drainer.start()
+        drainer.join(timeout=5)
+        elapsed = time.monotonic() - started
+
+        self.assertFalse(
+            drainer.is_alive(),
+            f'drain was still waiting on a dead worker after {elapsed:.1f}s, '
+            f'so close(timeout=None) would never return')
+        self.assertEqual(answer, [False])
+
+    def test_drain_is_bounded_by_its_own_timeout_when_queue_is_full(self):
+        """Drain must not wait put_timeout for queue space; the close budget rules."""
+        pool, release = self._make_blocked_pool(maxsize=1, put_timeout=30.0)
+        pool.submit(lambda: None)  # fills the only slot
+        try:
+            started = time.monotonic()
+            self.assertFalse(pool.drain(timeout=0.2))
+            elapsed = time.monotonic() - started
+            self.assertLess(
+                elapsed, 5, f'drain waited {elapsed:.1f}s, so it used '
+                f'put_timeout instead of its own budget')
+        finally:
+            release.set()
+            pool.shutdown(wait=True, timeout=5)
 
     def test_shutdown_does_not_block_when_queue_full(self):
         """
@@ -531,6 +742,18 @@ class BoundedWorkPoolTests(unittest.TestCase):
         for bad in (None, 0, -1.0, float('nan')):
             with self.assertRaises(ValueError):
                 Connection(parameters='params', work_queue_put_timeout=bad)
+
+    def test_connection_rejects_invalid_shutdown_drain_timeout(self):
+        """
+        `None` and a negative value are refused, and unlike a put timeout, `0` is allowed.
+
+        Validation happens ahead of SelectConnection construction, so a bad value raises without any
+        connection machinery or patching.
+        """
+        for bad in (None, -1.0, float('nan')):
+            with self.assertRaises(ValueError):
+                Connection(parameters='params', shutdown_drain_timeout=bad)
+        self.assertEqual(_validate_shutdown_drain_timeout(0), 0)
 
 
 class ChannelTests(unittest.TestCase):
@@ -2464,6 +2687,265 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
             ch.close(timeout=0.5)
         self.assertIs(ctx.exception, boom)
 
+    def test_close_cancels_the_consumers_the_channel_reports(self):
+        """
+        Every live consumer must be cancelled, before the close is sent.
+
+        Without this the broker keeps dispatching while the pool drains, so the drain cannot be
+        complete and `auto_ack` deliveries arriving behind it are lost (#1763). The tags come from
+        the underlying channel rather than a registry of our own, so a consumer the broker already
+        cancelled is not cancelled again: doing so blocks for the whole budget, because the
+        underlying `basic_cancel` sends no frame and the reply never arrives.
+        """
+        from pika.exceptions import ChannelClosedByClient
+        ch, raw_ch, wrapper = self._make_channel()
+        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
+        raw_ch._consumers = {'ctag-a': None, 'ctag-b': None}
+        raw_ch._cancelled = set()
+        order = []
+
+        def answer_cancel(**kw):
+            order.append(('cancel', kw['consumer_tag']))
+            # A real basic_cancel records the tag before sending the frame, and
+            # the wrapper checks that to tell a sent cancel from a no-op one.
+            raw_ch._cancelled.add(kw['consumer_tag'])
+            kw['callback'](_cancel_ok(kw['consumer_tag']))
+
+        raw_ch.basic_cancel.side_effect = answer_cancel
+        captured = {}
+        raw_ch.add_on_close_callback.side_effect = lambda cb: captured.update(
+            cb=cb)
+
+        def on_close(**_kw):
+            order.append(('close', None))
+            captured['cb'](raw_ch, ChannelClosedByClient(200, 'ok'))
+
+        raw_ch.close.side_effect = on_close
+
+        # A queued callback records what had happened by the time it ran, so
+        # draining before cancelling is visible rather than inferred.
+        ch._consumer_work_pool.submit(lambda: order.append(
+            ('drained', raw_ch.basic_cancel.called)))
+
+        ch.close(timeout=5)
+
+        self.assertEqual(
+            order, [('cancel', 'ctag-a'), ('cancel', 'ctag-b'),
+                    ('drained', True), ('close', None)],
+            'the phases did not run in the order cancel, drain, close')
+
+    def test_close_skips_consumers_that_are_already_cancelling(self):
+        """
+        A cancel already in flight must not be reissued.
+
+        The underlying `basic_cancel` logs and returns without sending a frame for a tag it has
+        already cancelled, so a second cancel would wait for a confirmation that never comes.
+        """
+        ch, raw_ch, wrapper = self._make_channel()
+        _wire_cancel(wrapper,
+                     raw_ch, {
+                         'live': None,
+                         'already-cancelling': None
+                     },
+                     cancelled={'already-cancelling'})
+
+        ch._cancel_consumers(deadline=time.monotonic() + 10)
+
+        self.assertEqual(
+            raw_ch.cancels_asked, ['live'],
+            'a consumer that was already cancelling was cancelled again')
+
+    def test_cancel_waits_for_the_reply_within_the_budget(self):
+        """
+        Cancelling waits for the confirmation, and is not capped below the broker's pace.
+
+        The reply cannot arrive until the IOLoop has submitted the backlog, which takes as long as
+        the worker needs to consume it, so any cap short enough to catch a lost reply also abandons
+        a live cancel, and abandoning one leaves the broker dispatching into a pool about to close.
+        """
+        ch, raw_ch, wrapper = self._make_channel()
+        _wire_cancel(wrapper, raw_ch, {'ctag': None}, answer=False)
+        threading.Timer(0.4, lambda: raw_ch.complete('ctag')).start()
+
+        started = time.monotonic()
+        ch._cancel_consumers(deadline=time.monotonic() + 30)
+        elapsed = time.monotonic() - started
+
+        self.assertGreater(
+            elapsed, 0.3,
+            'the cancel returned before its confirmation, so the broker may '
+            'still be dispatching when the drain starts')
+        self.assertLess(
+            elapsed, 5,
+            f'the cancel took {elapsed:.1f}s after its reply arrived at 0.4s')
+
+    def test_a_foreign_cancel_ok_does_not_end_the_wait(self):
+        """
+        Another consumer's confirmation must not satisfy this sweep.
+
+        `basic_cancel` registers its `Basic.CancelOk` callback with no arguments, and
+        `CallbackManager` collapses identical callables into one reference-counted one-shot entry,
+        so any CancelOk on the channel consumes one registration whoever asked for it. Counting them
+        ended the wait early or never; completion is read from the channel's own consumer map
+        instead, which only this sweep's tags can clear.
+        """
+        ch, raw_ch, wrapper = self._make_channel()
+        _wire_cancel(wrapper, raw_ch, {'mine': None}, answer=False)
+
+        def answer():
+            # A user cancel on another thread completes first.
+            raw_ch.complete('someone-elses')
+            time.sleep(0.3)
+            raw_ch.complete('mine')
+
+        threading.Timer(0.1, answer).start()
+        started = time.monotonic()
+        ch._cancel_consumers(deadline=time.monotonic() + 10)
+        elapsed = time.monotonic() - started
+
+        self.assertGreater(
+            elapsed, 0.35,
+            f"the wait ended after {elapsed:.2f}s, on another consumer's "
+            f"confirmation rather than its own")
+        self.assertLess(
+            elapsed, 5,
+            f'the wait took {elapsed:.1f}s though its own confirmation '
+            f'arrived at 0.4s, so it is not reading completion correctly')
+
+    def test_cancel_gives_up_when_the_ioloop_thread_dies(self):
+        """
+        A cancel must stop waiting once nothing can deliver its confirmation.
+
+        The confirmations are processed on the IOLoop thread, so a `BaseException` that kills it
+        leaves a wait the budget alone would never end under `close(timeout=None)`.
+        """
+        ch, raw_ch, wrapper = self._make_channel()
+        _wire_cancel(wrapper, raw_ch, {'ctag': None}, answer=False)
+        wrapper._ioloop_thread.is_alive.return_value = False
+
+        finished = threading.Event()
+        threading.Thread(target=lambda:
+                         (ch._cancel_consumers(deadline=None), finished.set()),
+                         daemon=True).start()
+        started = time.monotonic()
+        returned = finished.wait(timeout=10)
+
+        self.assertTrue(
+            returned,
+            f'still waiting after {time.monotonic() - started:.1f}s for a '
+            f'confirmation from a dead IOLoop thread, so close(timeout=None) '
+            f'hangs')
+
+    def test_cancel_that_sends_no_frame_is_not_waited_for(self):
+        """A cancel the channel returns from without sending must not be waited on."""
+        ch, raw_ch, wrapper = self._make_channel()
+        _wire_cancel(wrapper, raw_ch, {'ctag': None}, sends=False)
+
+        started = time.monotonic()
+        ch._cancel_consumers(deadline=time.monotonic() + 30)
+        elapsed = time.monotonic() - started
+
+        self.assertLess(
+            elapsed, 2,
+            f'waited {elapsed:.1f}s on a cancel that was never sent, so '
+            f'close(timeout=None) would hang')
+
+    def test_close_does_not_spend_the_budget_twice_on_the_pool(self):
+        """
+        The pool shutdown gets what is left, not a fresh *timeout*.
+
+        A wedged delivery callback is what makes the difference visible: with its own budget the
+        shutdown waits again after the close has already used the caller's.
+        """
+        ch, raw_ch, wrapper = self._make_channel()
+        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
+        raw_ch._cancelled = set()
+        release = threading.Event()
+        self.addCleanup(release.set)
+        started_cb = threading.Event()
+
+        def wedged():
+            started_cb.set()
+            release.wait(timeout=10)
+
+        ch._consumer_work_pool.submit(wedged)
+        self.assertTrue(started_cb.wait(timeout=5))
+
+        started = time.monotonic()
+        ch.close(timeout=1)
+        elapsed = time.monotonic() - started
+
+        self.assertLess(
+            elapsed, 1.0 + _CLOSE_HANDSHAKE_FLOOR + 0.5,
+            f'close(timeout=1) took {elapsed:.2f}s, so the pool shutdown was '
+            f'handed a second full budget')
+
+    def test_close_shares_one_budget_across_its_phases(self):
+        """
+        A close must return within its timeout even when the quiesce consumes most of it.
+
+        The phases each take what the previous one left; handing any of them the full *timeout*
+        again makes the call wait a multiple of what the caller asked for.
+        """
+        ch, _raw_ch, wrapper = self._make_channel()
+        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
+        original = ch._quiesce
+
+        def slow_quiesce(deadline):
+            time.sleep(0.6)
+            original(deadline)
+
+        ch._quiesce = slow_quiesce
+        # raw_ch.close never fires its close callback, so the wait for
+        # Channel.CloseOk runs until the budget is gone.
+        started = time.monotonic()
+        ch.close(timeout=1)
+        elapsed = time.monotonic() - started
+
+        # The budget plus the close handshake's floor, and no more: handing a
+        # phase the full timeout again would double it.
+        self.assertLess(
+            elapsed, 1.0 + _CLOSE_HANDSHAKE_FLOOR + 0.5,
+            f'close(timeout=1) took {elapsed:.2f}s, so a phase was handed the '
+            f'full timeout instead of the remaining budget')
+
+    def test_close_runs_queued_callbacks_while_the_channel_is_still_open(self):
+        """
+        A queued delivery callback must run before the channel close is sent.
+
+        The acknowledgement a delivery callback issues needs a live channel, so draining after the
+        close is what #1763 measured: the callbacks run, the acks are refused and the broker
+        redelivers work that was already done.  Asserting what each callback *observed* rather than
+        that a drain happened first is what makes this catch a reordering.
+        """
+        from pika.exceptions import ChannelClosedByClient
+        ch, raw_ch, wrapper = self._make_channel()
+        wrapper._schedule_unchecked.side_effect = lambda cb: cb()
+        captured = {}
+        raw_ch.add_on_close_callback.side_effect = lambda cb: captured.update(
+            cb=cb)
+        # Complete the close rather than letting the call wait out its budget.
+        raw_ch.close.side_effect = lambda **_kw: captured['cb'](
+            raw_ch, ChannelClosedByClient(200, 'ok'))
+        observed = []
+
+        def queued_callback():
+            observed.append(raw_ch.close.called)
+
+        for _ in range(3):
+            ch._consumer_work_pool.submit(queued_callback)
+
+        ch.close(timeout=5)
+
+        self.assertEqual(
+            len(observed), 3,
+            'the queued callbacks never ran, so this test did '
+            'not exercise the drain at all')
+        self.assertEqual(
+            observed, [False, False, False],
+            'a queued callback ran after Channel.Close was sent, so its '
+            'acknowledgement could not have reached the broker')
+
 
 class CallbackRegistrationFailureTests(unittest.TestCase):
     """Cover the LOGGER.warning branches when raw-channel registration methods raise."""
@@ -2849,7 +3331,11 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
 
     def test_force_stop_with_none_timeout_shuts_down_pools(self):
         """Force-stop path with timeout=None must drain pools with an unbounded budget."""
-        conn, _mock_conn, _mock_ioloop = self._make_connection()
+        conn, _mock_conn, mock_ioloop = self._make_connection()
+        # Run scheduled callbacks inline: the close asks the IOLoop thread which
+        # consumers are live, and a mock that silently drops that would make the
+        # test wait out the whole answer timeout instead.
+        mock_ioloop.add_callback_threadsafe.side_effect = lambda cb: cb()
         # First join returns with the thread still alive to enter the force
         # path; after force-stop the second join sees it exited.
         conn._ioloop_thread = MagicMock()
@@ -3145,7 +3631,13 @@ class ConnectionTests(unittest.TestCase):
             # a worker a test leaves wedged would leak and fail whichever later
             # test scans for stray IOLoop threads instead of this one.
             with conn._channel_waiters_lock:
-                pools = [ch._consumer_work_pool for ch in conn._channels]
+                # `getattr`, because a test may put a stub in `_channels` that
+                # carries only the attributes that test needs.
+                pools = [
+                    pool for pool in (getattr(ch, '_consumer_work_pool', None)
+                                      for ch in conn._channels)
+                    if pool is not None
+                ]
             pools.append(conn._connection_work_pool)
             for pool in pools:
                 pool.shutdown(wait=False)
@@ -3563,16 +4055,99 @@ class ConnectionTests(unittest.TestCase):
         conn._on_connection_closed(mock_conn, 'reason')
         user_cb.assert_called_once_with(mock_conn, 'reason')
 
+    def test_every_channel_is_cancelled_before_any_is_drained(self):
+        """
+        A sweep must stop every channel's deliveries before draining any of them.
+
+        Draining channel by channel leaves later channels still consuming throughout, so their
+        queues grow during the earlier drains and the sweep cannot finish what it set out to run.
+        `_shutdown_all_consumer_pools` avoids the same starvation by signalling every pool first.
+        """
+        conn, _mock_conn, _mock_ioloop = self._make_connection()
+        order = []
+
+        class Phase:
+
+            def __init__(self, name):
+                self.name = name
+
+            def _cancel_consumers(self, _deadline):
+                order.append(('cancel', self.name))
+
+            def _drain_pool(self, _deadline):
+                order.append(('drain', self.name))
+
+        with conn._channel_waiters_lock:
+            conn._channels.extend([Phase('a'), Phase('b')])
+
+        conn._quiesce_all_pools(deadline=None)
+
+        self.assertEqual(
+            order, [('cancel', 'a'), ('cancel', 'b'), ('drain', 'a'),
+                    ('drain', 'b')],
+            'a channel was drained while another was still consuming')
+
+    def test_close_runs_queued_callbacks_before_scheduling_the_close(self):
+        """
+        Queued event callbacks must run before the connection close is scheduled.
+
+        Same requirement as the channel-level case in #1763, for the connection's own event pool: a
+        callback that runs after the connection is gone cannot complete anything that needs it.
+        """
+        conn, _mock_conn, mock_ioloop = self._make_connection()
+        conn._ioloop_thread = MagicMock()
+        conn._ioloop_thread.is_alive.return_value = False
+        # This harness lets the mocked ioloop.start() return, so the IOLoop
+        # tail has already shut the real pool down; #1765 unifies the copies.
+        conn._connection_work_pool = _BoundedWorkPool(
+            maxsize=10,
+            put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
+            thread_name='test-conn-pool',
+            owner=conn)
+        conn._connection_pool_shutdown = False
+        observed = []
+
+        def queued_callback():
+            observed.append(mock_ioloop.add_callback_threadsafe.called)
+
+        for _ in range(3):
+            conn._connection_work_pool.submit(queued_callback)
+
+        conn.close()
+
+        self.assertEqual(
+            len(observed), 3,
+            'the queued callbacks never ran, so this test did '
+            'not exercise the drain at all')
+        self.assertEqual(observed, [False, False, False],
+                         'a queued callback ran after the close was scheduled')
+
     def test_close_schedules_close_and_joins_thread(self):
         conn, mock_conn, mock_ioloop = self._make_connection()
         conn._ioloop_thread = MagicMock()
         conn._ioloop_thread.is_alive.return_value = False
+        original = conn._quiesce_all_pools
+
+        def slow_quiesce(deadline):
+            time.sleep(0.1)
+            original(deadline)
+
+        conn._quiesce_all_pools = slow_quiesce
         conn.close()
         mock_ioloop.add_callback_threadsafe.assert_called_once()
         # The scheduled callback must delegate to the inner connection's close.
         mock_ioloop.add_callback_threadsafe.call_args[0][0]()
         mock_conn.close.assert_called_once()
-        conn._ioloop_thread.join.assert_called_once_with(timeout=10)
+        # The join gets what the quiesce left of the caller's budget, not the
+        # full timeout. Sleeping a measurable slice first makes the two
+        # distinguishable: passing `timeout` through would still read 10.
+        conn._ioloop_thread.join.assert_called_once()
+        joined_with = conn._ioloop_thread.join.call_args[1]['timeout']
+        self.assertLess(
+            joined_with, 10 - 0.05,
+            f'the join got {joined_with}, so it was handed the full timeout '
+            f'rather than the remaining budget')
+        self.assertGreater(joined_with, 0)
 
     def test_close_force_stops_ioloop_after_timeout(self):
         conn, mock_conn, mock_ioloop = self._make_connection()
@@ -3726,6 +4301,53 @@ class ConnectionTests(unittest.TestCase):
                     self.assertEqual(conn._blocking_waiters, [])
                     ioloop.stop.assert_called_once()
                     conn._ioloop_thread.join.assert_not_called()
+
+    def test_the_ioloop_tail_drains_under_the_connection_s_budget(self):
+        """
+        The tail bounds its pool joins, and by the connection's own setting rather than a global.
+
+        Without a bound a wedged consumer callback holds the IOLoop thread after `ioloop.start()`
+        has returned, which no caller asked for (#1761). The value is per connection because the two
+        neighbouring knobs are (#1762).
+        """
+        conn, _raw, _ioloop = self._make_connection()
+        self.addCleanup(setattr, conn, '_shutdown_drain_timeout',
+                        conn._shutdown_drain_timeout)
+        conn._shutdown_drain_timeout = 0.25
+        observed = []
+        for name in ('_shutdown_all_consumer_pools',
+                     '_shutdown_connection_pool'):
+            original = getattr(conn, name)
+            setattr(conn,
+                    name,
+                    lambda timeout=None, _n=name, _o=original: (observed.append(
+                        (_n, timeout)), _o(timeout=timeout))[1])
+
+        # Run the tail the way the IOLoop thread does once its loop returns.
+        conn._drain_pools_after_ioloop()
+
+        self.assertEqual(observed, [('_shutdown_all_consumer_pools', 0.25),
+                                    ('_shutdown_connection_pool', 0.25)])
+
+    def test_ordinary_close_does_not_arm_the_worker_force_timer(self):
+        """
+        The force timer belongs to the pool-worker path alone (#1706).
+
+        On any other thread the close is bounded by the join, which allows the handshake
+        ``_CLOSE_HANDSHAKE_FLOOR`` beyond a budget the drain may have spent; a timer armed at the
+        budget would stop the IOLoop inside that floor and abandon the socket open. Nothing else in
+        the suite fails when the two deadlines are merged, which is the resolution this guards.
+        """
+        conn, raw, ioloop = self._make_connection()
+        conn._ioloop_thread = MagicMock()
+        conn._ioloop_thread.is_alive.return_value = False
+
+        conn.close(timeout=0.125)
+        ioloop.add_callback_threadsafe.call_args[0][0]()
+
+        raw.close.assert_called_once()
+        ioloop.call_later.assert_not_called()
+        ioloop.stop.assert_not_called()
 
     def test_pool_worker_close_timeout_preserves_clean_close_reason(self):
         conn, raw, ioloop = self._make_connection()

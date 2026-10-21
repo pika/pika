@@ -12,6 +12,7 @@ from twisted.python.failure import Failure
 from pika import spec
 from pika.adapters.twisted_connection import (
     ClosableDeferredQueue,
+    ReceivedMessage,
     TwistedChannel,
     TwistedProtocolConnection,
     _TimerHandle,
@@ -340,8 +341,12 @@ class TwistedChannelTestCase(TestCase):
     @pytest.mark.timeout(5)
     def test_basic_cancel(self):
         # Verify that basic_cancels calls clean up the consumer queue.
-        queue_obj = mock.Mock()
-        queue_obj_2 = mock.Mock()
+        # Real queues rather than bare Mocks: the cancel reads their pending
+        # deliveries, and a Mock makes that raise.
+        queue_obj = mock.Mock(wraps=ClosableDeferredQueue())
+        queue_obj.pending = []
+        queue_obj_2 = mock.Mock(wraps=ClosableDeferredQueue())
+        queue_obj_2.pending = []
         self.channel._consumers['test-consumer'] = queue_obj
         self.channel._consumers['test-consumer-2'] = queue_obj_2
         self.channel._queue_name_to_consumer_tags.update({
@@ -350,21 +355,25 @@ class TwistedChannelTestCase(TestCase):
         })
         d = self.channel.basic_cancel('test-consumer')
 
-        def check(result):
-            self.assertTrue(isinstance(result, Method))
-            queue_obj.close.assert_called_once()
-            self.assertTrue(
-                isinstance(queue_obj.close.call_args[0][0], ConsumerCancelled))
-            self.assertEqual(len(self.channel._consumers), 1)
-            queue_obj_2.close.assert_not_called()
-            self.assertEqual(
-                self.channel._queue_name_to_consumer_tags['testqueue'], set())
-
-        d.addCallback(check)
         self.pika_channel.basic_cancel.assert_called_once()
         self.pika_channel.basic_cancel.call_args[1]['callback'](Method(
             1, spec.Basic.CancelOk(consumer_tag='test-consumer')))
         assert d.called
+
+        # Asserted here rather than in a Deferred callback: this TestCase is a
+        # plain unittest one, so a failure raised in a callback stays in the
+        # Deferred and the test passes with an unhandled-error warning.
+        results = []
+        d.addCallback(results.append)
+        self.assertEqual(len(results), 1)
+        self.assertTrue(isinstance(results[0], Method))
+        queue_obj.close.assert_called_once()
+        self.assertTrue(
+            isinstance(queue_obj.close.call_args[0][0], ConsumerCancelled))
+        self.assertEqual(len(self.channel._consumers), 1)
+        queue_obj_2.close.assert_not_called()
+        self.assertEqual(self.channel._queue_name_to_consumer_tags['testqueue'],
+                         set())
 
     @pytest.mark.timeout(5)
     def test_basic_cancel_no_consumer(self):
@@ -380,11 +389,88 @@ class TwistedChannelTestCase(TestCase):
             1, spec.Basic.CancelOk(consumer_tag='test-consumer')))
         assert d.called
 
+    def test_cancel_rejects_deliveries_pending_on_the_queue(self):
+        # A delivery that arrives while the cancel is in flight now reaches the
+        # queue rather than being rejected by the channel (#1389), and close()
+        # discards what is pending, so the cancel must reject them first or the
+        # broker holds them unacknowledged until the channel closes.
+        queue_obj = mock.Mock(wraps=ClosableDeferredQueue())
+        queue_obj.pending = [
+            ReceivedMessage(channel=self.channel,
+                            method=spec.Basic.Deliver(delivery_tag=7),
+                            properties=None,
+                            body=b'body')
+        ]
+        self.channel._consumers['test-consumer'] = queue_obj
+        self.channel._queue_name_to_consumer_tags['testqueue'] = {
+            'test-consumer'
+        }
+
+        self.channel._on_consumer_cancelled(
+            Method(1, spec.Basic.CancelOk(consumer_tag='test-consumer')))
+
+        self.pika_channel.basic_reject.assert_called_once_with(7, requeue=True)
+        queue_obj.close.assert_called_once()
+
+    def test_basic_consume_records_an_auto_ack_consumer(self):
+        # The cancel path reads this to decide whether rejecting is safe, so the
+        # recording is what stands between an auto_ack consumer and a 406 that
+        # closes the channel.
+        d = self.channel.basic_consume(queue='testqueue', auto_ack=True)
+        self.pika_channel.basic_consume.assert_called_once()
+        kwargs = self.pika_channel.basic_consume.call_args_list[0][1]
+        kwargs['callback'](Method(
+            1, spec.Basic.ConsumeOk(consumer_tag='noack-tag')))
+
+        self.assertTrue(d.called)
+        self.assertIn('noack-tag', self.channel._consumers_with_noack)
+
+    def test_queue_delete_forgets_an_auto_ack_consumer(self):
+        # Left behind, the entry makes a later consumer that reuses the tag skip
+        # the reject it needs, and the set grows for the life of the channel.
+        self.channel._consumers['t'] = mock.Mock(wraps=ClosableDeferredQueue())
+        self.channel._consumers_with_noack.add('t')
+        self.channel._queue_name_to_consumer_tags['q'] = {'t'}
+        self.pika_channel.queue_delete.return_value = None
+
+        d = self.channel.queue_delete('q')
+        self.pika_channel.queue_delete.call_args[1]['callback'](Method(
+            1, spec.Queue.DeleteOk(message_count=0)))
+
+        self.assertTrue(d.called)
+        self.assertNotIn('t', self.channel._consumers_with_noack)
+
+    def test_cancel_does_not_reject_for_an_auto_ack_consumer(self):
+        # The broker keeps no delivery tag for an auto_ack delivery, so
+        # rejecting one draws 406 PRECONDITION_FAILED and closes the channel,
+        # taking every other consumer on it down with it.
+        queue_obj = mock.Mock(wraps=ClosableDeferredQueue())
+        queue_obj.pending = [
+            ReceivedMessage(channel=self.channel,
+                            method=spec.Basic.Deliver(delivery_tag=3),
+                            properties=None,
+                            body=b'body')
+        ]
+        self.channel._consumers['noack-consumer'] = queue_obj
+        self.channel._consumers_with_noack.add('noack-consumer')
+        self.channel._queue_name_to_consumer_tags['testqueue'] = {
+            'noack-consumer'
+        }
+
+        self.channel._on_consumer_cancelled(
+            Method(1, spec.Basic.CancelOk(consumer_tag='noack-consumer')))
+
+        self.pika_channel.basic_reject.assert_not_called()
+        queue_obj.close.assert_called_once()
+
     def test_consumer_cancelled_by_broker(self):
         # Verify that server-originating cancels are handled.
         self.pika_channel.add_on_cancel_callback.assert_called_with(
             self.channel._on_consumer_cancelled_by_broker)
-        queue_obj = mock.Mock()
+        # A real queue rather than a bare Mock: the cancel path reads its
+        # pending deliveries to reject them before discarding the queue.
+        queue_obj = mock.Mock(wraps=ClosableDeferredQueue())
+        queue_obj.pending = []
         self.channel._consumers['test-consumer'] = queue_obj
         self.channel._queue_name_to_consumer_tags['testqueue'] = {
             'test-consumer'

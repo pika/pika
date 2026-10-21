@@ -2834,6 +2834,60 @@ class TestBasicCancelWithNonAckableConsumer(BlockingTestCaseBase):
         self.assertEqual(frame.method.message_count, 0)
 
 
+class TestBasicCancelRequeuesInWindowDeliveries(BlockingTestCaseBase):
+
+    def test(self):
+        """BlockingChannel.basic_cancel requeues deliveries that arrive during the cancel."""
+        connection = self._connect()
+        ch = connection.channel()
+        q_name = 'TestBasicCancelRequeuesInWindowDeliveries_q' + uuid.uuid1(
+        ).hex
+        ch.queue_declare(q_name, durable=True)
+        self.addCleanup(self._delete_queue, q_name)
+
+        # Bodies large enough that the broker is still dispatching when the
+        # cancel is sent, so some deliveries land in the cancel window.
+        for _ in range(100):
+            ch.basic_publish(exchange='', routing_key=q_name, body=b'x' * 8192)
+
+        consumer_tag = ch.basic_consume(q_name,
+                                        lambda *args: None,
+                                        auto_ack=False)
+        connection.process_data_events(time_limit=1)
+        returned = ch.basic_cancel(consumer_tag)
+        connection.process_data_events(time_limit=1)
+
+        self.assertEqual(returned, [],
+                         'an auto_ack=False cancel must return no messages')
+        # Nothing may be left holding a delivery for a consumer that no longer
+        # exists. Deliveries still here are invisible to every other consumer
+        # until the channel closes, and basic_cancel has already removed the
+        # _consumer_infos entry that _dispatch_events indexes, so the next
+        # process_data_events raises KeyError at the application.
+        stranded = [
+            evt for evt in ch._pending_events
+            if getattr(getattr(evt, 'method', None), 'consumer_tag', None) ==
+            consumer_tag
+        ]
+        self.assertEqual(
+            stranded, [],
+            f'{len(stranded)} deliveries were left pending for a cancelled '
+            f'consumer')
+        connection.process_data_events(time_limit=0.5)
+        # Some of the window's deliveries reach the user callback rather than
+        # the pending queue, and those are the application's to acknowledge;
+        # the rest must be back on the queue rather than held unacknowledged.
+        requeued = ch.queue_declare(q_name, passive=True).method.message_count
+        self.assertGreater(
+            requeued, 50,
+            f'only {requeued} of 100 are back on the queue, so the cancel '
+            f'window left most of them unacknowledged')
+
+    def _delete_queue(self, q_name):
+        conn = self._connect()
+        conn.channel().queue_delete(q_name)
+
+
 class TestBasicCancelWithAckableConsumer(BlockingTestCaseBase):
 
     def test(self):
@@ -3069,6 +3123,57 @@ class TestConsumeGeneratorCancelEncountersCancelFromBroker(
             ch.cancel()
 
             self.assertIsNone(ch._queue_consumer_generator)
+
+
+class TestConsumeGeneratorCancelRequeuesAnInFlightDelivery(
+        BlockingTestCaseBase):
+
+    def test(self):
+        """`cancel()` requeues a delivery that arrives while the cancel is in flight."""
+        connection = self._connect()
+        ch = connection.channel()
+        q_name = ('TestConsumeGeneratorCancelRequeuesAnInFlightDelivery_q' +
+                  uuid.uuid1().hex)
+        ch.queue_declare(q_name, exclusive=True)
+        for _ in range(2):
+            ch.basic_publish('', q_name, body=b'x')
+
+        for _ in ch.consume(q_name, auto_ack=False, inactivity_timeout=0.1):
+            # The first message is now delivered and unacknowledged, which is
+            # what a reader of the generator would do before stopping.
+            break
+
+        assert ch._queue_consumer_generator is not None
+        pending = ch._queue_consumer_generator.pending_events
+        while not pending:
+            connection.process_data_events(time_limit=0.1)
+        # Held back so `cancel()` cannot see it on entry, then put back while
+        # the cancel is in flight: the specification lets the broker dispatch
+        # until it answers, and that is the window #1767 is about.
+        in_flight = pending.popleft()
+        self.assertIsInstance(in_flight,
+                              blocking_connection._ConsumerDeliveryEvt)
+
+        original_basic_cancel = ch._impl.basic_cancel
+
+        def cancel_with_a_delivery_in_flight(*args, **kwargs):
+            pending.append(in_flight)
+            return original_basic_cancel(*args, **kwargs)
+
+        ch._impl.basic_cancel = cancel_with_a_delivery_in_flight
+        ch.cancel()
+
+        self.assertFalse(
+            pending, 'the in-flight delivery was left in the '
+            'generator buffer')
+        # Read from the broker rather than from the client: the first message
+        # stays unacknowledged and so is not counted, while the second must
+        # have been requeued rather than stranded.
+        # Read from the broker, retried because the requeue is its own
+        # bookkeeping: the first message stays unacknowledged and so is not
+        # counted, while the second must be ready again rather than stranded
+        # invisible to every other consumer until this channel closes.
+        self._assert_exact_message_count_with_retries(ch, q_name, 1)
 
 
 class TestConsumeGeneratorPassesChannelClosedOnSameChannelFailure(
