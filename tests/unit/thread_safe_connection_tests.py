@@ -3409,6 +3409,83 @@ class ConnectionTests(unittest.TestCase):
         mock_conn.close.assert_called_once()
         conn._ioloop_thread.join.assert_not_called()
 
+    def test_pool_worker_close_timeout_wakes_waiters(self):
+        for pool_kind in ('connection', 'consumer'):
+            for already_closing in (False, True):
+                with self.subTest(pool=pool_kind,
+                                  already_closing=already_closing):
+                    conn, raw, ioloop = self._make_connection()
+                    conn._ioloop_thread = MagicMock()
+                    if pool_kind == 'connection':
+                        pool = conn._connection_work_pool
+                    else:
+                        channel = Channel(MagicMock(), conn)
+                        conn._channels.append(channel)
+                        pool = channel._consumer_work_pool
+                    pool._thread = threading.current_thread()
+                    if already_closing:
+                        raw.close.side_effect = ConnectionWrongStateError(
+                            'already closing')
+                    event = threading.Event()
+                    error = [None]
+                    conn._blocking_waiters.append((event, error))
+
+                    with patch(
+                            'pika.adapters.thread_safe_connection.time.monotonic',
+                            side_effect=(256, 256.0625)):
+                        conn.close(timeout=0.125)
+                        ioloop.add_callback_threadsafe.call_args[0][0]()
+
+                    ioloop.call_later.assert_called_once()
+                    delay, expire = ioloop.call_later.call_args[0]
+                    self.assertEqual(delay, 0.0625)
+                    expire()
+                    expire()
+                    self.assertTrue(event.is_set())
+                    self.assertIs(error[0], conn._closed_reason)
+                    self.assertIn('force-closed', str(error[0]))
+                    self.assertEqual(conn._blocking_waiters, [])
+                    ioloop.stop.assert_called_once()
+                    conn._ioloop_thread.join.assert_not_called()
+
+    def test_pool_worker_close_timeout_preserves_clean_close_reason(self):
+        conn, raw, ioloop = self._make_connection()
+        conn._connection_work_pool._thread = threading.current_thread()
+        conn.close(timeout=0.1)
+        ioloop.add_callback_threadsafe.call_args[0][0]()
+        ioloop.call_later.assert_called_once()
+        expire = ioloop.call_later.call_args[0][1]
+        reason = ConnectionClosedByClient(200, 'closed')
+
+        conn._on_connection_closed(raw, reason)
+        with patch('pika.adapters.thread_safe_connection.LOGGER') as logger:
+            expire()
+
+        self.assertIs(conn._closed_reason, reason)
+        ioloop.stop.assert_called_once()
+        logger.warning.assert_not_called()
+
+    def test_pool_worker_close_without_timeout_keeps_waiting_for_broker(self):
+        conn, raw, ioloop = self._make_connection()
+        conn._connection_work_pool._thread = threading.current_thread()
+        conn.close(timeout=None)
+        ioloop.add_callback_threadsafe.call_args[0][0]()
+
+        raw.close.assert_called_once()
+        ioloop.call_later.assert_not_called()
+        ioloop.stop.assert_not_called()
+        self.assertIsNone(conn._closed_reason)
+
+    def test_pool_worker_close_timeout_includes_scheduling_delay(self):
+        conn, _raw, ioloop = self._make_connection()
+        conn._connection_work_pool._thread = threading.current_thread()
+        with patch('pika.adapters.thread_safe_connection.time.monotonic',
+                   side_effect=(10, 11)):
+            conn.close(timeout=0.1)
+            ioloop.add_callback_threadsafe.call_args[0][0]()
+
+        ioloop.call_later.assert_called_once_with(0, ANY)
+
     def test_is_pool_worker_thread_false_for_unrelated_thread(self):
         """
         A thread that owns none of this connection's pools must not be misidentified.
