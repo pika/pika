@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import Any, Callable, Type, Union, cast
+from typing import Any, Callable, Type, TypeVar, Union, cast
 
 from pika import amqp_object, frame
 
 _Prefix = Union[str, int]
 _Caller = object
 _Callback = Callable[..., Any]
+_F = TypeVar('_F', bound=_Callback)
 # Custom type for values that can be converted to AMQP identifiers
 AMQPValue = Union[Type[amqp_object.AMQPObject], amqp_object.AMQPObject, int,
                   str]
@@ -30,7 +31,8 @@ def name_or_value(value: AMQPValue) -> str:
 
     # Is it a Pika frame object?
     if isinstance(value, frame.Method):
-        return value.method.NAME
+        method: amqp_object.Method = value.method
+        return method.NAME
 
     # Is it a Pika frame object (go after Method since Method extends this)
     if isinstance(value, amqp_object.AMQPObject):
@@ -40,7 +42,7 @@ def name_or_value(value: AMQPValue) -> str:
     return str(value)
 
 
-def sanitize_prefix(function: _Callback) -> _Callback:
+def sanitize_prefix(function: _F) -> _F:
     """
     Automatically call name_or_value on the prefix passed in.
 
@@ -63,10 +65,10 @@ def sanitize_prefix(function: _Callback) -> _Callback:
 
         return function(*arg_list, **kwargs)
 
-    return cast(_Callback, wrapper)
+    return cast(_F, wrapper)
 
 
-def check_for_prefix_and_key(function: _Callback) -> _Callback:
+def check_for_prefix_and_key(function: _F) -> _F:
     """
     Automatically return false if the key or prefix is not in the callbacks for the instance.
 
@@ -96,7 +98,7 @@ def check_for_prefix_and_key(function: _Callback) -> _Callback:
         # Execute the method
         return function(*args, **kwargs)
 
-    return cast(_Callback, wrapper)
+    return cast(_F, wrapper)
 
 
 class CallbackManager:
