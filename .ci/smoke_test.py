@@ -4,22 +4,15 @@ Post-release smoke test for the published pika wheel.
 Run against a live broker after installing pika from PyPI to prove the distributed package works.
 Exits 0 on success, non-zero on any failure.
 
-The `pika.Connection` check is deliberately not a minimal one, because what packaging or a Python
-version is most likely to break is what makes this connection different from the old one:
+The `pika.Connection` check is not a minimal one on purpose: what packaging or a Python version
+breaks is what makes this connection different from the old one, so it publishes from several
+threads on one channel, tracks every publisher confirm, and consumes over a second connection.
+`BlockingConnection` is deprecated but still shipped, so it is checked too, minimally, with its
+`DeprecationWarning` filtered so the output says what failed rather than burying it.
 
-- **Separate connections for publishing and consuming**, which is the documented practice: a
-  blocked publisher must not stall the consumer's connection.
-- **Several threads publishing on one channel at once**, which is the point of the class.
-- **Publisher confirms handled rather than merely enabled**: every delivery tag is tracked until
-  the broker accounts for it, `multiple` is honoured, and a `Basic.Nack` fails the run.
-- **Events and semaphores rather than sleeps**, so the test runs at the broker's pace and a failure
-  reports what never arrived instead of what a sleep happened to miss.
-
-`BlockingConnection` is deprecated but still shipped, so it is checked too, minimally, and its
-`DeprecationWarning` is filtered so the output says what failed rather than burying it.
-
-This lives under .ci/ rather than examples/ or tests/ so it is not picked up by pytest, yapf, or
-ruff globs, and so it exercises the *installed* package rather than the source tree.
+This lives under .ci/ rather than examples/ or tests/ so pytest does not collect it, and so it
+exercises the *installed* package rather than the source tree. The style and type gates do cover
+`.ci/`, so it is formatted, linted and type-checked like the rest.
 
 Usage:
     python .ci/smoke_test.py [amqp_url]
