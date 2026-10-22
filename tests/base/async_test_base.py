@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import functools
 import logging
+import os
 import select
-import sys
 import unittest
 import uuid
 from datetime import datetime, timezone
@@ -67,7 +67,7 @@ stop_on_error_in_async_test_case_method = make_stop_on_error_with_self()
 
 
 def enable_tls():
-    return '--use-tls' in sys.argv
+    return os.environ.get('PIKA_TEST_USE_TLS') == '1'
 
 
 class AsyncTestCase(unittest.TestCase):

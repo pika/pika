@@ -17,6 +17,7 @@ def on_channel_open(channel):
     channel.exchange_declare(
         exchange='test_exchange',
         exchange_type=ExchangeType.direct,
+        durable=True,
         callback=lambda _frame: on_exchange_declared(channel))
 
 
