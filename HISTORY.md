@@ -4,7 +4,7 @@ Notes for each release are also published on the [GitHub releases page](https://
 
 ## Upgrading to 1.5.0
 
-Five changes are worth reading before you upgrade. Two can turn a passing build red, and two change what a working application observes when it cancels a consumer or closes a channel.
+Six changes are worth reading before you upgrade. Three can turn a passing build red, and two change what a working application observes when it cancels a consumer or closes a channel.
 
 ### `pika.Connection` is new, and is the connection to use
 
@@ -55,6 +55,12 @@ One thing follows for existing code: a consumer callback can now run for a messa
 A channel that is closing discards them, because a callback could not acknowledge one anyway and the attempt would abort the connection; the Java client discards them at the same point. `Channel.close` cancels each consumer without waiting for the broker to confirm, so this is what a bare `channel.close()` does on `SelectConnection`, `AsyncioConnection`, `TornadoConnection` and `GeventConnection`. A discarded delivery is redelivered to the next consumer with `auto_ack=False` and lost with `auto_ack=True`. Pika now logs a warning naming the count as the channel closes.
 
 `pika.Connection` and `BlockingConnection` are unaffected and keep every delivery across a close, since both cancel their consumers and wait for the broker to confirm before closing anything. To get the same guarantee from an asynchronous adapter, cancel each consumer with a callback and close the channel from the last `Basic.CancelOk`; the [channel documentation](https://pika.github.io/pika/latest/modules/channel/#closing-a-channel-with-active-consumers) has the pattern. Pika 2.0 removes these adapters, which leaves `Connection` and its `Channel` as the only close path and so retires the gap rather than fixing it.
+
+### `pika.compat` is gone
+
+The module is removed. It held Python 2 compatibility shims and platform checks, was never documented as public API, and nothing in pika imports it any more. It had no leading underscore, though, so it has been importable for years and an upgrade turns `import pika.compat` into `ModuleNotFoundError`.
+
+Twelve of its names moved to `pika._utils`: `ON_LINUX`, `ON_OSX`, `ON_WINDOWS`, `LINUX_VERSION`, `SOCKET_ERROR`, `HAVE_SIGNAL`, `RE_NUM`, `time_now()`, `as_bytes()`, `to_digit()`, `get_linux_version()` and `nonblocking_socketpair()`. That module is private, so it is not a migration target; copy what you need instead. The four that are gone were Python 2 artefacts, and the standard library covers each: `byte()` (a `bytes` literal), `long` (`int`), `AbstractBase` (`abc.ABC`), `str_or_bytes` (`(str, bytes)`). `pika.spec.str`, which was `str = bytes`, goes with them.
 
 ### `pika.spec` is now annotated, which may fail your type checker
 
