@@ -21,18 +21,22 @@ import threading
 import time
 import weakref
 from threading import Event
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 if TYPE_CHECKING:
     from types import TracebackType
 
     from typing_extensions import Literal, Self
 
+    import pika.channel
+
 from pika import frame, spec, validators
 from pika.adapters.select_connection import SelectConnection
 from pika.exceptions import ConnectionWrongStateError, WorkQueueFullError
 
 LOGGER = logging.getLogger(__name__)
+
+_R = TypeVar('_R')
 
 DEFAULT_RPC_TIMEOUT = 10
 
@@ -492,8 +496,8 @@ class Channel:
 
     def __init__(
             self,
-            channel,
-            wrapper,
+            channel: pika.channel.Channel,
+            wrapper: Connection,
             work_queue_maxsize: int = DEFAULT_WORK_QUEUE_MAXSIZE,
             work_queue_put_timeout: float = DEFAULT_WORK_QUEUE_PUT_TIMEOUT
     ) -> None:
@@ -508,7 +512,8 @@ class Channel:
         )
         self._pool_shutdown = False
         self._next_publish_seq_no: int | None = None
-        self._confirm_select_ok = None
+        self._confirm_select_ok: frame.Method[
+            spec.Confirm.SelectOk] | None = None
         # Serializes confirm_delivery so two threads cannot both pass the
         # _confirm_select_ok guard while the first is still waiting for
         # Confirm.SelectOk.  Per-channel rather than the connection-wide
@@ -846,11 +851,9 @@ class Channel:
 
     def _blocking_rpc(self,
                       method_name: str,
-                      channel_method,
+                      send: Callable[[Callable[[_R], None]], object],
                       timeout: float | None,
-                      *args,
-                      on_sent: Callable[[], None] | None = None,
-                      **kwargs) -> Any:
+                      on_sent: Callable[[], None] | None = None) -> _R:
         """
         Execute a channel RPC and block until the broker responds.
 
@@ -859,16 +862,15 @@ class Channel:
         waits for the response (or timeout/error), unregisters, and returns
         the result or raises.
 
-        *channel_method* is called on the IOLoop thread with (*args,
-        **kwargs, callback=<success_cb>).  The success callback receives
-        the broker's response frame and must be accepted as a keyword
-        argument named ``callback``.
+        *send* is called on the IOLoop thread with the success callback and
+        must pass it to the raw channel method as that method's ``callback``,
+        so the reply type is checked against the channel's annotation.
 
         :param method_name: Human-readable name for timeout messages.
-        :param channel_method: Bound method on the raw channel.
+        :param send: Issues the RPC on the raw channel.
         :param timeout: Seconds to wait.
         :param on_sent: Optional zero-argument callable run on the IOLoop thread
-            immediately after *channel_method* writes its frame, ahead of any
+            immediately after *send* writes the frame, ahead of any
             callback already queued behind it.  For state that must be ordered
             against the frame going out rather than against the broker's
             response coming back.
@@ -877,10 +879,10 @@ class Channel:
         :raises Exception: if the connection or channel closes first.
         """
         ready, error = self._register_waiter()
-        result = [None]
+        result: list[_R] = []
 
-        def _on_ok(method_frame) -> None:
-            result[0] = method_frame
+        def _on_ok(method_frame: _R) -> None:
+            result.append(method_frame)
             ready.set()
 
         def _on_chan_close(ch, reason) -> None:
@@ -892,13 +894,13 @@ class Channel:
         def _invoke() -> None:
             try:
                 self._channel.add_on_close_callback(_on_chan_close)
-                channel_method(*args, **kwargs, callback=_on_ok)
+                send(_on_ok)
             except Exception as exc:
                 error[0] = exc
                 ready.set()
                 return
             # The frame is on the wire.  Run the post-send hook separately: if
-            # channel_method delivered its response synchronously (result and
+            # send delivered its response synchronously (result and
             # ready already set) a raising hook must not clobber that result,
             # since _blocking_rpc checks error ahead of result.  Surface the
             # hook's failure only while the response is still outstanding.
@@ -1083,14 +1085,16 @@ class Channel:
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
-        return self._blocking_rpc(
-            'basic_qos',
-            self._channel.basic_qos,
-            timeout,
-            prefetch_size=prefetch_size,
-            prefetch_count=prefetch_count,
-            global_qos=global_qos,
-        )
+
+        def send(
+                callback: Callable[[frame.Method[spec.Basic.QosOk]],
+                                   None]) -> None:
+            self._channel.basic_qos(prefetch_size=prefetch_size,
+                                    prefetch_count=prefetch_count,
+                                    global_qos=global_qos,
+                                    callback=callback)
+
+        return self._blocking_rpc('basic_qos', send, timeout)
 
     def basic_get(
             self,
@@ -1347,13 +1351,16 @@ class Channel:
                 if self._next_publish_seq_no is None:
                     self._next_publish_seq_no = 0
 
-            result = self._blocking_rpc(
-                'confirm_delivery',
-                self._channel.confirm_delivery,
-                timeout,
-                on_sent=_arm_seq_no,
-                ack_nack_callback=_wrapped_ack_nack,
-            )
+            def send(
+                callback: Callable[[frame.Method[spec.Confirm.SelectOk]], None]
+            ) -> None:
+                self._channel.confirm_delivery(
+                    ack_nack_callback=_wrapped_ack_nack, callback=callback)
+
+            result = self._blocking_rpc('confirm_delivery',
+                                        send,
+                                        timeout,
+                                        on_sent=_arm_seq_no)
             self._confirm_select_ok = result
             return result
 
@@ -1399,18 +1406,22 @@ class Channel:
                 self._safe_dispatch, 'consumer callback', on_message_callback,
                 self, method, properties, body)
 
-        frame = self._blocking_rpc(
-            'basic_consume',
-            self._channel.basic_consume,
-            timeout,
-            queue=queue,
-            on_message_callback=_wrapped_callback,
-            auto_ack=auto_ack,
-            exclusive=exclusive,
-            consumer_tag=consumer_tag,
-            arguments=arguments,
-        )
-        return frame.method.consumer_tag
+        def send(
+            callback: Callable[[frame.Method[spec.Basic.ConsumeOk]],
+                               None]) -> None:
+            self._channel.basic_consume(queue=queue,
+                                        on_message_callback=_wrapped_callback,
+                                        auto_ack=auto_ack,
+                                        exclusive=exclusive,
+                                        consumer_tag=consumer_tag,
+                                        arguments=arguments,
+                                        callback=callback)
+
+        consume_ok = self._blocking_rpc('basic_consume', send, timeout)
+        tag = consume_ok.method.consumer_tag
+        # The broker echoes the client's tag, which is always a str.
+        assert isinstance(tag, str)
+        return tag
 
     def basic_cancel(
         self,
@@ -1429,12 +1440,14 @@ class Channel:
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
-        return self._blocking_rpc(
-            'basic_cancel',
-            self._channel.basic_cancel,
-            timeout,
-            consumer_tag=consumer_tag,
-        )
+
+        def send(
+            callback: Callable[[frame.Method[spec.Basic.CancelOk]],
+                               None]) -> None:
+            self._channel.basic_cancel(consumer_tag=consumer_tag,
+                                       callback=callback)
+
+        return self._blocking_rpc('basic_cancel', send, timeout)
 
     def queue_declare(
         self,
@@ -1463,17 +1476,19 @@ class Channel:
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
-        return self._blocking_rpc(
-            'queue_declare',
-            self._channel.queue_declare,
-            timeout,
-            queue=queue,
-            passive=passive,
-            durable=durable,
-            exclusive=exclusive,
-            auto_delete=auto_delete,
-            arguments=arguments,
-        )
+
+        def send(
+            callback: Callable[[frame.Method[spec.Queue.DeclareOk]],
+                               None]) -> None:
+            self._channel.queue_declare(queue=queue,
+                                        passive=passive,
+                                        durable=durable,
+                                        exclusive=exclusive,
+                                        auto_delete=auto_delete,
+                                        arguments=arguments,
+                                        callback=callback)
+
+        return self._blocking_rpc('queue_declare', send, timeout)
 
     def exchange_declare(
         self,
@@ -1504,18 +1519,20 @@ class Channel:
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
-        return self._blocking_rpc(
-            'exchange_declare',
-            self._channel.exchange_declare,
-            timeout,
-            exchange=exchange,
-            exchange_type=exchange_type,
-            passive=passive,
-            durable=durable,
-            auto_delete=auto_delete,
-            internal=internal,
-            arguments=arguments,
-        )
+
+        def send(
+            callback: Callable[[frame.Method[spec.Exchange.DeclareOk]], None]
+        ) -> None:
+            self._channel.exchange_declare(exchange=exchange,
+                                           exchange_type=exchange_type,
+                                           passive=passive,
+                                           durable=durable,
+                                           auto_delete=auto_delete,
+                                           internal=internal,
+                                           arguments=arguments,
+                                           callback=callback)
+
+        return self._blocking_rpc('exchange_declare', send, timeout)
 
     def queue_bind(
         self,
@@ -1540,15 +1557,17 @@ class Channel:
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
-        return self._blocking_rpc(
-            'queue_bind',
-            self._channel.queue_bind,
-            timeout,
-            queue=queue,
-            exchange=exchange,
-            routing_key=routing_key,
-            arguments=arguments,
-        )
+
+        def send(
+            callback: Callable[[frame.Method[spec.Queue.BindOk]],
+                               None]) -> None:
+            self._channel.queue_bind(queue=queue,
+                                     exchange=exchange,
+                                     routing_key=routing_key,
+                                     arguments=arguments,
+                                     callback=callback)
+
+        return self._blocking_rpc('queue_bind', send, timeout)
 
     def queue_unbind(
         self,
@@ -1573,15 +1592,17 @@ class Channel:
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
-        return self._blocking_rpc(
-            'queue_unbind',
-            self._channel.queue_unbind,
-            timeout,
-            queue=queue,
-            exchange=exchange,
-            routing_key=routing_key,
-            arguments=arguments,
-        )
+
+        def send(
+            callback: Callable[[frame.Method[spec.Queue.UnbindOk]],
+                               None]) -> None:
+            self._channel.queue_unbind(queue=queue,
+                                       exchange=exchange,
+                                       routing_key=routing_key,
+                                       arguments=arguments,
+                                       callback=callback)
+
+        return self._blocking_rpc('queue_unbind', send, timeout)
 
     def queue_delete(
         self,
@@ -1604,14 +1625,16 @@ class Channel:
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
-        return self._blocking_rpc(
-            'queue_delete',
-            self._channel.queue_delete,
-            timeout,
-            queue=queue,
-            if_unused=if_unused,
-            if_empty=if_empty,
-        )
+
+        def send(
+            callback: Callable[[frame.Method[spec.Queue.DeleteOk]],
+                               None]) -> None:
+            self._channel.queue_delete(queue=queue,
+                                       if_unused=if_unused,
+                                       if_empty=if_empty,
+                                       callback=callback)
+
+        return self._blocking_rpc('queue_delete', send, timeout)
 
     def queue_purge(
         self,
@@ -1630,12 +1653,13 @@ class Channel:
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
-        return self._blocking_rpc(
-            'queue_purge',
-            self._channel.queue_purge,
-            timeout,
-            queue=queue,
-        )
+
+        def send(
+            callback: Callable[[frame.Method[spec.Queue.PurgeOk]],
+                               None]) -> None:
+            self._channel.queue_purge(queue=queue, callback=callback)
+
+        return self._blocking_rpc('queue_purge', send, timeout)
 
     def exchange_bind(
         self,
@@ -1660,15 +1684,17 @@ class Channel:
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
-        return self._blocking_rpc(
-            'exchange_bind',
-            self._channel.exchange_bind,
-            timeout,
-            destination=destination,
-            source=source,
-            routing_key=routing_key,
-            arguments=arguments,
-        )
+
+        def send(
+            callback: Callable[[frame.Method[spec.Exchange.BindOk]],
+                               None]) -> None:
+            self._channel.exchange_bind(destination=destination,
+                                        source=source,
+                                        routing_key=routing_key,
+                                        arguments=arguments,
+                                        callback=callback)
+
+        return self._blocking_rpc('exchange_bind', send, timeout)
 
     def exchange_unbind(
         self,
@@ -1693,15 +1719,17 @@ class Channel:
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
-        return self._blocking_rpc(
-            'exchange_unbind',
-            self._channel.exchange_unbind,
-            timeout,
-            destination=destination,
-            source=source,
-            routing_key=routing_key,
-            arguments=arguments,
-        )
+
+        def send(
+            callback: Callable[[frame.Method[spec.Exchange.UnbindOk]], None]
+        ) -> None:
+            self._channel.exchange_unbind(destination=destination,
+                                          source=source,
+                                          routing_key=routing_key,
+                                          arguments=arguments,
+                                          callback=callback)
+
+        return self._blocking_rpc('exchange_unbind', send, timeout)
 
     def exchange_delete(
         self,
@@ -1722,13 +1750,15 @@ class Channel:
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
-        return self._blocking_rpc(
-            'exchange_delete',
-            self._channel.exchange_delete,
-            timeout,
-            exchange=exchange,
-            if_unused=if_unused,
-        )
+
+        def send(
+            callback: Callable[[frame.Method[spec.Exchange.DeleteOk]], None]
+        ) -> None:
+            self._channel.exchange_delete(exchange=exchange,
+                                          if_unused=if_unused,
+                                          callback=callback)
+
+        return self._blocking_rpc('exchange_delete', send, timeout)
 
     def close(self,
               reply_code: int = 0,
@@ -2244,7 +2274,7 @@ class Connection:
         :raises TimeoutError: if *timeout* expires before the channel opens.
         """
         ready = threading.Event()
-        result = [None]
+        result: list[pika.channel.Channel] = []
         error: list[BaseException | None] = [None]
 
         with self._channel_waiters_lock:
@@ -2255,8 +2285,8 @@ class Connection:
 
         def _open() -> None:
 
-            def _on_open(ch) -> None:
-                result[0] = ch
+            def _on_open(ch: pika.channel.Channel) -> None:
+                result.append(ch)
                 ready.set()
 
             try:
