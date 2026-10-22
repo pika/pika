@@ -54,9 +54,9 @@ _OnQueuePurgeCallback = Callable[[frame.Method[spec.Queue.PurgeOk]], None]
 _OnQueueUnbindCallback = Callable[[frame.Method[spec.Queue.UnbindOk]], None]
 _OnReturnCallback = Callable[
     ['Channel', spec.Basic.Return, spec.BasicProperties, bytes], None]
-_OnTxCommitCallback = Callable[[spec.Tx.CommitOk], None]
-_OnTxRollbackCallback = Callable[[spec.Tx.RollbackOk], None]
-_OnTxSelectCallback = Callable[[spec.Tx.SelectOk], None]
+_OnTxCommitCallback = Callable[[frame.Method[spec.Tx.CommitOk]], None]
+_OnTxRollbackCallback = Callable[[frame.Method[spec.Tx.RollbackOk]], None]
+_OnTxSelectCallback = Callable[[frame.Method[spec.Tx.SelectOk]], None]
 
 
 class Channel:

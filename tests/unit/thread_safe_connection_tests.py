@@ -2414,11 +2414,11 @@ class BlockingRPCErrorPathTests(unittest.TestCase):
         def boom():
             raise RuntimeError('hook failed after send')
 
-        result = ch._blocking_rpc('queue_declare',
-                                  raw_ch.queue_declare,
-                                  0.5,
-                                  on_sent=boom,
-                                  queue='q')
+        result = ch._blocking_rpc(
+            'queue_declare',
+            lambda callback: raw_ch.queue_declare(queue='q', callback=callback),
+            0.5,
+            on_sent=boom)
         self.assertIs(result, ok)
 
     def test_on_sent_error_surfaces_when_response_outstanding(self):
@@ -2440,10 +2440,10 @@ class BlockingRPCErrorPathTests(unittest.TestCase):
 
         with self.assertRaises(RuntimeError) as ctx:
             ch._blocking_rpc('queue_declare',
-                             raw_ch.queue_declare,
+                             lambda callback: raw_ch.queue_declare(
+                                 queue='q', callback=callback),
                              0.5,
-                             on_sent=raise_boom,
-                             queue='q')
+                             on_sent=raise_boom)
         self.assertIs(ctx.exception, boom)
 
 
@@ -2993,12 +2993,14 @@ class CallbackRegistrationFailureTests(unittest.TestCase):
         """The wrapped ack/nack callback logs and drops if the consumer pool has been shut down by
         the time the broker delivers the confirm.
         """
-        ch, _raw_ch, _wrapper = self._make_channel()
+        ch, raw_ch, _wrapper = self._make_channel()
         # Capture the wrapped callback by short-circuiting _blocking_rpc.
         captured = {}
 
-        def fake_blocking_rpc(method_name, channel_method, timeout, **kwargs):
-            captured['wrapped'] = kwargs['ack_nack_callback']
+        def fake_blocking_rpc(method_name, send, timeout, **kwargs):
+            send(MagicMock())
+            captured['wrapped'] = raw_ch.confirm_delivery.call_args[1][
+                'ack_nack_callback']
             return MagicMock()
 
         with patch.object(ch, '_blocking_rpc', side_effect=fake_blocking_rpc):

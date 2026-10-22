@@ -218,15 +218,14 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         :param proto: Protocol number (0 for default)
         :param flags: `socket.getaddrinfo` flags
         """
-        return _SelectorIOLoopIOHandle(
-            _AddressResolver(native_loop=self._loop,
-                             host=host,
-                             port=port,
-                             family=family,
-                             socktype=socktype,
-                             proto=proto,
-                             flags=flags,
-                             on_done=on_done).start())
+        return _AddressResolver(native_loop=self._loop,
+                                host=host,
+                                port=port,
+                                family=family,
+                                socktype=socktype,
+                                proto=proto,
+                                flags=flags,
+                                on_done=on_done).start()
 
     @override
     def set_reader(self, fd: int, on_readable: Callable[[], None]) -> None:
@@ -435,7 +434,7 @@ class _TimerHandle(nbio_interface.AbstractTimerReference):
 class _SelectorIOLoopIOHandle(nbio_interface.AbstractIOReference):
     """This module's adaptation of `nbio_interface.AbstractIOReference`"""
 
-    def __init__(self, subject: Any) -> None:
+    def __init__(self, subject: _AddressResolver) -> None:
         """
         :param subject: subject of the reference containing a `cancel()` method
 

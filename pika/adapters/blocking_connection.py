@@ -22,7 +22,7 @@ import functools
 import logging
 import threading
 import warnings
-from collections import deque, namedtuple
+from collections import deque
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -60,15 +60,24 @@ T = TypeVar(
 
 LOGGER = logging.getLogger(__name__)
 
+_V = TypeVar('_V')
 
-class _CallbackResult:
-    """CallbackResult is a non-thread-safe implementation for receiving callback results; INTERNAL
-    USE ONLY!
+
+class _CallbackResult(Generic[_V]):
+    """
+    CallbackResult is a non-thread-safe implementation for receiving callback results; INTERNAL USE
+    ONLY!
+
+    Generic in the value it carries, which is what lets a caller state the reply type it expects
+    rather than reading `Any` back out.  Two setters, because the callers differ: `set_value_once`
+    builds *value_class* from the arguments a multi-argument callback is handed, while `set_reply`
+    stores a single value as given.  A caller whose callback passes one object therefore needs no
+    wrapper class for it.
     """
 
     __slots__ = ('_ready', '_value_class', '_values')
 
-    def __init__(self, value_class: Callable[..., Any] | None = None) -> None:
+    def __init__(self, value_class: Callable[..., _V] | None = None) -> None:
         """
         :param value_class: only needed if the CallbackResult
                                      instance will be used with
@@ -79,7 +88,7 @@ class _CallbackResult:
         """
         self._value_class = value_class
         self._ready: bool = False
-        self._values: tuple[Any, ...] | list[Any] | None = None
+        self._values: tuple[_V] | list[_V] | None = None
 
     def reset(self) -> None:
         """Reset value, but not _value_class."""
@@ -138,6 +147,19 @@ class _CallbackResult:
                 self._value_class, args, kwargs)
             raise
 
+    def set_reply(self, value: _V) -> None:
+        """
+        Set as ready with *value*, for use as an RPC's typed reply callback.
+
+        Unlike `set_value_once` this takes the value as it is, so no *value_class* is needed and the
+        type survives into the `value` property.  The connection-workflow result used to wrap its
+        single argument in a one-field namedtuple purely to satisfy that setter.
+
+        :raises AssertionError: if result was already set
+        """
+        self.signal_once()
+        self._values = (value,)
+
     def append_element(self, *args: Any, **kwargs: Any) -> None:
         """Append an element to values."""
         assert not self._ready or isinstance(self._values, list), (
@@ -162,7 +184,7 @@ class _CallbackResult:
         self._ready = True
 
     @property
-    def value(self) -> Any:
+    def value(self) -> _V:
         """
         :returns: a reference to the value that was set via `set_value_once`
         :raises AssertionError: if result was not set or value is incompatible
@@ -176,7 +198,7 @@ class _CallbackResult:
         return self._values[0]
 
     @property
-    def elements(self) -> list[Any]:
+    def elements(self) -> list[_V]:
         """
         :returns: a reference to the list containing one or more elements that
             were added via `append_element`
@@ -205,7 +227,7 @@ class _IoloopTimerContext:
         assert hasattr(connection, '_adapter_call_later'), connection
         self._duration = duration
         self._connection = connection
-        self._callback_result = _CallbackResult()
+        self._callback_result: _CallbackResult[None] = _CallbackResult()
         self._timer_handle: object = None
 
     def __enter__(self) -> Self:
@@ -480,12 +502,9 @@ class BlockingConnection:
             raise ValueError('Expected a non-empty sequence of connection '
                              f'parameters, but got {configs!r}.')
 
-        # Connection workflow completion args
-        #   `result` may be an instance of connection on success or exception on
-        #   failure.
-        on_cw_done_result = _CallbackResult(
-            namedtuple('BlockingConnection_OnConnectionWorkflowDoneArgs',
-                       'result'))
+        on_cw_done_result: _CallbackResult[
+            pika.connection.Connection |
+            connection_workflow.AMQPConnectorException] = _CallbackResult()
 
         resolved_impl_class = impl_class or select_connection.SelectConnection
 
@@ -495,20 +514,20 @@ class BlockingConnection:
         try:
             resolved_impl_class.create_connection(
                 configs,
-                on_done=on_cw_done_result.set_value_once,
+                on_done=on_cw_done_result.set_reply,
                 custom_ioloop=ioloop)
 
             while not on_cw_done_result.ready:
                 ioloop.poll()
                 ioloop.process_timeouts()
 
-            if isinstance(on_cw_done_result.value.result, BaseException):
-                error = on_cw_done_result.value.result
-                LOGGER.error('Connection workflow failed: %r', error)
-                raise self._reap_last_connection_workflow_error(error)
-            LOGGER.info('Connection workflow succeeded: %r',
-                        on_cw_done_result.value.result)
-            return on_cw_done_result.value.result
+            result = on_cw_done_result.value
+            if isinstance(result, BaseException):
+                LOGGER.error('Connection workflow failed: %r', result)
+                raise self._reap_last_connection_workflow_error(result)
+            LOGGER.info('Connection workflow succeeded: %r', result)
+            # create_connection builds an instance of the class it is called on.
+            return cast(select_connection.SelectConnection, result)
         except Exception:
             LOGGER.exception('Error in _create_connection().')
             ioloop.close()
@@ -859,7 +878,7 @@ class BlockingConnection:
         :raises pika.exceptions.ConnectionWrongStateError: if connection is
             not open.
         """
-        result = _CallbackResult()
+        result: _CallbackResult[None] = _CallbackResult()
         self._impl.update_secret(new_secret, reason, result.signal_once)
         self._flush_output(result.is_ready)
 
@@ -1328,7 +1347,7 @@ class BlockingChannel:
         self._closing_reason = None  # type: None | Exception
 
         # Receives Basic.ConsumeOk reply from server
-        self._basic_consume_ok_result = _CallbackResult()
+        self._basic_consume_ok_result: _CallbackResult[None] = _CallbackResult()
 
         # Receives args from Basic.GetEmpty response
         #  https://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
@@ -1884,7 +1903,7 @@ class BlockingChannel:
 
             consumer_info.state = _ConsumerInfo.TEARING_DOWN
 
-            with _CallbackResult() as cancel_ok_result:
+            with _CallbackResult[None]() as cancel_ok_result:
                 # Nack pending messages for auto_ack=False consumer
                 if not auto_ack:
                     pending_messages = self._remove_pending_deliveries(
@@ -2428,7 +2447,7 @@ class BlockingChannel:
             it. The prefetch-count is ignored if the no-ack option is set in the consumer.
         :param global_qos: Should the QoS apply to all channels on the connection.
         """
-        with _CallbackResult() as qos_ok_result:
+        with _CallbackResult[None]() as qos_ok_result:
             self._impl.basic_qos(callback=qos_ok_result.signal_once,
                                  prefetch_size=prefetch_size,
                                  prefetch_count=prefetch_count,
@@ -2444,7 +2463,7 @@ class BlockingChannel:
             True, the server will attempt to requeue the message, potentially then delivering it to
             an alternative subscriber.
         """
-        with _CallbackResult() as recover_ok_result:
+        with _CallbackResult[None]() as recover_ok_result:
             self._impl.basic_recover(requeue=requeue,
                                      callback=recover_ok_result.signal_once)
             self._flush_output(recover_ok_result.is_ready)
@@ -2477,7 +2496,7 @@ class BlockingChannel:
                 'on channel=%s', self.channel_number)
             return
 
-        with _CallbackResult() as select_ok_result:
+        with _CallbackResult[None]() as select_ok_result:
             self._impl.confirm_delivery(
                 ack_nack_callback=self._message_confirmation_result.
                 set_value_once,
@@ -2491,15 +2510,16 @@ class BlockingChannel:
         # of publisher acknowledgments
         self._impl.add_on_return_callback(self._on_puback_message_returned)
 
-    def exchange_declare(self,
-                         exchange: str,
-                         exchange_type: (ExchangeType |
-                                         str) = ExchangeType.direct,
-                         passive: bool = False,
-                         durable: bool = False,
-                         auto_delete: bool = False,
-                         internal: bool = False,
-                         arguments: dict[str, Any] | None = None) -> None:
+    def exchange_declare(
+        self,
+        exchange: str,
+        exchange_type: (ExchangeType | str) = ExchangeType.direct,
+        passive: bool = False,
+        durable: bool = False,
+        auto_delete: bool = False,
+        internal: bool = False,
+        arguments: dict[str, Any] | None = None
+    ) -> pika.frame.Method[pika.spec.Exchange.DeclareOk]:
         """
         This method creates an exchange if it does not already exist, and if the exchange exists,
         verifies that it is of the correct and expected class.
@@ -2521,20 +2541,19 @@ class BlockingChannel:
         :returns: Method frame from the Exchange.Declare-ok response
         """
         validators.require_string(exchange, 'exchange')
-        with _CallbackResult(
-                self._MethodFrameCallbackResultArgs) as declare_ok_result:
-            self._impl.exchange_declare(
-                exchange=exchange,
-                exchange_type=exchange_type,
-                passive=passive,
-                durable=durable,
-                auto_delete=auto_delete,
-                internal=internal,
-                arguments=arguments,
-                callback=declare_ok_result.set_value_once)
+        with _CallbackResult[pika.frame.Method[
+                pika.spec.Exchange.DeclareOk]]() as declare_ok_result:
+            self._impl.exchange_declare(exchange=exchange,
+                                        exchange_type=exchange_type,
+                                        passive=passive,
+                                        durable=durable,
+                                        auto_delete=auto_delete,
+                                        internal=internal,
+                                        arguments=arguments,
+                                        callback=declare_ok_result.set_reply)
 
             self._flush_output(declare_ok_result.is_ready)
-            return declare_ok_result.value.method_frame
+            return declare_ok_result.value
 
     def exchange_delete(self,
                         exchange: str | None = None,
@@ -2547,14 +2566,14 @@ class BlockingChannel:
         :param if_unused: only delete if the exchange is unused
         :returns: Method frame from the Exchange.Delete-ok response
         """
-        with _CallbackResult(
-                self._MethodFrameCallbackResultArgs) as delete_ok_result:
+        with _CallbackResult[pika.frame.Method[
+                pika.spec.Exchange.DeleteOk]]() as delete_ok_result:
             self._impl.exchange_delete(exchange=exchange,
                                        if_unused=if_unused,
-                                       callback=delete_ok_result.set_value_once)
+                                       callback=delete_ok_result.set_reply)
 
             self._flush_output(delete_ok_result.is_ready)
-            return delete_ok_result.value.method_frame
+            return delete_ok_result.value
 
     def exchange_bind(
         self,
@@ -2574,16 +2593,16 @@ class BlockingChannel:
         """
         validators.require_string(destination, 'destination')
         validators.require_string(source, 'source')
-        with _CallbackResult(
-                self._MethodFrameCallbackResultArgs) as bind_ok_result:
+        with _CallbackResult[pika.frame.Method[
+                pika.spec.Exchange.BindOk]]() as bind_ok_result:
             self._impl.exchange_bind(destination=destination,
                                      source=source,
                                      routing_key=routing_key,
                                      arguments=arguments,
-                                     callback=bind_ok_result.set_value_once)
+                                     callback=bind_ok_result.set_reply)
 
             self._flush_output(bind_ok_result.is_ready)
-            return bind_ok_result.value.method_frame
+            return bind_ok_result.value
 
     def exchange_unbind(
         self,
@@ -2601,16 +2620,16 @@ class BlockingChannel:
         :param arguments: Custom key/value pair arguments for the binding
         :returns: Method frame from the Exchange.Unbind-ok response
         """
-        with _CallbackResult(
-                self._MethodFrameCallbackResultArgs) as unbind_ok_result:
+        with _CallbackResult[pika.frame.Method[
+                pika.spec.Exchange.UnbindOk]]() as unbind_ok_result:
             self._impl.exchange_unbind(destination=destination,
                                        source=source,
                                        routing_key=routing_key,
                                        arguments=arguments,
-                                       callback=unbind_ok_result.set_value_once)
+                                       callback=unbind_ok_result.set_reply)
 
             self._flush_output(unbind_ok_result.is_ready)
-            return unbind_ok_result.value.method_frame
+            return unbind_ok_result.value
 
     def queue_declare(
         self,
@@ -2643,18 +2662,18 @@ class BlockingChannel:
         :returns: Method frame from the Queue.Declare-ok response
         """
         validators.require_string(queue, 'queue')
-        with _CallbackResult(
-                self._MethodFrameCallbackResultArgs) as declare_ok_result:
+        with _CallbackResult[pika.frame.Method[
+                pika.spec.Queue.DeclareOk]]() as declare_ok_result:
             self._impl.queue_declare(queue=queue,
                                      passive=passive,
                                      durable=durable,
                                      exclusive=exclusive,
                                      auto_delete=auto_delete,
                                      arguments=arguments,
-                                     callback=declare_ok_result.set_value_once)
+                                     callback=declare_ok_result.set_reply)
 
             self._flush_output(declare_ok_result.is_ready)
-            return declare_ok_result.value.method_frame
+            return declare_ok_result.value
 
     def queue_delete(self,
                      queue: str,
@@ -2669,15 +2688,15 @@ class BlockingChannel:
         :param if_empty: only delete if the queue is empty
         :returns: Method frame from the Queue.Delete-ok response
         """
-        with _CallbackResult(
-                self._MethodFrameCallbackResultArgs) as delete_ok_result:
+        with _CallbackResult[pika.frame.Method[
+                pika.spec.Queue.DeleteOk]]() as delete_ok_result:
             self._impl.queue_delete(queue=queue,
                                     if_unused=if_unused,
                                     if_empty=if_empty,
-                                    callback=delete_ok_result.set_value_once)
+                                    callback=delete_ok_result.set_reply)
 
             self._flush_output(delete_ok_result.is_ready)
-            return delete_ok_result.value.method_frame
+            return delete_ok_result.value
 
     def queue_purge(self,
                     queue: str) -> pika.frame.Method[pika.spec.Queue.PurgeOk]:
@@ -2687,12 +2706,12 @@ class BlockingChannel:
         :param queue: The queue to purge
         :returns: Method frame from the Queue.Purge-ok response
         """
-        with _CallbackResult(
-                self._MethodFrameCallbackResultArgs) as purge_ok_result:
+        with _CallbackResult[pika.frame.Method[
+                pika.spec.Queue.PurgeOk]]() as purge_ok_result:
             self._impl.queue_purge(queue=queue,
-                                   callback=purge_ok_result.set_value_once)
+                                   callback=purge_ok_result.set_reply)
             self._flush_output(purge_ok_result.is_ready)
-            return purge_ok_result.value.method_frame
+            return purge_ok_result.value
 
     def queue_bind(
         self,
@@ -2712,15 +2731,15 @@ class BlockingChannel:
         """
         validators.require_string(queue, 'queue')
         validators.require_string(exchange, 'exchange')
-        with _CallbackResult(
-                self._MethodFrameCallbackResultArgs) as bind_ok_result:
+        with _CallbackResult[pika.frame.Method[
+                pika.spec.Queue.BindOk]]() as bind_ok_result:
             self._impl.queue_bind(queue=queue,
                                   exchange=exchange,
                                   routing_key=routing_key,
                                   arguments=arguments,
-                                  callback=bind_ok_result.set_value_once)
+                                  callback=bind_ok_result.set_reply)
             self._flush_output(bind_ok_result.is_ready)
-            return bind_ok_result.value.method_frame
+            return bind_ok_result.value
 
     def queue_unbind(
         self,
@@ -2738,15 +2757,15 @@ class BlockingChannel:
         :param arguments: Custom key/value pair arguments for the binding
         :returns: Method frame from the Queue.Unbind-ok response
         """
-        with _CallbackResult(
-                self._MethodFrameCallbackResultArgs) as unbind_ok_result:
+        with _CallbackResult[pika.frame.Method[
+                pika.spec.Queue.UnbindOk]]() as unbind_ok_result:
             self._impl.queue_unbind(queue=queue,
                                     exchange=exchange,
                                     routing_key=routing_key,
                                     arguments=arguments,
-                                    callback=unbind_ok_result.set_value_once)
+                                    callback=unbind_ok_result.set_reply)
             self._flush_output(unbind_ok_result.is_ready)
-            return unbind_ok_result.value.method_frame
+            return unbind_ok_result.value
 
     def tx_select(self) -> pika.frame.Method[pika.spec.Tx.SelectOk]:
         """
@@ -2757,12 +2776,12 @@ class BlockingChannel:
 
         :returns: Method frame from the Tx.Select-ok response
         """
-        with _CallbackResult(
-                self._MethodFrameCallbackResultArgs) as select_ok_result:
-            self._impl.tx_select(select_ok_result.set_value_once)
+        with _CallbackResult[pika.frame.Method[
+                pika.spec.Tx.SelectOk]]() as select_ok_result:
+            self._impl.tx_select(select_ok_result.set_reply)
 
             self._flush_output(select_ok_result.is_ready)
-            return select_ok_result.value.method_frame
+            return select_ok_result.value
 
     def tx_commit(self) -> pika.frame.Method[pika.spec.Tx.CommitOk]:
         """
@@ -2770,12 +2789,12 @@ class BlockingChannel:
 
         :returns: Method frame from the Tx.Commit-ok response
         """
-        with _CallbackResult(
-                self._MethodFrameCallbackResultArgs) as commit_ok_result:
-            self._impl.tx_commit(commit_ok_result.set_value_once)
+        with _CallbackResult[pika.frame.Method[
+                pika.spec.Tx.CommitOk]]() as commit_ok_result:
+            self._impl.tx_commit(commit_ok_result.set_reply)
 
             self._flush_output(commit_ok_result.is_ready)
-            return commit_ok_result.value.method_frame
+            return commit_ok_result.value
 
     def tx_rollback(self) -> pika.frame.Method[pika.spec.Tx.RollbackOk]:
         """
@@ -2783,9 +2802,9 @@ class BlockingChannel:
 
         :returns: Method frame from the Tx.Rollback-ok response
         """
-        with _CallbackResult(
-                self._MethodFrameCallbackResultArgs) as rollback_ok_result:
-            self._impl.tx_rollback(rollback_ok_result.set_value_once)
+        with _CallbackResult[pika.frame.Method[
+                pika.spec.Tx.RollbackOk]]() as rollback_ok_result:
+            self._impl.tx_rollback(rollback_ok_result.set_reply)
 
             self._flush_output(rollback_ok_result.is_ready)
-            return rollback_ok_result.value.method_frame
+            return rollback_ok_result.value

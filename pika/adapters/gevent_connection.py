@@ -408,7 +408,7 @@ class _GeventIOLoopIOHandle(AbstractIOReference):
     Only used to wrap the _GeventAddressResolver.
     """
 
-    def __init__(self, subject: Any) -> None:
+    def __init__(self, subject: _GeventAddressResolver) -> None:
         """
         :param subject: subject of the reference containing a `cancel()` method
         """

@@ -1,9 +1,15 @@
 """Handle AMQP Heartbeats."""
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING
 
 import pika.exceptions
 from pika import frame
+
+if TYPE_CHECKING:
+    from pika.connection import Connection
 
 LOGGER = logging.getLogger(__name__)
 
@@ -19,7 +25,7 @@ class HeartbeatChecker:
 
     _STALE_CONNECTION = 'No activity or too many missed heartbeats in the last %i seconds'
 
-    def __init__(self, connection, timeout) -> None:
+    def __init__(self, connection: Connection, timeout) -> None:
         """
         Create an object that will check for activity on the provided connection as well as receive
         heartbeat frames from the broker. The timeout parameter defines a window within which this
@@ -75,8 +81,8 @@ class HeartbeatChecker:
         self._idle_byte_intervals = 0
         self._idle_heartbeat_intervals = 0
 
-        self._send_timer = None
-        self._check_timer = None
+        self._send_timer: object | None = None
+        self._check_timer: object | None = None
         self._start_send_timer()
         self._start_check_timer()
 

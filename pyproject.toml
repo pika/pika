@@ -140,6 +140,10 @@ dependencies = [
     "twisted",
     "mypy>=1.20; python_version >= '3.10'",
     "ruff",
+    # tests/typing/ uses assert_type, which typing has only from 3.11 and the
+    # matrix floor is 3.7. Declared rather than relied on through mypy, which
+    # happens to depend on it.
+    "typing_extensions",
     "yapf",
 ]
 
