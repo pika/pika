@@ -2005,6 +2005,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#pikacompat-is-gone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pika.compat is gone
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pikaspec-is-now-annotated-which-may-fail-your-type-checker" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2510,6 +2521,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#pikacompat-is-gone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pika.compat is gone
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pikaspec-is-now-annotated-which-may-fail-your-type-checker" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2959,7 +2981,7 @@
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <p>Notes for each release are also published on the <a href="https://github.com/pika/pika/releases">GitHub releases page</a>, generated from the pull requests and issues the release contains.</p>
 <h2 id="upgrading-to-150">Upgrading to 1.5.0<a class="headerlink" href="#upgrading-to-150" title="Permanent link">&para;</a></h2>
-<p>Five changes are worth reading before you upgrade. Two can turn a passing build red, and two change what a working application observes when it cancels a consumer or closes a channel.</p>
+<p>Six changes are worth reading before you upgrade. Three can turn a passing build red, and two change what a working application observes when it cancels a consumer or closes a channel.</p>
 <h3 id="pikaconnection-is-new-and-is-the-connection-to-use"><code>pika.Connection</code> is new, and is the connection to use<a class="headerlink" href="#pikaconnection-is-new-and-is-the-connection-to-use" title="Permanent link">&para;</a></h3>
 <p>1.5.0 introduces <code>pika.Connection</code> and its <code>Channel</code>, a connection that runs its own IOLoop on a background thread and offers a thread-safe blocking API that does not stall heartbeats while your code processes a message. There is nothing to migrate <em>from</em>: these classes are new in this release, and <code>pika.Connection</code> is the documented import.</p>
 <p><code>from pika.adapters.thread_safe_connection import Connection</code> also works, though the module moves in 2.0 (see #1681). <code>Channel</code> is not exported from <code>pika</code>, because channels come from <code>Connection.channel()</code>.</p>
@@ -2987,6 +3009,9 @@
 <h3 id="channelclose-on-an-asynchronous-adapter-still-discards-those-deliveries"><code>channel.close()</code> on an asynchronous adapter still discards those deliveries<a class="headerlink" href="#channelclose-on-an-asynchronous-adapter-still-discards-those-deliveries" title="Permanent link">&para;</a></h3>
 <p>A channel that is closing discards them, because a callback could not acknowledge one anyway and the attempt would abort the connection; the Java client discards them at the same point. <code>Channel.close</code> cancels each consumer without waiting for the broker to confirm, so this is what a bare <code>channel.close()</code> does on <code>SelectConnection</code>, <code>AsyncioConnection</code>, <code>TornadoConnection</code> and <code>GeventConnection</code>. A discarded delivery is redelivered to the next consumer with <code>auto_ack=False</code> and lost with <code>auto_ack=True</code>. Pika now logs a warning naming the count as the channel closes.</p>
 <p><code>pika.Connection</code> and <code>BlockingConnection</code> are unaffected and keep every delivery across a close, since both cancel their consumers and wait for the broker to confirm before closing anything. To get the same guarantee from an asynchronous adapter, cancel each consumer with a callback and close the channel from the last <code>Basic.CancelOk</code>; the <a href="https://pika.github.io/pika/latest/modules/channel/#closing-a-channel-with-active-consumers">channel documentation</a> has the pattern. Pika 2.0 removes these adapters, which leaves <code>Connection</code> and its <code>Channel</code> as the only close path and so retires the gap rather than fixing it.</p>
+<h3 id="pikacompat-is-gone"><code>pika.compat</code> is gone<a class="headerlink" href="#pikacompat-is-gone" title="Permanent link">&para;</a></h3>
+<p>The module is removed. It held Python 2 compatibility shims and platform checks, was never documented as public API, and nothing in pika imports it any more. It had no leading underscore, though, so it has been importable for years and an upgrade turns <code>import pika.compat</code> into <code>ModuleNotFoundError</code>.</p>
+<p>Twelve of its names moved to <code>pika._utils</code>: <code>ON_LINUX</code>, <code>ON_OSX</code>, <code>ON_WINDOWS</code>, <code>LINUX_VERSION</code>, <code>SOCKET_ERROR</code>, <code>HAVE_SIGNAL</code>, <code>RE_NUM</code>, <code>time_now()</code>, <code>as_bytes()</code>, <code>to_digit()</code>, <code>get_linux_version()</code> and <code>nonblocking_socketpair()</code>. That module is private, so it is not a migration target; copy what you need instead. The four that are gone were Python 2 artefacts, and the standard library covers each: <code>byte()</code> (a <code>bytes</code> literal), <code>long</code> (<code>int</code>), <code>AbstractBase</code> (<code>abc.ABC</code>), <code>str_or_bytes</code> (<code>(str, bytes)</code>). <code>pika.spec.str</code>, which was <code>str = bytes</code>, goes with them.</p>
 <h3 id="pikaspec-is-now-annotated-which-may-fail-your-type-checker"><code>pika.spec</code> is now annotated, which may fail your type checker<a class="headerlink" href="#pikaspec-is-now-annotated-which-may-fail-your-type-checker" title="Permanent link">&para;</a></h3>
 <p>Pika ships a <code>py.typed</code> marker, so a type checker reads pika's own annotations. <code>pika.spec</code> is generated code and was previously excluded from pika's <code>mypy</code> configuration, which left every field of a decoded frame typed as <code>Any</code>. <code>Any</code> silences all checking, so a downstream <code>mypy</code> run that was clean can go red on upgrade without any change on your end. The most common line in every pika tutorial is affected:</p>
 <div class="highlight"><pre><span></span><code><span id="__span-3-1">error: Argument "delivery_tag" to "basic_ack" of "BlockingChannel" has incompatible type "int | None"; expected "int"  [arg-type]
