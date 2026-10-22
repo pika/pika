@@ -143,12 +143,16 @@ def newest_released(root: pathlib.Path | None = None, exclude: str = '') -> str:
     :param exclude: A tag to leave out, or '' to consider all of them.
     :returns: The newest released version by PEP 440 order, or ''.
     """
-    base = _ROOT if root is None else root
-    listed = subprocess.run(('git', 'tag', '--list'),
-                            cwd=base,
-                            capture_output=True,
-                            text=True,
-                            check=False).stdout.split()
+    if root is None:
+        # Through `git`, like every other call here, so a test that stubs it
+        # does not read the repository's real tags (#1786).
+        listed = git('tag', '--list', check=False).split()
+    else:
+        listed = subprocess.run(('git', 'tag', '--list'),
+                                cwd=root,
+                                capture_output=True,
+                                text=True,
+                                check=False).stdout.split()
     released = []
     for name in listed:
         if exclude and name == exclude:
