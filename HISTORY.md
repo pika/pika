@@ -40,6 +40,8 @@ filterwarnings = [
 python -W 'ignore:BlockingConnection is deprecated' your_app.py
 ```
 
+The two forms are not interchangeable. In `filterwarnings` the message is a regular expression, while `-W` on the command line, for `python` and for `pytest` alike, matches it as a literal prefix, so the `pyproject.toml` pattern given as a `-W` argument matches nothing and the warning still fails the run.
+
 or migrate to `Connection`, which runs its own IOLoop on a background thread and provides a thread-safe blocking API that does not stall heartbeats on slow message processing.
 
 ### Cancelling a consumer no longer rejects the messages still arriving for it
