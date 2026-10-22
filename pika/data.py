@@ -376,7 +376,8 @@ def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:
         offset += 1
         raw = _PACK_INT.unpack_from(encoded, offset)[0]
         offset += 4
-        value = decimal.Decimal(raw) * (decimal.Decimal(10)**-decimals)
+        sign, digits, _ = decimal.Decimal(raw).as_tuple()
+        value = decimal.Decimal((sign, digits, -decimals))
 
     # https://github.com/pika/pika/issues/1205
     # Short Signed Int

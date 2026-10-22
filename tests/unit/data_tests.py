@@ -208,6 +208,35 @@ class DataTests(unittest.TestCase):
         decoded, _ = data.decode_table(b''.join(pieces), 0)
         self.assertEqual(decoded, {'k': value})
 
+    def test_decode_decimal_ignores_context_precision(self):
+        for raw, scale in ((123456789, 4), (-123456789, 4), (2147483647, 0),
+                           (-2147483648, 255), (110, 2), (0, 255)):
+            with self.subTest(raw=raw, scale=scale):
+                encoded = struct.pack('>cBi', b'D', scale, raw)
+                expected = decimal.Decimal(f'{raw}e-{scale}')
+                with decimal.localcontext() as ctx:
+                    ctx.prec = 3
+                    decoded, offset = data.decode_value(encoded, 0)
+                self.assertEqual(decoded.as_tuple(), expected.as_tuple())
+                self.assertEqual(offset, len(encoded))
+
+    def test_decode_decimal_ignores_context_traps(self):
+        value = decimal.Decimal('12345.6789')
+        pieces = []
+        data.encode_table(pieces, {'nested': {'decimal': value}})
+        encoded = b''.join(pieces)
+        with decimal.localcontext() as ctx:
+            ctx.prec = 3
+            ctx.Emin = -2
+            ctx.Emax = 2
+            for signal in ctx.traps:
+                ctx.traps[signal] = True
+            ctx.clear_flags()
+            decoded, offset = data.decode_table(encoded, 0)
+            self.assertFalse(any(ctx.flags.values()))
+        self.assertEqual(decoded, {'nested': {'decimal': value}})
+        self.assertEqual(offset, len(encoded))
+
     def test_encode_decimal_preserves_trailing_zeros(self):
         # Dropping normalize() keeps the scale exactly as given, so a value
         # with trailing fractional zeros round-trips to that same scale.
