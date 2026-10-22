@@ -64,8 +64,15 @@ _V = TypeVar('_V')
 
 
 class _CallbackResult(Generic[_V]):
-    """CallbackResult is a non-thread-safe implementation for receiving callback results; INTERNAL
-    USE ONLY!
+    """
+    CallbackResult is a non-thread-safe implementation for receiving callback results; INTERNAL USE
+    ONLY!
+
+    Generic in the value it carries, which is what lets a caller state the reply type it expects
+    rather than reading `Any` back out.  Two setters, because the callers differ: `set_value_once`
+    builds *value_class* from the arguments a multi-argument callback is handed, while `set_reply`
+    stores a single value as given.  A caller whose callback passes one object therefore needs no
+    wrapper class for it.
     """
 
     __slots__ = ('_ready', '_value_class', '_values')
@@ -143,6 +150,10 @@ class _CallbackResult(Generic[_V]):
     def set_reply(self, value: _V) -> None:
         """
         Set as ready with *value*, for use as an RPC's typed reply callback.
+
+        Unlike `set_value_once` this takes the value as it is, so no *value_class* is needed and the
+        type survives into the `value` property.  The connection-workflow result used to wrap its
+        single argument in a one-field namedtuple purely to satisfy that setter.
 
         :raises AssertionError: if result was already set
         """
