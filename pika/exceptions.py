@@ -178,12 +178,12 @@ class ConnectionClosed(AMQPConnectionError):
     @property
     def reply_code(self) -> int:
         """NEW in v1.0.0."""
-        return self.args[0]
+        return int(self.args[0])
 
     @property
     def reply_text(self) -> str:
         """NEW in v1.0.0."""
-        return self.args[1]
+        return str(self.args[1])
 
 
 class ConnectionClosedByBroker(ConnectionClosed):
@@ -237,12 +237,12 @@ class ChannelClosed(AMQPChannelError):
     @property
     def reply_code(self) -> int:
         """NEW in v1.0.0."""
-        return self.args[0]
+        return int(self.args[0])
 
     @property
     def reply_text(self) -> str:
         """NEW in v1.0.0."""
-        return self.args[1]
+        return str(self.args[1])
 
 
 class ChannelClosedByBroker(ChannelClosed):

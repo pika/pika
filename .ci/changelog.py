@@ -131,6 +131,9 @@ def _rows(raw: str, what: str) -> list:
     :raises ChangelogError: if unusable, or `LIMIT` rows or longer.
     """
     rows = _json(raw, what)
+    if not isinstance(rows, list):
+        raise ChangelogError(f'gh {what} answered {type(rows).__name__}, '
+                             f'not a list: {raw[:200]!r}')
     if len(rows) >= LIMIT:
         raise ChangelogError(
             f'gh {what} returned {len(rows)} rows, the --limit of {LIMIT}, so '
