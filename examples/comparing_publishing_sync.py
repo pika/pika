@@ -11,7 +11,8 @@ channel = connection.channel()
 # publish with a 404 and closes the channel, which a publish without delivery
 # confirmations never waits around to notice.
 channel.exchange_declare(exchange='test_exchange',
-                         exchange_type=ExchangeType.direct)
+                         exchange_type=ExchangeType.direct,
+                         durable=True)
 
 channel.basic_publish(
     'test_exchange', 'test_routing_key', b'message body value',
