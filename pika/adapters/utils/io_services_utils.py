@@ -166,7 +166,9 @@ class StreamingConnectionMixin:
 class _AsyncServiceAsyncHandle(AbstractIOReference):
     """This module's adaptation of `.nbio_interface.AbstractIOReference`"""
 
-    def __init__(self, subject: Any) -> None:
+    def __init__(
+            self,
+            subject: _AsyncSocketConnector | _AsyncStreamConnector) -> None:
         """
         :param subject: subject of the reference containing a `cancel()` method
 
