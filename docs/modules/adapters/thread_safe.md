@@ -44,6 +44,19 @@ The `on_message_callback` registered with `basic_consume` is dispatched on a per
 - Acknowledging and publishing (`basic_ack`, `basic_nack`, `basic_reject`, `basic_publish`) are safe to call from within the callback
 - `close()` is the one method that is not: see [What a close does to queued callbacks](#what-a-close-does-to-queued-callbacks)
 
+## What happens when your callback raises
+
+An exception out of a callback is logged at `ERROR` with its traceback, and the next message is delivered. Every exception is treated the same way, including `SystemExit` and `KeyboardInterrupt`: pika contains it so that one failing dispatch cannot cost the channel its worker thread and strand the messages queued behind it.
+
+Nothing else happens, and that is worth knowing before you rely on it. The channel stays open, `is_open` keeps reporting `True`, no close callback fires, and the exception does not reach your code by any route other than the log. **So a consumer whose callback fails on every message keeps consuming**, and with `auto_ack=True` the broker has already dropped its copy of each one, so the rest of the backlog is acknowledged and discarded while the log fills up. With `auto_ack=False` nothing is lost, but nothing comes back quickly either: an unacknowledged message is redelivered only once the channel or connection closes, or once your callback nacks or rejects it, so until then it is held and invisible to other consumers. If you have set a prefetch count, a callback that fails on every message also stops receiving new ones once that many are unacknowledged. Measured with `prefetch_count=3` and 20 messages queued: the callback saw 3, the other 17 stayed ready in the queue, and the 3 returned to it when the connection closed.
+
+Handle the exception inside your callback, then, because that is the only place that can decide what a failure means. Two things not to expect of the alternatives, both measured:
+
+- **`basic_cancel` from inside the callback does not stop the messages already in flight.** It returns promptly and tells the broker to send no more, but every delivery already dispatched or queued still reaches your callback afterwards, which is the same window a cancel always has. Measured with 20 queued messages: the cancel returned in 0.00 s and all 20 were still delivered.
+- **Under `auto_ack=True` nothing your callback does can save a message.** The broker drops its copy when it dispatches, so a delivery is already gone by the time your code sees it, whether your callback returns early, raises, or cancels. If losing messages to a failing callback is unacceptable, consume with `auto_ack=False`, with the redelivery timing above in mind.
+
+A flag your callback checks on entry is enough to stop *processing* the rest of a backlog, and a flag the thread that owns the connection watches is how to shut down from a callback, since `close()` from inside one is the call that does not work, for the reason given in [What a close does to queued callbacks](#what-a-close-does-to-queued-callbacks). #1754 covers giving the application a way to observe a raising callback rather than having to catch everything itself.
+
 ## What a close does to queued callbacks
 
 `Connection.close` and `Channel.close` cancel the channel's consumers, wait for the broker to confirm each cancellation, and then run the callbacks already queued before closing anything. A delivery that has reached the client is therefore passed to your callback, and the acknowledgement that callback issues still reaches the broker. Note that closing a channel or connection cancels its consumers, which is visible to the broker and to anything watching consumer counts.
