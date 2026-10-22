@@ -57,6 +57,28 @@ It replaced `github_changelog_generator`, which crawls every tag and every close
 
 `readiness` asks for a `HISTORY.md` entry only for a final release, because `changelog` refuses to write one for a pre-release without `--force`. Requiring one regardless made the two halves contradict, so no pre-release could be tagged without a flag that advertises itself as something else.
 
+## Why `RELEASE.md` does not say these things
+
+`RELEASE.md` is the procedure a maintainer follows. What follows is the reasoning that used to sit inside it, moved here so the procedure reads as steps rather than as an argument.
+
+**Every credential route to writing `main` is closed.** `main` requires a pull request with one approving review and restricts pushes to the Maintainers team. `enforce_admins` is off, so a Maintainer can push directly, but `github-actions[bot]` is neither a Maintainer nor an allowed app, and classic branch protection offers no way to grant `GITHUB_TOKEN` a bypass: adding an app to the push allowlist does not exempt it from the review requirement. A fine-grained PAT for an org-owned repository needs the org to opt in, which is an org-owner setting. Installing a GitHub App wants an owner too, and would additionally require migrating `main` from classic protection to a ruleset before the app could be a bypass actor. A classic PAT would work mechanically but is whole-account in scope. Tagging needs no credential at all, and gains two things on its own: the released commit is one that passed `tests-passed`, where the bot's commit was created after the build and pushed untested, and the release path holds one fewer secret rather than one more. See #1728.
+
+**The changelog generator.** `github_changelog_generator` fitted pika badly: it crawled every tag and every closed issue by date, and pika has tags back to `v0.9a` and a 1,380-line changelog. It wrote the heading link from the *previous* tag, which is why the committed 1.4.3 entry points at `tree/1.4.2`. Above all it ignored milestones, and pika curates those. See #1731.
+
+**Two different questions about "the previous release".** `--since-tag` defaults to the newest final release *reachable from HEAD*, because a changelog range asks what is new on this branch. Whether a version has already shipped is decided by PEP 440 order instead, because 1.4.1 through 1.4.4 were cut from `1.4.x` and are not ancestors of `main`. Reasoning from either rule to the other gives a changelog that repeats three released versions, or a release that goes backwards.
+
+**The upgrade preamble is committed rather than typed at release time.** It is reviewed alongside the code it describes, and a draft release created by hand does not become the release: `release.yaml` runs `gh release create` for the tag, so a hand-made draft would linger untagged beside the real one.
+
+**Building and publishing in separate jobs** is what the `gh-action-pypi-publish` maintainers recommend: the build runs without access to the publishing secret, which is exposed only to the publish jobs.
+
+**The label table once named labels pika does not have.** It listed `enhancement`, `feature`, `bug`, `fix`, `documentation` and `docs`, while pika's are namespaced `C-` and `A-`. `release.yml` named the same six, so every pull request fell through its catch-all and the generated notes were never categorised. A maintainer labelling from that table would have reproduced the bug. See #1731.
+
+**Branch protection needs nothing relaxed,** and the document used to say the opposite: that `github-actions[bot]` should be allowed to bypass the rules. That is not possible under classic branch protection, which is what #1728 was about. Adding an app to the push allowlist does not exempt it from the review requirement, and `GITHUB_TOKEN` cannot be given a bypass at all.
+
+**`_deploy-docs.yaml` declares no `permissions`.** A called workflow can only maintain or reduce the caller's token, and that applies to the demand as well as the grant, so declaring `contents: write` there made GitHub reject any caller granting less. It showed up as a startup failure that ran no jobs and reported no checks, rather than as a red job.
+
+**The four versioning settings in `mkdocs.yml`.** `strict: true` makes `mike`'s own build strict, without which a warning that fails the pull-request docs job passes during a deploy. The `mike` plugin is declared explicitly because `mike` otherwise injects it with defaults only, and declaring it is what makes `canonical_version` reachable. `canonical_version: latest` stops every published version declaring itself canonical, which would let an unreleased `dev` page outrank the released one; see #1712. `extra.version.default: latest` names the current versions so they do not show the outdated-version banner, which comes from `overrides/main.html` because mkdocs-material renders it only from an `outdated` block that is empty in the stock theme.
+
 ## Known gaps
 
 - Releases cannot be cut from a maintenance branch: #1736.
