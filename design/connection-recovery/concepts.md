@@ -84,7 +84,7 @@ One recovery driver per connection runs every connection, channel and consumer r
 - A requested close always wins over recovery, including a drop during the application's own close handshake (I-3).
 - Application code, whether listeners, the delay policy or the filter, runs as I-2 requires.
 
-Whether deliveries queued for a consumer's callback when the connection drops are still dispatched is open (O-24); acknowledgements they make refer to the old generation and are dropped (I-13).
+Deliveries queued for a consumer's callback when the connection drops are still dispatched (D-35); acknowledgements they make refer to the old generation and are dropped (I-13).
 
 ## Calls during recovery
 
@@ -93,13 +93,13 @@ While a connection or channel is `RECOVERING`, a call that uses it raises the re
 - acknowledgements, nacks and rejects, which are dropped, because the broker has already requeued what they refer to;
 - `basic_cancel`, which removes the consumer from the record so it is not re-subscribed;
 - `close()` and `abort()`;
-- registering callbacks and listeners (O-26).
+- registering callbacks and listeners (D-37).
 
 A call already waiting for the broker when the connection drops raises the close reason and is not retried (D-14). `basic_consume` with a tag already active on the channel raises before anything is sent (D-18).
 
 ## Closing during recovery
 
-`close()` called while `RECOVERING` stops recovery at whatever step it has reached: it ends the delay early, abandons a connection attempt and closes the connection if it opens, and stops replay. The connection and its channels go `CLOSING -> CLOSED`. Acknowledgements made by deliveries dispatched during that close cannot reach the broker and are dropped (O-24). `close()` waits for recovery to stop as I-1 bounds it.
+`close()` called while `RECOVERING` stops recovery at whatever step it has reached: it ends the delay early, abandons a connection attempt and closes the connection if it opens, and stops replay. The connection and its channels go `CLOSING -> CLOSED`. Acknowledgements made by deliveries dispatched during that close cannot reach the broker and are dropped (D-35). `close()` waits for recovery to stop as I-1 bounds it.
 
 Closing a channel while it is `RECOVERING` abandons its reopen, closes it at the broker if recovery had already reopened it, and forgets its consumers and settings.
 
@@ -119,7 +119,7 @@ Publishes on a channel without confirm mode carry no outcome (D-22).
 
 - Recovery on or off, on by default (D-1). Off means a lost connection goes to `CLOSED` (I-14).
 - Topology recovery on or off, and a filter consulted for each exchange, queue, binding and consumer independently (D-8).
-- The delay policy (D-2). Before each attempt it is told the attempt number, the last error, and which connection, channel or consumer is recovering; for the first attempt, the last error is the one that caused the drop. It returns a delay or gives up. The default waits 1 second, doubling to 30, with jitter (O-13); it retries a connection forever and gives up on a channel or consumer after 5 attempts. The count starts again after each successful recovery (D-2); a failure that recurs right after each reopen is open (O-22). Giving up takes a connection or channel to `CLOSED` with the last error, and reports a consumer through the cancel callback.
+- The delay policy (D-2). Before each attempt it is told the attempt number, the last error, and which connection, channel or consumer is recovering; for the first attempt, the last error is the one that caused the drop. It returns a delay or gives up. The default waits 1 second, doubling to 30, with jitter (O-13); it retries a connection forever and gives up on a channel or consumer after 5 attempts. A connection's count starts again after each successful recovery; a channel's starts again only once it has stayed `OPEN` for a while (D-34, O-22). Giving up takes a connection or channel to `CLOSED` with the last error, and reports a consumer through the cancel callback.
 
 ## Consumers cancelled by the broker
 
@@ -128,7 +128,7 @@ When the broker cancels a consumer and advertises `accept_consumer_cancel_ok`, p
 - a 404 means the queue is gone, so the consumer is given up at once and reported through the cancel callback, and the queue is not redeclared;
 - any other refusal counts as one of the consumer's attempts, and the consumer is re-subscribed again later on its own count, until the policy gives up on it.
 
-What a given-up consumer, and a queue that got a 404, leave in the record is open (O-25).
+A given-up consumer leaves the record, and so does a queue that got a 404 (D-36).
 
 ## Broker versions
 
