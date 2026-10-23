@@ -24,7 +24,7 @@ The phases are an order of work, not a second specification: what each delivers 
 3. Connection recovery, without topology.
    - The recovery driver, the delay policy and its defaults, the trigger rule, reopening channels and restoring their settings, delivery tags, confirms, transactions and blocked state, and forgetting a channel the application closes.
    - Until phase 4, recovery can be enabled only with topology recovery off, so no release implies that consumers survive a reconnect.
-   - Before its scenarios are written: O-5, O-9, O-12, O-13, O-14, O-17, O-21, O-26 and O-27 are settled.
+   - Before its scenarios are written: O-5, O-9, O-12, O-13, O-14, O-17, O-21 and O-26 are settled.
    - Done: SC-2, SC-3, SC-4, SC-9, SC-10, SC-11, SC-14 for `basic_get`, SC-19, SC-20, SC-21, SC-22 except during replay, SC-23, SC-24 for channels, SC-33, SC-34, SC-36 except the filter, SC-37, SC-38, SC-41 except during replay, and SC-35 over all of these.
 4. The record and topology replay.
    - Recording and removal, replay order, server-named queues and their rename notification, the filter, skipped entities, retrying a resource the old connection holds, a drop during replay, a channel closed during replay, and `OPEN` only after replay.

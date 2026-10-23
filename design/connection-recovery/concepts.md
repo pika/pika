@@ -105,7 +105,7 @@ Closing a channel while it is `RECOVERING` abandons its reopen, closes it at the
 
 ## Delivery tags
 
-Each channel keeps one increasing sequence of delivery tags across recoveries, for consumer deliveries and `basic_get` alike (D-13). A tag from an earlier generation of the channel is stale, and acknowledging it is a no-op, never an acknowledgement of whatever delivery now has that number (I-13). A single acknowledgement of a tag from a consumer the broker cancelled while the channel stayed open is dropped too, because the broker has requeued those deliveries, or deleted them with their queue. A `multiple` acknowledgement up to a current tag acknowledges the current generation's deliveries up to it; one up to a stale tag is dropped; what one with tag 0 does is open (O-27). How a `multiple` acknowledgement that reaches past a cancelled consumer's tags is handled is open (O-23).
+Each channel keeps one increasing sequence of delivery tags across recoveries, for consumer deliveries and `basic_get` alike (D-13). A tag from an earlier generation of the channel is stale, and acknowledging it is a no-op, never an acknowledgement of whatever delivery now has that number (I-13). A single acknowledgement of a tag from a consumer the broker cancelled while the channel stayed open is dropped too, because the broker has requeued those deliveries, or deleted them with their queue. A `multiple` acknowledgement up to a current tag acknowledges the current generation's deliveries up to it; one up to a stale tag is dropped; one with tag 0, which the protocol defines as every outstanding delivery, is sent unchanged (D-29). How a `multiple` acknowledgement that reaches past a cancelled consumer's tags is handled is open (O-23).
 
 ## Publisher confirms
 

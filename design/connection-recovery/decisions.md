@@ -26,7 +26,6 @@
 - O-24 Queued deliveries after a drop. Open: whether deliveries queued for a consumer's callback when the connection drops are still dispatched. Recommendation: yes, because for `auto_ack` deliveries the queue holds the only copy; their acknowledgements are dropped as stale (D-13). Java's consumer work service keeps draining work already queued; .NET disposes the replaced channel and drops its handlers.
 - O-25 What a given-up consumer leaves recorded. Settled: a consumer is given up after a 404 or when the policy gives up, and is reported through the cancel callback (D-6). Open: whether it, and a queue that got a 404, stay in the record for the next connection recovery. Recommendation: both are removed, since the broker has said they are gone.
 - O-26 Registering during recovery. Settled: acknowledgements, `basic_cancel` and `close()` are accepted while `RECOVERING` (D-11). Open: whether registering callbacks and listeners is accepted too. Recommendation: yes, so an application can react to recovery while it is under way.
-- O-27 A `multiple` acknowledgement with tag 0. Settled: stale tags are dropped (D-13). Open: whether `basic_ack` or `basic_nack` with tag 0 and `multiple` set, which names every outstanding delivery, is sent after a recovery. Recommendation: send it unchanged, as Java does, since it can only refer to the current generation's deliveries.
 
 ## Settled
 
@@ -59,6 +58,7 @@ Each states the decision, its reason, then how Java (AMQP 0.9.1), the AMQP 1.0 J
 - D-25 A connection can be given a list of hosts, and each attempt, the first included, tries them in a newly shuffled order. One unreachable broker node then does not stop recovery, and shuffling spreads reconnecting clients across the nodes. Java tries every address in a shuffled order on each attempt.
 - D-26 A server-named queue's new name is reported through a connection notification carrying the old and new names, fired once the record has been updated and before consumers are re-subscribed. An application that keeps the name, to publish to or bind it elsewhere, needs to learn it. .NET does this with `QueueNameChangedAfterRecoveryAsync`; Java's queue-recovery listener is documented as not public API.
 - D-28 In confirm mode, a publish accepted by `basic_publish` but not yet written when the channel is lost is reported as outcome unknown. Dropping it silently would lose the message without the application knowing, and the application cannot tell it apart from a publish written but unconfirmed.
+- D-29 `basic_ack` or `basic_nack` with `multiple` set and a delivery tag of 0, which the protocol defines as every outstanding delivery on the channel, is sent unchanged after a recovery rather than treated as stale. An application's acknowledge-all keeps working, and on a recovered channel it can only cover the current generation's deliveries. Java special-cases tag 0 the same way in `RecoveryAwareChannelN`.
 
 ## Designs already rejected
 
