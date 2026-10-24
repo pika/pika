@@ -1645,7 +1645,7 @@ class Connection(abc.ABC):
     @property
     def _client_properties(self) -> dict[str, Any]:
         """Return the client properties dictionary."""
-        properties = {
+        properties: dict[str, Any] = {
             'product': PRODUCT,
             'platform': f'Python {platform.python_version()}',
             'capabilities': {
