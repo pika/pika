@@ -1661,7 +1661,19 @@ class Connection(abc.ABC):
         }
 
         if self.params.client_properties:
-            properties.update(self.params.client_properties)
+            client_capabilities = self.params.client_properties.get(
+                'capabilities')
+            if isinstance(client_capabilities, dict):
+                # Merge capabilities one level deep: an application may add
+                # flags, or switch individual flags off, without discarding
+                # the rest of the capabilities pika advertises (#1791).
+                properties['capabilities'].update(client_capabilities)
+            properties.update({
+                key: value
+                for key, value in self.params.client_properties.items()
+                if key != 'capabilities' or
+                not isinstance(client_capabilities, dict)
+            })
 
         return properties
 
