@@ -152,8 +152,14 @@ fmt = "yapf --in-place --style google --recursive --exclude 'pika/spec.py' pika/
 fmt-check = "yapf --diff --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/ utils/ .ci/"
 lint = "ruff check pika/ tests/ examples/ utils/ .ci/ --fix"
 lint-check = "ruff check pika/ tests/ examples/ utils/ .ci/"
-docfmt = "docformatter --in-place --recursive pika/ tests/ examples/ utils/ .ci/ --exclude pika/spec.py"
-docfmt-check = "docformatter --check --diff --recursive pika/ tests/ examples/ utils/ .ci/ --exclude pika/spec.py"
+docfmt = [
+    "- docformatter --in-place --recursive pika/ --exclude spec.py",
+    "docformatter --in-place --recursive tests/ examples/ utils/ .ci/",
+]
+docfmt-check = [
+    "docformatter --check --diff --recursive pika/ --exclude spec.py",
+    "docformatter --check --diff --recursive tests/ examples/ utils/ .ci/",
+]
 typecheck = "python -m mypy pika/ tests/typing/ .ci/"
 spec-regen = "python utils/regen_spec.py"
 spec-check = "python utils/regen_spec.py --check"
