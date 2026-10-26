@@ -2,6 +2,7 @@
 
 import platform
 import random
+import struct
 import unittest
 from unittest import mock
 
@@ -863,6 +864,104 @@ class ConnectionTests(unittest.TestCase):
         self.assertIs(fresh_buffer, self.connection._frame_buffer)
         self.assertEqual(bytearray(), self.connection._frame_buffer)
         self.assertFalse(self.connection._processing_frame_buffer)
+
+    def _feed_with_real_terminate(self, data):
+        """Feed *data* with the real `_terminate_stream`, stubbing only the transport teardown."""
+        with mock.patch.object(self.connection, '_adapter_disconnect_stream'):
+            self.connection._on_data_available(data)
+
+    def test_oversized_message_body_ends_the_connection_with_its_error(self):
+        self.connection.params.max_inbound_message_body_size = 1024
+        heartbeat_checker = mock.Mock()
+        self.connection._heartbeat_checker = heartbeat_checker
+        deliver = frame.Method(
+            1, spec.Basic.Deliver('ctag', 1, exchange='',
+                                  routing_key='q')).marshal()
+        header = frame.Header(1, 1025, spec.BasicProperties()).marshal()
+        heartbeat = frame.Heartbeat().marshal()
+
+        self._feed_with_real_terminate(deliver + header + heartbeat)
+
+        error = self.connection._error
+        self.assertIsInstance(error, exceptions.MessageBodyTooLargeError)
+        self.assertIsInstance(error, exceptions.AMQPConnectionError)
+        self.assertEqual((1025, 1024), error.args)
+        delivered = [
+            c[0][0] for c in self.channel._handle_content_frame.call_args_list
+        ]
+        self.assertEqual([frame.Method], [type(f) for f in delivered])
+        # Nothing after the oversized header is decoded, now or later.
+        self._feed_with_real_terminate(heartbeat)
+        self.assertFalse(heartbeat_checker.received.called)
+
+    def test_message_body_at_the_limit_is_accepted(self):
+        self.connection.params.max_inbound_message_body_size = 1024
+        header = frame.Header(1, 1024, spec.BasicProperties()).marshal()
+
+        self._feed_with_real_terminate(header)
+
+        self.assertIsNone(self.connection._error)
+        self.assertEqual(1, self.channel._handle_content_frame.call_count)
+
+    def test_oversized_frame_ends_the_connection_before_its_payload_arrives(
+            self):
+        claimed = 64 * 1024 * 1024 + 1
+        frame_header = struct.pack('>BHI', spec.FRAME_BODY, 1, claimed)
+
+        self._feed_with_real_terminate(frame_header)
+
+        error = self.connection._error
+        self.assertIsInstance(error, exceptions.FrameTooLargeError)
+        self.assertEqual((claimed, 64 * 1024 * 1024), error.args)
+        self.assertFalse(self.channel._handle_content_frame.called)
+        # Data arriving before the transport finishes closing is not buffered.
+        buffered = len(self.connection._frame_buffer)
+        self._feed_with_real_terminate(b'x' * 65536)
+        self.assertEqual(buffered, len(self.connection._frame_buffer))
+
+    def test_small_body_limit_does_not_refuse_ordinary_frames(self):
+        self.connection.params.max_inbound_message_body_size = 1
+        deliver = frame.Method(
+            1, spec.Basic.Deliver('ctag', 1, exchange='',
+                                  routing_key='q')).marshal()
+
+        self._feed_with_real_terminate(deliver)
+
+        self.assertIsNone(self.connection._error)
+        self.assertEqual(1, self.channel._handle_content_frame.call_count)
+
+    def test_a_graceful_close_still_receives_close_ok(self):
+        # close() records ConnectionClosedByClient before Connection.CloseOk arrives, so dropping
+        # data whenever any error is recorded would hang every graceful close.
+        self.connection._error = exceptions.ConnectionClosedByClient(200, 'bye')
+        close_ok = frame.Method(0, spec.Connection.CloseOk()).marshal()
+        with mock.patch.object(self.connection,
+                               '_process_frame') as process_frame:
+            self.connection._on_data_available(close_ok)
+        self.assertEqual(1, process_frame.call_count)
+
+    def test_small_body_limit_admits_large_properties_up_to_the_floor(self):
+        self.connection.params.frame_max = spec.FRAME_MIN_SIZE
+        self.connection.params.max_inbound_message_body_size = 1
+        properties = spec.BasicProperties(headers={'big': 'x' * 100000})
+        header = frame.Header(1, 1, properties).marshal()
+        self.assertGreater(len(header), spec.FRAME_MIN_SIZE)
+
+        self._feed_with_real_terminate(header)
+
+        self.assertIsNone(self.connection._error)
+        self.assertEqual(1, self.channel._handle_content_frame.call_count)
+
+    def test_size_errors_name_the_connection(self):
+        self.connection.params.max_inbound_message_body_size = 1024
+        header = frame.Header(1, 1025, spec.BasicProperties()).marshal()
+
+        self._feed_with_real_terminate(header)
+
+        error = self.connection._error
+        self.assertEqual(self.connection.params.host, error.host)
+        self.assertEqual(self.connection.params.port, error.port)
+        self.assertIn('host=', repr(error))
 
     def test_add_on_connection_blocked_callback(self):
         blocked_buffer = []

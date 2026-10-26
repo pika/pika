@@ -21,6 +21,7 @@ from pika.adapters.twisted_connection import (
 from pika.exceptions import (
     AMQPConnectionError,
     ChannelClosedByBroker,
+    ConnectionClosedByBroker,
     ConsumerCancelled,
     DuplicateGetOkCallback,
     NackError,
@@ -1038,6 +1039,16 @@ class TwistedConnectionAdapterTestCase(TestCase):
         self.assertEqual(self.conn._error, error.value)
         self.conn._on_stream_terminated.assert_called_with(None)
         self.assertIsNone(self.conn._transport)
+
+    def test_connection_lost_keeps_the_recorded_reason(self):
+        # A clean ConnectionDone after the connection recorded why it is closing must not
+        # replace that reason.
+        self.conn._on_stream_terminated = mock.Mock()
+        reason = ConnectionClosedByBroker(320, 'forced')
+        self.conn._error = reason
+        self.conn.connection_lost(Failure(twisted_error.ConnectionDone()))
+        self.assertIs(self.conn._error, reason)
+        self.conn._on_stream_terminated.assert_called_with(None)
 
     def test_data_received(self):
         # Verify that the received data is forwarded to the Connection.

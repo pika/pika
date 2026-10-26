@@ -43,6 +43,20 @@ class FrameTests(unittest.TestCase):
         protocol_header = frame.ProtocolHeader()
         self.assertEqual(protocol_header.marshal(), self.PROTOCOL_HEADER)
 
+    def test_decode_frame_refuses_a_size_above_the_limit_from_its_header_alone(
+            self):
+        frame_header = self.BODY_FRAME[:7]
+        with self.assertRaises(exceptions.FrameTooLargeError) as raised:
+            frame.decode_frame(frame_header, 0, len(self.BODY_FRAME) - 9)
+        self.assertEqual((len(self.BODY_FRAME) - 8, len(self.BODY_FRAME) - 9),
+                         raised.exception.args)
+
+    def test_decode_frame_accepts_a_size_at_the_limit(self):
+        consumed, decoded = frame.decode_frame(self.BODY_FRAME, 0,
+                                               len(self.BODY_FRAME) - 8)
+        self.assertEqual(len(self.BODY_FRAME), consumed)
+        self.assertIsInstance(decoded, frame.Body)
+
     def test_decode_protocol_header_instance(self):
         self.assertIsInstance(
             frame.decode_frame(self.PROTOCOL_HEADER)[1], frame.ProtocolHeader)

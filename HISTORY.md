@@ -4,7 +4,7 @@ Notes for each release are also published on the [GitHub releases page](https://
 
 ## Upgrading to 1.5.0
 
-Six changes are worth reading before you upgrade. Three can turn a passing build red, and two change what a working application observes when it cancels a consumer or closes a channel.
+Seven changes are worth reading before you upgrade. Three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, and one refuses messages larger than 64 MiB.
 
 ### `pika.Connection` is new, and is the connection to use
 
@@ -57,6 +57,14 @@ One thing follows for existing code: a consumer callback can now run for a messa
 A channel that is closing discards them, because a callback could not acknowledge one anyway and the attempt would abort the connection; the Java client discards them at the same point. `Channel.close` cancels each consumer without waiting for the broker to confirm, so this is what a bare `channel.close()` does on `SelectConnection`, `AsyncioConnection`, `TornadoConnection` and `GeventConnection`. A discarded delivery is redelivered to the next consumer with `auto_ack=False` and lost with `auto_ack=True`. Pika now logs a warning naming the count as the channel closes.
 
 `pika.Connection` and `BlockingConnection` are unaffected and keep every delivery across a close, since both cancel their consumers and wait for the broker to confirm before closing anything. To get the same guarantee from an asynchronous adapter, cancel each consumer with a callback and close the channel from the last `Basic.CancelOk`; the [channel documentation](https://pika.github.io/pika/latest/modules/channel/#closing-a-channel-with-active-consumers) has the pattern. Pika 2.0 removes these adapters, which leaves `Connection` and its `Channel` as the only close path and so retires the gap rather than fixing it.
+
+### Messages larger than 64 MiB now close the connection
+
+pika now refuses an inbound message whose body is larger than `max_inbound_message_body_size`, 64 MiB by default, and a frame larger than that limit or 128 KiB, whichever is greater. Either closes the connection with `MessageBodyTooLargeError` or `FrameTooLargeError`, both subclasses of `AMQPConnectionError`. The Java and .NET clients use the same 64 MiB default. RabbitMQ refuses messages above its own `max_message_size`, 16 MiB by default, so the limit is reached only when the broker is configured to allow larger messages.
+
+If you consume larger messages, raise the limit with `ConnectionParameters(max_inbound_message_body_size=...)` or `?max_inbound_message_body_size=` in a URL, up to 512 MiB, RabbitMQ's own maximum. A refused message delivered without `auto_ack` is requeued, so a consumer that reconnects is closed again: raise the limit, or dead-letter or remove the message on the broker. With `auto_ack` the broker has already discarded it. Returned messages and `basic_get` replies are checked too, so a publisher can be closed by its own oversized mandatory message coming back.
+
+On `TwistedProtocolConnection`, a close now reports its real reason rather than `ConnectionDone`: the size errors above, and `ConnectionClosedByBroker` when the broker closes the connection.
 
 ### `pika.compat` is gone
 

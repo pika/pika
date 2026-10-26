@@ -1189,7 +1189,9 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
         self._transport = None
         error = error.value  # drop the Failure wrapper
         if isinstance(error, twisted_error.ConnectionDone):
-            self._error = error
+            # A clean close follows `_terminate_stream`, so keep the reason it recorded.
+            if self._error is None:
+                self._error = error
             error = None
         LOGGER.log(logging.DEBUG if error is None else logging.ERROR,
                    'connection_lost: %r', error)

@@ -355,6 +355,27 @@ class ProtocolVersionMismatch(ProtocolSyntaxError):
         return f'{self.__class__.__name__}: Protocol versions did not match: {self.args[0]!r} vs {self.args[1]!r}'
 
 
+class FrameTooLargeError(AMQPConnectionError):
+    """An inbound frame declared a payload above the connection's frame limit."""
+
+    @override
+    def __repr__(self) -> str:
+        return (
+            f'{self.__class__.__name__}: Received a frame of {self.args[0]} bytes, above the '
+            f'limit of {self.args[1]} bytes{self._host_port_suffix()}')
+
+
+class MessageBodyTooLargeError(AMQPConnectionError):
+    """An inbound message declared a body above ``max_inbound_message_body_size``."""
+
+    @override
+    def __repr__(self) -> str:
+        return (
+            f'{self.__class__.__name__}: Received a message with a {self.args[0]}-byte body, '
+            f'above the max_inbound_message_body_size of {self.args[1]} bytes'
+            f'{self._host_port_suffix()}')
+
+
 class BodyTooLongError(ProtocolSyntaxError):
 
     @override
