@@ -36,7 +36,7 @@ PIKA_CI_EXAMPLES=true .ci/linux/gha-setup.sh
 hatch run examples:check
 ```
 
-Between examples it deletes every queue, and every exchange the broker did not create, so point it at a throwaway broker. Pass example file names to run only those, against any broker the examples themselves need.
+Between examples it deletes every queue, and every exchange the broker did not create, so point it at a throwaway broker. Pass example file names to run only those; the reset still runs between them, so they need the same broker.
 
 An example has to exit 0 by itself, unless it is listed in `SERVES` in `.ci/run_examples.py`; then it has to keep running until Ctrl-C and stop without a traceback.
 

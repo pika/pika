@@ -76,7 +76,7 @@ If you add a new setting to `rabbitmq.conf.in`, you must also add it to `linux/r
 
 ### Examples job: `linux/examples.conf`
 
-Mounted into `/etc/rabbitmq/conf.d/`, which the broker reads after `rabbitmq.conf`, only when `PIKA_CI_EXAMPLES=true`, so the test legs are unchanged. It adds SASL `EXTERNAL` for `tls_mutual_authentication_twisted.py`. Listing any mechanism replaces the default list, so the file repeats the defaults; without them every other example is refused.
+Mounted into `/etc/rabbitmq/conf.d/`, which the broker reads after `rabbitmq.conf`, only when `PIKA_CI_EXAMPLES=true`, so the test legs are unchanged. It adds SASL `EXTERNAL` for `tls_mutual_authentication_twisted.py`. Listing any mechanism replaces the default list, so the file repeats the defaults; without them every other example is refused. It also turns the management metrics collector back on, which `rabbitmq:latest` disables, because `.ci/run_examples.py` finds a serving example's connection through `/api/connections`.
 
 ## Platform-specific setup scripts
 

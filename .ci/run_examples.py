@@ -16,6 +16,7 @@ Usage:
 from __future__ import annotations
 
 import base64
+import functools
 import json
 import os
 import pathlib
@@ -27,7 +28,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any
+from typing import Any, Callable
 
 EXAMPLES_DIR = pathlib.Path(__file__).resolve().parent.parent / 'examples'
 
@@ -62,7 +63,9 @@ def run(argv: list[str],
         serves: bool,
         deadline: float = 60.0,
         settle: float = 5.0,
-        grace: float = 15.0) -> tuple[str | None, str]:
+        grace: float = 15.0,
+        connected: Callable[[], bool] | None = None,
+        connect_wait: float = 15.0) -> tuple[str | None, str]:
     """
     Run one example and judge it.
 
@@ -71,6 +74,9 @@ def run(argv: list[str],
         seconds.
     :param settle: How long a serving example has to keep running before it is sent SIGINT.
     :param grace: How long it then has to stop.
+    :param connected: For a serving example, whether it has a connection open to the broker; a
+        serving example that never connects fails rather than passing for staying alive.
+    :param connect_wait: How long after *settle* to keep asking *connected*.
     :returns: Why it failed, or None when it passed, and its output.
     """
     reason = None
@@ -93,6 +99,9 @@ def run(argv: list[str],
                     reason = f'exited {proc.returncode}'
             elif _exited(proc, settle):
                 reason = f'exited {proc.returncode} before it was interrupted'
+            elif connected is not None and not _waited_for(
+                    connected, proc, connect_wait):
+                reason = 'never connected to the broker'
             else:
                 proc.send_signal(signal.SIGINT)
                 if not _exited(proc, grace):
@@ -115,6 +124,16 @@ def run(argv: list[str],
 
 def _restore_sigint() -> None:
     signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+
+def _waited_for(connected: Callable[[], bool], proc: subprocess.Popen[bytes],
+                timeout: float) -> bool:
+    end = time.monotonic() + timeout
+    while not connected():
+        if time.monotonic() >= end or proc.poll() is not None:
+            return False
+        time.sleep(0.5)
+    return True
 
 
 def _exited(proc: subprocess.Popen[bytes], timeout: float) -> bool:
@@ -166,6 +185,13 @@ def _api(method: str, path: str) -> Any:
         return json.loads(response.read() or b'null')
 
 
+def _connected_since(start: float) -> bool:
+    # The management API can still list an earlier example's connection after it has closed.
+    return any(
+        item.get('connected_at', 0) / 1000 >= start
+        for item in _api('GET', 'connections'))
+
+
 def main(names: list[str]) -> int:
     """
     Run the examples and report each one.
@@ -179,10 +205,19 @@ def main(names: list[str]) -> int:
     for path in paths:
         _reset()
         start = time.monotonic()
-        reason, output = run(_command(path), path.name in SERVES)
+        started_at = time.time() - 1
+        reason, output = run(_command(path),
+                             path.name in SERVES,
+                             connected=functools.partial(
+                                 _connected_since, started_at))
         if reason is None:
             print(f'PASS {path.name} ({time.monotonic() - start:.1f}s)',
                   flush=True)
+            if os.environ.get('GITHUB_ACTIONS') == 'true':
+                # Collapsed in the log, so a pass can still be audited.
+                print(
+                    f'::group::{path.name} output\n{output.rstrip()}\n::endgroup::',
+                    flush=True)
         else:
             tail = '\n'.join(
                 f'    {line}' for line in output.splitlines()[-100:])

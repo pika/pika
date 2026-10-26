@@ -1,6 +1,9 @@
 """Tests for .ci/run_examples.py."""
 
+import contextlib
+import os
 import pathlib
+import signal
 import sys
 import textwrap
 import unittest
@@ -21,6 +24,13 @@ def run(source, serves=False, **timings):
 
 
 class RunTests(unittest.TestCase):
+
+    def setUp(self):
+        # Run as `hatch run` does, with SIGINT ignored, which a child inherits unless the runner
+        # restores it.
+        if hasattr(signal, 'SIGINT') and sys.platform != 'win32':
+            previous = signal.signal(signal.SIGINT, signal.SIG_IGN)
+            self.addCleanup(signal.signal, signal.SIGINT, previous)
 
     def test_an_example_that_exits_zero_passes_and_both_streams_are_kept(self):
         reason, output = run(
@@ -66,11 +76,37 @@ class RunTests(unittest.TestCase):
                         serves=True,
                         settle=SETTLE,
                         grace=10)
+        # It must fail for the unhandled KeyboardInterrupt (a traceback on 3.8+, exit 1 on 3.7),
+        # not because the child never received SIGINT.
         self.assertIsNotNone(reason)
+        self.assertNotIn('still running', reason)
+
+    def test_a_server_that_never_connects_fails(self):
+        reason, _ = run('import time; time.sleep(60)',
+                        serves=True,
+                        settle=0.5,
+                        connected=lambda: False,
+                        connect_wait=1)
+        self.assertEqual(reason, 'never connected to the broker')
 
     def test_serves_names_only_existing_examples(self):
         present = {path.name for path in run_examples.EXAMPLES_DIR.glob('*.py')}
         self.assertLessEqual(run_examples.SERVES, present)
+
+
+class MainTests(unittest.TestCase):
+
+    @mock.patch.object(run_examples, '_reset')
+    @mock.patch.object(run_examples, 'run', return_value=(None, 'did it'))
+    def test_a_pass_prints_its_output_in_a_collapsed_group_on_github(
+            self, _run, _reset):
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(
+                mock.patch.dict(os.environ, {'GITHUB_ACTIONS': 'true'}))
+            printed = stack.enter_context(mock.patch('builtins.print'))
+            self.assertEqual(0, run_examples.main(['consume.py']))
+        text = '\n'.join(str(c[0][0]) for c in printed.call_args_list)
+        self.assertIn('::group::consume.py output\ndid it\n::endgroup::', text)
 
 
 class ResetTests(unittest.TestCase):
