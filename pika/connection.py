@@ -2094,22 +2094,23 @@ class Connection(abc.ABC):
         > - The client responds and **MAY reduce those limits** for its
             connection
 
-        If the client specifies a value, it always takes precedence.
+        A client value of 0 (zero) defers to the server's proposal, and
+        when both peers propose nonzero values the lower one wins; the
+        client may only reduce the server's limit, matching the Java
+        client and Bunny.
 
         :param client_value: None to accept server_value; otherwise, an integral
-            number in seconds; 0 (zero) to disable heartbeat.
+            number in seconds; 0 (zero) defers to the server's proposal
+            (heartbeat is disabled only if both peers propose 0).
         :param server_value: integral value of the heartbeat timeout proposed by
             broker; 0 (zero) to disable heartbeat.
 
         :returns: the value of the heartbeat timeout to use and return to broker
         """
-        if client_value is None:
-            # Accept server's limit
-            timeout = server_value
-        else:
-            timeout = client_value
-
-        return timeout
+        # Negotiate per AMQP 0-9-1: a zero from either peer defers to the
+        # other peer's value, otherwise the lower value wins. This matches
+        # the Java client and Bunny, see pika/pika#874 and pika/pika#1456.
+        return Connection._negotiate_integer_value(client_value, server_value)
 
     def _on_connection_tune(
             self, method_frame: frame.Method[spec.Connection.Tune]) -> None:
