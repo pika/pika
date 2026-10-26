@@ -4,7 +4,6 @@ import array
 import errno
 import logging
 import multiprocessing
-import os
 import socket
 import socketserver
 import struct
@@ -230,7 +229,7 @@ class ForwardServer:
             if self._subproc.is_alive():
                 self._logger.error(
                     'ForwardServer failed to terminate, killing it')
-                os.kill(self._subproc.pid)
+                self._subproc.kill()
                 self._subproc.join(timeout=self._SUBPROC_TIMEOUT)
                 assert not self._subproc.is_alive(), self._subproc
 
