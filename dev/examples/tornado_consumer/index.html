@@ -2096,308 +2096,326 @@
 </span><span id="__span-0-50">        <span class="k">return</span> <span class="n">TornadoConnection</span><span class="p">(</span>
 </span><span id="__span-0-51">            <span class="n">pika</span><span class="o">.</span><span class="n">URLParameters</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_url</span><span class="p">),</span>
 </span><span id="__span-0-52">            <span class="bp">self</span><span class="o">.</span><span class="n">on_connection_open</span><span class="p">,</span>
-</span><span id="__span-0-53">        <span class="p">)</span>
-</span><span id="__span-0-54">
-</span><span id="__span-0-55">    <span class="k">def</span><span class="w"> </span><span class="nf">close_connection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="__span-0-56"><span class="w">        </span><span class="sd">"""This method closes the connection to RabbitMQ."""</span>
-</span><span id="__span-0-57">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Closing connection'</span><span class="p">)</span>
-</span><span id="__span-0-58">        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span id="__span-0-53">            <span class="n">on_open_error_callback</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">on_connection_open_error</span><span class="p">,</span>
+</span><span id="__span-0-54">        <span class="p">)</span>
+</span><span id="__span-0-55">
+</span><span id="__span-0-56">    <span class="k">def</span><span class="w"> </span><span class="nf">on_connection_open_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">err</span><span class="p">):</span>
+</span><span id="__span-0-57"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-58"><span class="sd">        This method is called by pika if the connection to RabbitMQ can't be established.</span>
 </span><span id="__span-0-59">
-</span><span id="__span-0-60">    <span class="k">def</span><span class="w"> </span><span class="nf">add_on_connection_close_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="__span-0-61"><span class="w">        </span><span class="sd">"""This method adds an on close callback that will be invoked by pika when RabbitMQ closes</span>
-</span><span id="__span-0-62"><span class="sd">        the connection to the publisher unexpectedly.</span>
-</span><span id="__span-0-63"><span class="sd">        """</span>
-</span><span id="__span-0-64">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Adding connection close callback'</span><span class="p">)</span>
-</span><span id="__span-0-65">        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">add_on_close_callback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">on_connection_closed</span><span class="p">)</span>
-</span><span id="__span-0-66">
-</span><span id="__span-0-67">    <span class="k">def</span><span class="w"> </span><span class="nf">on_connection_closed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">reason</span><span class="p">):</span>
-</span><span id="__span-0-68"><span class="w">        </span><span class="sd">"""</span>
-</span><span id="__span-0-69"><span class="sd">        This method is invoked by pika when the connection to RabbitMQ is closed unexpectedly.</span>
+</span><span id="__span-0-60"><span class="sd">        :param pika.adapters.tornado_connection.TornadoConnection connection: The connection</span>
+</span><span id="__span-0-61"><span class="sd">        :param Exception err: The error</span>
+</span><span id="__span-0-62"><span class="sd">        """</span>
+</span><span id="__span-0-63">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">'Connection open failed, retrying in 5 seconds: </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+</span><span id="__span-0-64">        <span class="n">connection</span><span class="o">.</span><span class="n">ioloop</span><span class="o">.</span><span class="n">call_later</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">reconnect</span><span class="p">)</span>
+</span><span id="__span-0-65">
+</span><span id="__span-0-66">    <span class="k">def</span><span class="w"> </span><span class="nf">close_connection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-67"><span class="w">        </span><span class="sd">"""This method closes the connection to RabbitMQ."""</span>
+</span><span id="__span-0-68">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Closing connection'</span><span class="p">)</span>
+</span><span id="__span-0-69">        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 </span><span id="__span-0-70">
-</span><span id="__span-0-71"><span class="sd">        Since it is unexpected, we will reconnect to RabbitMQ if it disconnects.</span>
-</span><span id="__span-0-72">
-</span><span id="__span-0-73"><span class="sd">        :param pika.connection.Connection connection: The closed connection obj</span>
-</span><span id="__span-0-74"><span class="sd">        :param Exception reason: exception representing reason for loss of connection.</span>
-</span><span id="__span-0-75"><span class="sd">        """</span>
-</span><span id="__span-0-76">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="__span-0-77">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_closing</span><span class="p">:</span>
-</span><span id="__span-0-78">            <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">ioloop</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
-</span><span id="__span-0-79">        <span class="k">else</span><span class="p">:</span>
-</span><span id="__span-0-80">            <span class="n">LOGGER</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">'Connection closed, reopening in 5 seconds: </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span>
-</span><span id="__span-0-81">                           <span class="n">reason</span><span class="p">)</span>
-</span><span id="__span-0-82">            <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">ioloop</span><span class="o">.</span><span class="n">call_later</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">reconnect</span><span class="p">)</span>
+</span><span id="__span-0-71">    <span class="k">def</span><span class="w"> </span><span class="nf">add_on_connection_close_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-72"><span class="w">        </span><span class="sd">"""This method adds an on close callback that will be invoked by pika when RabbitMQ closes</span>
+</span><span id="__span-0-73"><span class="sd">        the connection to the publisher unexpectedly.</span>
+</span><span id="__span-0-74"><span class="sd">        """</span>
+</span><span id="__span-0-75">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Adding connection close callback'</span><span class="p">)</span>
+</span><span id="__span-0-76">        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">add_on_close_callback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">on_connection_closed</span><span class="p">)</span>
+</span><span id="__span-0-77">
+</span><span id="__span-0-78">    <span class="k">def</span><span class="w"> </span><span class="nf">on_connection_closed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">reason</span><span class="p">):</span>
+</span><span id="__span-0-79"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-80"><span class="sd">        This method is invoked by pika when the connection to RabbitMQ is closed unexpectedly.</span>
+</span><span id="__span-0-81">
+</span><span id="__span-0-82"><span class="sd">        Since it is unexpected, we will reconnect to RabbitMQ if it disconnects.</span>
 </span><span id="__span-0-83">
-</span><span id="__span-0-84">    <span class="k">def</span><span class="w"> </span><span class="nf">on_connection_open</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unused_connection</span><span class="p">):</span>
-</span><span id="__span-0-85"><span class="w">        </span><span class="sd">"""</span>
-</span><span id="__span-0-86"><span class="sd">        This method is called by pika once the connection to RabbitMQ has been established.</span>
-</span><span id="__span-0-87">
-</span><span id="__span-0-88"><span class="sd">        It passes the handle to the connection object in case we need it, but in this case, we'll</span>
-</span><span id="__span-0-89"><span class="sd">        just mark it unused.</span>
-</span><span id="__span-0-90">
-</span><span id="__span-0-91"><span class="sd">        :param pika.SelectConnection _unused_connection: The connection</span>
-</span><span id="__span-0-92"><span class="sd">        """</span>
-</span><span id="__span-0-93">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Connection opened'</span><span class="p">)</span>
-</span><span id="__span-0-94">        <span class="bp">self</span><span class="o">.</span><span class="n">add_on_connection_close_callback</span><span class="p">()</span>
-</span><span id="__span-0-95">        <span class="bp">self</span><span class="o">.</span><span class="n">open_channel</span><span class="p">()</span>
-</span><span id="__span-0-96">
-</span><span id="__span-0-97">    <span class="k">def</span><span class="w"> </span><span class="nf">reconnect</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="__span-0-98"><span class="w">        </span><span class="sd">"""</span>
-</span><span id="__span-0-99"><span class="sd">        Will be invoked by the IOLoop timer if the connection is closed.</span>
-</span><span id="__span-0-100">
-</span><span id="__span-0-101"><span class="sd">        See the on_connection_closed method.</span>
-</span><span id="__span-0-102"><span class="sd">        """</span>
-</span><span id="__span-0-103">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_closing</span><span class="p">:</span>
-</span><span id="__span-0-104">
-</span><span id="__span-0-105">            <span class="c1"># Create a new connection</span>
-</span><span id="__span-0-106">            <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
+</span><span id="__span-0-84"><span class="sd">        :param pika.connection.Connection connection: The closed connection obj</span>
+</span><span id="__span-0-85"><span class="sd">        :param Exception reason: exception representing reason for loss of connection.</span>
+</span><span id="__span-0-86"><span class="sd">        """</span>
+</span><span id="__span-0-87">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-0-88">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_closing</span><span class="p">:</span>
+</span><span id="__span-0-89">            <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">ioloop</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</span><span id="__span-0-90">        <span class="k">else</span><span class="p">:</span>
+</span><span id="__span-0-91">            <span class="n">LOGGER</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">'Connection closed, reopening in 5 seconds: </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span>
+</span><span id="__span-0-92">                           <span class="n">reason</span><span class="p">)</span>
+</span><span id="__span-0-93">            <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">ioloop</span><span class="o">.</span><span class="n">call_later</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">reconnect</span><span class="p">)</span>
+</span><span id="__span-0-94">
+</span><span id="__span-0-95">    <span class="k">def</span><span class="w"> </span><span class="nf">on_connection_open</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unused_connection</span><span class="p">):</span>
+</span><span id="__span-0-96"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-97"><span class="sd">        This method is called by pika once the connection to RabbitMQ has been established.</span>
+</span><span id="__span-0-98">
+</span><span id="__span-0-99"><span class="sd">        It passes the handle to the connection object in case we need it, but in this case, we'll</span>
+</span><span id="__span-0-100"><span class="sd">        just mark it unused.</span>
+</span><span id="__span-0-101">
+</span><span id="__span-0-102"><span class="sd">        :param pika.SelectConnection _unused_connection: The connection</span>
+</span><span id="__span-0-103"><span class="sd">        """</span>
+</span><span id="__span-0-104">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Connection opened'</span><span class="p">)</span>
+</span><span id="__span-0-105">        <span class="bp">self</span><span class="o">.</span><span class="n">add_on_connection_close_callback</span><span class="p">()</span>
+</span><span id="__span-0-106">        <span class="bp">self</span><span class="o">.</span><span class="n">open_channel</span><span class="p">()</span>
 </span><span id="__span-0-107">
-</span><span id="__span-0-108">    <span class="k">def</span><span class="w"> </span><span class="nf">add_on_channel_close_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="__span-0-109"><span class="w">        </span><span class="sd">"""This method tells pika to call the on_channel_closed method if RabbitMQ unexpectedly</span>
-</span><span id="__span-0-110"><span class="sd">        closes the channel.</span>
-</span><span id="__span-0-111"><span class="sd">        """</span>
-</span><span id="__span-0-112">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Adding channel close callback'</span><span class="p">)</span>
-</span><span id="__span-0-113">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">add_on_close_callback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">on_channel_closed</span><span class="p">)</span>
-</span><span id="__span-0-114">
-</span><span id="__span-0-115">    <span class="k">def</span><span class="w"> </span><span class="nf">on_channel_closed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">reason</span><span class="p">):</span>
-</span><span id="__span-0-116"><span class="w">        </span><span class="sd">"""</span>
-</span><span id="__span-0-117"><span class="sd">        Invoked by pika when RabbitMQ unexpectedly closes the channel.</span>
+</span><span id="__span-0-108">    <span class="k">def</span><span class="w"> </span><span class="nf">reconnect</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-109"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-110"><span class="sd">        Will be invoked by the IOLoop timer if the connection is closed.</span>
+</span><span id="__span-0-111">
+</span><span id="__span-0-112"><span class="sd">        See the on_connection_closed method.</span>
+</span><span id="__span-0-113"><span class="sd">        """</span>
+</span><span id="__span-0-114">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_closing</span><span class="p">:</span>
+</span><span id="__span-0-115">
+</span><span id="__span-0-116">            <span class="c1"># Create a new connection</span>
+</span><span id="__span-0-117">            <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
 </span><span id="__span-0-118">
-</span><span id="__span-0-119"><span class="sd">        Channels are usually closed if you attempt to do something that violates the protocol, such</span>
-</span><span id="__span-0-120"><span class="sd">        as re-declare an exchange or queue with different parameters. In this case, we'll close the</span>
-</span><span id="__span-0-121"><span class="sd">        connection to shutdown the object.</span>
-</span><span id="__span-0-122">
-</span><span id="__span-0-123"><span class="sd">        :param pika.channel.Channel: The closed channel</span>
-</span><span id="__span-0-124"><span class="sd">        :param Exception reason: why the channel was closed</span>
-</span><span id="__span-0-125"><span class="sd">        """</span>
-</span><span id="__span-0-126">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">'Channel </span><span class="si">%i</span><span class="s1"> was closed: </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">reason</span><span class="p">)</span>
-</span><span id="__span-0-127">        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-</span><span id="__span-0-128">
-</span><span id="__span-0-129">    <span class="k">def</span><span class="w"> </span><span class="nf">on_channel_open</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">):</span>
-</span><span id="__span-0-130"><span class="w">        </span><span class="sd">"""</span>
-</span><span id="__span-0-131"><span class="sd">        This method is invoked by pika when the channel has been opened.</span>
-</span><span id="__span-0-132">
-</span><span id="__span-0-133"><span class="sd">        The channel object is passed in so we can make use of it.</span>
-</span><span id="__span-0-134">
-</span><span id="__span-0-135"><span class="sd">        Since the channel is now open, we'll declare the exchange to use.</span>
-</span><span id="__span-0-136">
-</span><span id="__span-0-137"><span class="sd">        :param pika.channel.Channel channel: The channel object</span>
-</span><span id="__span-0-138"><span class="sd">        """</span>
-</span><span id="__span-0-139">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Channel opened'</span><span class="p">)</span>
-</span><span id="__span-0-140">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span> <span class="o">=</span> <span class="n">channel</span>
-</span><span id="__span-0-141">        <span class="bp">self</span><span class="o">.</span><span class="n">add_on_channel_close_callback</span><span class="p">()</span>
-</span><span id="__span-0-142">        <span class="bp">self</span><span class="o">.</span><span class="n">setup_exchange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">EXCHANGE</span><span class="p">)</span>
+</span><span id="__span-0-119">    <span class="k">def</span><span class="w"> </span><span class="nf">add_on_channel_close_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-120"><span class="w">        </span><span class="sd">"""This method tells pika to call the on_channel_closed method if RabbitMQ unexpectedly</span>
+</span><span id="__span-0-121"><span class="sd">        closes the channel.</span>
+</span><span id="__span-0-122"><span class="sd">        """</span>
+</span><span id="__span-0-123">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Adding channel close callback'</span><span class="p">)</span>
+</span><span id="__span-0-124">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">add_on_close_callback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">on_channel_closed</span><span class="p">)</span>
+</span><span id="__span-0-125">
+</span><span id="__span-0-126">    <span class="k">def</span><span class="w"> </span><span class="nf">on_channel_closed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">reason</span><span class="p">):</span>
+</span><span id="__span-0-127"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-128"><span class="sd">        Invoked by pika when RabbitMQ unexpectedly closes the channel.</span>
+</span><span id="__span-0-129">
+</span><span id="__span-0-130"><span class="sd">        Channels are usually closed if you attempt to do something that violates the protocol, such</span>
+</span><span id="__span-0-131"><span class="sd">        as re-declare an exchange or queue with different parameters. In this case, we'll close the</span>
+</span><span id="__span-0-132"><span class="sd">        connection to shutdown the object.</span>
+</span><span id="__span-0-133">
+</span><span id="__span-0-134"><span class="sd">        :param pika.channel.Channel: The closed channel</span>
+</span><span id="__span-0-135"><span class="sd">        :param Exception reason: why the channel was closed</span>
+</span><span id="__span-0-136"><span class="sd">        """</span>
+</span><span id="__span-0-137">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">'Channel </span><span class="si">%i</span><span class="s1"> was closed: </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">reason</span><span class="p">)</span>
+</span><span id="__span-0-138">        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span id="__span-0-139">
+</span><span id="__span-0-140">    <span class="k">def</span><span class="w"> </span><span class="nf">on_channel_open</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">):</span>
+</span><span id="__span-0-141"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-142"><span class="sd">        This method is invoked by pika when the channel has been opened.</span>
 </span><span id="__span-0-143">
-</span><span id="__span-0-144">    <span class="k">def</span><span class="w"> </span><span class="nf">setup_exchange</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exchange_name</span><span class="p">):</span>
-</span><span id="__span-0-145"><span class="w">        </span><span class="sd">"""</span>
-</span><span id="__span-0-146"><span class="sd">        Setup the exchange on RabbitMQ by invoking the Exchange.Declare RPC command.</span>
+</span><span id="__span-0-144"><span class="sd">        The channel object is passed in so we can make use of it.</span>
+</span><span id="__span-0-145">
+</span><span id="__span-0-146"><span class="sd">        Since the channel is now open, we'll declare the exchange to use.</span>
 </span><span id="__span-0-147">
-</span><span id="__span-0-148"><span class="sd">        When it is complete, the on_exchange_declareok method will be invoked by pika.</span>
-</span><span id="__span-0-149">
-</span><span id="__span-0-150"><span class="sd">        :param str|unicode exchange_name: The name of the exchange to declare</span>
-</span><span id="__span-0-151"><span class="sd">        """</span>
-</span><span id="__span-0-152">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Declaring exchange </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span> <span class="n">exchange_name</span><span class="p">)</span>
-</span><span id="__span-0-153">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">exchange_declare</span><span class="p">(</span>
-</span><span id="__span-0-154">            <span class="n">callback</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">on_exchange_declareok</span><span class="p">,</span>
-</span><span id="__span-0-155">            <span class="n">exchange</span><span class="o">=</span><span class="n">exchange_name</span><span class="p">,</span>
-</span><span id="__span-0-156">            <span class="n">exchange_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">EXCHANGE_TYPE</span><span class="p">,</span>
-</span><span id="__span-0-157">        <span class="p">)</span>
+</span><span id="__span-0-148"><span class="sd">        :param pika.channel.Channel channel: The channel object</span>
+</span><span id="__span-0-149"><span class="sd">        """</span>
+</span><span id="__span-0-150">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Channel opened'</span><span class="p">)</span>
+</span><span id="__span-0-151">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span> <span class="o">=</span> <span class="n">channel</span>
+</span><span id="__span-0-152">        <span class="bp">self</span><span class="o">.</span><span class="n">add_on_channel_close_callback</span><span class="p">()</span>
+</span><span id="__span-0-153">        <span class="bp">self</span><span class="o">.</span><span class="n">setup_exchange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">EXCHANGE</span><span class="p">)</span>
+</span><span id="__span-0-154">
+</span><span id="__span-0-155">    <span class="k">def</span><span class="w"> </span><span class="nf">setup_exchange</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exchange_name</span><span class="p">):</span>
+</span><span id="__span-0-156"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-157"><span class="sd">        Setup the exchange on RabbitMQ by invoking the Exchange.Declare RPC command.</span>
 </span><span id="__span-0-158">
-</span><span id="__span-0-159">    <span class="k">def</span><span class="w"> </span><span class="nf">on_exchange_declareok</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unused_frame</span><span class="p">):</span>
-</span><span id="__span-0-160"><span class="w">        </span><span class="sd">"""</span>
-</span><span id="__span-0-161"><span class="sd">        Invoked by pika when RabbitMQ has finished the Exchange.Declare RPC command.</span>
-</span><span id="__span-0-162">
-</span><span id="__span-0-163"><span class="sd">        :param pika.Frame.Method unused_frame: Exchange.DeclareOk response frame</span>
-</span><span id="__span-0-164"><span class="sd">        """</span>
-</span><span id="__span-0-165">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Exchange declared'</span><span class="p">)</span>
-</span><span id="__span-0-166">        <span class="bp">self</span><span class="o">.</span><span class="n">setup_queue</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">QUEUE</span><span class="p">)</span>
-</span><span id="__span-0-167">
-</span><span id="__span-0-168">    <span class="k">def</span><span class="w"> </span><span class="nf">setup_queue</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">queue_name</span><span class="p">):</span>
-</span><span id="__span-0-169"><span class="w">        </span><span class="sd">"""</span>
-</span><span id="__span-0-170"><span class="sd">        Setup the queue on RabbitMQ by invoking the Queue.Declare RPC command.</span>
-</span><span id="__span-0-171">
-</span><span id="__span-0-172"><span class="sd">        When it is complete, the on_queue_declareok method will be invoked by pika.</span>
+</span><span id="__span-0-159"><span class="sd">        When it is complete, the on_exchange_declareok method will be invoked by pika.</span>
+</span><span id="__span-0-160">
+</span><span id="__span-0-161"><span class="sd">        :param str|unicode exchange_name: The name of the exchange to declare</span>
+</span><span id="__span-0-162"><span class="sd">        """</span>
+</span><span id="__span-0-163">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Declaring exchange </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span> <span class="n">exchange_name</span><span class="p">)</span>
+</span><span id="__span-0-164">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">exchange_declare</span><span class="p">(</span>
+</span><span id="__span-0-165">            <span class="n">callback</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">on_exchange_declareok</span><span class="p">,</span>
+</span><span id="__span-0-166">            <span class="n">exchange</span><span class="o">=</span><span class="n">exchange_name</span><span class="p">,</span>
+</span><span id="__span-0-167">            <span class="n">exchange_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">EXCHANGE_TYPE</span><span class="p">,</span>
+</span><span id="__span-0-168">        <span class="p">)</span>
+</span><span id="__span-0-169">
+</span><span id="__span-0-170">    <span class="k">def</span><span class="w"> </span><span class="nf">on_exchange_declareok</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unused_frame</span><span class="p">):</span>
+</span><span id="__span-0-171"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-172"><span class="sd">        Invoked by pika when RabbitMQ has finished the Exchange.Declare RPC command.</span>
 </span><span id="__span-0-173">
-</span><span id="__span-0-174"><span class="sd">        :param str|unicode queue_name: The name of the queue to declare.</span>
+</span><span id="__span-0-174"><span class="sd">        :param pika.Frame.Method unused_frame: Exchange.DeclareOk response frame</span>
 </span><span id="__span-0-175"><span class="sd">        """</span>
-</span><span id="__span-0-176">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Declaring queue </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span> <span class="n">queue_name</span><span class="p">)</span>
-</span><span id="__span-0-177">        <span class="c1"># `durable=True` is required by RabbitMQ 4.3; see examples/README.md.</span>
-</span><span id="__span-0-178">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span>
-</span><span id="__span-0-179">            <span class="n">queue</span><span class="o">=</span><span class="n">queue_name</span><span class="p">,</span>
-</span><span id="__span-0-180">            <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-0-181">            <span class="n">callback</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">on_queue_declareok</span><span class="p">,</span>
-</span><span id="__span-0-182">        <span class="p">)</span>
-</span><span id="__span-0-183">
-</span><span id="__span-0-184">    <span class="k">def</span><span class="w"> </span><span class="nf">on_queue_declareok</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">method_frame</span><span class="p">):</span>
-</span><span id="__span-0-185"><span class="w">        </span><span class="sd">"""</span>
-</span><span id="__span-0-186"><span class="sd">        Method invoked by pika when the Queue.Declare RPC call made in setup_queue has completed.</span>
-</span><span id="__span-0-187">
-</span><span id="__span-0-188"><span class="sd">        In this method we will bind the queue and exchange together with the routing key by issuing</span>
-</span><span id="__span-0-189"><span class="sd">        the Queue.Bind RPC command. When this command is complete, the on_bindok method will be</span>
-</span><span id="__span-0-190"><span class="sd">        invoked by pika.</span>
-</span><span id="__span-0-191">
-</span><span id="__span-0-192"><span class="sd">        :param pika.frame.Method method_frame: The Queue.DeclareOk frame</span>
-</span><span id="__span-0-193"><span class="sd">        """</span>
-</span><span id="__span-0-194">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Binding </span><span class="si">%s</span><span class="s1"> to </span><span class="si">%s</span><span class="s1"> with </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">EXCHANGE</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">QUEUE</span><span class="p">,</span>
-</span><span id="__span-0-195">                    <span class="bp">self</span><span class="o">.</span><span class="n">ROUTING_KEY</span><span class="p">)</span>
-</span><span id="__span-0-196">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">queue_bind</span><span class="p">(</span>
-</span><span id="__span-0-197">            <span class="n">queue</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">QUEUE</span><span class="p">,</span>
-</span><span id="__span-0-198">            <span class="n">exchange</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">EXCHANGE</span><span class="p">,</span>
-</span><span id="__span-0-199">            <span class="n">routing_key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ROUTING_KEY</span><span class="p">,</span>
-</span><span id="__span-0-200">            <span class="n">callback</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">on_bindok</span><span class="p">,</span>
-</span><span id="__span-0-201">        <span class="p">)</span>
+</span><span id="__span-0-176">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Exchange declared'</span><span class="p">)</span>
+</span><span id="__span-0-177">        <span class="bp">self</span><span class="o">.</span><span class="n">setup_queue</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">QUEUE</span><span class="p">)</span>
+</span><span id="__span-0-178">
+</span><span id="__span-0-179">    <span class="k">def</span><span class="w"> </span><span class="nf">setup_queue</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">queue_name</span><span class="p">):</span>
+</span><span id="__span-0-180"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-181"><span class="sd">        Setup the queue on RabbitMQ by invoking the Queue.Declare RPC command.</span>
+</span><span id="__span-0-182">
+</span><span id="__span-0-183"><span class="sd">        When it is complete, the on_queue_declareok method will be invoked by pika.</span>
+</span><span id="__span-0-184">
+</span><span id="__span-0-185"><span class="sd">        :param str|unicode queue_name: The name of the queue to declare.</span>
+</span><span id="__span-0-186"><span class="sd">        """</span>
+</span><span id="__span-0-187">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Declaring queue </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span> <span class="n">queue_name</span><span class="p">)</span>
+</span><span id="__span-0-188">        <span class="c1"># `durable=True` is required by RabbitMQ 4.3; see examples/README.md.</span>
+</span><span id="__span-0-189">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span>
+</span><span id="__span-0-190">            <span class="n">queue</span><span class="o">=</span><span class="n">queue_name</span><span class="p">,</span>
+</span><span id="__span-0-191">            <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-192">            <span class="n">callback</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">on_queue_declareok</span><span class="p">,</span>
+</span><span id="__span-0-193">        <span class="p">)</span>
+</span><span id="__span-0-194">
+</span><span id="__span-0-195">    <span class="k">def</span><span class="w"> </span><span class="nf">on_queue_declareok</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">method_frame</span><span class="p">):</span>
+</span><span id="__span-0-196"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-197"><span class="sd">        Method invoked by pika when the Queue.Declare RPC call made in setup_queue has completed.</span>
+</span><span id="__span-0-198">
+</span><span id="__span-0-199"><span class="sd">        In this method we will bind the queue and exchange together with the routing key by issuing</span>
+</span><span id="__span-0-200"><span class="sd">        the Queue.Bind RPC command. When this command is complete, the on_bindok method will be</span>
+</span><span id="__span-0-201"><span class="sd">        invoked by pika.</span>
 </span><span id="__span-0-202">
-</span><span id="__span-0-203">    <span class="k">def</span><span class="w"> </span><span class="nf">add_on_cancel_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="__span-0-204"><span class="w">        </span><span class="sd">"""</span>
-</span><span id="__span-0-205"><span class="sd">        Add a callback that will be invoked if RabbitMQ cancels the consumer for some reason.</span>
-</span><span id="__span-0-206">
-</span><span id="__span-0-207"><span class="sd">        If RabbitMQ does cancel the consumer, on_consumer_cancelled will be invoked by pika.</span>
-</span><span id="__span-0-208"><span class="sd">        """</span>
-</span><span id="__span-0-209">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Adding consumer cancellation callback'</span><span class="p">)</span>
-</span><span id="__span-0-210">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">add_on_cancel_callback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">on_consumer_cancelled</span><span class="p">)</span>
-</span><span id="__span-0-211">
-</span><span id="__span-0-212">    <span class="k">def</span><span class="w"> </span><span class="nf">on_consumer_cancelled</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">method_frame</span><span class="p">):</span>
-</span><span id="__span-0-213"><span class="w">        </span><span class="sd">"""</span>
-</span><span id="__span-0-214"><span class="sd">        Invoked by pika when RabbitMQ sends a Basic.Cancel for a consumer receiving messages.</span>
-</span><span id="__span-0-215">
-</span><span id="__span-0-216"><span class="sd">        :param pika.frame.Method method_frame: The Basic.Cancel frame</span>
-</span><span id="__span-0-217"><span class="sd">        """</span>
-</span><span id="__span-0-218">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Consumer was cancelled remotely, shutting down: </span><span class="si">%r</span><span class="s1">'</span><span class="p">,</span>
-</span><span id="__span-0-219">                    <span class="n">method_frame</span><span class="p">)</span>
-</span><span id="__span-0-220">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="p">:</span>
-</span><span id="__span-0-221">            <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span id="__span-0-203"><span class="sd">        :param pika.frame.Method method_frame: The Queue.DeclareOk frame</span>
+</span><span id="__span-0-204"><span class="sd">        """</span>
+</span><span id="__span-0-205">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Binding </span><span class="si">%s</span><span class="s1"> to </span><span class="si">%s</span><span class="s1"> with </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">EXCHANGE</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">QUEUE</span><span class="p">,</span>
+</span><span id="__span-0-206">                    <span class="bp">self</span><span class="o">.</span><span class="n">ROUTING_KEY</span><span class="p">)</span>
+</span><span id="__span-0-207">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">queue_bind</span><span class="p">(</span>
+</span><span id="__span-0-208">            <span class="n">queue</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">QUEUE</span><span class="p">,</span>
+</span><span id="__span-0-209">            <span class="n">exchange</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">EXCHANGE</span><span class="p">,</span>
+</span><span id="__span-0-210">            <span class="n">routing_key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ROUTING_KEY</span><span class="p">,</span>
+</span><span id="__span-0-211">            <span class="n">callback</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">on_bindok</span><span class="p">,</span>
+</span><span id="__span-0-212">        <span class="p">)</span>
+</span><span id="__span-0-213">
+</span><span id="__span-0-214">    <span class="k">def</span><span class="w"> </span><span class="nf">add_on_cancel_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-215"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-216"><span class="sd">        Add a callback that will be invoked if RabbitMQ cancels the consumer for some reason.</span>
+</span><span id="__span-0-217">
+</span><span id="__span-0-218"><span class="sd">        If RabbitMQ does cancel the consumer, on_consumer_cancelled will be invoked by pika.</span>
+</span><span id="__span-0-219"><span class="sd">        """</span>
+</span><span id="__span-0-220">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Adding consumer cancellation callback'</span><span class="p">)</span>
+</span><span id="__span-0-221">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">add_on_cancel_callback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">on_consumer_cancelled</span><span class="p">)</span>
 </span><span id="__span-0-222">
-</span><span id="__span-0-223">    <span class="k">def</span><span class="w"> </span><span class="nf">acknowledge_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">delivery_tag</span><span class="p">):</span>
+</span><span id="__span-0-223">    <span class="k">def</span><span class="w"> </span><span class="nf">on_consumer_cancelled</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">method_frame</span><span class="p">):</span>
 </span><span id="__span-0-224"><span class="w">        </span><span class="sd">"""</span>
-</span><span id="__span-0-225"><span class="sd">        Acknowledge the message delivery from RabbitMQ by sending a Basic.Ack RPC method for the</span>
-</span><span id="__span-0-226"><span class="sd">        delivery tag.</span>
-</span><span id="__span-0-227">
-</span><span id="__span-0-228"><span class="sd">        :param int delivery_tag: The delivery tag from the Basic.Deliver frame</span>
-</span><span id="__span-0-229"><span class="sd">        """</span>
-</span><span id="__span-0-230">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Acknowledging message </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span> <span class="n">delivery_tag</span><span class="p">)</span>
-</span><span id="__span-0-231">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">basic_ack</span><span class="p">(</span><span class="n">delivery_tag</span><span class="p">)</span>
-</span><span id="__span-0-232">
-</span><span id="__span-0-233">    <span class="k">def</span><span class="w"> </span><span class="nf">on_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unused_channel</span><span class="p">,</span> <span class="n">basic_deliver</span><span class="p">,</span> <span class="n">properties</span><span class="p">,</span> <span class="n">body</span><span class="p">):</span>
-</span><span id="__span-0-234"><span class="w">        </span><span class="sd">"""</span>
-</span><span id="__span-0-235"><span class="sd">        Invoked by pika when a message is delivered from RabbitMQ.</span>
-</span><span id="__span-0-236">
-</span><span id="__span-0-237"><span class="sd">        The channel is passed for your convenience. The basic_deliver object that is passed in</span>
-</span><span id="__span-0-238"><span class="sd">        carries the exchange, routing key, delivery tag and a redelivered flag for the message. The</span>
-</span><span id="__span-0-239"><span class="sd">        properties passed in is an instance of BasicProperties with the message properties and the</span>
-</span><span id="__span-0-240"><span class="sd">        body is the message that was sent.</span>
-</span><span id="__span-0-241">
-</span><span id="__span-0-242"><span class="sd">        :param pika.channel.Channel unused_channel: The channel object</span>
-</span><span id="__span-0-243"><span class="sd">        :param pika.Spec.Basic.Deliver: basic_deliver method</span>
-</span><span id="__span-0-244"><span class="sd">        :param pika.Spec.BasicProperties: properties</span>
-</span><span id="__span-0-245"><span class="sd">        :param bytes body: The message body</span>
-</span><span id="__span-0-246"><span class="sd">        """</span>
-</span><span id="__span-0-247">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Received message # </span><span class="si">%s</span><span class="s1"> from </span><span class="si">%s</span><span class="s1">: </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span>
-</span><span id="__span-0-248">                    <span class="n">basic_deliver</span><span class="o">.</span><span class="n">delivery_tag</span><span class="p">,</span> <span class="n">properties</span><span class="o">.</span><span class="n">app_id</span><span class="p">,</span> <span class="n">body</span><span class="p">)</span>
-</span><span id="__span-0-249">        <span class="bp">self</span><span class="o">.</span><span class="n">acknowledge_message</span><span class="p">(</span><span class="n">basic_deliver</span><span class="o">.</span><span class="n">delivery_tag</span><span class="p">)</span>
-</span><span id="__span-0-250">
-</span><span id="__span-0-251">    <span class="k">def</span><span class="w"> </span><span class="nf">on_cancelok</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unused_frame</span><span class="p">):</span>
-</span><span id="__span-0-252"><span class="w">        </span><span class="sd">"""</span>
-</span><span id="__span-0-253"><span class="sd">        This method is invoked by pika when RabbitMQ acknowledges the cancellation of a consumer.</span>
-</span><span id="__span-0-254">
-</span><span id="__span-0-255"><span class="sd">        At this point we will close the channel. This will invoke the on_channel_closed method once</span>
-</span><span id="__span-0-256"><span class="sd">        the channel has been closed, which will in-turn close the connection.</span>
-</span><span id="__span-0-257">
-</span><span id="__span-0-258"><span class="sd">        :param pika.frame.Method unused_frame: The Basic.CancelOk frame</span>
-</span><span id="__span-0-259"><span class="sd">        """</span>
-</span><span id="__span-0-260">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'RabbitMQ acknowledged the cancellation of the consumer'</span><span class="p">)</span>
-</span><span id="__span-0-261">        <span class="bp">self</span><span class="o">.</span><span class="n">close_channel</span><span class="p">()</span>
-</span><span id="__span-0-262">
-</span><span id="__span-0-263">    <span class="k">def</span><span class="w"> </span><span class="nf">stop_consuming</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="__span-0-264"><span class="w">        </span><span class="sd">"""Tell RabbitMQ that you would like to stop consuming by sending the Basic.Cancel RPC</span>
-</span><span id="__span-0-265"><span class="sd">        command.</span>
-</span><span id="__span-0-266"><span class="sd">        """</span>
-</span><span id="__span-0-267">        <span class="c1"># There is nothing to cancel until Basic.ConsumeOk has given us a tag,</span>
-</span><span id="__span-0-268">        <span class="c1"># and passing None would raise a TypeError that hides whatever closed</span>
-</span><span id="__span-0-269">        <span class="c1"># the channel first.</span>
-</span><span id="__span-0-270">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consumer_tag</span><span class="p">:</span>
-</span><span id="__span-0-271">            <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Sending a Basic.Cancel RPC command to RabbitMQ'</span><span class="p">)</span>
-</span><span id="__span-0-272">            <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">basic_cancel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_consumer_tag</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_cancelok</span><span class="p">)</span>
+</span><span id="__span-0-225"><span class="sd">        Invoked by pika when RabbitMQ sends a Basic.Cancel for a consumer receiving messages.</span>
+</span><span id="__span-0-226">
+</span><span id="__span-0-227"><span class="sd">        :param pika.frame.Method method_frame: The Basic.Cancel frame</span>
+</span><span id="__span-0-228"><span class="sd">        """</span>
+</span><span id="__span-0-229">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Consumer was cancelled remotely, shutting down: </span><span class="si">%r</span><span class="s1">'</span><span class="p">,</span>
+</span><span id="__span-0-230">                    <span class="n">method_frame</span><span class="p">)</span>
+</span><span id="__span-0-231">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="p">:</span>
+</span><span id="__span-0-232">            <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span id="__span-0-233">
+</span><span id="__span-0-234">    <span class="k">def</span><span class="w"> </span><span class="nf">acknowledge_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">delivery_tag</span><span class="p">):</span>
+</span><span id="__span-0-235"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-236"><span class="sd">        Acknowledge the message delivery from RabbitMQ by sending a Basic.Ack RPC method for the</span>
+</span><span id="__span-0-237"><span class="sd">        delivery tag.</span>
+</span><span id="__span-0-238">
+</span><span id="__span-0-239"><span class="sd">        :param int delivery_tag: The delivery tag from the Basic.Deliver frame</span>
+</span><span id="__span-0-240"><span class="sd">        """</span>
+</span><span id="__span-0-241">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Acknowledging message </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span> <span class="n">delivery_tag</span><span class="p">)</span>
+</span><span id="__span-0-242">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">basic_ack</span><span class="p">(</span><span class="n">delivery_tag</span><span class="p">)</span>
+</span><span id="__span-0-243">
+</span><span id="__span-0-244">    <span class="k">def</span><span class="w"> </span><span class="nf">on_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unused_channel</span><span class="p">,</span> <span class="n">basic_deliver</span><span class="p">,</span> <span class="n">properties</span><span class="p">,</span> <span class="n">body</span><span class="p">):</span>
+</span><span id="__span-0-245"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-246"><span class="sd">        Invoked by pika when a message is delivered from RabbitMQ.</span>
+</span><span id="__span-0-247">
+</span><span id="__span-0-248"><span class="sd">        The channel is passed for your convenience. The basic_deliver object that is passed in</span>
+</span><span id="__span-0-249"><span class="sd">        carries the exchange, routing key, delivery tag and a redelivered flag for the message. The</span>
+</span><span id="__span-0-250"><span class="sd">        properties passed in is an instance of BasicProperties with the message properties and the</span>
+</span><span id="__span-0-251"><span class="sd">        body is the message that was sent.</span>
+</span><span id="__span-0-252">
+</span><span id="__span-0-253"><span class="sd">        :param pika.channel.Channel unused_channel: The channel object</span>
+</span><span id="__span-0-254"><span class="sd">        :param pika.Spec.Basic.Deliver: basic_deliver method</span>
+</span><span id="__span-0-255"><span class="sd">        :param pika.Spec.BasicProperties: properties</span>
+</span><span id="__span-0-256"><span class="sd">        :param bytes body: The message body</span>
+</span><span id="__span-0-257"><span class="sd">        """</span>
+</span><span id="__span-0-258">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Received message # </span><span class="si">%s</span><span class="s1"> from </span><span class="si">%s</span><span class="s1">: </span><span class="si">%s</span><span class="s1">'</span><span class="p">,</span>
+</span><span id="__span-0-259">                    <span class="n">basic_deliver</span><span class="o">.</span><span class="n">delivery_tag</span><span class="p">,</span> <span class="n">properties</span><span class="o">.</span><span class="n">app_id</span><span class="p">,</span> <span class="n">body</span><span class="p">)</span>
+</span><span id="__span-0-260">        <span class="bp">self</span><span class="o">.</span><span class="n">acknowledge_message</span><span class="p">(</span><span class="n">basic_deliver</span><span class="o">.</span><span class="n">delivery_tag</span><span class="p">)</span>
+</span><span id="__span-0-261">
+</span><span id="__span-0-262">    <span class="k">def</span><span class="w"> </span><span class="nf">on_cancelok</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unused_frame</span><span class="p">):</span>
+</span><span id="__span-0-263"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-264"><span class="sd">        This method is invoked by pika when RabbitMQ acknowledges the cancellation of a consumer.</span>
+</span><span id="__span-0-265">
+</span><span id="__span-0-266"><span class="sd">        At this point we will close the channel. This will invoke the on_channel_closed method once</span>
+</span><span id="__span-0-267"><span class="sd">        the channel has been closed, which will in-turn close the connection.</span>
+</span><span id="__span-0-268">
+</span><span id="__span-0-269"><span class="sd">        :param pika.frame.Method unused_frame: The Basic.CancelOk frame</span>
+</span><span id="__span-0-270"><span class="sd">        """</span>
+</span><span id="__span-0-271">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'RabbitMQ acknowledged the cancellation of the consumer'</span><span class="p">)</span>
+</span><span id="__span-0-272">        <span class="bp">self</span><span class="o">.</span><span class="n">close_channel</span><span class="p">()</span>
 </span><span id="__span-0-273">
-</span><span id="__span-0-274">    <span class="k">def</span><span class="w"> </span><span class="nf">start_consuming</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="__span-0-275"><span class="w">        </span><span class="sd">"""</span>
-</span><span id="__span-0-276"><span class="sd">        This method sets up the consumer by first calling add_on_cancel_callback so that the object</span>
-</span><span id="__span-0-277"><span class="sd">        is notified if RabbitMQ cancels the consumer.</span>
-</span><span id="__span-0-278">
-</span><span id="__span-0-279"><span class="sd">        It then issues the Basic.Consume RPC command which returns the consumer tag that is used to</span>
-</span><span id="__span-0-280"><span class="sd">        uniquely identify the consumer with RabbitMQ. We keep the value to use it when we want to</span>
-</span><span id="__span-0-281"><span class="sd">        cancel consuming. The on_message method is passed in as a callback pika will invoke when a</span>
-</span><span id="__span-0-282"><span class="sd">        message is fully received.</span>
-</span><span id="__span-0-283"><span class="sd">        """</span>
-</span><span id="__span-0-284">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Issuing consumer related RPC commands'</span><span class="p">)</span>
-</span><span id="__span-0-285">        <span class="bp">self</span><span class="o">.</span><span class="n">add_on_cancel_callback</span><span class="p">()</span>
-</span><span id="__span-0-286">        <span class="bp">self</span><span class="o">.</span><span class="n">_consumer_tag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">basic_consume</span><span class="p">(</span>
-</span><span id="__span-0-287">            <span class="n">on_message_callback</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">on_message</span><span class="p">,</span>
-</span><span id="__span-0-288">            <span class="n">queue</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">QUEUE</span><span class="p">,</span>
-</span><span id="__span-0-289">        <span class="p">)</span>
-</span><span id="__span-0-290">
-</span><span id="__span-0-291">    <span class="k">def</span><span class="w"> </span><span class="nf">on_bindok</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unused_frame</span><span class="p">):</span>
-</span><span id="__span-0-292"><span class="w">        </span><span class="sd">"""</span>
-</span><span id="__span-0-293"><span class="sd">        Invoked by pika when the Queue.Bind method has completed.</span>
-</span><span id="__span-0-294">
-</span><span id="__span-0-295"><span class="sd">        At this point we will start consuming messages by calling start_consuming which will invoke</span>
-</span><span id="__span-0-296"><span class="sd">        the needed RPC commands to start the process.</span>
-</span><span id="__span-0-297">
-</span><span id="__span-0-298"><span class="sd">        :param pika.frame.Method unused_frame: The Queue.BindOk response frame</span>
-</span><span id="__span-0-299"><span class="sd">        """</span>
-</span><span id="__span-0-300">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Queue bound'</span><span class="p">)</span>
-</span><span id="__span-0-301">        <span class="bp">self</span><span class="o">.</span><span class="n">start_consuming</span><span class="p">()</span>
-</span><span id="__span-0-302">
-</span><span id="__span-0-303">    <span class="k">def</span><span class="w"> </span><span class="nf">close_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="__span-0-304"><span class="w">        </span><span class="sd">"""Call to close the channel with RabbitMQ cleanly by issuing the Channel.Close RPC</span>
-</span><span id="__span-0-305"><span class="sd">        command.</span>
-</span><span id="__span-0-306"><span class="sd">        """</span>
-</span><span id="__span-0-307">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Closing the channel'</span><span class="p">)</span>
-</span><span id="__span-0-308">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-</span><span id="__span-0-309">
-</span><span id="__span-0-310">    <span class="k">def</span><span class="w"> </span><span class="nf">open_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="__span-0-311"><span class="w">        </span><span class="sd">"""</span>
-</span><span id="__span-0-312"><span class="sd">        Open a new channel with RabbitMQ by issuing the Channel.Open RPC command.</span>
+</span><span id="__span-0-274">    <span class="k">def</span><span class="w"> </span><span class="nf">stop_consuming</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-275"><span class="w">        </span><span class="sd">"""Tell RabbitMQ that you would like to stop consuming by sending the Basic.Cancel RPC</span>
+</span><span id="__span-0-276"><span class="sd">        command.</span>
+</span><span id="__span-0-277"><span class="sd">        """</span>
+</span><span id="__span-0-278">        <span class="c1"># There is nothing to cancel until Basic.ConsumeOk has given us a tag,</span>
+</span><span id="__span-0-279">        <span class="c1"># and passing None would raise a TypeError that hides whatever closed</span>
+</span><span id="__span-0-280">        <span class="c1"># the channel first.</span>
+</span><span id="__span-0-281">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consumer_tag</span><span class="p">:</span>
+</span><span id="__span-0-282">            <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Sending a Basic.Cancel RPC command to RabbitMQ'</span><span class="p">)</span>
+</span><span id="__span-0-283">            <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">basic_cancel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_consumer_tag</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_cancelok</span><span class="p">)</span>
+</span><span id="__span-0-284">
+</span><span id="__span-0-285">    <span class="k">def</span><span class="w"> </span><span class="nf">start_consuming</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-286"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-287"><span class="sd">        This method sets up the consumer by first calling add_on_cancel_callback so that the object</span>
+</span><span id="__span-0-288"><span class="sd">        is notified if RabbitMQ cancels the consumer.</span>
+</span><span id="__span-0-289">
+</span><span id="__span-0-290"><span class="sd">        It then issues the Basic.Consume RPC command which returns the consumer tag that is used to</span>
+</span><span id="__span-0-291"><span class="sd">        uniquely identify the consumer with RabbitMQ. We keep the value to use it when we want to</span>
+</span><span id="__span-0-292"><span class="sd">        cancel consuming. The on_message method is passed in as a callback pika will invoke when a</span>
+</span><span id="__span-0-293"><span class="sd">        message is fully received.</span>
+</span><span id="__span-0-294"><span class="sd">        """</span>
+</span><span id="__span-0-295">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Issuing consumer related RPC commands'</span><span class="p">)</span>
+</span><span id="__span-0-296">        <span class="bp">self</span><span class="o">.</span><span class="n">add_on_cancel_callback</span><span class="p">()</span>
+</span><span id="__span-0-297">        <span class="bp">self</span><span class="o">.</span><span class="n">_consumer_tag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">basic_consume</span><span class="p">(</span>
+</span><span id="__span-0-298">            <span class="n">on_message_callback</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">on_message</span><span class="p">,</span>
+</span><span id="__span-0-299">            <span class="n">queue</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">QUEUE</span><span class="p">,</span>
+</span><span id="__span-0-300">        <span class="p">)</span>
+</span><span id="__span-0-301">
+</span><span id="__span-0-302">    <span class="k">def</span><span class="w"> </span><span class="nf">on_bindok</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unused_frame</span><span class="p">):</span>
+</span><span id="__span-0-303"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-304"><span class="sd">        Invoked by pika when the Queue.Bind method has completed.</span>
+</span><span id="__span-0-305">
+</span><span id="__span-0-306"><span class="sd">        At this point we will start consuming messages by calling start_consuming which will invoke</span>
+</span><span id="__span-0-307"><span class="sd">        the needed RPC commands to start the process.</span>
+</span><span id="__span-0-308">
+</span><span id="__span-0-309"><span class="sd">        :param pika.frame.Method unused_frame: The Queue.BindOk response frame</span>
+</span><span id="__span-0-310"><span class="sd">        """</span>
+</span><span id="__span-0-311">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Queue bound'</span><span class="p">)</span>
+</span><span id="__span-0-312">        <span class="bp">self</span><span class="o">.</span><span class="n">start_consuming</span><span class="p">()</span>
 </span><span id="__span-0-313">
-</span><span id="__span-0-314"><span class="sd">        When RabbitMQ responds that the channel is open, the on_channel_open callback will be</span>
-</span><span id="__span-0-315"><span class="sd">        invoked by pika.</span>
-</span><span id="__span-0-316"><span class="sd">        """</span>
-</span><span id="__span-0-317">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Creating a new channel'</span><span class="p">)</span>
-</span><span id="__span-0-318">        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">channel</span><span class="p">(</span><span class="n">on_open_callback</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">on_channel_open</span><span class="p">)</span>
-</span><span id="__span-0-319">
-</span><span id="__span-0-320">    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="__span-0-321"><span class="w">        </span><span class="sd">"""Run the example consumer by connecting to RabbitMQ and then starting the IOLoop to block</span>
-</span><span id="__span-0-322"><span class="sd">        and allow the SelectConnection to operate.</span>
-</span><span id="__span-0-323"><span class="sd">        """</span>
-</span><span id="__span-0-324">        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
-</span><span id="__span-0-325">        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">ioloop</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
-</span><span id="__span-0-326">
-</span><span id="__span-0-327">    <span class="k">def</span><span class="w"> </span><span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="__span-0-328"><span class="w">        </span><span class="sd">"""</span>
-</span><span id="__span-0-329"><span class="sd">        Cleanly shutdown the connection to RabbitMQ by stopping the consumer with RabbitMQ.</span>
+</span><span id="__span-0-314">    <span class="k">def</span><span class="w"> </span><span class="nf">close_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-315"><span class="w">        </span><span class="sd">"""Call to close the channel with RabbitMQ cleanly by issuing the Channel.Close RPC</span>
+</span><span id="__span-0-316"><span class="sd">        command.</span>
+</span><span id="__span-0-317"><span class="sd">        """</span>
+</span><span id="__span-0-318">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Closing the channel'</span><span class="p">)</span>
+</span><span id="__span-0-319">        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span id="__span-0-320">
+</span><span id="__span-0-321">    <span class="k">def</span><span class="w"> </span><span class="nf">open_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-322"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-323"><span class="sd">        Open a new channel with RabbitMQ by issuing the Channel.Open RPC command.</span>
+</span><span id="__span-0-324">
+</span><span id="__span-0-325"><span class="sd">        When RabbitMQ responds that the channel is open, the on_channel_open callback will be</span>
+</span><span id="__span-0-326"><span class="sd">        invoked by pika.</span>
+</span><span id="__span-0-327"><span class="sd">        """</span>
+</span><span id="__span-0-328">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Creating a new channel'</span><span class="p">)</span>
+</span><span id="__span-0-329">        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">channel</span><span class="p">(</span><span class="n">on_open_callback</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">on_channel_open</span><span class="p">)</span>
 </span><span id="__span-0-330">
-</span><span id="__span-0-331"><span class="sd">        When RabbitMQ confirms the cancellation, on_cancelok will be invoked by pika, which will</span>
-</span><span id="__span-0-332"><span class="sd">        then closing the channel and connection. The IOLoop is started again because this method is</span>
-</span><span id="__span-0-333"><span class="sd">        invoked when CTRL-C is pressed raising a KeyboardInterrupt exception. This exception stops</span>
-</span><span id="__span-0-334"><span class="sd">        the IOLoop which needs to be running for pika to communicate with RabbitMQ. All of the</span>
-</span><span id="__span-0-335"><span class="sd">        commands issued prior to starting the IOLoop will be buffered but not processed.</span>
-</span><span id="__span-0-336"><span class="sd">        """</span>
-</span><span id="__span-0-337">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Stopping'</span><span class="p">)</span>
-</span><span id="__span-0-338">        <span class="bp">self</span><span class="o">.</span><span class="n">_closing</span> <span class="o">=</span> <span class="kc">True</span>
-</span><span id="__span-0-339">        <span class="bp">self</span><span class="o">.</span><span class="n">stop_consuming</span><span class="p">()</span>
-</span><span id="__span-0-340">        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">ioloop</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
-</span><span id="__span-0-341">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Stopped'</span><span class="p">)</span>
-</span><span id="__span-0-342">
-</span><span id="__span-0-343">
-</span><span id="__span-0-344"><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span id="__span-0-345">    <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="n">LOG_FORMAT</span><span class="p">)</span>
-</span><span id="__span-0-346">    <span class="n">example</span> <span class="o">=</span> <span class="n">ExampleConsumer</span><span class="p">(</span><span class="s1">'amqp://guest:guest@localhost:5672/</span><span class="si">%2F</span><span class="s1">'</span><span class="p">)</span>
-</span><span id="__span-0-347">    <span class="k">try</span><span class="p">:</span>
-</span><span id="__span-0-348">        <span class="n">example</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
-</span><span id="__span-0-349">    <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
-</span><span id="__span-0-350">        <span class="n">example</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
-</span><span id="__span-0-351">
-</span><span id="__span-0-352">
-</span><span id="__span-0-353"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">'__main__'</span><span class="p">:</span>
-</span><span id="__span-0-354">    <span class="n">main</span><span class="p">()</span>
+</span><span id="__span-0-331">    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-332"><span class="w">        </span><span class="sd">"""Run the example consumer by connecting to RabbitMQ and then starting the IOLoop to block</span>
+</span><span id="__span-0-333"><span class="sd">        and allow the SelectConnection to operate.</span>
+</span><span id="__span-0-334"><span class="sd">        """</span>
+</span><span id="__span-0-335">        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
+</span><span id="__span-0-336">        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">ioloop</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span id="__span-0-337">
+</span><span id="__span-0-338">    <span class="k">def</span><span class="w"> </span><span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-339"><span class="w">        </span><span class="sd">"""</span>
+</span><span id="__span-0-340"><span class="sd">        Cleanly shutdown the connection to RabbitMQ by stopping the consumer with RabbitMQ.</span>
+</span><span id="__span-0-341">
+</span><span id="__span-0-342"><span class="sd">        When RabbitMQ confirms the cancellation, on_cancelok will be invoked by pika, which will</span>
+</span><span id="__span-0-343"><span class="sd">        then closing the channel and connection. The IOLoop is started again because this method is</span>
+</span><span id="__span-0-344"><span class="sd">        invoked when CTRL-C is pressed raising a KeyboardInterrupt exception. This exception stops</span>
+</span><span id="__span-0-345"><span class="sd">        the IOLoop which needs to be running for pika to communicate with RabbitMQ. All of the</span>
+</span><span id="__span-0-346"><span class="sd">        commands issued prior to starting the IOLoop will be buffered but not processed.</span>
+</span><span id="__span-0-347"><span class="sd">        """</span>
+</span><span id="__span-0-348">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Stopping'</span><span class="p">)</span>
+</span><span id="__span-0-349">        <span class="bp">self</span><span class="o">.</span><span class="n">_closing</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span id="__span-0-350">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">is_open</span><span class="p">:</span>
+</span><span id="__span-0-351">            <span class="c1"># Still connecting, or waiting to reconnect: nothing would close and stop the IOLoop.</span>
+</span><span id="__span-0-352">            <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Stopped'</span><span class="p">)</span>
+</span><span id="__span-0-353">            <span class="k">return</span>
+</span><span id="__span-0-354">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consumer_tag</span><span class="p">:</span>
+</span><span id="__span-0-355">            <span class="bp">self</span><span class="o">.</span><span class="n">stop_consuming</span><span class="p">()</span>
+</span><span id="__span-0-356">        <span class="k">else</span><span class="p">:</span>
+</span><span id="__span-0-357">            <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span id="__span-0-358">        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">ioloop</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span id="__span-0-359">        <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Stopped'</span><span class="p">)</span>
+</span><span id="__span-0-360">
+</span><span id="__span-0-361">
+</span><span id="__span-0-362"><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+</span><span id="__span-0-363">    <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="n">LOG_FORMAT</span><span class="p">)</span>
+</span><span id="__span-0-364">    <span class="n">example</span> <span class="o">=</span> <span class="n">ExampleConsumer</span><span class="p">(</span><span class="s1">'amqp://guest:guest@localhost:5672/</span><span class="si">%2F</span><span class="s1">'</span><span class="p">)</span>
+</span><span id="__span-0-365">    <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-0-366">        <span class="n">example</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</span><span id="__span-0-367">    <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+</span><span id="__span-0-368">        <span class="n">example</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</span><span id="__span-0-369">
+</span><span id="__span-0-370">
+</span><span id="__span-0-371"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">'__main__'</span><span class="p">:</span>
+</span><span id="__span-0-372">    <span class="n">main</span><span class="p">()</span>
 </span></code></pre></div>
 
 

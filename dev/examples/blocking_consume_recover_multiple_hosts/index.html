@@ -2093,43 +2093,49 @@
 </span><span id="__span-0-45">                                    <span class="n">credentials</span><span class="o">=</span><span class="n">credentials</span><span class="p">)</span>
 </span><span id="__span-0-46"><span class="n">params_all</span> <span class="o">=</span> <span class="p">[</span><span class="n">params1</span><span class="p">,</span> <span class="n">params2</span><span class="p">,</span> <span class="n">params3</span><span class="p">]</span>
 </span><span id="__span-0-47">
-</span><span id="__span-0-48"><span class="c1"># Infinite loop</span>
-</span><span id="__span-0-49"><span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-</span><span id="__span-0-50">    <span class="k">try</span><span class="p">:</span>
-</span><span id="__span-0-51">        <span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">params_all</span><span class="p">)</span>
-</span><span id="__span-0-52">        <span class="n">connection</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">BlockingConnection</span><span class="p">(</span><span class="n">params_all</span><span class="p">)</span>
-</span><span id="__span-0-53">        <span class="n">channel</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
-</span><span id="__span-0-54">        <span class="n">channel</span><span class="o">.</span><span class="n">exchange_declare</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="s1">'test_exchange'</span><span class="p">,</span>
-</span><span id="__span-0-55">                                 <span class="n">exchange_type</span><span class="o">=</span><span class="n">ExchangeType</span><span class="o">.</span><span class="n">direct</span><span class="p">,</span>
-</span><span id="__span-0-56">                                 <span class="n">passive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-</span><span id="__span-0-57">                                 <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-0-58">                                 <span class="n">auto_delete</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-</span><span id="__span-0-59">        <span class="n">channel</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="n">queue</span><span class="o">=</span><span class="s1">'standard'</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">auto_delete</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-0-60">        <span class="n">channel</span><span class="o">.</span><span class="n">queue_bind</span><span class="p">(</span><span class="n">queue</span><span class="o">=</span><span class="s1">'standard'</span><span class="p">,</span>
-</span><span id="__span-0-61">                           <span class="n">exchange</span><span class="o">=</span><span class="s1">'test_exchange'</span><span class="p">,</span>
-</span><span id="__span-0-62">                           <span class="n">routing_key</span><span class="o">=</span><span class="s1">'standard_key'</span><span class="p">)</span>
-</span><span id="__span-0-63">        <span class="n">channel</span><span class="o">.</span><span class="n">basic_qos</span><span class="p">(</span><span class="n">prefetch_count</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-</span><span id="__span-0-64">
-</span><span id="__span-0-65">        <span class="n">on_message_callback</span> <span class="o">=</span> <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="n">on_message</span><span class="p">,</span>
-</span><span id="__span-0-66">                                                <span class="n">userdata</span><span class="o">=</span><span class="s1">'on_message_userdata'</span><span class="p">)</span>
-</span><span id="__span-0-67">        <span class="n">channel</span><span class="o">.</span><span class="n">basic_consume</span><span class="p">(</span><span class="s1">'standard'</span><span class="p">,</span> <span class="n">on_message_callback</span><span class="p">)</span>
+</span><span id="__span-0-48"><span class="c1"># Ctrl-C while connecting, not only while consuming, stops the example.</span>
+</span><span id="__span-0-49"><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-0-50">    <span class="c1"># Infinite loop</span>
+</span><span id="__span-0-51">    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+</span><span id="__span-0-52">        <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-0-53">            <span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">params_all</span><span class="p">)</span>
+</span><span id="__span-0-54">            <span class="n">connection</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">BlockingConnection</span><span class="p">(</span><span class="n">params_all</span><span class="p">)</span>
+</span><span id="__span-0-55">            <span class="n">channel</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
+</span><span id="__span-0-56">            <span class="n">channel</span><span class="o">.</span><span class="n">exchange_declare</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="s1">'test_exchange'</span><span class="p">,</span>
+</span><span id="__span-0-57">                                     <span class="n">exchange_type</span><span class="o">=</span><span class="n">ExchangeType</span><span class="o">.</span><span class="n">direct</span><span class="p">,</span>
+</span><span id="__span-0-58">                                     <span class="n">passive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-59">                                     <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-60">                                     <span class="n">auto_delete</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span><span id="__span-0-61">            <span class="n">channel</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="n">queue</span><span class="o">=</span><span class="s1">'standard'</span><span class="p">,</span>
+</span><span id="__span-0-62">                                  <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-63">                                  <span class="n">auto_delete</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-0-64">            <span class="n">channel</span><span class="o">.</span><span class="n">queue_bind</span><span class="p">(</span><span class="n">queue</span><span class="o">=</span><span class="s1">'standard'</span><span class="p">,</span>
+</span><span id="__span-0-65">                               <span class="n">exchange</span><span class="o">=</span><span class="s1">'test_exchange'</span><span class="p">,</span>
+</span><span id="__span-0-66">                               <span class="n">routing_key</span><span class="o">=</span><span class="s1">'standard_key'</span><span class="p">)</span>
+</span><span id="__span-0-67">            <span class="n">channel</span><span class="o">.</span><span class="n">basic_qos</span><span class="p">(</span><span class="n">prefetch_count</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 </span><span id="__span-0-68">
-</span><span id="__span-0-69">        <span class="k">try</span><span class="p">:</span>
-</span><span id="__span-0-70">            <span class="n">channel</span><span class="o">.</span><span class="n">start_consuming</span><span class="p">()</span>
-</span><span id="__span-0-71">        <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
-</span><span id="__span-0-72">            <span class="n">channel</span><span class="o">.</span><span class="n">stop_consuming</span><span class="p">()</span>
-</span><span id="__span-0-73">
-</span><span id="__span-0-74">        <span class="n">connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-</span><span id="__span-0-75">        <span class="k">break</span>
-</span><span id="__span-0-76">    <span class="c1"># Do not recover if connection was closed by broker</span>
-</span><span id="__span-0-77">    <span class="k">except</span> <span class="n">pika</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">ConnectionClosedByBroker</span><span class="p">:</span>
-</span><span id="__span-0-78">        <span class="k">break</span>
-</span><span id="__span-0-79">    <span class="c1"># Do not recover on channel errors</span>
-</span><span id="__span-0-80">    <span class="k">except</span> <span class="n">pika</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">AMQPChannelError</span><span class="p">:</span>
-</span><span id="__span-0-81">        <span class="k">break</span>
-</span><span id="__span-0-82">    <span class="c1"># Recover on all other connection errors</span>
-</span><span id="__span-0-83">    <span class="k">except</span> <span class="n">pika</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">AMQPConnectionError</span><span class="p">:</span>
-</span><span id="__span-0-84">        <span class="k">continue</span>
+</span><span id="__span-0-69">            <span class="n">on_message_callback</span> <span class="o">=</span> <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span>
+</span><span id="__span-0-70">                <span class="n">on_message</span><span class="p">,</span> <span class="n">userdata</span><span class="o">=</span><span class="s1">'on_message_userdata'</span><span class="p">)</span>
+</span><span id="__span-0-71">            <span class="n">channel</span><span class="o">.</span><span class="n">basic_consume</span><span class="p">(</span><span class="s1">'standard'</span><span class="p">,</span> <span class="n">on_message_callback</span><span class="p">)</span>
+</span><span id="__span-0-72">
+</span><span id="__span-0-73">            <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-0-74">                <span class="n">channel</span><span class="o">.</span><span class="n">start_consuming</span><span class="p">()</span>
+</span><span id="__span-0-75">            <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+</span><span id="__span-0-76">                <span class="n">channel</span><span class="o">.</span><span class="n">stop_consuming</span><span class="p">()</span>
+</span><span id="__span-0-77">
+</span><span id="__span-0-78">            <span class="n">connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span id="__span-0-79">            <span class="k">break</span>
+</span><span id="__span-0-80">        <span class="c1"># Do not recover if connection was closed by broker</span>
+</span><span id="__span-0-81">        <span class="k">except</span> <span class="n">pika</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">ConnectionClosedByBroker</span><span class="p">:</span>
+</span><span id="__span-0-82">            <span class="k">break</span>
+</span><span id="__span-0-83">        <span class="c1"># Do not recover on channel errors</span>
+</span><span id="__span-0-84">        <span class="k">except</span> <span class="n">pika</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">AMQPChannelError</span><span class="p">:</span>
+</span><span id="__span-0-85">            <span class="k">break</span>
+</span><span id="__span-0-86">        <span class="c1"># Recover on all other connection errors</span>
+</span><span id="__span-0-87">        <span class="k">except</span> <span class="n">pika</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">AMQPConnectionError</span><span class="p">:</span>
+</span><span id="__span-0-88">            <span class="k">continue</span>
+</span><span id="__span-0-89"><span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+</span><span id="__span-0-90">    <span class="k">pass</span>
 </span></code></pre></div>
 Generic operation retry libraries such as <a href="https://github.com/invl/retry">retry</a> can prove useful.</p>
 <p>To run the following example, install the library first with <code>pip install retry</code>.</p>
@@ -2190,7 +2196,11 @@ Generic operation retry libraries such as <a href="https://github.com/invl/retry
 </span><span id="__span-1-54">        <span class="k">pass</span>
 </span><span id="__span-1-55">
 </span><span id="__span-1-56">
-</span><span id="__span-1-57"><span class="n">consume</span><span class="p">()</span>
+</span><span id="__span-1-57"><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-1-58">    <span class="n">consume</span><span class="p">()</span>
+</span><span id="__span-1-59"><span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+</span><span id="__span-1-60">    <span class="c1"># Ctrl-C during a retry delay, rather than while consuming.</span>
+</span><span id="__span-1-61">    <span class="k">pass</span>
 </span></code></pre></div>
 
 

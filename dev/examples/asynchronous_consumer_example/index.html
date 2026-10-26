@@ -2439,37 +2439,38 @@
 </span><span id="__span-0-394">        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
 </span><span id="__span-0-395">            <span class="k">try</span><span class="p">:</span>
 </span><span id="__span-0-396">                <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
-</span><span id="__span-0-397">            <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
-</span><span id="__span-0-398">                <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
-</span><span id="__span-0-399">                <span class="k">break</span>
-</span><span id="__span-0-400">            <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_reconnect</span><span class="p">()</span>
-</span><span id="__span-0-401">
-</span><span id="__span-0-402">    <span class="k">def</span><span class="w"> </span><span class="nf">_maybe_reconnect</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="__span-0-403">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span><span class="o">.</span><span class="n">should_reconnect</span><span class="p">:</span>
-</span><span id="__span-0-404">            <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
-</span><span id="__span-0-405">            <span class="n">reconnect_delay</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_reconnect_delay</span><span class="p">()</span>
-</span><span id="__span-0-406">            <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Reconnecting after </span><span class="si">%d</span><span class="s1"> seconds'</span><span class="p">,</span> <span class="n">reconnect_delay</span><span class="p">)</span>
-</span><span id="__span-0-407">            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">reconnect_delay</span><span class="p">)</span>
-</span><span id="__span-0-408">            <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span> <span class="o">=</span> <span class="n">ExampleConsumer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_amqp_url</span><span class="p">)</span>
-</span><span id="__span-0-409">
-</span><span id="__span-0-410">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_reconnect_delay</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="__span-0-411">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span><span class="o">.</span><span class="n">was_consuming</span><span class="p">:</span>
-</span><span id="__span-0-412">            <span class="bp">self</span><span class="o">.</span><span class="n">_reconnect_delay</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span id="__span-0-413">        <span class="k">else</span><span class="p">:</span>
-</span><span id="__span-0-414">            <span class="bp">self</span><span class="o">.</span><span class="n">_reconnect_delay</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span id="__span-0-415">        <span class="bp">self</span><span class="o">.</span><span class="n">_reconnect_delay</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_reconnect_delay</span><span class="p">,</span> <span class="mi">30</span><span class="p">)</span>
-</span><span id="__span-0-416">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reconnect_delay</span>
-</span><span id="__span-0-417">
+</span><span id="__span-0-397">                <span class="c1"># Inside the try, so Ctrl-C during the reconnect delay also stops cleanly.</span>
+</span><span id="__span-0-398">                <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_reconnect</span><span class="p">()</span>
+</span><span id="__span-0-399">            <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+</span><span id="__span-0-400">                <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</span><span id="__span-0-401">                <span class="k">break</span>
+</span><span id="__span-0-402">
+</span><span id="__span-0-403">    <span class="k">def</span><span class="w"> </span><span class="nf">_maybe_reconnect</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-404">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span><span class="o">.</span><span class="n">should_reconnect</span><span class="p">:</span>
+</span><span id="__span-0-405">            <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</span><span id="__span-0-406">            <span class="n">reconnect_delay</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_reconnect_delay</span><span class="p">()</span>
+</span><span id="__span-0-407">            <span class="n">LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">'Reconnecting after </span><span class="si">%d</span><span class="s1"> seconds'</span><span class="p">,</span> <span class="n">reconnect_delay</span><span class="p">)</span>
+</span><span id="__span-0-408">            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">reconnect_delay</span><span class="p">)</span>
+</span><span id="__span-0-409">            <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span> <span class="o">=</span> <span class="n">ExampleConsumer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_amqp_url</span><span class="p">)</span>
+</span><span id="__span-0-410">
+</span><span id="__span-0-411">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_reconnect_delay</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-412">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span><span class="o">.</span><span class="n">was_consuming</span><span class="p">:</span>
+</span><span id="__span-0-413">            <span class="bp">self</span><span class="o">.</span><span class="n">_reconnect_delay</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span id="__span-0-414">        <span class="k">else</span><span class="p">:</span>
+</span><span id="__span-0-415">            <span class="bp">self</span><span class="o">.</span><span class="n">_reconnect_delay</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span id="__span-0-416">        <span class="bp">self</span><span class="o">.</span><span class="n">_reconnect_delay</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_reconnect_delay</span><span class="p">,</span> <span class="mi">30</span><span class="p">)</span>
+</span><span id="__span-0-417">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reconnect_delay</span>
 </span><span id="__span-0-418">
-</span><span id="__span-0-419"><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span id="__span-0-420">    <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="n">LOG_FORMAT</span><span class="p">)</span>
-</span><span id="__span-0-421">    <span class="n">amqp_url</span> <span class="o">=</span> <span class="s1">'amqp://guest:guest@localhost:5672/</span><span class="si">%2F</span><span class="s1">'</span>
-</span><span id="__span-0-422">    <span class="n">consumer</span> <span class="o">=</span> <span class="n">ReconnectingExampleConsumer</span><span class="p">(</span><span class="n">amqp_url</span><span class="p">)</span>
-</span><span id="__span-0-423">    <span class="n">consumer</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
-</span><span id="__span-0-424">
+</span><span id="__span-0-419">
+</span><span id="__span-0-420"><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+</span><span id="__span-0-421">    <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="n">LOG_FORMAT</span><span class="p">)</span>
+</span><span id="__span-0-422">    <span class="n">amqp_url</span> <span class="o">=</span> <span class="s1">'amqp://guest:guest@localhost:5672/</span><span class="si">%2F</span><span class="s1">'</span>
+</span><span id="__span-0-423">    <span class="n">consumer</span> <span class="o">=</span> <span class="n">ReconnectingExampleConsumer</span><span class="p">(</span><span class="n">amqp_url</span><span class="p">)</span>
+</span><span id="__span-0-424">    <span class="n">consumer</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 </span><span id="__span-0-425">
-</span><span id="__span-0-426"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">'__main__'</span><span class="p">:</span>
-</span><span id="__span-0-427">    <span class="n">main</span><span class="p">()</span>
+</span><span id="__span-0-426">
+</span><span id="__span-0-427"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">'__main__'</span><span class="p">:</span>
+</span><span id="__span-0-428">    <span class="n">main</span><span class="p">()</span>
 </span></code></pre></div>
 
 
