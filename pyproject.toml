@@ -152,6 +152,9 @@ fmt = "yapf --in-place --style google --recursive --exclude 'pika/spec.py' pika/
 fmt-check = "yapf --diff --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/ utils/ .ci/"
 lint = "ruff check pika/ tests/ examples/ utils/ .ci/ --fix"
 lint-check = "ruff check pika/ tests/ examples/ utils/ .ci/"
+# docformatter matches --exclude as a substring of each file and directory name it walks, so
+# `pika/spec.py` excludes nothing and `spec.py` alone would skip utils/regen_spec.py (#1789). The
+# `- ` keeps a rewrite under pika/, which exits 3, from skipping the second command.
 docfmt = [
     "- docformatter --in-place --recursive pika/ --exclude spec.py",
     "docformatter --in-place --recursive tests/ examples/ utils/ .ci/",
