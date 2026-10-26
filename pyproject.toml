@@ -187,6 +187,7 @@ dependencies = [
 
 [tool.hatch.envs.examples.scripts]
 run = "python examples/{args}"
+check = "python .ci/run_examples.py {args}"
 
 [tool.hatch.envs.docs]
 dependencies = [

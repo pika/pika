@@ -50,7 +50,18 @@ class ExampleConsumer:
         return TornadoConnection(
             pika.URLParameters(self._url),
             self.on_connection_open,
+            on_open_error_callback=self.on_connection_open_error,
         )
+
+    def on_connection_open_error(self, connection, err):
+        """
+        This method is called by pika if the connection to RabbitMQ can't be established.
+
+        :param pika.adapters.tornado_connection.TornadoConnection connection: The connection
+        :param Exception err: The error
+        """
+        LOGGER.warning('Connection open failed, retrying in 5 seconds: %s', err)
+        connection.ioloop.call_later(5, self.reconnect)
 
     def close_connection(self):
         """This method closes the connection to RabbitMQ."""
@@ -336,7 +347,14 @@ class ExampleConsumer:
         """
         LOGGER.info('Stopping')
         self._closing = True
-        self.stop_consuming()
+        if not self._connection.is_open:
+            # Still connecting, or waiting to reconnect: nothing would close and stop the IOLoop.
+            LOGGER.info('Stopped')
+            return
+        if self._consumer_tag:
+            self.stop_consuming()
+        else:
+            self._connection.close()
         self._connection.ioloop.start()
         LOGGER.info('Stopped')
 

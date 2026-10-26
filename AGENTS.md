@@ -31,6 +31,7 @@ utils/measure_close_loss.py  # reproduces the close-loss figures in the docs
 .ci/tag_release.py      # tag preconditions, before and after the push
 .ci/smoke_test.py       # post-publish check against a live broker
 .ci/docs_check.py       # post-build check for unrendered markup in `site/`
+.ci/run_examples.py     # runs every example against a live broker
 docs/                   # the mkdocs source tree; `site/` is what publishes
 docs/internal/          # long-form notes, excluded from the site (see below)
 examples/               # usage examples
@@ -269,6 +270,8 @@ Read the file for detail.
   Python 3.10. `mypy.yaml` runs a three-OS matrix and needs `tornado` and
   `twisted` installed so mypy can resolve the optional-dependency types; pruning
   them from the env breaks `typecheck`.
+- `examples`, a job in `main.yaml` - runs every example against the Linux
+  broker with `PIKA_CI_EXAMPLES=true`. It is in the `tests-passed` needs list.
 - `codegen.yaml` - `spec-check`, not path-filtered, for two reasons: a skipped
   path-filtered job never reports to a required status check, and running
   unconditionally also catches a hand-edited `spec.py`.
@@ -301,6 +304,7 @@ Read the file for detail.
 hatch run unit      # unit tests only, no broker needed
 hatch run test      # everything; needs RabbitMQ on localhost
 hatch run rabbitmq  # start a broker in Docker
+hatch run examples:check  # every example; broker in examples/README.md
 ```
 
 Tests run in parallel via `pytest-xdist` (`-n auto --dist=loadscope`).

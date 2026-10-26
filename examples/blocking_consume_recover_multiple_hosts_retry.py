@@ -54,4 +54,8 @@ def consume():
         pass
 
 
-consume()
+try:
+    consume()
+except KeyboardInterrupt:
+    # Ctrl-C during a retry delay, rather than while consuming.
+    pass
