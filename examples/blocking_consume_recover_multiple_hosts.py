@@ -45,40 +45,46 @@ params3 = pika.ConnectionParameters('localhost',
                                     credentials=credentials)
 params_all = [params1, params2, params3]
 
-# Infinite loop
-while True:
-    try:
-        random.shuffle(params_all)
-        connection = pika.BlockingConnection(params_all)
-        channel = connection.channel()
-        channel.exchange_declare(exchange='test_exchange',
-                                 exchange_type=ExchangeType.direct,
-                                 passive=False,
-                                 durable=True,
-                                 auto_delete=False)
-        channel.queue_declare(queue='standard', durable=True, auto_delete=True)
-        channel.queue_bind(queue='standard',
-                           exchange='test_exchange',
-                           routing_key='standard_key')
-        channel.basic_qos(prefetch_count=1)
-
-        on_message_callback = functools.partial(on_message,
-                                                userdata='on_message_userdata')
-        channel.basic_consume('standard', on_message_callback)
-
+# Ctrl-C while connecting, not only while consuming, stops the example.
+try:
+    # Infinite loop
+    while True:
         try:
-            channel.start_consuming()
-        except KeyboardInterrupt:
-            channel.stop_consuming()
+            random.shuffle(params_all)
+            connection = pika.BlockingConnection(params_all)
+            channel = connection.channel()
+            channel.exchange_declare(exchange='test_exchange',
+                                     exchange_type=ExchangeType.direct,
+                                     passive=False,
+                                     durable=True,
+                                     auto_delete=False)
+            channel.queue_declare(queue='standard',
+                                  durable=True,
+                                  auto_delete=True)
+            channel.queue_bind(queue='standard',
+                               exchange='test_exchange',
+                               routing_key='standard_key')
+            channel.basic_qos(prefetch_count=1)
 
-        connection.close()
-        break
-    # Do not recover if connection was closed by broker
-    except pika.exceptions.ConnectionClosedByBroker:
-        break
-    # Do not recover on channel errors
-    except pika.exceptions.AMQPChannelError:
-        break
-    # Recover on all other connection errors
-    except pika.exceptions.AMQPConnectionError:
-        continue
+            on_message_callback = functools.partial(
+                on_message, userdata='on_message_userdata')
+            channel.basic_consume('standard', on_message_callback)
+
+            try:
+                channel.start_consuming()
+            except KeyboardInterrupt:
+                channel.stop_consuming()
+
+            connection.close()
+            break
+        # Do not recover if connection was closed by broker
+        except pika.exceptions.ConnectionClosedByBroker:
+            break
+        # Do not recover on channel errors
+        except pika.exceptions.AMQPChannelError:
+            break
+        # Recover on all other connection errors
+        except pika.exceptions.AMQPConnectionError:
+            continue
+except KeyboardInterrupt:
+    pass

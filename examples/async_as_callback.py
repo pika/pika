@@ -74,7 +74,7 @@ class BasicPikaClient:
                 self.channel = self.connection.channel()
                 if self.connection.is_open:
                     break
-            except (AMQPConnectionError, Exception) as e:
+            except AMQPConnectionError as e:
                 time.sleep(5)
                 tries += 1
                 if tries == 20:

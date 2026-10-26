@@ -16,6 +16,7 @@ Without those the connection is refused during authentication. See
 https://www.rabbitmq.com/docs/access-control#with-client-certificate-authentication
 """
 
+import sys
 from pathlib import Path
 
 from twisted.internet import defer, protocol, reactor, ssl
@@ -45,11 +46,15 @@ def done(_result):
     reactor.stop()
 
 
+failures = []
+
+
 def failed(failure):
     # Without this the reactor reports 'Unhandled error in Deferred' and the
     # process sits there, which says nothing about the broker refusing the
     # certificate.
     print(f'failed: {failure.type.__name__}: {failure.getErrorMessage()}')
+    failures.append(failure)
     reactor.stop()
 
 
@@ -79,3 +84,4 @@ deferred.addCallback(connection_ready)
 deferred.addCallback(publish)
 deferred.addCallbacks(done, failed)
 reactor.run()
+sys.exit(1 if failures else 0)

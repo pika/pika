@@ -397,10 +397,11 @@ class ReconnectingExampleConsumer:
         while True:
             try:
                 self._consumer.run()
+                # Inside the try, so Ctrl-C during the reconnect delay also stops cleanly.
+                self._maybe_reconnect()
             except KeyboardInterrupt:
                 self._consumer.stop()
                 break
-            self._maybe_reconnect()
 
     def _maybe_reconnect(self):
         if self._consumer.should_reconnect:
