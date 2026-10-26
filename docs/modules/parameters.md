@@ -20,9 +20,8 @@ parameters = pika.ConnectionParameters('rabbit-server1',
 ```
 ::: pika.connection.ConnectionParameters
     options:
-      members: true
-      inherited_members: true
-      members_order: source
+      members: ["__init__"]
+      inherited_members: false
 
 ## URLParameters
 The `URLParameters` class allows you to pass in an AMQP URL when creating the object and supports the host, port, virtual host, ssl, username and password in the base URL and other options are passed in via query parameters.
@@ -39,6 +38,14 @@ parameters = pika.URLParameters('amqp://guest:guest@rabbit-server1:5672/%2F')
 ```
 ::: pika.connection.URLParameters
     options:
+      members: ["__init__"]
+      inherited_members: false
+
+## Properties
+Both classes inherit these from `Parameters`.
+
+::: pika.connection.Parameters
+    options:
       members: true
-      inherited_members: true
       members_order: source
+      show_root_heading: false
