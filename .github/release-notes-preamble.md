@@ -2,7 +2,7 @@
 
 ## Upgrading to 1.5.0
 
-Seven changes are worth reading before you upgrade. Three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, and one refuses messages larger than 64 MiB.
+Eight changes are worth reading before you upgrade. Three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, one refuses messages larger than 64 MiB, and one changes what the Twisted adapter reports when a connection closes.
 
 ### `pika.Connection` is new, and is the connection to use
 
@@ -62,7 +62,9 @@ pika now refuses an inbound message whose body is larger than `max_inbound_messa
 
 If you consume larger messages, raise the limit with `ConnectionParameters(max_inbound_message_body_size=...)` or `?max_inbound_message_body_size=` in a URL, up to 512 MiB, RabbitMQ's own maximum. A refused message delivered without `auto_ack` is requeued, so a consumer that reconnects is closed again: raise the limit, or dead-letter or remove the message on the broker. With `auto_ack` the broker has already discarded it. Returned messages and `basic_get` replies are checked too, so a publisher can be closed by its own oversized mandatory message coming back.
 
-On `TwistedProtocolConnection`, a close now reports its real reason rather than `ConnectionDone`: the size errors above, and `ConnectionClosedByBroker` when the broker closes the connection.
+### `TwistedProtocolConnection` reports why it closed, not `ConnectionDone`
+
+When pika closes a Twisted connection, the reason now reaches the `closed` deferred, the `on_close_callback`, and pending channel and queue deferreds, as on the other adapters, instead of `twisted.internet.error.ConnectionDone`: `ConnectionClosedByClient` after `close()`, which is also what `yield connection.close()` returns; `ConnectionClosedByBroker` when the broker closes it; `AMQPHeartbeatTimeout`; `ConnectionBlockedTimeout`; and the size errors above. Code that traps or tests for `ConnectionDone` must handle these instead. A peer that drops the connection without pika closing it still reports `ConnectionDone`.
 
 ### `pika.compat` is gone
 

@@ -1118,6 +1118,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
         # `self`. See https://github.com/pika/pika/pull/1678.
         self._reactor: Any = custom_reactor or reactor
         self._transport: twisted.internet.interfaces.ITransport | None = None  # to be provided by `connection_made()`
+        self._disconnect_requested = False
 
     @override
     def _adapter_call_later(self, delay: float,
@@ -1155,6 +1156,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
     @override
     def _adapter_disconnect_stream(self) -> None:
         assert self._transport is not None
+        self._disconnect_requested = True
         self._transport.loseConnection()  # type: ignore[misc]
 
     @override
@@ -1189,8 +1191,8 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
         self._transport = None
         error = error.value  # drop the Failure wrapper
         if isinstance(error, twisted_error.ConnectionDone):
-            # A clean close follows `_terminate_stream`, so keep the reason it recorded.
-            if self._error is None:
+            # A disconnect pika started already recorded why; a peer EOF did not.
+            if not (self._disconnect_requested and self._error is not None):
                 self._error = error
             error = None
         LOGGER.log(logging.DEBUG if error is None else logging.ERROR,

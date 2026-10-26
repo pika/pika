@@ -963,6 +963,14 @@ class ConnectionTests(unittest.TestCase):
         self.assertEqual(self.connection.params.port, error.port)
         self.assertIn('host=', repr(error))
 
+        self.connection._error = None
+        self.connection._frame_buffer = bytearray()
+        self._feed_with_real_terminate(
+            struct.pack('>BHI', spec.FRAME_BODY, 1, 64 * 1024 * 1024 + 1))
+        self.assertIsInstance(self.connection._error,
+                              exceptions.FrameTooLargeError)
+        self.assertIn('host=', repr(self.connection._error))
+
     def test_add_on_connection_blocked_callback(self):
         blocked_buffer = []
         self.connection.add_on_connection_blocked_callback(
