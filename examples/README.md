@@ -26,6 +26,20 @@ Or run directly with Python if you only need pika's core dependencies:
 python examples/blocking_consume.py
 ```
 
+## Checking every example
+
+CI runs every example on each pull request. To do the same, start the broker CI uses in place of `rabbitmq-tls`:
+
+```bash
+docker rm -f pika-rabbitmq
+PIKA_CI_EXAMPLES=true .ci/linux/gha-setup.sh
+hatch run examples:check
+```
+
+Between examples it deletes every queue, and every exchange the broker did not create, so point it at a throwaway broker. Pass example file names to run only those, against any broker the examples themselves need.
+
+An example has to exit 0 by itself, unless it is listed in `SERVES` in `.ci/run_examples.py`; then it has to keep running until Ctrl-C and stop without a traceback.
+
 ## TLS examples
 
 The TLS examples connect to port 5671 with the test certificates from `tests/certs/`, so they need a broker with a TLS listener using those same certificates. That is what `.ci/linux/rabbitmq.conf` configures, and `rabbitmq-tls` starts a container with it:
@@ -36,7 +50,7 @@ docker rm -f pika-rabbitmq
 hatch run rabbitmq-tls
 ```
 
-`tls_mutual_authentication_twisted.py` needs more than that, because it authenticates by client certificate rather than by password. Its docstring lists what the broker also has to have: the `rabbitmq_auth_mechanism_ssl` plugin, `EXTERNAL` among `auth_mechanisms`, and a user named for the certificate's distinguished name.
+`tls_mutual_authentication_twisted.py` needs more than that, because it authenticates by client certificate rather than by password. Its docstring lists what the broker also has to have: the `rabbitmq_auth_mechanism_ssl` plugin, `EXTERNAL` among `auth_mechanisms`, and a user named for the certificate's distinguished name. The broker under "Checking every example" has all three.
 
 ## Queue durability and RabbitMQ 4.3
 
