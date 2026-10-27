@@ -161,4 +161,16 @@ To verify docstring formatting without modifying files (mirrors CI), use
 hatch run docfmt-check
 ```
 
-All three checks (`fmt-check`, `lint-check`, `docfmt-check`) run in CI on every push and pull request.
+Markdown is formatted with [mdformat](https://mdformat.readthedocs.io/), which also keeps every paragraph and list item on one line:
+
+```
+hatch run mdfmt
+```
+
+To verify markdown formatting without modifying files (mirrors CI), use
+
+```
+hatch run mdfmt-check
+```
+
+All four checks (`fmt-check`, `lint-check`, `docfmt-check`, `mdfmt-check`) run in CI on every push and pull request.

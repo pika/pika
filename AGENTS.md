@@ -180,6 +180,12 @@ Read the relevant page before changing that area.
 - Docstring formatter:
   [docformatter](https://github.com/PyCQA/docformatter), configured in
   `pyproject.toml`. Run `hatch run docfmt-check`.
+- Markdown formatter: [mdformat](https://mdformat.readthedocs.io/) with the
+  mkdocs, GFM, footnote and front matter plugins, configured in
+  `.mdformat.toml`. `hatch run mdfmt-check` checks, `hatch run mdfmt` formats
+  in place. Its validation compares CommonMark renderings, not the
+  Python-Markdown one mkdocs uses, so diff `site/` before and after a reformat
+  under `docs/`.
 - Linter: [ruff](https://docs.astral.sh/ruff/), configured in
   `pyproject.toml`. Verify with `hatch run lint-check` rather than `lint`, so
   you read the same result CI will.
@@ -212,17 +218,17 @@ Read the relevant page before changing that area.
   directory cannot be taken back. `.ci/docs_check.py` is also run directly, by
   `docs.yaml`, but it only reads `site/` and reports, so it changes nothing.
 - Use single quotes for strings unless the string contains a single quote.
-- No trailing whitespace. Check before committing; nothing gates it in markdown.
+- No trailing whitespace.
 - No hard-wrap in markdown: one line per paragraph and per list item, however
   long, in every `.md` file and in every GitHub-rendered body (pull request and
   issue bodies, comments). Commit message bodies are the exception and wrap at
   72, per the Git conventions below. Line breaks that are syntax rather than
   prose stay put: a table, a fenced or indented code block, raw HTML, YAML
-  front matter, the indented body under a `:::` or `!!!` directive, and the
-  list-and-rule block atop `.github/ISSUE_TEMPLATE.md`, whose `<hr>` vanishes
-  when those lines are joined. This file is exempt. In `HISTORY.md` the 1.0.0
-  and older entries stay as written; 1.0.1 upward is already unwrapped, and so
-  is everything `.ci/changelog.py` generates. Nothing gates any of it.
+  front matter, and the indented body under a `:::` or `!!!` directive. This
+  file is exempt. In `HISTORY.md` the 1.0.0 and older entries stay as written;
+  1.0.1 upward is already unwrapped, and so is everything `.ci/changelog.py`
+  generates. `mdfmt-check` gates both rules except in this file and
+  `HISTORY.md`, which it skips; nothing can gate a GitHub body.
 
 ## Auto-generated code
 
