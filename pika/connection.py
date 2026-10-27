@@ -358,7 +358,8 @@ class Parameters:
         """
         :returns: AMQP connection heartbeat timeout value for negotiation during
             connection tuning or callable which is invoked during connection tuning.
-            None to accept broker's value. 0 turns heartbeat off. Defaults to
+            None to accept broker's value. 0 defers to the broker's proposal
+            (heartbeats stay off only if the broker also proposes 0). Defaults to
             `DEFAULT_HEARTBEAT_TIMEOUT`.
 
         """
@@ -370,12 +371,15 @@ class Parameters:
             value: int | Callable[[Connection, float], int] | None) -> None:
         """
         :param value: Controls AMQP heartbeat timeout negotiation
-            during connection tuning. An integer value always overrides the value
-            proposed by broker. Use 0 to deactivate heartbeats and None to always
-            accept the broker's proposal. If a callable is given, it will be called
-            with the connection instance and the heartbeat timeout proposed by broker
-            as its arguments. The callback should return a non-negative integer that
-            will be used to override the broker's proposal.
+            during connection tuning. The value is negotiated with the broker's
+            proposal per AMQP 0-9-1: 0 defers to the broker's proposal, and when
+            both values are nonzero the lower one wins, so an integer can only
+            reduce the broker's value; heartbeats are disabled only when both
+            peers propose 0. Use None to always accept the broker's proposal.
+            If a callable is given, it will be called with the connection instance
+            and the heartbeat timeout proposed by broker as its arguments. The
+            callback should return a non-negative integer, which is then negotiated
+            the same way, so it can only reduce the broker's proposal.
         """
         if value is not None:
             if not isinstance(value, numbers.Integral) and not callable(value):
@@ -629,12 +633,15 @@ class ConnectionParameters(Parameters):
         :param channel_max: Maximum number of channels to allow
         :param frame_max: The maximum byte size for an AMQP frame
         :param heartbeat: Controls AMQP heartbeat timeout negotiation
-            during connection tuning. An integer value always overrides the value
-            proposed by broker. Use 0 to deactivate heartbeats and None to always
-            accept the broker's proposal. If a callable is given, it will be called
-            with the connection instance and the heartbeat timeout proposed by broker
-            as its arguments. The callback should return a non-negative integer that
-            will be used to override the broker's proposal.
+            during connection tuning. The value is negotiated with the broker's
+            proposal per AMQP 0-9-1: 0 defers to the broker's proposal, and when
+            both values are nonzero the lower one wins, so an integer can only
+            reduce the broker's value; heartbeats are disabled only when both
+            peers propose 0. Use None to always accept the broker's proposal.
+            If a callable is given, it will be called with the connection instance
+            and the heartbeat timeout proposed by broker as its arguments. The
+            callback should return a non-negative integer, which is then negotiated
+            the same way, so it can only reduce the broker's proposal.
         :param ssl_options: None for plaintext or
             `pika.SSLOptions` instance for SSL/TLS. Defaults to None.
         :param connection_attempts: Maximum number of retry attempts
@@ -2107,9 +2114,6 @@ class Connection(abc.ABC):
 
         :returns: the value of the heartbeat timeout to use and return to broker
         """
-        # Negotiate per AMQP 0-9-1: a zero from either peer defers to the
-        # other peer's value, otherwise the lower value wins. This matches
-        # the Java client and Bunny, see pika/pika#874 and pika/pika#1456.
         return Connection._negotiate_integer_value(client_value, server_value)
 
     def _on_connection_tune(
