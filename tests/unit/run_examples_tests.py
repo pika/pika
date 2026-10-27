@@ -6,6 +6,7 @@ import pathlib
 import signal
 import sys
 import textwrap
+import threading
 import unittest
 import urllib.error
 from unittest import mock
@@ -27,8 +28,9 @@ class RunTests(unittest.TestCase):
 
     def setUp(self):
         # Run as `hatch run` does, with SIGINT ignored, which a child inherits unless the runner
-        # restores it.
-        if hasattr(signal, 'SIGINT') and sys.platform != 'win32':
+        # restores it. Only the main thread may change that, and xdist does not always test there.
+        if (sys.platform != 'win32' and
+                threading.current_thread() is threading.main_thread()):
             previous = signal.signal(signal.SIGINT, signal.SIG_IGN)
             self.addCleanup(signal.signal, signal.SIGINT, previous)
 
