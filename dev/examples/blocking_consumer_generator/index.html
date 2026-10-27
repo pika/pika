@@ -2050,7 +2050,7 @@
 <p><code>cancel</code> returns 0 and nothing else. The count has been vestigial since 0.10.0: only messages consumed with <code>auto_ack=False</code> can be requeued, and any arriving after the <code>Basic.Cancel</code> are discarded unacknowledged rather than counted, so the number is not knowable. Do not read the return value as a requeue count.</p>
 </div>
 <p>Example of consuming messages and acknowledging them:</p>
-<p><div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="kn">import</span><span class="w"> </span><span class="nn">pika</span>
+<div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="kn">import</span><span class="w"> </span><span class="nn">pika</span>
 </span><span id="__span-0-2">
 </span><span id="__span-0-3"><span class="n">connection</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">BlockingConnection</span><span class="p">()</span>
 </span><span id="__span-0-4"><span class="n">channel</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
@@ -2089,7 +2089,7 @@
 </span><span id="__span-0-37"><span class="n">channel</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 </span><span id="__span-0-38"><span class="n">connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 </span></code></pre></div>
-The example publishes the ten messages it then consumes, so it terminates on its own. Its output on stdout looks like this, abbreviated to the first and last message. The consumer tag is a fresh UUID each run, and <code>BlockingConnection</code> also writes a deprecation warning to stderr:</p>
+<p>The example publishes the ten messages it then consumes, so it terminates on its own. Its output on stdout looks like this, abbreviated to the first and last message. The consumer tag is a fresh UUID each run, and <code>BlockingConnection</code> also writes a deprecation warning to stderr:</p>
 <div class="highlight"><pre><span></span><code><span id="__span-1-1">$ python examples/blocking_consumer_generator.py
 </span><span id="__span-1-2">&lt;Basic.Deliver(['consumer_tag=ctag1.5530b02c97654528aacbde82ba5cc271', 'delivery_tag=1', 'exchange=', 'redelivered=False', 'routing_key=test'])&gt;
 </span><span id="__span-1-3">&lt;BasicProperties&gt;

@@ -2043,10 +2043,10 @@
 
 <h1 id="using-the-blocking-connection-to-consume-messages-from-rabbitmq">Using the Blocking Connection to consume messages from RabbitMQ<a class="headerlink" href="#using-the-blocking-connection-to-consume-messages-from-rabbitmq" title="Permanent link">&para;</a></h1>
 <p><a id="example_blocking_basic_consume"></a></p>
-<p>The <code>BlockingChannel.basic_consume</code>  method assign a callback method to be called every time that RabbitMQ delivers messages to your consuming application.</p>
+<p>The <code>BlockingChannel.basic_consume</code> method assign a callback method to be called every time that RabbitMQ delivers messages to your consuming application.</p>
 <p>When pika calls your method, it will pass in the channel, a <code>pika.spec.Basic.Deliver</code> object with the delivery tag, the redelivered flag, the routing key that was used to put the message in the queue, and the exchange the message was published to. The third argument will be a <code>pika.spec.BasicProperties</code> object and the last will be the message body.</p>
 <p>Example of consuming messages and acknowledging them:</p>
-<p><div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="kn">import</span><span class="w"> </span><span class="nn">pika</span>
+<div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="kn">import</span><span class="w"> </span><span class="nn">pika</span>
 </span><span id="__span-0-2">
 </span><span id="__span-0-3">
 </span><span id="__span-0-4"><span class="k">def</span><span class="w"> </span><span class="nf">on_message</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">method_frame</span><span class="p">,</span> <span class="n">header_frame</span><span class="p">,</span> <span class="n">body</span><span class="p">):</span>
@@ -2074,7 +2074,7 @@
 </span><span id="__span-0-26">    <span class="n">channel</span><span class="o">.</span><span class="n">stop_consuming</span><span class="p">()</span>
 </span><span id="__span-0-27"><span class="n">connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 </span></code></pre></div>
-Example of using more connection parameters, and of a common TLS problem with a hosted broker: the certificate does not name the address you dial, so hostname verification fails on a certificate that is otherwise perfectly valid. The example dials 127.0.0.1, which the test certificate does not name, and passes <code>server_hostname</code> so verification checks the name the certificate does carry rather than switching verification off. It also names its virtual host, username and password explicitly rather than relying on the defaults, sets the heartbeat to 150 seconds, caps the connection at 10 channels, and sets the client provided connection_name for easy identification:</p>
+<p>Example of using more connection parameters, and of a common TLS problem with a hosted broker: the certificate does not name the address you dial, so hostname verification fails on a certificate that is otherwise perfectly valid. The example dials 127.0.0.1, which the test certificate does not name, and passes <code>server_hostname</code> so verification checks the name the certificate does carry rather than switching verification off. It also names its virtual host, username and password explicitly rather than relying on the defaults, sets the heartbeat to 150 seconds, caps the connection at 10 channels, and sets the client provided connection_name for easy identification:</p>
 <div class="highlight"><pre><span></span><code><span id="__span-1-1"><span class="sd">"""</span>
 </span><span id="__span-1-2"><span class="sd">Consuming over TLS when the broker's certificate does not name the address you dial.</span>
 </span><span id="__span-1-3">

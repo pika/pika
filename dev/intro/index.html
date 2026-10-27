@@ -2134,7 +2134,7 @@
 <p>As AMQP is a two-way RPC protocol where the client can send requests to the server and the server can send requests to a client, Pika implements or extends IO loops in each of its asynchronous connection adapters. These IO loops are blocking methods which loop and listen for events. Each asynchronous adapter follows the same standard for invoking the IO loop. The IO loop is created when the connection adapter is created. To start an IO loop for any given adapter, call the <code>connection.ioloop.start()</code> method.</p>
 <p>If you are using an external IO loop such as Tornado's <code>IOLoop</code> you invoke it normally and then add the Pika Tornado adapter to it.</p>
 <p>Example:</p>
-<p><div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="kn">import</span><span class="w"> </span><span class="nn">pika</span>
+<div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="kn">import</span><span class="w"> </span><span class="nn">pika</span>
 </span><span id="__span-0-2">
 </span><span id="__span-0-3"><span class="k">def</span><span class="w"> </span><span class="nf">on_open</span><span class="p">(</span><span class="n">connection</span><span class="p">):</span>
 </span><span id="__span-0-4">    <span class="c1"># Invoked when the connection is open</span>
@@ -2158,7 +2158,7 @@
 </span><span id="__span-0-22">    <span class="c1"># The on_close callback is required to stop the io loop</span>
 </span><span id="__span-0-23">    <span class="n">connection</span><span class="o">.</span><span class="n">ioloop</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
 </span></code></pre></div>
-<a id="intro_to_cps"></a></p>
+<p><a id="intro_to_cps"></a></p>
 <h2 id="continuation-passing-style">Continuation-Passing Style<a class="headerlink" href="#continuation-passing-style" title="Permanent link">&para;</a></h2>
 <p>Interfacing with Pika asynchronously is done by passing in callback methods you would like to have invoked when a certain event completes. For example, if you are going to declare a queue, you pass in a method that will be called when the RabbitMQ server returns a <a href="https://www.rabbitmq.com/amqp-0-9-1-reference">Queue.DeclareOk</a> response.</p>
 <p>In our example below we use the following five easy steps:</p>
@@ -2225,11 +2225,11 @@
 <h2 id="credentials">Credentials<a class="headerlink" href="#credentials" title="Permanent link">&para;</a></h2>
 <p>The <code>pika.credentials</code> module provides the mechanism by which you pass the username and password to the <code>ConnectionParameters</code> class when it is created.</p>
 <p>Example:</p>
-<p><div class="highlight"><pre><span></span><code><span id="__span-2-1"><span class="kn">import</span><span class="w"> </span><span class="nn">pika</span>
+<div class="highlight"><pre><span></span><code><span id="__span-2-1"><span class="kn">import</span><span class="w"> </span><span class="nn">pika</span>
 </span><span id="__span-2-2"><span class="n">credentials</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">PlainCredentials</span><span class="p">(</span><span class="s1">'username'</span><span class="p">,</span> <span class="s1">'password'</span><span class="p">)</span>
 </span><span id="__span-2-3"><span class="n">parameters</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">ConnectionParameters</span><span class="p">(</span><span class="n">credentials</span><span class="o">=</span><span class="n">credentials</span><span class="p">)</span>
 </span></code></pre></div>
-<a id="connection_parameters"></a></p>
+<p><a id="connection_parameters"></a></p>
 <h2 id="connection-parameters">Connection Parameters<a class="headerlink" href="#connection-parameters" title="Permanent link">&para;</a></h2>
 <p>There are two types of connection parameter classes in Pika to allow you to pass the connection information into a connection adapter, <code>ConnectionParameters</code> and <code>URLParameters</code>. Both classes share the same default connection values.</p>
 

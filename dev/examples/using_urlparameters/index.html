@@ -2159,21 +2159,25 @@
 <li>channel_max: Alter the default channel maximum by passing in a 32-bit integer value here.</li>
 <li>client_properties: A dictionary of client properties to override:</li>
 </ul>
-<p><div class="highlight"><pre><span></span><code><span id="__span-5-1">amqps://www-data:rabbit_pwd@rabbit1/web_messages?client_properties=%7B%27connection_name%27%3A+%27My+Unique+Connection+Name%27%7D
+<div class="highlight"><pre><span></span><code><span id="__span-5-1">amqps://www-data:rabbit_pwd@rabbit1/web_messages?client_properties=%7B%27connection_name%27%3A+%27My+Unique+Connection+Name%27%7D
 </span></code></pre></div>
-- connection_attempts: Alter the default of 1 connection attempt by passing in an integer value here.
-- frame_max: Alter the default frame maximum size value by passing in a long integer value <sup id="fnref:f1"><a class="footnote-ref" href="#fn:f1">1</a></sup>.
-- heartbeat: Pass a value greater than zero to enable heartbeats between the server and your application. The integer value you pass here will be the number of seconds between heartbeats.
-- locale: Set the locale of the client using underscore delimited posix Locale code in ll_CC format (en_US, pt_BR, de_DE).
-- max_inbound_message_body_size: The largest message body, in bytes, to accept from the broker, from 1 to 536870912 (512 MiB). Defaults to 67108864 (64 MiB); a larger message closes the connection.
-- retry_delay: The number of seconds to wait before attempting to reconnect on a failed connection, if connection_attempts is &gt; 0.
-- socket_timeout: Change the <code>socket.connect()</code> timeout from its default of 10 seconds to another integer or float value, or <code>None</code> to disable it. Adjust with caution.
-- ssl_options: A url encoded dict of values for the SSL connection. The keys are the arguments the corresponding <code>ssl.SSLContext</code> methods take:
-   - protocol, passed to <code>ssl.SSLContext</code>
-   - ca_certs (or cafile), ca_path (or capath), ca_data (or cadata), passed to <code>SSLContext.load_verify_locations</code>
-   - certfile, keyfile, password, passed to <code>SSLContext.load_cert_chain</code>
-   - ciphers, passed to <code>SSLContext.set_ciphers</code>
-   - server_hostname, passed to <code>pika.SSLOptions</code></p>
+<ul>
+<li>connection_attempts: Alter the default of 1 connection attempt by passing in an integer value here.</li>
+<li>frame_max: Alter the default frame maximum size value by passing in a long integer value <sup id="fnref:f1"><a class="footnote-ref" href="#fn:f1">1</a></sup>.</li>
+<li>heartbeat: Pass a value greater than zero to enable heartbeats between the server and your application. The integer value you pass here will be the number of seconds between heartbeats.</li>
+<li>locale: Set the locale of the client using underscore delimited posix Locale code in ll_CC format (en_US, pt_BR, de_DE).</li>
+<li>max_inbound_message_body_size: The largest message body, in bytes, to accept from the broker, from 1 to 536870912 (512 MiB). Defaults to 67108864 (64 MiB); a larger message closes the connection.</li>
+<li>retry_delay: The number of seconds to wait before attempting to reconnect on a failed connection, if connection_attempts is &gt; 0.</li>
+<li>socket_timeout: Change the <code>socket.connect()</code> timeout from its default of 10 seconds to another integer or float value, or <code>None</code> to disable it. Adjust with caution.</li>
+<li>ssl_options: A url encoded dict of values for the SSL connection. The keys are the arguments the corresponding <code>ssl.SSLContext</code> methods take:<ul>
+<li>protocol, passed to <code>ssl.SSLContext</code></li>
+<li>ca_certs (or cafile), ca_path (or capath), ca_data (or cadata), passed to <code>SSLContext.load_verify_locations</code></li>
+<li>certfile, keyfile, password, passed to <code>SSLContext.load_cert_chain</code></li>
+<li>ciphers, passed to <code>SSLContext.set_ciphers</code></li>
+<li>server_hostname, passed to <code>pika.SSLOptions</code></li>
+</ul>
+</li>
+</ul>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p><code>cert_reqs</code> and <code>ssl_version</code> are not among them. They were arguments of the removed <code>ssl.wrap_socket</code> and are ignored, so a <code>cert_reqs</code> of <code>CERT_NONE</code> silently leaves verification on. A URL that sets no other <code>ssl_options</code> key is worse than ignored: it raises <code>TypeError: cafile, capath and cadata cannot be all omitted</code>.</p>

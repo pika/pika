@@ -2043,7 +2043,7 @@
 
 <h1 id="using-the-blocking-connection-to-get-a-message-from-rabbitmq">Using the Blocking Connection to get a message from RabbitMQ<a class="headerlink" href="#using-the-blocking-connection-to-get-a-message-from-rabbitmq" title="Permanent link">&para;</a></h1>
 <p><a id="example_blocking_basic_get"></a></p>
-<p>The <code>BlockingChannel.basic_get</code>  method will return a tuple with the members.</p>
+<p>The <code>BlockingChannel.basic_get</code> method will return a tuple with the members.</p>
 <p>If the server returns a message, the first item in the tuple will be a <code>pika.spec.Basic.GetOk</code> object with the current message count, the redelivered flag, the routing key that was used to put the message in the queue, and the exchange the message was published to. The second item will be a <code>BasicProperties</code> object and the third will be the message body.</p>
 <p>If the server did not return a message a tuple of None, None, None will be returned.</p>
 <p>Example of getting a message and acknowledging it:</p>

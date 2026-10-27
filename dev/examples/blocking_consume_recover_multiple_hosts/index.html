@@ -2046,7 +2046,7 @@
 <p>RabbitMQ nodes can be <a href="https://www.rabbitmq.com/clustering.html">clustered</a>. In the absence of failure clients can connect to any node and perform any operation. In case a node fails, stops, or becomes unavailable, clients should be able to connect to another node and continue.</p>
 <p>To simplify reconnection to a different node, connection recovery mechanism should be combined with connection configuration that specifies multiple hosts.</p>
 <p>The BlockingConnection adapter relies on exception handling to check for connection errors:</p>
-<p><div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="sd">"""</span>
+<div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="sd">"""</span>
 </span><span id="__span-0-2"><span class="sd">This module implements a client that connects to multiple RabbitMQ brokers distributed across</span>
 </span><span id="__span-0-3"><span class="sd">different ports (5672, 5673, 5674) and consumes messages from a shared queue.</span>
 </span><span id="__span-0-4">
@@ -2137,7 +2137,7 @@
 </span><span id="__span-0-89"><span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
 </span><span id="__span-0-90">    <span class="k">pass</span>
 </span></code></pre></div>
-Generic operation retry libraries such as <a href="https://github.com/invl/retry">retry</a> can prove useful.</p>
+<p>Generic operation retry libraries such as <a href="https://github.com/invl/retry">retry</a> can prove useful.</p>
 <p>To run the following example, install the library first with <code>pip install retry</code>.</p>
 <p>In this example the <code>retry</code> decorator is used to set up recovery with delay:</p>
 <div class="highlight"><pre><span></span><code><span id="__span-1-1"><span class="kn">import</span><span class="w"> </span><span class="nn">random</span>

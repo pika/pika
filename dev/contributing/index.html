@@ -2181,53 +2181,53 @@
 <p>To run the full test suite, a RabbitMQ node with all defaults must be running on <code>localhost:5672</code>. Use <code>hatch run rabbitmq</code> to start one via Docker, or provide your own.</p>
 <h2 id="installing-dependencies">Installing Dependencies<a class="headerlink" href="#installing-dependencies" title="Permanent link">&para;</a></h2>
 <p>Install <a href="https://hatch.pypa.io/">Hatch</a>, which manages the development environment and dependencies automatically:</p>
-<div class="highlight"><pre><span></span><code>pipx install hatch
-</code></pre></div>
+<div class="highlight"><pre><span></span><code><span id="__span-0-1">pipx install hatch
+</span></code></pre></div>
 <p>If you do not have <code>pipx</code>, you can use <code>pip install hatch</code> instead. Hatch will install all required dependencies when you first run a script.</p>
 <h2 id="running-tests">Running Tests<a class="headerlink" href="#running-tests" title="Permanent link">&para;</a></h2>
 <p>To run all test suites, use</p>
-<div class="highlight"><pre><span></span><code>hatch run test
-</code></pre></div>
+<div class="highlight"><pre><span></span><code><span id="__span-1-1">hatch run test
+</span></code></pre></div>
 <p>To run unit tests only (no RabbitMQ required), use</p>
-<div class="highlight"><pre><span></span><code>hatch run unit
-</code></pre></div>
+<div class="highlight"><pre><span></span><code><span id="__span-2-1">hatch run unit
+</span></code></pre></div>
 <p>Tests run in parallel by default via <code>pytest-xdist</code> (<code>-n auto --dist=loadscope</code>). <code>loadscope</code> keeps tests from the same class on the same worker, which some suites (e.g. <code>tests/unit/io_services_test_stubs_test.py</code>) require, because their <code>tearDownClass</code> asserts that every dynamically generated test method ran. Pass <code>-n 0</code> to disable parallelism if needed.</p>
 <p>To start RabbitMQ via Docker for acceptance tests, use</p>
-<div class="highlight"><pre><span></span><code>hatch run rabbitmq
-</code></pre></div>
+<div class="highlight"><pre><span></span><code><span id="__span-3-1">hatch run rabbitmq
+</span></code></pre></div>
 <p>Note that some tests are OS-specific (e.g. epoll on Linux or kqueue on MacOS and BSD). Those will be skipped automatically.</p>
 <p>If you would like to run TLS/SSL tests, the quickest route is a broker in Docker with the TLS config and the test certificates already mounted:</p>
-<div class="highlight"><pre><span></span><code>hatch run rabbitmq-tls
-</code></pre></div>
+<div class="highlight"><pre><span></span><code><span id="__span-4-1">hatch run rabbitmq-tls
+</span></code></pre></div>
 <p>That listens on 5671 as well as 5672. To run a broker yourself instead, build a config from the shared template:</p>
 <ul>
 <li>
 <p>Create a <code>rabbitmq.conf</code> from <code>.ci/rabbitmq.conf.in</code>, substituting the repository path so the <code>ssl_options</code> entries resolve against <code>tests/certs/</code>:</p>
-<div class="highlight"><pre><span></span><code><span id="__span-0-1">sed -e "s#PIKA_DIR#$PWD#g" ./.ci/rabbitmq.conf.in &gt; /tmp/pika-rabbitmq.conf
+<div class="highlight"><pre><span></span><code><span id="__span-5-1">sed -e "s#PIKA_DIR#$PWD#g" ./.ci/rabbitmq.conf.in &gt; /tmp/pika-rabbitmq.conf
 </span></code></pre></div>
 </li>
 <li>
 <p>Start RabbitMQ with it. <code>RABBITMQ_CONFIG_FILE</code> takes the path with or without the <code>.conf</code> extension: the broker uses the path as given when it names a file that exists, and otherwise appends <code>.conf</code> or <code>.config</code> and retries. An example that works with the <code>generic-unix</code> package:</p>
-<div class="highlight"><pre><span></span><code><span id="__span-1-1">$ RABBITMQ_CONFIG_FILE=/tmp/pika-rabbitmq.conf ./sbin/rabbitmq-server
+<div class="highlight"><pre><span></span><code><span id="__span-6-1">$ RABBITMQ_CONFIG_FILE=/tmp/pika-rabbitmq.conf ./sbin/rabbitmq-server
 </span></code></pre></div>
 </li>
 <li>
 <p>Run the tests indicating that TLS/SSL connections should be used:</p>
-<div class="highlight"><pre><span></span><code><span id="__span-2-1">hatch run test -- --use-tls
+<div class="highlight"><pre><span></span><code><span id="__span-7-1">hatch run test -- --use-tls
 </span></code></pre></div>
 </li>
 </ul>
 <h2 id="building-documentation">Building Documentation<a class="headerlink" href="#building-documentation" title="Permanent link">&para;</a></h2>
 <p>Pika documentation is built with MkDocs and Material for MkDocs.</p>
 <p>To build the documentation locally, use</p>
-<div class="highlight"><pre><span></span><code>hatch run docs:build
-</code></pre></div>
+<div class="highlight"><pre><span></span><code><span id="__span-8-1">hatch run docs:build
+</span></code></pre></div>
 <p>To preview the documentation, use</p>
-<div class="highlight"><pre><span></span><code>hatch run docs:serve
-</code></pre></div>
+<div class="highlight"><pre><span></span><code><span id="__span-9-1">hatch run docs:serve
+</span></code></pre></div>
 <p>Or with live reload:</p>
-<div class="highlight"><pre><span></span><code>hatch run docs:serve-live
-</code></pre></div>
+<div class="highlight"><pre><span></span><code><span id="__span-10-1">hatch run docs:serve-live
+</span></code></pre></div>
 <p><code>hatch run docs:serve</code> always serves <strong>one</strong> build. The site header version menu (Material <code>extra.version.provider: mike</code>) only appears when several versions exist in a <strong>mike</strong> layout (<code>versions.json</code> on the <code>gh-pages</code> branch), not in a plain <code>site/</code> output.</p>
 <p>To preview <strong>multiple versions</strong> locally:</p>
 <ol>
@@ -2236,47 +2236,53 @@
 </li>
 <li>
 <p>Deploy the current tree as one or more version labels on your <strong>local</strong> <code>gh-pages</code> branch. Always omit <code>--push</code>: the published site is deployed by CI and a hand-pushed <code>gh-pages</code> fights the next automated deploy over the version index. Use the same naming the deploy uses, so a local preview matches what the real site will look like: a stable release is <code>MAJOR.MINOR</code>, a pre-release is its full version, and <code>dev</code> is a version in its own right rather than an alias.</p>
-<div class="highlight"><pre><span></span><code>hatch run docs:mike deploy 1.5
-hatch run docs:mike deploy 1.6.0rc1
-hatch run docs:mike deploy --update-aliases dev latest
-hatch run docs:mike set-default latest
-</code></pre></div>
+<div class="highlight"><pre><span></span><code><span id="__span-11-1">hatch run docs:mike deploy 1.5
+</span><span id="__span-11-2">hatch run docs:mike deploy 1.6.0rc1
+</span><span id="__span-11-3">hatch run docs:mike deploy --update-aliases dev latest
+</span><span id="__span-11-4">hatch run docs:mike set-default latest
+</span></code></pre></div>
 </li>
 <li>
 <p>Serve that branch:</p>
-<div class="highlight"><pre><span></span><code>hatch run docs:mike serve
-</code></pre></div>
+<div class="highlight"><pre><span></span><code><span id="__span-12-1">hatch run docs:mike serve
+</span></code></pre></div>
 </li>
 <li>
 <p>Open the URL it prints (default <code>http://127.0.0.1:8000</code>) and use the version selector. <code>mike list</code> shows what is installed; <code>mike delete VERSION</code> removes one version.</p>
 </li>
 <li>
 <p>Delete the local branch when you are done:</p>
-<div class="highlight"><pre><span></span><code>git branch -D gh-pages
-</code></pre></div>
+<div class="highlight"><pre><span></span><code><span id="__span-13-1">git branch -D gh-pages
+</span></code></pre></div>
 </li>
 </ol>
 <p>Do this even though you never pushed. Once CI has published to <code>gh-pages</code> and you fetch it, your local branch has diverged from the remote, and every <code>mike</code> write command refuses to run against a diverged branch: <code>deploy</code>, <code>delete</code> and <code>set-default</code> all fail with <code>gh-pages has diverged from origin/gh-pages</code>. Deleting the local branch is the fix; the next preview recreates it.</p>
 <h2 id="code-formatting-and-linting">Code Formatting and Linting<a class="headerlink" href="#code-formatting-and-linting" title="Permanent link">&para;</a></h2>
 <p>Please format your code using <a href="https://pypi.org/project/yapf/">yapf</a> with <code>google</code> style prior to issuing your pull request. <em>Note: only format those lines that you have changed in your pull request. If you format an entire file and change code outside of the scope of your PR, it will likely be rejected.</em></p>
-<div class="highlight"><pre><span></span><code>hatch run fmt
-</code></pre></div>
+<div class="highlight"><pre><span></span><code><span id="__span-14-1">hatch run fmt
+</span></code></pre></div>
 <p>To verify formatting without modifying files (mirrors CI), use</p>
-<div class="highlight"><pre><span></span><code>hatch run fmt-check
-</code></pre></div>
+<div class="highlight"><pre><span></span><code><span id="__span-15-1">hatch run fmt-check
+</span></code></pre></div>
 <p>Please also lint your code using <a href="https://docs.astral.sh/ruff/">ruff</a>:</p>
-<div class="highlight"><pre><span></span><code>hatch run lint
-</code></pre></div>
+<div class="highlight"><pre><span></span><code><span id="__span-16-1">hatch run lint
+</span></code></pre></div>
 <p>To verify linting without modifying files (mirrors CI), use</p>
-<div class="highlight"><pre><span></span><code>hatch run lint-check
-</code></pre></div>
+<div class="highlight"><pre><span></span><code><span id="__span-17-1">hatch run lint-check
+</span></code></pre></div>
 <p>Please also format docstrings using <a href="https://github.com/PyCQA/docformatter">docformatter</a>, which enforces <a href="https://peps.python.org/pep-0257/">PEP 257</a> style:</p>
-<div class="highlight"><pre><span></span><code>hatch run docfmt
-</code></pre></div>
+<div class="highlight"><pre><span></span><code><span id="__span-18-1">hatch run docfmt
+</span></code></pre></div>
 <p>To verify docstring formatting without modifying files (mirrors CI), use</p>
-<div class="highlight"><pre><span></span><code>hatch run docfmt-check
-</code></pre></div>
-<p>All three checks (<code>fmt-check</code>, <code>lint-check</code>, <code>docfmt-check</code>) run in CI on every push and pull request.</p>
+<div class="highlight"><pre><span></span><code><span id="__span-19-1">hatch run docfmt-check
+</span></code></pre></div>
+<p>Markdown is formatted with <a href="https://mdformat.readthedocs.io/">mdformat</a>, which also keeps every paragraph and list item on one line:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-20-1">hatch run mdfmt
+</span></code></pre></div>
+<p>To verify markdown formatting without modifying files (mirrors CI), use</p>
+<div class="highlight"><pre><span></span><code><span id="__span-21-1">hatch run mdfmt-check
+</span></code></pre></div>
+<p>All four checks (<code>fmt-check</code>, <code>lint-check</code>, <code>docfmt-check</code>, <code>mdfmt-check</code>) run in CI on every push and pull request.</p>
 
 
 
