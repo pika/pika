@@ -1561,6 +1561,34 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#pika.exceptions.FrameTooLargeError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;FrameTooLargeError
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" FrameTooLargeError">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pika.exceptions.FrameTooLargeError.__repr__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__repr__
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pika.exceptions.IncompatibleProtocolError" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1658,6 +1686,34 @@
         
           <li class="md-nav__item">
   <a href="#pika.exceptions.InvalidFrameError.__repr__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__repr__
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pika.exceptions.MessageBodyTooLargeError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;MessageBodyTooLargeError
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" MessageBodyTooLargeError">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pika.exceptions.MessageBodyTooLargeError.__repr__" class="md-nav__link">
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__repr__
@@ -3719,6 +3775,34 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#pika.exceptions.FrameTooLargeError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;FrameTooLargeError
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" FrameTooLargeError">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pika.exceptions.FrameTooLargeError.__repr__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__repr__
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pika.exceptions.IncompatibleProtocolError" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3816,6 +3900,34 @@
         
           <li class="md-nav__item">
   <a href="#pika.exceptions.InvalidFrameError.__repr__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__repr__
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pika.exceptions.MessageBodyTooLargeError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;MessageBodyTooLargeError
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" MessageBodyTooLargeError">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pika.exceptions.MessageBodyTooLargeError.__repr__" class="md-nav__link">
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__repr__
@@ -4955,13 +5067,13 @@
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pika/exceptions.py</code></summary>
-                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.BodyTooLongError--source--__span-0-358"><span class="linenos" data-linenos="358 "></span><span class="k">class</span><span class="w"> </span><span class="nc">BodyTooLongError</span><span class="p">(</span><span class="n">ProtocolSyntaxError</span><span class="p">):</span>
-</span><span id="pika.exceptions.BodyTooLongError--source--__span-0-359"><span class="linenos" data-linenos="359 "></span>
-</span><span id="pika.exceptions.BodyTooLongError--source--__span-0-360"><span class="linenos" data-linenos="360 "></span>    <span class="nd">@override</span>
-</span><span id="pika.exceptions.BodyTooLongError--source--__span-0-361"><span class="linenos" data-linenos="361 "></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="pika.exceptions.BodyTooLongError--source--__span-0-362"><span class="linenos" data-linenos="362 "></span>        <span class="k">return</span> <span class="p">(</span>
-</span><span id="pika.exceptions.BodyTooLongError--source--__span-0-363"><span class="linenos" data-linenos="363 "></span>            <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: Received too many bytes for a message delivery: '</span>
-</span><span id="pika.exceptions.BodyTooLongError--source--__span-0-364"><span class="linenos" data-linenos="364 "></span>            <span class="sa">f</span><span class="s1">'Received </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1">, expected </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.BodyTooLongError--source--__span-0-379"><span class="linenos" data-linenos="379 "></span><span class="k">class</span><span class="w"> </span><span class="nc">BodyTooLongError</span><span class="p">(</span><span class="n">ProtocolSyntaxError</span><span class="p">):</span>
+</span><span id="pika.exceptions.BodyTooLongError--source--__span-0-380"><span class="linenos" data-linenos="380 "></span>
+</span><span id="pika.exceptions.BodyTooLongError--source--__span-0-381"><span class="linenos" data-linenos="381 "></span>    <span class="nd">@override</span>
+</span><span id="pika.exceptions.BodyTooLongError--source--__span-0-382"><span class="linenos" data-linenos="382 "></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.BodyTooLongError--source--__span-0-383"><span class="linenos" data-linenos="383 "></span>        <span class="k">return</span> <span class="p">(</span>
+</span><span id="pika.exceptions.BodyTooLongError--source--__span-0-384"><span class="linenos" data-linenos="384 "></span>            <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: Received too many bytes for a message delivery: '</span>
+</span><span id="pika.exceptions.BodyTooLongError--source--__span-0-385"><span class="linenos" data-linenos="385 "></span>            <span class="sa">f</span><span class="s1">'Received </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1">, expected </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
 </span></code></pre></div>
               </details>
 
@@ -4994,11 +5106,11 @@
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pika/exceptions.py</code></summary>
-              <div class="highlight"><pre><span></span><code><span id="pika.exceptions.BodyTooLongError.__repr__--source--__span-0-360"><span class="linenos" data-linenos="360 "></span><span class="nd">@override</span>
-</span><span id="pika.exceptions.BodyTooLongError.__repr__--source--__span-0-361"><span class="linenos" data-linenos="361 "></span><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="pika.exceptions.BodyTooLongError.__repr__--source--__span-0-362"><span class="linenos" data-linenos="362 "></span>    <span class="k">return</span> <span class="p">(</span>
-</span><span id="pika.exceptions.BodyTooLongError.__repr__--source--__span-0-363"><span class="linenos" data-linenos="363 "></span>        <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: Received too many bytes for a message delivery: '</span>
-</span><span id="pika.exceptions.BodyTooLongError.__repr__--source--__span-0-364"><span class="linenos" data-linenos="364 "></span>        <span class="sa">f</span><span class="s1">'Received </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1">, expected </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+              <div class="highlight"><pre><span></span><code><span id="pika.exceptions.BodyTooLongError.__repr__--source--__span-0-381"><span class="linenos" data-linenos="381 "></span><span class="nd">@override</span>
+</span><span id="pika.exceptions.BodyTooLongError.__repr__--source--__span-0-382"><span class="linenos" data-linenos="382 "></span><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.BodyTooLongError.__repr__--source--__span-0-383"><span class="linenos" data-linenos="383 "></span>    <span class="k">return</span> <span class="p">(</span>
+</span><span id="pika.exceptions.BodyTooLongError.__repr__--source--__span-0-384"><span class="linenos" data-linenos="384 "></span>        <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: Received too many bytes for a message delivery: '</span>
+</span><span id="pika.exceptions.BodyTooLongError.__repr__--source--__span-0-385"><span class="linenos" data-linenos="385 "></span>        <span class="sa">f</span><span class="s1">'Received </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1">, expected </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
 </span></code></pre></div>
             </details>
     </div>
@@ -5402,11 +5514,11 @@ on-closed callback of non-blocking connection adapters, but not raised by <code>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pika/exceptions.py</code></summary>
-                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.ChannelError--source--__span-0-392"><span class="linenos" data-linenos="392 "></span><span class="k">class</span><span class="w"> </span><span class="nc">ChannelError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-</span><span id="pika.exceptions.ChannelError--source--__span-0-393"><span class="linenos" data-linenos="393 "></span>
-</span><span id="pika.exceptions.ChannelError--source--__span-0-394"><span class="linenos" data-linenos="394 "></span>    <span class="nd">@override</span>
-</span><span id="pika.exceptions.ChannelError--source--__span-0-395"><span class="linenos" data-linenos="395 "></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="pika.exceptions.ChannelError--source--__span-0-396"><span class="linenos" data-linenos="396 "></span>        <span class="k">return</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: An unspecified error occurred with the Channel'</span>
+                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.ChannelError--source--__span-0-413"><span class="linenos" data-linenos="413 "></span><span class="k">class</span><span class="w"> </span><span class="nc">ChannelError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+</span><span id="pika.exceptions.ChannelError--source--__span-0-414"><span class="linenos" data-linenos="414 "></span>
+</span><span id="pika.exceptions.ChannelError--source--__span-0-415"><span class="linenos" data-linenos="415 "></span>    <span class="nd">@override</span>
+</span><span id="pika.exceptions.ChannelError--source--__span-0-416"><span class="linenos" data-linenos="416 "></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.ChannelError--source--__span-0-417"><span class="linenos" data-linenos="417 "></span>        <span class="k">return</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: An unspecified error occurred with the Channel'</span>
 </span></code></pre></div>
               </details>
 
@@ -5439,9 +5551,9 @@ on-closed callback of non-blocking connection adapters, but not raised by <code>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pika/exceptions.py</code></summary>
-              <div class="highlight"><pre><span></span><code><span id="pika.exceptions.ChannelError.__repr__--source--__span-0-394"><span class="linenos" data-linenos="394 "></span><span class="nd">@override</span>
-</span><span id="pika.exceptions.ChannelError.__repr__--source--__span-0-395"><span class="linenos" data-linenos="395 "></span><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="pika.exceptions.ChannelError.__repr__--source--__span-0-396"><span class="linenos" data-linenos="396 "></span>    <span class="k">return</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: An unspecified error occurred with the Channel'</span>
+              <div class="highlight"><pre><span></span><code><span id="pika.exceptions.ChannelError.__repr__--source--__span-0-415"><span class="linenos" data-linenos="415 "></span><span class="nd">@override</span>
+</span><span id="pika.exceptions.ChannelError.__repr__--source--__span-0-416"><span class="linenos" data-linenos="416 "></span><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.ChannelError.__repr__--source--__span-0-417"><span class="linenos" data-linenos="417 "></span>    <span class="k">return</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: An unspecified error occurred with the Channel'</span>
 </span></code></pre></div>
             </details>
     </div>
@@ -6314,13 +6426,13 @@ replaced. NEW in v1.0.0</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pika/exceptions.py</code></summary>
-                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.DuplicateGetOkCallback--source--__span-0-452"><span class="linenos" data-linenos="452 "></span><span class="k">class</span><span class="w"> </span><span class="nc">DuplicateGetOkCallback</span><span class="p">(</span><span class="n">ChannelError</span><span class="p">):</span>
-</span><span id="pika.exceptions.DuplicateGetOkCallback--source--__span-0-453"><span class="linenos" data-linenos="453 "></span>
-</span><span id="pika.exceptions.DuplicateGetOkCallback--source--__span-0-454"><span class="linenos" data-linenos="454 "></span>    <span class="nd">@override</span>
-</span><span id="pika.exceptions.DuplicateGetOkCallback--source--__span-0-455"><span class="linenos" data-linenos="455 "></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="pika.exceptions.DuplicateGetOkCallback--source--__span-0-456"><span class="linenos" data-linenos="456 "></span>        <span class="k">return</span> <span class="p">(</span>
-</span><span id="pika.exceptions.DuplicateGetOkCallback--source--__span-0-457"><span class="linenos" data-linenos="457 "></span>            <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: basic_get can only be called again after the callback for '</span>
-</span><span id="pika.exceptions.DuplicateGetOkCallback--source--__span-0-458"><span class="linenos" data-linenos="458 "></span>            <span class="s1">'the previous basic_get is executed'</span><span class="p">)</span>
+                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.DuplicateGetOkCallback--source--__span-0-473"><span class="linenos" data-linenos="473 "></span><span class="k">class</span><span class="w"> </span><span class="nc">DuplicateGetOkCallback</span><span class="p">(</span><span class="n">ChannelError</span><span class="p">):</span>
+</span><span id="pika.exceptions.DuplicateGetOkCallback--source--__span-0-474"><span class="linenos" data-linenos="474 "></span>
+</span><span id="pika.exceptions.DuplicateGetOkCallback--source--__span-0-475"><span class="linenos" data-linenos="475 "></span>    <span class="nd">@override</span>
+</span><span id="pika.exceptions.DuplicateGetOkCallback--source--__span-0-476"><span class="linenos" data-linenos="476 "></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.DuplicateGetOkCallback--source--__span-0-477"><span class="linenos" data-linenos="477 "></span>        <span class="k">return</span> <span class="p">(</span>
+</span><span id="pika.exceptions.DuplicateGetOkCallback--source--__span-0-478"><span class="linenos" data-linenos="478 "></span>            <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: basic_get can only be called again after the callback for '</span>
+</span><span id="pika.exceptions.DuplicateGetOkCallback--source--__span-0-479"><span class="linenos" data-linenos="479 "></span>            <span class="s1">'the previous basic_get is executed'</span><span class="p">)</span>
 </span></code></pre></div>
               </details>
 
@@ -6353,11 +6465,98 @@ replaced. NEW in v1.0.0</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pika/exceptions.py</code></summary>
-              <div class="highlight"><pre><span></span><code><span id="pika.exceptions.DuplicateGetOkCallback.__repr__--source--__span-0-454"><span class="linenos" data-linenos="454 "></span><span class="nd">@override</span>
-</span><span id="pika.exceptions.DuplicateGetOkCallback.__repr__--source--__span-0-455"><span class="linenos" data-linenos="455 "></span><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="pika.exceptions.DuplicateGetOkCallback.__repr__--source--__span-0-456"><span class="linenos" data-linenos="456 "></span>    <span class="k">return</span> <span class="p">(</span>
-</span><span id="pika.exceptions.DuplicateGetOkCallback.__repr__--source--__span-0-457"><span class="linenos" data-linenos="457 "></span>        <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: basic_get can only be called again after the callback for '</span>
-</span><span id="pika.exceptions.DuplicateGetOkCallback.__repr__--source--__span-0-458"><span class="linenos" data-linenos="458 "></span>        <span class="s1">'the previous basic_get is executed'</span><span class="p">)</span>
+              <div class="highlight"><pre><span></span><code><span id="pika.exceptions.DuplicateGetOkCallback.__repr__--source--__span-0-475"><span class="linenos" data-linenos="475 "></span><span class="nd">@override</span>
+</span><span id="pika.exceptions.DuplicateGetOkCallback.__repr__--source--__span-0-476"><span class="linenos" data-linenos="476 "></span><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.DuplicateGetOkCallback.__repr__--source--__span-0-477"><span class="linenos" data-linenos="477 "></span>    <span class="k">return</span> <span class="p">(</span>
+</span><span id="pika.exceptions.DuplicateGetOkCallback.__repr__--source--__span-0-478"><span class="linenos" data-linenos="478 "></span>        <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: basic_get can only be called again after the callback for '</span>
+</span><span id="pika.exceptions.DuplicateGetOkCallback.__repr__--source--__span-0-479"><span class="linenos" data-linenos="479 "></span>        <span class="s1">'the previous basic_get is executed'</span><span class="p">)</span>
+</span></code></pre></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="pika.exceptions.FrameTooLargeError" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">FrameTooLargeError</span>
+
+
+<a href="#pika.exceptions.FrameTooLargeError" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;AMQPConnectionError&lt;/span&gt; (&lt;code&gt;pika.exceptions.AMQPConnectionError&lt;/code&gt;)" href="#pika.exceptions.AMQPConnectionError">AMQPConnectionError</a></code></p>
+
+
+
+        <p>An inbound frame declared a payload above the connection's frame limit.</p>
+
+
+
+
+
+
+
+
+              <details class="mkdocstrings-source">
+                <summary>Source code in <code>pika/exceptions.py</code></summary>
+                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.FrameTooLargeError--source--__span-0-358"><span class="linenos" data-linenos="358 "></span><span class="k">class</span><span class="w"> </span><span class="nc">FrameTooLargeError</span><span class="p">(</span><span class="n">AMQPConnectionError</span><span class="p">):</span>
+</span><span id="pika.exceptions.FrameTooLargeError--source--__span-0-359"><span class="linenos" data-linenos="359 "></span><span class="w">    </span><span class="sd">"""An inbound frame declared a payload above the connection's frame limit."""</span>
+</span><span id="pika.exceptions.FrameTooLargeError--source--__span-0-360"><span class="linenos" data-linenos="360 "></span>
+</span><span id="pika.exceptions.FrameTooLargeError--source--__span-0-361"><span class="linenos" data-linenos="361 "></span>    <span class="nd">@override</span>
+</span><span id="pika.exceptions.FrameTooLargeError--source--__span-0-362"><span class="linenos" data-linenos="362 "></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.FrameTooLargeError--source--__span-0-363"><span class="linenos" data-linenos="363 "></span>        <span class="k">return</span> <span class="p">(</span>
+</span><span id="pika.exceptions.FrameTooLargeError--source--__span-0-364"><span class="linenos" data-linenos="364 "></span>            <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: Received a frame of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1"> bytes, above the '</span>
+</span><span id="pika.exceptions.FrameTooLargeError--source--__span-0-365"><span class="linenos" data-linenos="365 "></span>            <span class="sa">f</span><span class="s1">'limit of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s1"> bytes</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_host_port_suffix</span><span class="p">()</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+</span></code></pre></div>
+              </details>
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="pika.exceptions.FrameTooLargeError.__repr__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">__repr__</span>
+
+
+<a href="#pika.exceptions.FrameTooLargeError.__repr__" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">__repr__</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><span title="str">str</span></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>pika/exceptions.py</code></summary>
+              <div class="highlight"><pre><span></span><code><span id="pika.exceptions.FrameTooLargeError.__repr__--source--__span-0-361"><span class="linenos" data-linenos="361 "></span><span class="nd">@override</span>
+</span><span id="pika.exceptions.FrameTooLargeError.__repr__--source--__span-0-362"><span class="linenos" data-linenos="362 "></span><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.FrameTooLargeError.__repr__--source--__span-0-363"><span class="linenos" data-linenos="363 "></span>    <span class="k">return</span> <span class="p">(</span>
+</span><span id="pika.exceptions.FrameTooLargeError.__repr__--source--__span-0-364"><span class="linenos" data-linenos="364 "></span>        <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: Received a frame of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1"> bytes, above the '</span>
+</span><span id="pika.exceptions.FrameTooLargeError.__repr__--source--__span-0-365"><span class="linenos" data-linenos="365 "></span>        <span class="sa">f</span><span class="s1">'limit of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s1"> bytes</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_host_port_suffix</span><span class="p">()</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
 </span></code></pre></div>
             </details>
     </div>
@@ -6562,11 +6761,11 @@ replaced. NEW in v1.0.0</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pika/exceptions.py</code></summary>
-                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.InvalidFieldTypeException--source--__span-0-374"><span class="linenos" data-linenos="374 "></span><span class="k">class</span><span class="w"> </span><span class="nc">InvalidFieldTypeException</span><span class="p">(</span><span class="n">ProtocolSyntaxError</span><span class="p">):</span>
-</span><span id="pika.exceptions.InvalidFieldTypeException--source--__span-0-375"><span class="linenos" data-linenos="375 "></span>
-</span><span id="pika.exceptions.InvalidFieldTypeException--source--__span-0-376"><span class="linenos" data-linenos="376 "></span>    <span class="nd">@override</span>
-</span><span id="pika.exceptions.InvalidFieldTypeException--source--__span-0-377"><span class="linenos" data-linenos="377 "></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="pika.exceptions.InvalidFieldTypeException--source--__span-0-378"><span class="linenos" data-linenos="378 "></span>        <span class="k">return</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: Unsupported field kind </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1">'</span>
+                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.InvalidFieldTypeException--source--__span-0-395"><span class="linenos" data-linenos="395 "></span><span class="k">class</span><span class="w"> </span><span class="nc">InvalidFieldTypeException</span><span class="p">(</span><span class="n">ProtocolSyntaxError</span><span class="p">):</span>
+</span><span id="pika.exceptions.InvalidFieldTypeException--source--__span-0-396"><span class="linenos" data-linenos="396 "></span>
+</span><span id="pika.exceptions.InvalidFieldTypeException--source--__span-0-397"><span class="linenos" data-linenos="397 "></span>    <span class="nd">@override</span>
+</span><span id="pika.exceptions.InvalidFieldTypeException--source--__span-0-398"><span class="linenos" data-linenos="398 "></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.InvalidFieldTypeException--source--__span-0-399"><span class="linenos" data-linenos="399 "></span>        <span class="k">return</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: Unsupported field kind </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1">'</span>
 </span></code></pre></div>
               </details>
 
@@ -6599,9 +6798,9 @@ replaced. NEW in v1.0.0</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pika/exceptions.py</code></summary>
-              <div class="highlight"><pre><span></span><code><span id="pika.exceptions.InvalidFieldTypeException.__repr__--source--__span-0-376"><span class="linenos" data-linenos="376 "></span><span class="nd">@override</span>
-</span><span id="pika.exceptions.InvalidFieldTypeException.__repr__--source--__span-0-377"><span class="linenos" data-linenos="377 "></span><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="pika.exceptions.InvalidFieldTypeException.__repr__--source--__span-0-378"><span class="linenos" data-linenos="378 "></span>    <span class="k">return</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: Unsupported field kind </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1">'</span>
+              <div class="highlight"><pre><span></span><code><span id="pika.exceptions.InvalidFieldTypeException.__repr__--source--__span-0-397"><span class="linenos" data-linenos="397 "></span><span class="nd">@override</span>
+</span><span id="pika.exceptions.InvalidFieldTypeException.__repr__--source--__span-0-398"><span class="linenos" data-linenos="398 "></span><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.InvalidFieldTypeException.__repr__--source--__span-0-399"><span class="linenos" data-linenos="399 "></span>    <span class="k">return</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: Unsupported field kind </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1">'</span>
 </span></code></pre></div>
             </details>
     </div>
@@ -6642,11 +6841,11 @@ replaced. NEW in v1.0.0</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pika/exceptions.py</code></summary>
-                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.InvalidFrameError--source--__span-0-367"><span class="linenos" data-linenos="367 "></span><span class="k">class</span><span class="w"> </span><span class="nc">InvalidFrameError</span><span class="p">(</span><span class="n">ProtocolSyntaxError</span><span class="p">):</span>
-</span><span id="pika.exceptions.InvalidFrameError--source--__span-0-368"><span class="linenos" data-linenos="368 "></span>
-</span><span id="pika.exceptions.InvalidFrameError--source--__span-0-369"><span class="linenos" data-linenos="369 "></span>    <span class="nd">@override</span>
-</span><span id="pika.exceptions.InvalidFrameError--source--__span-0-370"><span class="linenos" data-linenos="370 "></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="pika.exceptions.InvalidFrameError--source--__span-0-371"><span class="linenos" data-linenos="371 "></span>        <span class="k">return</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: Invalid frame received: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">!r}</span><span class="s1">'</span>
+                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.InvalidFrameError--source--__span-0-388"><span class="linenos" data-linenos="388 "></span><span class="k">class</span><span class="w"> </span><span class="nc">InvalidFrameError</span><span class="p">(</span><span class="n">ProtocolSyntaxError</span><span class="p">):</span>
+</span><span id="pika.exceptions.InvalidFrameError--source--__span-0-389"><span class="linenos" data-linenos="389 "></span>
+</span><span id="pika.exceptions.InvalidFrameError--source--__span-0-390"><span class="linenos" data-linenos="390 "></span>    <span class="nd">@override</span>
+</span><span id="pika.exceptions.InvalidFrameError--source--__span-0-391"><span class="linenos" data-linenos="391 "></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.InvalidFrameError--source--__span-0-392"><span class="linenos" data-linenos="392 "></span>        <span class="k">return</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: Invalid frame received: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">!r}</span><span class="s1">'</span>
 </span></code></pre></div>
               </details>
 
@@ -6679,9 +6878,98 @@ replaced. NEW in v1.0.0</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pika/exceptions.py</code></summary>
-              <div class="highlight"><pre><span></span><code><span id="pika.exceptions.InvalidFrameError.__repr__--source--__span-0-369"><span class="linenos" data-linenos="369 "></span><span class="nd">@override</span>
-</span><span id="pika.exceptions.InvalidFrameError.__repr__--source--__span-0-370"><span class="linenos" data-linenos="370 "></span><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="pika.exceptions.InvalidFrameError.__repr__--source--__span-0-371"><span class="linenos" data-linenos="371 "></span>    <span class="k">return</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: Invalid frame received: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">!r}</span><span class="s1">'</span>
+              <div class="highlight"><pre><span></span><code><span id="pika.exceptions.InvalidFrameError.__repr__--source--__span-0-390"><span class="linenos" data-linenos="390 "></span><span class="nd">@override</span>
+</span><span id="pika.exceptions.InvalidFrameError.__repr__--source--__span-0-391"><span class="linenos" data-linenos="391 "></span><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.InvalidFrameError.__repr__--source--__span-0-392"><span class="linenos" data-linenos="392 "></span>    <span class="k">return</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: Invalid frame received: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">!r}</span><span class="s1">'</span>
+</span></code></pre></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="pika.exceptions.MessageBodyTooLargeError" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">MessageBodyTooLargeError</span>
+
+
+<a href="#pika.exceptions.MessageBodyTooLargeError" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;AMQPConnectionError&lt;/span&gt; (&lt;code&gt;pika.exceptions.AMQPConnectionError&lt;/code&gt;)" href="#pika.exceptions.AMQPConnectionError">AMQPConnectionError</a></code></p>
+
+
+
+        <p>An inbound message declared a body above <code>max_inbound_message_body_size</code>.</p>
+
+
+
+
+
+
+
+
+              <details class="mkdocstrings-source">
+                <summary>Source code in <code>pika/exceptions.py</code></summary>
+                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.MessageBodyTooLargeError--source--__span-0-368"><span class="linenos" data-linenos="368 "></span><span class="k">class</span><span class="w"> </span><span class="nc">MessageBodyTooLargeError</span><span class="p">(</span><span class="n">AMQPConnectionError</span><span class="p">):</span>
+</span><span id="pika.exceptions.MessageBodyTooLargeError--source--__span-0-369"><span class="linenos" data-linenos="369 "></span><span class="w">    </span><span class="sd">"""An inbound message declared a body above ``max_inbound_message_body_size``."""</span>
+</span><span id="pika.exceptions.MessageBodyTooLargeError--source--__span-0-370"><span class="linenos" data-linenos="370 "></span>
+</span><span id="pika.exceptions.MessageBodyTooLargeError--source--__span-0-371"><span class="linenos" data-linenos="371 "></span>    <span class="nd">@override</span>
+</span><span id="pika.exceptions.MessageBodyTooLargeError--source--__span-0-372"><span class="linenos" data-linenos="372 "></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.MessageBodyTooLargeError--source--__span-0-373"><span class="linenos" data-linenos="373 "></span>        <span class="k">return</span> <span class="p">(</span>
+</span><span id="pika.exceptions.MessageBodyTooLargeError--source--__span-0-374"><span class="linenos" data-linenos="374 "></span>            <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: Received a message with a </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1">-byte body, '</span>
+</span><span id="pika.exceptions.MessageBodyTooLargeError--source--__span-0-375"><span class="linenos" data-linenos="375 "></span>            <span class="sa">f</span><span class="s1">'above the max_inbound_message_body_size of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s1"> bytes'</span>
+</span><span id="pika.exceptions.MessageBodyTooLargeError--source--__span-0-376"><span class="linenos" data-linenos="376 "></span>            <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_host_port_suffix</span><span class="p">()</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+</span></code></pre></div>
+              </details>
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="pika.exceptions.MessageBodyTooLargeError.__repr__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">__repr__</span>
+
+
+<a href="#pika.exceptions.MessageBodyTooLargeError.__repr__" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">__repr__</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><span title="str">str</span></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>pika/exceptions.py</code></summary>
+              <div class="highlight"><pre><span></span><code><span id="pika.exceptions.MessageBodyTooLargeError.__repr__--source--__span-0-371"><span class="linenos" data-linenos="371 "></span><span class="nd">@override</span>
+</span><span id="pika.exceptions.MessageBodyTooLargeError.__repr__--source--__span-0-372"><span class="linenos" data-linenos="372 "></span><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.MessageBodyTooLargeError.__repr__--source--__span-0-373"><span class="linenos" data-linenos="373 "></span>    <span class="k">return</span> <span class="p">(</span>
+</span><span id="pika.exceptions.MessageBodyTooLargeError.__repr__--source--__span-0-374"><span class="linenos" data-linenos="374 "></span>        <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: Received a message with a </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1">-byte body, '</span>
+</span><span id="pika.exceptions.MessageBodyTooLargeError.__repr__--source--__span-0-375"><span class="linenos" data-linenos="375 "></span>        <span class="sa">f</span><span class="s1">'above the max_inbound_message_body_size of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s1"> bytes'</span>
+</span><span id="pika.exceptions.MessageBodyTooLargeError.__repr__--source--__span-0-376"><span class="linenos" data-linenos="376 "></span>        <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_host_port_suffix</span><span class="p">()</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
 </span></code></pre></div>
             </details>
     </div>
@@ -6722,8 +7010,8 @@ replaced. NEW in v1.0.0</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pika/exceptions.py</code></summary>
-                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.MethodNotImplemented--source--__span-0-388"><span class="linenos" data-linenos="388 "></span><span class="k">class</span><span class="w"> </span><span class="nc">MethodNotImplemented</span><span class="p">(</span><span class="n">AMQPError</span><span class="p">):</span>
-</span><span id="pika.exceptions.MethodNotImplemented--source--__span-0-389"><span class="linenos" data-linenos="389 "></span>    <span class="k">pass</span>
+                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.MethodNotImplemented--source--__span-0-409"><span class="linenos" data-linenos="409 "></span><span class="k">class</span><span class="w"> </span><span class="nc">MethodNotImplemented</span><span class="p">(</span><span class="n">AMQPError</span><span class="p">):</span>
+</span><span id="pika.exceptions.MethodNotImplemented--source--__span-0-410"><span class="linenos" data-linenos="410 "></span>    <span class="k">pass</span>
 </span></code></pre></div>
               </details>
 
@@ -7374,12 +7662,12 @@ by the broker.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pika/exceptions.py</code></summary>
-                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.ReentrancyError--source--__span-0-399"><span class="linenos" data-linenos="399 "></span><span class="k">class</span><span class="w"> </span><span class="nc">ReentrancyError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-</span><span id="pika.exceptions.ReentrancyError--source--__span-0-400"><span class="linenos" data-linenos="400 "></span><span class="w">    </span><span class="sd">"""</span>
-</span><span id="pika.exceptions.ReentrancyError--source--__span-0-401"><span class="linenos" data-linenos="401 "></span><span class="sd">    The requested operation would result in unsupported recursion or reentrancy.</span>
-</span><span id="pika.exceptions.ReentrancyError--source--__span-0-402"><span class="linenos" data-linenos="402 "></span>
-</span><span id="pika.exceptions.ReentrancyError--source--__span-0-403"><span class="linenos" data-linenos="403 "></span><span class="sd">    Used by BlockingConnection/BlockingChannel</span>
-</span><span id="pika.exceptions.ReentrancyError--source--__span-0-404"><span class="linenos" data-linenos="404 "></span><span class="sd">    """</span>
+                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.ReentrancyError--source--__span-0-420"><span class="linenos" data-linenos="420 "></span><span class="k">class</span><span class="w"> </span><span class="nc">ReentrancyError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+</span><span id="pika.exceptions.ReentrancyError--source--__span-0-421"><span class="linenos" data-linenos="421 "></span><span class="w">    </span><span class="sd">"""</span>
+</span><span id="pika.exceptions.ReentrancyError--source--__span-0-422"><span class="linenos" data-linenos="422 "></span><span class="sd">    The requested operation would result in unsupported recursion or reentrancy.</span>
+</span><span id="pika.exceptions.ReentrancyError--source--__span-0-423"><span class="linenos" data-linenos="423 "></span>
+</span><span id="pika.exceptions.ReentrancyError--source--__span-0-424"><span class="linenos" data-linenos="424 "></span><span class="sd">    Used by BlockingConnection/BlockingChannel</span>
+</span><span id="pika.exceptions.ReentrancyError--source--__span-0-425"><span class="linenos" data-linenos="425 "></span><span class="sd">    """</span>
 </span></code></pre></div>
               </details>
 
@@ -7571,13 +7859,13 @@ annotations</code> or a quoted annotation makes usable.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pika/exceptions.py</code></summary>
-                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.ShortStringTooLong--source--__span-0-416"><span class="linenos" data-linenos="416 "></span><span class="k">class</span><span class="w"> </span><span class="nc">ShortStringTooLong</span><span class="p">(</span><span class="n">AMQPError</span><span class="p">):</span>
-</span><span id="pika.exceptions.ShortStringTooLong--source--__span-0-417"><span class="linenos" data-linenos="417 "></span>
-</span><span id="pika.exceptions.ShortStringTooLong--source--__span-0-418"><span class="linenos" data-linenos="418 "></span>    <span class="nd">@override</span>
-</span><span id="pika.exceptions.ShortStringTooLong--source--__span-0-419"><span class="linenos" data-linenos="419 "></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="pika.exceptions.ShortStringTooLong--source--__span-0-420"><span class="linenos" data-linenos="420 "></span>        <span class="k">return</span> <span class="p">(</span>
-</span><span id="pika.exceptions.ShortStringTooLong--source--__span-0-421"><span class="linenos" data-linenos="421 "></span>            <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: AMQP Short String can contain up to 255 bytes: '</span>
-</span><span id="pika.exceptions.ShortStringTooLong--source--__span-0-422"><span class="linenos" data-linenos="422 "></span>            <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">!s:</span><span class="s1">.300</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.ShortStringTooLong--source--__span-0-437"><span class="linenos" data-linenos="437 "></span><span class="k">class</span><span class="w"> </span><span class="nc">ShortStringTooLong</span><span class="p">(</span><span class="n">AMQPError</span><span class="p">):</span>
+</span><span id="pika.exceptions.ShortStringTooLong--source--__span-0-438"><span class="linenos" data-linenos="438 "></span>
+</span><span id="pika.exceptions.ShortStringTooLong--source--__span-0-439"><span class="linenos" data-linenos="439 "></span>    <span class="nd">@override</span>
+</span><span id="pika.exceptions.ShortStringTooLong--source--__span-0-440"><span class="linenos" data-linenos="440 "></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.ShortStringTooLong--source--__span-0-441"><span class="linenos" data-linenos="441 "></span>        <span class="k">return</span> <span class="p">(</span>
+</span><span id="pika.exceptions.ShortStringTooLong--source--__span-0-442"><span class="linenos" data-linenos="442 "></span>            <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: AMQP Short String can contain up to 255 bytes: '</span>
+</span><span id="pika.exceptions.ShortStringTooLong--source--__span-0-443"><span class="linenos" data-linenos="443 "></span>            <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">!s:</span><span class="s1">.300</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
 </span></code></pre></div>
               </details>
 
@@ -7610,11 +7898,11 @@ annotations</code> or a quoted annotation makes usable.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pika/exceptions.py</code></summary>
-              <div class="highlight"><pre><span></span><code><span id="pika.exceptions.ShortStringTooLong.__repr__--source--__span-0-418"><span class="linenos" data-linenos="418 "></span><span class="nd">@override</span>
-</span><span id="pika.exceptions.ShortStringTooLong.__repr__--source--__span-0-419"><span class="linenos" data-linenos="419 "></span><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="pika.exceptions.ShortStringTooLong.__repr__--source--__span-0-420"><span class="linenos" data-linenos="420 "></span>    <span class="k">return</span> <span class="p">(</span>
-</span><span id="pika.exceptions.ShortStringTooLong.__repr__--source--__span-0-421"><span class="linenos" data-linenos="421 "></span>        <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: AMQP Short String can contain up to 255 bytes: '</span>
-</span><span id="pika.exceptions.ShortStringTooLong.__repr__--source--__span-0-422"><span class="linenos" data-linenos="422 "></span>        <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">!s:</span><span class="s1">.300</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+              <div class="highlight"><pre><span></span><code><span id="pika.exceptions.ShortStringTooLong.__repr__--source--__span-0-439"><span class="linenos" data-linenos="439 "></span><span class="nd">@override</span>
+</span><span id="pika.exceptions.ShortStringTooLong.__repr__--source--__span-0-440"><span class="linenos" data-linenos="440 "></span><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.ShortStringTooLong.__repr__--source--__span-0-441"><span class="linenos" data-linenos="441 "></span>    <span class="k">return</span> <span class="p">(</span>
+</span><span id="pika.exceptions.ShortStringTooLong.__repr__--source--__span-0-442"><span class="linenos" data-linenos="442 "></span>        <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: AMQP Short String can contain up to 255 bytes: '</span>
+</span><span id="pika.exceptions.ShortStringTooLong.__repr__--source--__span-0-443"><span class="linenos" data-linenos="443 "></span>        <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">!s:</span><span class="s1">.300</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
 </span></code></pre></div>
             </details>
     </div>
@@ -7709,13 +7997,13 @@ annotations</code> or a quoted annotation makes usable.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pika/exceptions.py</code></summary>
-                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.UnencodableDecimalError--source--__span-0-425"><span class="linenos" data-linenos="425 "></span><span class="k">class</span><span class="w"> </span><span class="nc">UnencodableDecimalError</span><span class="p">(</span><span class="n">AMQPError</span><span class="p">):</span>
-</span><span id="pika.exceptions.UnencodableDecimalError--source--__span-0-426"><span class="linenos" data-linenos="426 "></span>
-</span><span id="pika.exceptions.UnencodableDecimalError--source--__span-0-427"><span class="linenos" data-linenos="427 "></span>    <span class="nd">@override</span>
-</span><span id="pika.exceptions.UnencodableDecimalError--source--__span-0-428"><span class="linenos" data-linenos="428 "></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="pika.exceptions.UnencodableDecimalError--source--__span-0-429"><span class="linenos" data-linenos="429 "></span>        <span class="k">return</span> <span class="p">(</span>
-</span><span id="pika.exceptions.UnencodableDecimalError--source--__span-0-430"><span class="linenos" data-linenos="430 "></span>            <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: decimal.Decimal value has no AMQP decimal '</span>
-</span><span id="pika.exceptions.UnencodableDecimalError--source--__span-0-431"><span class="linenos" data-linenos="431 "></span>            <span class="sa">f</span><span class="s1">'representation: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">!s:</span><span class="s1">.300</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.UnencodableDecimalError--source--__span-0-446"><span class="linenos" data-linenos="446 "></span><span class="k">class</span><span class="w"> </span><span class="nc">UnencodableDecimalError</span><span class="p">(</span><span class="n">AMQPError</span><span class="p">):</span>
+</span><span id="pika.exceptions.UnencodableDecimalError--source--__span-0-447"><span class="linenos" data-linenos="447 "></span>
+</span><span id="pika.exceptions.UnencodableDecimalError--source--__span-0-448"><span class="linenos" data-linenos="448 "></span>    <span class="nd">@override</span>
+</span><span id="pika.exceptions.UnencodableDecimalError--source--__span-0-449"><span class="linenos" data-linenos="449 "></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.UnencodableDecimalError--source--__span-0-450"><span class="linenos" data-linenos="450 "></span>        <span class="k">return</span> <span class="p">(</span>
+</span><span id="pika.exceptions.UnencodableDecimalError--source--__span-0-451"><span class="linenos" data-linenos="451 "></span>            <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: decimal.Decimal value has no AMQP decimal '</span>
+</span><span id="pika.exceptions.UnencodableDecimalError--source--__span-0-452"><span class="linenos" data-linenos="452 "></span>            <span class="sa">f</span><span class="s1">'representation: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">!s:</span><span class="s1">.300</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
 </span></code></pre></div>
               </details>
 
@@ -7748,11 +8036,11 @@ annotations</code> or a quoted annotation makes usable.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pika/exceptions.py</code></summary>
-              <div class="highlight"><pre><span></span><code><span id="pika.exceptions.UnencodableDecimalError.__repr__--source--__span-0-427"><span class="linenos" data-linenos="427 "></span><span class="nd">@override</span>
-</span><span id="pika.exceptions.UnencodableDecimalError.__repr__--source--__span-0-428"><span class="linenos" data-linenos="428 "></span><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="pika.exceptions.UnencodableDecimalError.__repr__--source--__span-0-429"><span class="linenos" data-linenos="429 "></span>    <span class="k">return</span> <span class="p">(</span>
-</span><span id="pika.exceptions.UnencodableDecimalError.__repr__--source--__span-0-430"><span class="linenos" data-linenos="430 "></span>        <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: decimal.Decimal value has no AMQP decimal '</span>
-</span><span id="pika.exceptions.UnencodableDecimalError.__repr__--source--__span-0-431"><span class="linenos" data-linenos="431 "></span>        <span class="sa">f</span><span class="s1">'representation: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">!s:</span><span class="s1">.300</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+              <div class="highlight"><pre><span></span><code><span id="pika.exceptions.UnencodableDecimalError.__repr__--source--__span-0-448"><span class="linenos" data-linenos="448 "></span><span class="nd">@override</span>
+</span><span id="pika.exceptions.UnencodableDecimalError.__repr__--source--__span-0-449"><span class="linenos" data-linenos="449 "></span><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.UnencodableDecimalError.__repr__--source--__span-0-450"><span class="linenos" data-linenos="450 "></span>    <span class="k">return</span> <span class="p">(</span>
+</span><span id="pika.exceptions.UnencodableDecimalError.__repr__--source--__span-0-451"><span class="linenos" data-linenos="451 "></span>        <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: decimal.Decimal value has no AMQP decimal '</span>
+</span><span id="pika.exceptions.UnencodableDecimalError.__repr__--source--__span-0-452"><span class="linenos" data-linenos="452 "></span>        <span class="sa">f</span><span class="s1">'representation: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">!s:</span><span class="s1">.300</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
 </span></code></pre></div>
             </details>
     </div>
@@ -7793,13 +8081,13 @@ annotations</code> or a quoted annotation makes usable.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pika/exceptions.py</code></summary>
-                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.UnencodableLongError--source--__span-0-434"><span class="linenos" data-linenos="434 "></span><span class="k">class</span><span class="w"> </span><span class="nc">UnencodableLongError</span><span class="p">(</span><span class="n">AMQPError</span><span class="p">):</span>
-</span><span id="pika.exceptions.UnencodableLongError--source--__span-0-435"><span class="linenos" data-linenos="435 "></span>
-</span><span id="pika.exceptions.UnencodableLongError--source--__span-0-436"><span class="linenos" data-linenos="436 "></span>    <span class="nd">@override</span>
-</span><span id="pika.exceptions.UnencodableLongError--source--__span-0-437"><span class="linenos" data-linenos="437 "></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="pika.exceptions.UnencodableLongError--source--__span-0-438"><span class="linenos" data-linenos="438 "></span>        <span class="k">return</span> <span class="p">(</span>
-</span><span id="pika.exceptions.UnencodableLongError--source--__span-0-439"><span class="linenos" data-linenos="439 "></span>            <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: integer value has no AMQP field-table '</span>
-</span><span id="pika.exceptions.UnencodableLongError--source--__span-0-440"><span class="linenos" data-linenos="440 "></span>            <span class="sa">f</span><span class="s1">'representation (outside signed 64-bit): </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">!s:</span><span class="s1">.300</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.UnencodableLongError--source--__span-0-455"><span class="linenos" data-linenos="455 "></span><span class="k">class</span><span class="w"> </span><span class="nc">UnencodableLongError</span><span class="p">(</span><span class="n">AMQPError</span><span class="p">):</span>
+</span><span id="pika.exceptions.UnencodableLongError--source--__span-0-456"><span class="linenos" data-linenos="456 "></span>
+</span><span id="pika.exceptions.UnencodableLongError--source--__span-0-457"><span class="linenos" data-linenos="457 "></span>    <span class="nd">@override</span>
+</span><span id="pika.exceptions.UnencodableLongError--source--__span-0-458"><span class="linenos" data-linenos="458 "></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.UnencodableLongError--source--__span-0-459"><span class="linenos" data-linenos="459 "></span>        <span class="k">return</span> <span class="p">(</span>
+</span><span id="pika.exceptions.UnencodableLongError--source--__span-0-460"><span class="linenos" data-linenos="460 "></span>            <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: integer value has no AMQP field-table '</span>
+</span><span id="pika.exceptions.UnencodableLongError--source--__span-0-461"><span class="linenos" data-linenos="461 "></span>            <span class="sa">f</span><span class="s1">'representation (outside signed 64-bit): </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">!s:</span><span class="s1">.300</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
 </span></code></pre></div>
               </details>
 
@@ -7832,11 +8120,11 @@ annotations</code> or a quoted annotation makes usable.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pika/exceptions.py</code></summary>
-              <div class="highlight"><pre><span></span><code><span id="pika.exceptions.UnencodableLongError.__repr__--source--__span-0-436"><span class="linenos" data-linenos="436 "></span><span class="nd">@override</span>
-</span><span id="pika.exceptions.UnencodableLongError.__repr__--source--__span-0-437"><span class="linenos" data-linenos="437 "></span><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="pika.exceptions.UnencodableLongError.__repr__--source--__span-0-438"><span class="linenos" data-linenos="438 "></span>    <span class="k">return</span> <span class="p">(</span>
-</span><span id="pika.exceptions.UnencodableLongError.__repr__--source--__span-0-439"><span class="linenos" data-linenos="439 "></span>        <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: integer value has no AMQP field-table '</span>
-</span><span id="pika.exceptions.UnencodableLongError.__repr__--source--__span-0-440"><span class="linenos" data-linenos="440 "></span>        <span class="sa">f</span><span class="s1">'representation (outside signed 64-bit): </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">!s:</span><span class="s1">.300</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+              <div class="highlight"><pre><span></span><code><span id="pika.exceptions.UnencodableLongError.__repr__--source--__span-0-457"><span class="linenos" data-linenos="457 "></span><span class="nd">@override</span>
+</span><span id="pika.exceptions.UnencodableLongError.__repr__--source--__span-0-458"><span class="linenos" data-linenos="458 "></span><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.UnencodableLongError.__repr__--source--__span-0-459"><span class="linenos" data-linenos="459 "></span>    <span class="k">return</span> <span class="p">(</span>
+</span><span id="pika.exceptions.UnencodableLongError.__repr__--source--__span-0-460"><span class="linenos" data-linenos="460 "></span>        <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: integer value has no AMQP field-table '</span>
+</span><span id="pika.exceptions.UnencodableLongError.__repr__--source--__span-0-461"><span class="linenos" data-linenos="461 "></span>        <span class="sa">f</span><span class="s1">'representation (outside signed 64-bit): </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">!s:</span><span class="s1">.300</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
 </span></code></pre></div>
             </details>
     </div>
@@ -7877,13 +8165,13 @@ annotations</code> or a quoted annotation makes usable.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pika/exceptions.py</code></summary>
-                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.UnencodableTimestampError--source--__span-0-443"><span class="linenos" data-linenos="443 "></span><span class="k">class</span><span class="w"> </span><span class="nc">UnencodableTimestampError</span><span class="p">(</span><span class="n">AMQPError</span><span class="p">):</span>
-</span><span id="pika.exceptions.UnencodableTimestampError--source--__span-0-444"><span class="linenos" data-linenos="444 "></span>
-</span><span id="pika.exceptions.UnencodableTimestampError--source--__span-0-445"><span class="linenos" data-linenos="445 "></span>    <span class="nd">@override</span>
-</span><span id="pika.exceptions.UnencodableTimestampError--source--__span-0-446"><span class="linenos" data-linenos="446 "></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="pika.exceptions.UnencodableTimestampError--source--__span-0-447"><span class="linenos" data-linenos="447 "></span>        <span class="k">return</span> <span class="p">(</span>
-</span><span id="pika.exceptions.UnencodableTimestampError--source--__span-0-448"><span class="linenos" data-linenos="448 "></span>            <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: datetime value has no AMQP timestamp '</span>
-</span><span id="pika.exceptions.UnencodableTimestampError--source--__span-0-449"><span class="linenos" data-linenos="449 "></span>            <span class="sa">f</span><span class="s1">'representation (before the Unix epoch): </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">!s:</span><span class="s1">.300</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.UnencodableTimestampError--source--__span-0-464"><span class="linenos" data-linenos="464 "></span><span class="k">class</span><span class="w"> </span><span class="nc">UnencodableTimestampError</span><span class="p">(</span><span class="n">AMQPError</span><span class="p">):</span>
+</span><span id="pika.exceptions.UnencodableTimestampError--source--__span-0-465"><span class="linenos" data-linenos="465 "></span>
+</span><span id="pika.exceptions.UnencodableTimestampError--source--__span-0-466"><span class="linenos" data-linenos="466 "></span>    <span class="nd">@override</span>
+</span><span id="pika.exceptions.UnencodableTimestampError--source--__span-0-467"><span class="linenos" data-linenos="467 "></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.UnencodableTimestampError--source--__span-0-468"><span class="linenos" data-linenos="468 "></span>        <span class="k">return</span> <span class="p">(</span>
+</span><span id="pika.exceptions.UnencodableTimestampError--source--__span-0-469"><span class="linenos" data-linenos="469 "></span>            <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: datetime value has no AMQP timestamp '</span>
+</span><span id="pika.exceptions.UnencodableTimestampError--source--__span-0-470"><span class="linenos" data-linenos="470 "></span>            <span class="sa">f</span><span class="s1">'representation (before the Unix epoch): </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">!s:</span><span class="s1">.300</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
 </span></code></pre></div>
               </details>
 
@@ -7916,11 +8204,11 @@ annotations</code> or a quoted annotation makes usable.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pika/exceptions.py</code></summary>
-              <div class="highlight"><pre><span></span><code><span id="pika.exceptions.UnencodableTimestampError.__repr__--source--__span-0-445"><span class="linenos" data-linenos="445 "></span><span class="nd">@override</span>
-</span><span id="pika.exceptions.UnencodableTimestampError.__repr__--source--__span-0-446"><span class="linenos" data-linenos="446 "></span><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="pika.exceptions.UnencodableTimestampError.__repr__--source--__span-0-447"><span class="linenos" data-linenos="447 "></span>    <span class="k">return</span> <span class="p">(</span>
-</span><span id="pika.exceptions.UnencodableTimestampError.__repr__--source--__span-0-448"><span class="linenos" data-linenos="448 "></span>        <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: datetime value has no AMQP timestamp '</span>
-</span><span id="pika.exceptions.UnencodableTimestampError.__repr__--source--__span-0-449"><span class="linenos" data-linenos="449 "></span>        <span class="sa">f</span><span class="s1">'representation (before the Unix epoch): </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">!s:</span><span class="s1">.300</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+              <div class="highlight"><pre><span></span><code><span id="pika.exceptions.UnencodableTimestampError.__repr__--source--__span-0-466"><span class="linenos" data-linenos="466 "></span><span class="nd">@override</span>
+</span><span id="pika.exceptions.UnencodableTimestampError.__repr__--source--__span-0-467"><span class="linenos" data-linenos="467 "></span><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.UnencodableTimestampError.__repr__--source--__span-0-468"><span class="linenos" data-linenos="468 "></span>    <span class="k">return</span> <span class="p">(</span>
+</span><span id="pika.exceptions.UnencodableTimestampError.__repr__--source--__span-0-469"><span class="linenos" data-linenos="469 "></span>        <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: datetime value has no AMQP timestamp '</span>
+</span><span id="pika.exceptions.UnencodableTimestampError.__repr__--source--__span-0-470"><span class="linenos" data-linenos="470 "></span>        <span class="sa">f</span><span class="s1">'representation (before the Unix epoch): </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">!s:</span><span class="s1">.300</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
 </span></code></pre></div>
             </details>
     </div>
@@ -8229,11 +8517,11 @@ event of Basic.Nack from broker, <code>NackError</code> is raised instead</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pika/exceptions.py</code></summary>
-                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.UnsupportedAMQPFieldException--source--__span-0-381"><span class="linenos" data-linenos="381 "></span><span class="k">class</span><span class="w"> </span><span class="nc">UnsupportedAMQPFieldException</span><span class="p">(</span><span class="n">ProtocolSyntaxError</span><span class="p">):</span>
-</span><span id="pika.exceptions.UnsupportedAMQPFieldException--source--__span-0-382"><span class="linenos" data-linenos="382 "></span>
-</span><span id="pika.exceptions.UnsupportedAMQPFieldException--source--__span-0-383"><span class="linenos" data-linenos="383 "></span>    <span class="nd">@override</span>
-</span><span id="pika.exceptions.UnsupportedAMQPFieldException--source--__span-0-384"><span class="linenos" data-linenos="384 "></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="pika.exceptions.UnsupportedAMQPFieldException--source--__span-0-385"><span class="linenos" data-linenos="385 "></span>        <span class="k">return</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: Unsupported field kind </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="si">}</span><span class="s1">'</span>
+                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.UnsupportedAMQPFieldException--source--__span-0-402"><span class="linenos" data-linenos="402 "></span><span class="k">class</span><span class="w"> </span><span class="nc">UnsupportedAMQPFieldException</span><span class="p">(</span><span class="n">ProtocolSyntaxError</span><span class="p">):</span>
+</span><span id="pika.exceptions.UnsupportedAMQPFieldException--source--__span-0-403"><span class="linenos" data-linenos="403 "></span>
+</span><span id="pika.exceptions.UnsupportedAMQPFieldException--source--__span-0-404"><span class="linenos" data-linenos="404 "></span>    <span class="nd">@override</span>
+</span><span id="pika.exceptions.UnsupportedAMQPFieldException--source--__span-0-405"><span class="linenos" data-linenos="405 "></span>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.UnsupportedAMQPFieldException--source--__span-0-406"><span class="linenos" data-linenos="406 "></span>        <span class="k">return</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: Unsupported field kind </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="si">}</span><span class="s1">'</span>
 </span></code></pre></div>
               </details>
 
@@ -8266,9 +8554,9 @@ event of Basic.Nack from broker, <code>NackError</code> is raised instead</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pika/exceptions.py</code></summary>
-              <div class="highlight"><pre><span></span><code><span id="pika.exceptions.UnsupportedAMQPFieldException.__repr__--source--__span-0-383"><span class="linenos" data-linenos="383 "></span><span class="nd">@override</span>
-</span><span id="pika.exceptions.UnsupportedAMQPFieldException.__repr__--source--__span-0-384"><span class="linenos" data-linenos="384 "></span><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="pika.exceptions.UnsupportedAMQPFieldException.__repr__--source--__span-0-385"><span class="linenos" data-linenos="385 "></span>    <span class="k">return</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: Unsupported field kind </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="si">}</span><span class="s1">'</span>
+              <div class="highlight"><pre><span></span><code><span id="pika.exceptions.UnsupportedAMQPFieldException.__repr__--source--__span-0-404"><span class="linenos" data-linenos="404 "></span><span class="nd">@override</span>
+</span><span id="pika.exceptions.UnsupportedAMQPFieldException.__repr__--source--__span-0-405"><span class="linenos" data-linenos="405 "></span><span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="pika.exceptions.UnsupportedAMQPFieldException.__repr__--source--__span-0-406"><span class="linenos" data-linenos="406 "></span>    <span class="k">return</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: Unsupported field kind </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="si">}</span><span class="s1">'</span>
 </span></code></pre></div>
             </details>
     </div>
@@ -8313,13 +8601,13 @@ the connection down, so applications catching connection loss by base class see 
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pika/exceptions.py</code></summary>
-                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.WorkQueueFullError--source--__span-0-407"><span class="linenos" data-linenos="407 "></span><span class="k">class</span><span class="w"> </span><span class="nc">WorkQueueFullError</span><span class="p">(</span><span class="n">AMQPConnectionError</span><span class="p">):</span>
-</span><span id="pika.exceptions.WorkQueueFullError--source--__span-0-408"><span class="linenos" data-linenos="408 "></span><span class="w">    </span><span class="sd">"""</span>
-</span><span id="pika.exceptions.WorkQueueFullError--source--__span-0-409"><span class="linenos" data-linenos="409 "></span><span class="sd">    The work queue stayed full for longer than the configured ``work_queue_put_timeout``.</span>
-</span><span id="pika.exceptions.WorkQueueFullError--source--__span-0-410"><span class="linenos" data-linenos="410 "></span>
-</span><span id="pika.exceptions.WorkQueueFullError--source--__span-0-411"><span class="linenos" data-linenos="411 "></span><span class="sd">    Used by Connection/Channel.  Subclasses [`AMQPConnectionError`][pika.exceptions.AMQPConnectionError] because an overflow tears</span>
-</span><span id="pika.exceptions.WorkQueueFullError--source--__span-0-412"><span class="linenos" data-linenos="412 "></span><span class="sd">    the connection down, so applications catching connection loss by base class see it too.</span>
-</span><span id="pika.exceptions.WorkQueueFullError--source--__span-0-413"><span class="linenos" data-linenos="413 "></span><span class="sd">    """</span>
+                <div class="highlight"><pre><span></span><code><span id="pika.exceptions.WorkQueueFullError--source--__span-0-428"><span class="linenos" data-linenos="428 "></span><span class="k">class</span><span class="w"> </span><span class="nc">WorkQueueFullError</span><span class="p">(</span><span class="n">AMQPConnectionError</span><span class="p">):</span>
+</span><span id="pika.exceptions.WorkQueueFullError--source--__span-0-429"><span class="linenos" data-linenos="429 "></span><span class="w">    </span><span class="sd">"""</span>
+</span><span id="pika.exceptions.WorkQueueFullError--source--__span-0-430"><span class="linenos" data-linenos="430 "></span><span class="sd">    The work queue stayed full for longer than the configured ``work_queue_put_timeout``.</span>
+</span><span id="pika.exceptions.WorkQueueFullError--source--__span-0-431"><span class="linenos" data-linenos="431 "></span>
+</span><span id="pika.exceptions.WorkQueueFullError--source--__span-0-432"><span class="linenos" data-linenos="432 "></span><span class="sd">    Used by Connection/Channel.  Subclasses [`AMQPConnectionError`][pika.exceptions.AMQPConnectionError] because an overflow tears</span>
+</span><span id="pika.exceptions.WorkQueueFullError--source--__span-0-433"><span class="linenos" data-linenos="433 "></span><span class="sd">    the connection down, so applications catching connection loss by base class see it too.</span>
+</span><span id="pika.exceptions.WorkQueueFullError--source--__span-0-434"><span class="linenos" data-linenos="434 "></span><span class="sd">    """</span>
 </span></code></pre></div>
               </details>
 
