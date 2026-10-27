@@ -22,6 +22,7 @@
 </p>
 
 ## Introduction
+
 Pika is a pure-Python implementation of the AMQP 0-9-1 protocol including RabbitMQ's extensions.
 
 - Supports Python 3.7+ (CPython and PyPy; versions are listed on [PyPI](https://pypi.org/project/pika/)). Pika 1.1.0 was the last release that supported Python 2.7.
@@ -29,9 +30,11 @@ Pika is a pure-Python implementation of the AMQP 0-9-1 protocol including Rabbit
 - People may be using direct sockets, plain old `select()`, or any of the wide variety of ways of getting network events to and from a Python application. Pika tries to stay compatible with all of these, and to make adapting it to a new environment as simple as possible.
 
 ## Documentation
+
 Pika's documentation can be found [here](https://pika.github.io/pika/).
 
 ## Example
+
 Sending a message with `pika.Connection`, which is thread-safe and runs its own IOLoop on a background thread:
 
 ```python
@@ -46,6 +49,7 @@ channel.basic_publish(exchange='', routing_key='test', body=b'Test message.')
 connection.close()
 
 ```
+
 And consuming, where each delivery is dispatched on a per-channel worker thread, so slow processing does not stall heartbeats and `basic_ack` needs no `add_callback_threadsafe`:
 
 ```python
@@ -70,6 +74,7 @@ except KeyboardInterrupt:
     connection.close()
 
 ```
+
 ## Adapters
 
 Pika provides the following adapters:
@@ -83,6 +88,7 @@ Pika provides the following adapters:
 - `pika.adapters.twisted_connection.TwistedProtocolConnection` - asynchronous adapter for use with [Twisted](https://twistedmatrix.com)'s I/O loop *(deprecated, removed in Pika 2.0)*.
 
 ## Multiple connection parameters
+
 You can also pass multiple `pika.ConnectionParameters` instances for fault-tolerance as in the code snippet below (host names are just examples, of course). To enable retries, set `connection_attempts` and `retry_delay` as needed in the last `pika.ConnectionParameters` element of the sequence. Retries occur after connection attempts using all of the given connection parameters fail.
 
 ```python
@@ -95,6 +101,7 @@ parameters = (
 connection = pika.BlockingConnection(parameters)
 
 ```
+
 With non-blocking adapters, such as `pika.SelectConnection` and `pika.adapters.asyncio_connection.AsyncioConnection`, you can request a connection using multiple connection parameter instances via the connection adapter's `create_connection()` class method.
 
 ## Threading
@@ -140,6 +147,7 @@ def ack_message(channel, delivery_tag):
         pass
 
 ```
+
 The code running in the other thread may request the `ack_message()` function to be executed in the connection adapter's I/O loop thread using an adapter-specific mechanism:
 
 - `pika.BlockingConnection` abstracts its I/O loop from the application and thus exposes `pika.BlockingConnection.add_callback_threadsafe()`. Refer to this method's docstring for additional information. For example:
@@ -148,6 +156,7 @@ The code running in the other thread may request the `ack_message()` function to
 connection.add_callback_threadsafe(functools.partial(ack_message, channel, delivery_tag))
 
 ```
+
 - When using a non-blocking connection adapter, such as `pika.adapters.asyncio_connection.AsyncioConnection` or `pika.SelectConnection`, you use the underlying asynchronous framework's native API for requesting an I/O loop-bound callback from another thread. For example, `pika.SelectConnection`'s I/O loop provides `add_callback_threadsafe()`, `pika.adapters.tornado_connection.TornadoConnection`'s I/O loop has `add_callback()`, while `pika.adapters.asyncio_connection.AsyncioConnection`'s I/O loop exposes `call_soon_threadsafe()`.
 
 This threadsafe callback request mechanism may also be used to delegate publishing of messages, etc., from a background thread to the connection adapter's thread.
@@ -180,6 +189,7 @@ while True:
         continue
 
 ```
+
 A variant that recovers across several nodes is in [`examples/blocking_consume_recover_multiple_hosts.py`](https://github.com/pika/pika/blob/main/examples/blocking_consume_recover_multiple_hosts.py).
 
 Generic operation retry libraries such as [retry](https://github.com/invl/retry) can be used. Decorators make it possible to configure some additional recovery behaviours, like delays between retries and limiting the number of retries:
@@ -205,6 +215,7 @@ def consume():
 consume()
 
 ```
+
 The same decorator applied across several nodes is in [`examples/blocking_consume_recover_multiple_hosts_retry.py`](https://github.com/pika/pika/blob/main/examples/blocking_consume_recover_multiple_hosts_retry.py).
 
 For asynchronous adapters, use `on_close_callback` to react to connection failure events. This callback can be used to clean up and recover the connection.
@@ -216,6 +227,7 @@ An example of recovery using `on_close_callback` can be found in [`examples/asyn
 See the [Contributing guide](https://pika.github.io/pika/latest/contributing/) for test setup, documentation builds, code formatting, and pull request expectations.
 
 ## Extending to support additional I/O frameworks
+
 New non-blocking adapters may be implemented in either of the following ways:
 
 - By subclassing `pika.BaseConnection`, implementing its abstract method and passing its constructor an implementation of `pika.adapters.utils.nbio_interface.AbstractIOServices`. `pika.BaseConnection` implements `pika.connection.Connection`'s abstract methods, including internally-initiated connection logic. For examples, refer to the implementations of `pika.adapters.asyncio_connection.AsyncioConnection`, `pika.adapters.gevent_connection.GeventConnection` and `pika.adapters.tornado_connection.TornadoConnection`.

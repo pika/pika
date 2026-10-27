@@ -1,7 +1,9 @@
 # Using URLParameters
+
 Pika has two methods of encapsulating the data that lets it know how to connect to RabbitMQ, `pika.connection.ConnectionParameters` and `pika.connection.URLParameters`.
 
 !!! note
+
     If you're connecting to RabbitMQ on localhost on port 5672, with the default virtual host of */* and the default username and password of *guest* and *guest*, `BlockingConnection` and the asynchronous adapters can be constructed without connection parameters at all. `pika.Connection` requires them, so pass `pika.ConnectionParameters()` to take the same defaults.
 
 Using `pika.connection.URLParameters` is an easy way to minimize the variables required to connect to RabbitMQ and supports all of the directives that `pika.connection.ConnectionParameters` supports.
@@ -48,6 +50,7 @@ Options that are available as query string values:
 ```text
 amqps://www-data:rabbit_pwd@rabbit1/web_messages?client_properties=%7B%27connection_name%27%3A+%27My+Unique+Connection+Name%27%7D
 ```
+
 - connection_attempts: Alter the default of 1 connection attempt by passing in an integer value here.
 - frame_max: Alter the default frame maximum size value by passing in a long integer value [^f1].
 - heartbeat: Pass a value greater than zero to enable heartbeats between the server and your application. The integer value you pass here will be the number of seconds between heartbeats.
@@ -56,13 +59,14 @@ amqps://www-data:rabbit_pwd@rabbit1/web_messages?client_properties=%7B%27connect
 - retry_delay: The number of seconds to wait before attempting to reconnect on a failed connection, if connection_attempts is > 0.
 - socket_timeout: Change the `socket.connect()` timeout from its default of 10 seconds to another integer or float value, or `None` to disable it. Adjust with caution.
 - ssl_options: A url encoded dict of values for the SSL connection. The keys are the arguments the corresponding `ssl.SSLContext` methods take:
-   - protocol, passed to `ssl.SSLContext`
-   - ca_certs (or cafile), ca_path (or capath), ca_data (or cadata), passed to `SSLContext.load_verify_locations`
-   - certfile, keyfile, password, passed to `SSLContext.load_cert_chain`
-   - ciphers, passed to `SSLContext.set_ciphers`
-   - server_hostname, passed to `pika.SSLOptions`
+    - protocol, passed to `ssl.SSLContext`
+    - ca_certs (or cafile), ca_path (or capath), ca_data (or cadata), passed to `SSLContext.load_verify_locations`
+    - certfile, keyfile, password, passed to `SSLContext.load_cert_chain`
+    - ciphers, passed to `SSLContext.set_ciphers`
+    - server_hostname, passed to `pika.SSLOptions`
 
 !!! note
+
     `cert_reqs` and `ssl_version` are not among them. They were arguments of the removed `ssl.wrap_socket` and are ignored, so a `cert_reqs` of `CERT_NONE` silently leaves verification on. A URL that sets no other `ssl_options` key is worse than ignored: it raises `TypeError: cafile, capath and cadata cannot be all omitted`.
 
 For information on what the ssl_options can be set to reference the [official Python documentation](https://docs.python.org/3/library/ssl.html). Here is an example of setting the client certificate and key. Note the *amqps* scheme: the query argument configures TLS but does not select it, so with *amqp* you would get a TLS context aimed at the plaintext port 5672.
@@ -76,6 +80,7 @@ The following example generates an ssl_options string like that one with [Python
 ```python
 --8<-- "examples/using_urlparameters.py"
 ```
+
 ## Footnotes
 
 [^f1]: The AMQP specification states that a server can reject a request for a frame size larger than the value it passes during content negotiation.

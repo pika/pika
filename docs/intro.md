@@ -1,6 +1,7 @@
 # Introduction to Pika
 
 ## IO and Event Looping
+
 As AMQP is a two-way RPC protocol where the client can send requests to the server and the server can send requests to a client, Pika implements or extends IO loops in each of its asynchronous connection adapters. These IO loops are blocking methods which loop and listen for events. Each asynchronous adapter follows the same standard for invoking the IO loop. The IO loop is created when the connection adapter is created. To start an IO loop for any given adapter, call the `connection.ioloop.start()` method.
 
 If you are using an external IO loop such as Tornado's `IOLoop` you invoke it normally and then add the Pika Tornado adapter to it.
@@ -33,6 +34,7 @@ except KeyboardInterrupt:
     connection.ioloop.start()
 
 ```
+
 <a id="intro_to_cps"></a>
 
 ## Continuation-Passing Style
@@ -42,12 +44,13 @@ Interfacing with Pika asynchronously is done by passing in callback methods you 
 In our example below we use the following five easy steps:
 
 1. We start by creating our connection object, then starting our event loop.
-1. When we are connected, the *on_connected* method is called. In that method we create a channel.
-1. When the channel is created, the *on_channel_open* method is called. In that method we declare a queue.
-1. When the queue is declared successfully, *on_queue_declared* is called. In that method we call `channel.basic_consume` telling it to call the handle_delivery for each message RabbitMQ delivers to us.
-1. When RabbitMQ has a message to send us, it calls the handle_delivery method passing the AMQP Method frame, Header frame, and Body.
+2. When we are connected, the *on_connected* method is called. In that method we create a channel.
+3. When the channel is created, the *on_channel_open* method is called. In that method we declare a queue.
+4. When the queue is declared successfully, *on_queue_declared* is called. In that method we call `channel.basic_consume` telling it to call the handle_delivery for each message RabbitMQ delivers to us.
+5. When RabbitMQ has a message to send us, it calls the handle_delivery method passing the AMQP Method frame, Header frame, and Body.
 
 !!! note
+
     The steps do not run in the order they are written. Step #1 comes last in the code below and Step #2 first, because Python has to have defined each function before the connection can call it.
 
 <a id="cps_example"></a>
@@ -103,7 +106,9 @@ except KeyboardInterrupt:
     connection.ioloop.start()
 
 ```
+
 ## Credentials
+
 The `pika.credentials` module provides the mechanism by which you pass the username and password to the `ConnectionParameters` class when it is created.
 
 Example:
@@ -114,7 +119,9 @@ credentials = pika.PlainCredentials('username', 'password')
 parameters = pika.ConnectionParameters(credentials=credentials)
 
 ```
+
 <a id="connection_parameters"></a>
 
 ## Connection Parameters
+
 There are two types of connection parameter classes in Pika to allow you to pass the connection information into a connection adapter, `ConnectionParameters` and `URLParameters`. Both classes share the same default connection values.

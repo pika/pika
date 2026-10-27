@@ -66,7 +66,7 @@ By default, this feature is not permitted anymore.
 4.3 is where that default changed, not 4.0, so a queue declaration that works against an older 4.x broker can still fail here. The same declare was measured against the `rabbitmq:4.N-management-alpine` images:
 
 | broker | `queue_declare('q')`, no flags |
-|---|---|
+| -- | -- |
 | 4.0 | accepted |
 | 4.1 | accepted |
 | 4.2.9 | accepted |
@@ -79,7 +79,7 @@ Either flag is enough on its own. `durable=True` is the usual answer; `exclusive
 ### Blocking connection
 
 | File | Description |
-|------|-------------|
+| -- | -- |
 | `blocking_basic_get.py` | Synchronous get of a single message with `basic_get` |
 | `blocking_consume.py` | Blocking consumer with `basic_consume` and manual ack |
 | `blocking_consumer_generator.py` | Using `BlockingChannel.consume` as a generator |
@@ -93,7 +93,7 @@ Either flag is enough on its own. `durable=True` is the usual answer; `exclusive
 ### Asynchronous adapters
 
 | File | Description |
-|------|-------------|
+| -- | -- |
 | `asynchronous_consumer_example.py` | Full-featured async consumer with reconnection logic |
 | `asynchronous_publisher_example.py` | Full-featured async publisher with reconnection logic |
 | `asyncio_consumer_example.py` | Async consumer using `AsyncioConnection` |
@@ -108,7 +108,7 @@ Either flag is enough on its own. `durable=True` is the usual answer; `exclusive
 ### Thread-safe connection
 
 | File | Description |
-|------|-------------|
+| -- | -- |
 | `basic_consumer_threaded.py` | Consuming with `Connection` worker threads |
 | `basic_publisher_threaded.py` | Publishing from multiple threads with `Connection` |
 | `publisher_confirms_threaded.py` | Publisher confirms with `Connection` (ack/nack on a worker thread) |
@@ -121,7 +121,7 @@ Either flag is enough on its own. `durable=True` is the usual answer; `exclusive
 ### TLS
 
 | File | Description |
-|------|-------------|
+| -- | -- |
 | `tls_mutual_authentication.py` | Mutual TLS using test certificates from `tests/certs/` |
 | `tls_mutual_authentication_twisted.py` | Mutual TLS with Twisted adapter |
 | `blocking_consume_tls.py` | Blocking consumer over TLS, where the certificate does not name the address dialed |
@@ -129,7 +129,7 @@ Either flag is enough on its own. `durable=True` is the usual answer; `exclusive
 ### Other
 
 | File | Description |
-|------|-------------|
+| -- | -- |
 | `direct_reply_to.py` | RPC using RabbitMQ's direct reply-to feature |
 | `publish.py` | Publish with exchange declaration and delivery confirmation |
 | `using_urlparameters.py` | Constructing AMQP URLs with `ssl_options` (connects over TLS, so it needs the broker from the TLS section) |

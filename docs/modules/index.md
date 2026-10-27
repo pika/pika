@@ -1,4 +1,5 @@
 # Core Class and Module Documentation
+
 For the end user, Pika is organized into a small set of objects for all communication with RabbitMQ.
 
 - A [connection adapter](adapters/index.md) is used to connect to RabbitMQ and manages the connection.

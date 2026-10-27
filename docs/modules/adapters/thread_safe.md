@@ -90,8 +90,8 @@ conn = pika.Connection(
 
 ## Comparison with other adapters
 
-| | BlockingConnection | SelectConnection + add_callback_threadsafe | Connection |
-|---|---|---|---|
+|  | BlockingConnection | SelectConnection + add_callback_threadsafe | Connection |
+| -- | -- | -- | -- |
 | Thread safety | Not thread-safe | Manual callback scheduling required | Fully thread-safe |
 | Consumer threading | Same thread as IOLoop | Same thread as IOLoop | Dedicated worker thread |
 | Heartbeat risk | Slow consumers can stall heartbeats | Slow consumers can stall heartbeats | IOLoop runs independently |

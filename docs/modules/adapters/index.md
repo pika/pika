@@ -1,4 +1,5 @@
 # Connection Adapters
+
 Pika uses connection adapters to provide a flexible method for adapting pika's core communication to different IOLoop implementations. In addition to asynchronous adapters, there is the `BlockingConnection` adapter that provides a more idiomatic procedural approach to using Pika.
 
 ## Adapters
@@ -63,6 +64,7 @@ def ack_message(channel, delivery_tag):
         pass
 
 ```
+
 The code running in the other thread may request the `ack_message()` function to be executed in the connection adapter's I/O loop thread using an adapter-specific mechanism:
 
 - `pika.BlockingConnection` abstracts its I/O loop from the application and thus exposes `pika.BlockingConnection.add_callback_threadsafe()`. Refer to this method's docstring for additional information. For example:
@@ -71,6 +73,7 @@ The code running in the other thread may request the `ack_message()` function to
 connection.add_callback_threadsafe(functools.partial(ack_message, channel, delivery_tag))
 
 ```
+
 Please see the documentation of other adapters for their specific methods.
 
 This threadsafe callback request mechanism may also be used to delegate publishing of messages, etc., from a background thread to the connection adapter's thread.
@@ -103,6 +106,7 @@ while True:
         continue
 
 ```
+
 A variant that recovers across several nodes is in `examples/blocking_consume_recover_multiple_hosts.py`.
 
 Generic operation retry libraries such as [retry](https://github.com/invl/retry) can be used. Decorators make it possible to configure some additional recovery behaviours, like delays between retries and limiting the number of retries:
@@ -128,6 +132,7 @@ def consume():
 consume()
 
 ```
+
 The same decorator applied across several nodes is in `examples/blocking_consume_recover_multiple_hosts_retry.py`.
 
 For asynchronous adapters, use `on_close_callback` to react to connection failure events. This callback can be used to clean up and recover the connection.

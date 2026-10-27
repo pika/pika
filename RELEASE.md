@@ -81,7 +81,7 @@ Every operation that changes something takes `--dry-run`, which prints the git, 
 ### The operations
 
 | Operation | Does |
-|---|---|
+| -- | -- |
 | `compute` | print the version a bump would produce, and nothing else |
 | `classify` | print what a pushed tag implies. The one operation a machine runs: `release.yaml` appends it to `$GITHUB_OUTPUT` |
 | `bump` | create `pika-X.Y.Z`, write both version files, commit `pika X.Y.Z` |
@@ -168,12 +168,12 @@ The helper and the workflow are independent here: nothing forces the tag to be t
 
 `mode` is no longer an input for a real release. A tag push decides it, and the two dispatch modes exist only to rehearse the build:
 
-| `mode`       | Triggered by          | Version          | Publishes to | GitHub Release |
-|--------------|-----------------------|------------------|--------------|----------------|
-| `release`    | pushing `X.Y.Z`       | the tag          | PyPI         | yes            |
-| `prerelease` | pushing `X.Y.Z<seg>`  | the tag          | PyPI         | yes (marked)   |
-| `test`       | dispatch              | `X.Y.Z.dev<run>` | TestPyPI     | no             |
-| `dry-run`    | dispatch              | `X.Y.Z`          | nothing      | no             |
+| `mode` | Triggered by | Version | Publishes to | GitHub Release |
+| -- | -- | -- | -- | -- |
+| `release` | pushing `X.Y.Z` | the tag | PyPI | yes |
+| `prerelease` | pushing `X.Y.Z<seg>` | the tag | PyPI | yes (marked) |
+| `test` | dispatch | `X.Y.Z.dev<run>` | TestPyPI | no |
+| `dry-run` | dispatch | `X.Y.Z` | nothing | no |
 
 `release` and `prerelease` are absent from the dispatch form, so there is no way to publish to PyPI without pushing a tag.
 
@@ -227,7 +227,7 @@ This is the ordering the workflow is built around: every guard, and the build, r
 Both the `HISTORY.md` entry and the GitHub release notes group by label, from the same three:
 
 | Label | Section |
-|---|---|
+| -- | -- |
 | `C-enhancement` | Implemented enhancements |
 | `C-bug` | Fixed bugs |
 | `A-documentation` | Documentation |
@@ -261,7 +261,7 @@ The site is published to the `gh-pages` branch with [`mike`](https://github.com/
 The work lives in the reusable `_deploy-docs.yaml`, which nothing triggers directly. Three callers decide what to publish:
 
 | caller | when | publishes |
-|--------|------|-----------|
+| -- | -- | -- |
 | `main.yaml`, job `deploy-dev-docs` | push to `main`, after `tests-passed` | `dev` |
 | `release.yaml`, job `deploy-docs` | end of a release or pre-release | `MAJOR.MINOR` for a release, the full version for a pre-release |
 | `deploy-docs.yaml` | manual dispatch only | whatever you ask for |

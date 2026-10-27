@@ -5,7 +5,7 @@ This directory holds two unrelated things: the scripts and configuration that st
 ## Python helpers
 
 | File | Owns |
-|---|---|
+| -- | -- |
 | `release.py` | the release command line, one operation per step. See `RELEASE.md` |
 | `release_version.py` | version arithmetic, and what a pushed tag implies |
 | `changelog.py` | the `HISTORY.md` entry, from the milestone plus `git log` |
@@ -67,7 +67,7 @@ If you add a new setting here, the macOS and Windows test legs pick it up automa
 A static, ready-to-use config file - no sed substitution. It differs from the shared template in three ways:
 
 | Setting | Template value | Linux value | Why |
-|---------|---------------|-------------|-----|
+| -- | -- | -- | -- |
 | `ssl_options.*` paths | `PIKA_DIR/tests/certs/...` | `/etc/rabbitmq/certs/...` | Certs are bind-mounted at this fixed path in the container |
 | `loopback_users.guest` | `true` | `false` | Traffic from the runner arrives via the Docker bridge IP, which RabbitMQ does not classify as loopback |
 | `log.console` | `false` | `true` | `docker logs rabbitmq` is the only log surface in CI |
@@ -85,6 +85,7 @@ Mounted into `/etc/rabbitmq/conf.d/`, which the broker reads after `rabbitmq.con
 Runs RabbitMQ in a Docker container rather than using GitHub Actions `services:` because the service container starts before checkout (so it cannot mount repo certs) and does not allow custom config.
 
 Key details:
+
 - Mounts only `tests/certs/` at `/etc/rabbitmq/certs:ro` (not the full repo, which triggers intermittent `.erlang.cookie: eacces` crashes)
 - Uses `--hostname pika-rabbitmq` for a stable Erlang node name
 - Runs all `docker exec` CLI commands as `--user rabbitmq` (running as root can corrupt cookie file ownership)
@@ -96,6 +97,7 @@ Key details:
 ### macOS (`macos/gha-setup.sh`)
 
 Installs RabbitMQ natively:
+
 1. Resolves the latest RabbitMQ version from GitHub Releases (or uses `RABBITMQ_VERSION` env var if set)
 2. `brew install erlang@27`
 3. Downloads the generic-unix tarball from GitHub Releases
@@ -108,6 +110,7 @@ The `RABBITMQ_CONFIG_FILE` environment variable takes the config path with or wi
 ### Windows (`windows/gha-setup.ps1`)
 
 Installs RabbitMQ natively via the `.exe` installer:
+
 1. Resolves latest Erlang 27 and RabbitMQ versions from GitHub
 2. Caches installers in `~/installers` (keyed by version)
 3. Writes `rabbitmq.conf` from the shared template (replaces `PIKA_DIR` and converts backslashes to forward slashes for Erlang path compatibility)
