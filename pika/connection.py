@@ -59,6 +59,7 @@ class Parameters:
         '_heartbeat',
         '_host',
         '_locale',
+        '_max_inbound_message_body_size',
         '_port',
         '_retry_delay',
         '_socket_timeout',
@@ -81,6 +82,9 @@ class Parameters:
     DEFAULT_HEARTBEAT_TIMEOUT = None  # None accepts server's proposal
     DEFAULT_HOST = 'localhost'
     DEFAULT_LOCALE = 'en_US'
+    DEFAULT_MAX_INBOUND_MESSAGE_BODY_SIZE = 64 * 1024 * 1024
+    # RabbitMQ refuses messages above this, whatever its max_message_size says.
+    MAX_INBOUND_MESSAGE_BODY_SIZE_LIMIT = 512 * 1024 * 1024
     DEFAULT_PORT = 5672
     DEFAULT_RETRY_DELAY = 2.0
     DEFAULT_SOCKET_TIMEOUT = 10.0  # socket.connect() timeout
@@ -107,6 +111,7 @@ class Parameters:
         self._heartbeat: int | Callable[[Connection, float], int] | None = None
         self._host: str = ''
         self._locale: str = ''
+        self._max_inbound_message_body_size: int = 0
         self._port: int = 0
         self._retry_delay: float = 0.0
         self._socket_timeout: float | None = None
@@ -125,6 +130,8 @@ class Parameters:
         self.heartbeat = self.DEFAULT_HEARTBEAT_TIMEOUT
         self.host = self.DEFAULT_HOST
         self.locale = self.DEFAULT_LOCALE
+        self.max_inbound_message_body_size = (
+            self.DEFAULT_MAX_INBOUND_MESSAGE_BODY_SIZE)
         self.port = self.DEFAULT_PORT
         self.retry_delay = self.DEFAULT_RETRY_DELAY
         self.socket_timeout = self.DEFAULT_SOCKET_TIMEOUT
@@ -309,6 +316,42 @@ class Parameters:
                 f'Max AMQP 0.9.1 Frame Size is {spec.FRAME_MAX_SIZE}, but got {value!r}'
             )
         self._frame_max = value
+
+    @property
+    def max_inbound_message_body_size(self) -> int:
+        """
+        The largest message body, in bytes, accepted from the broker: from 1 to
+        `MAX_INBOUND_MESSAGE_BODY_SIZE_LIMIT` (512 MiB), defaulting to
+        `DEFAULT_MAX_INBOUND_MESSAGE_BODY_SIZE` (64 MiB).
+
+        A message with a larger body closes the connection with
+        `pika.exceptions.MessageBodyTooLargeError`. A frame whose payload is larger than this or
+        `spec.FRAME_MAX_SIZE` (128 KiB), whichever is greater, closes it with
+        `pika.exceptions.FrameTooLargeError`; a message's properties count towards its header
+        frame. Every message pika receives is checked, including returned messages and
+        `basic_get` replies.
+
+        :returns: the limit in bytes
+        """
+        return self._max_inbound_message_body_size
+
+    @max_inbound_message_body_size.setter
+    def max_inbound_message_body_size(self, value: int) -> None:
+        """
+        :param value: the largest message body, in bytes, to accept from the broker, from 1 to
+            `MAX_INBOUND_MESSAGE_BODY_SIZE_LIMIT` (512 MiB), inclusive
+
+        """
+        if (not isinstance(value, numbers.Integral) or isinstance(value, bool)):
+            raise TypeError(
+                f'max_inbound_message_body_size must be an int, but got {value!r}'
+            )
+        if value < 1 or value > self.MAX_INBOUND_MESSAGE_BODY_SIZE_LIMIT:
+            raise ValueError(
+                'max_inbound_message_body_size must be from 1 to '
+                f'{self.MAX_INBOUND_MESSAGE_BODY_SIZE_LIMIT}, but got {value!r}'
+            )
+        self._max_inbound_message_body_size = value
 
     @property
     def heartbeat(self) -> int | Callable[[Connection, float], int] | None:
@@ -572,6 +615,7 @@ class ConnectionParameters(Parameters):
                  blocked_connection_timeout: DefaultT[float | None] = _DEFAULT,
                  client_properties: DefaultT[dict[str, Any] | None] = _DEFAULT,
                  tcp_options: DefaultT[dict[str, Any] | None] = _DEFAULT,
+                 max_inbound_message_body_size: DefaultT[int] = _DEFAULT,
                  **kwargs: Any) -> None:
         """
         Create a new ConnectionParameters instance.
@@ -613,6 +657,9 @@ class ConnectionParameters(Parameters):
             override the fields in the default client properties reported to
             RabbitMQ via `Connection.StartOk` method.
         :param tcp_options: None or a dict of TCP options to set for socket
+        :param max_inbound_message_body_size: The largest message body, in bytes, to accept
+            from the broker, from 1 to 512 MiB; see
+            [`Parameters.max_inbound_message_body_size`][pika.connection.Parameters.max_inbound_message_body_size]
         """
         super().__init__()
 
@@ -673,6 +720,10 @@ class ConnectionParameters(Parameters):
         if tcp_options is not self._DEFAULT:
             self.tcp_options = cast(Optional[Dict[str, Any]], tcp_options)
 
+        if max_inbound_message_body_size is not self._DEFAULT:
+            self.max_inbound_message_body_size = cast(
+                int, max_inbound_message_body_size)
+
         if kwargs:
             raise TypeError(f'unexpected kwargs: {kwargs!r}')
 
@@ -707,6 +758,8 @@ class URLParameters(Parameters):
             the broker's value is accepted. 0 turns heartbeat off.
         - locale:
             Override the default `en_US` locale value
+        - max_inbound_message_body_size:
+            The largest message body, in bytes, to accept from the broker
         - ssl_options:
             None for plaintext; for SSL: dict of public ssl context-related
             arguments that may be passed to `ssl.SSLSocket` as kwargs,
@@ -873,6 +926,18 @@ class URLParameters(Parameters):
         :param value: Raw query-string value to deserialize
         """
         self.locale = value
+
+    def _set_url_max_inbound_message_body_size(self, value: str) -> None:
+        """Deserialize and apply the corresponding query string arg
+        :param value: Raw query-string value to deserialize
+        """
+        try:
+            size = int(value)
+        except ValueError as exc:
+            raise ValueError(
+                f'Invalid max_inbound_message_body_size value {value!r}: {exc!r}'
+            )
+        self.max_inbound_message_body_size = size
 
     def _set_url_retry_delay(self, value: float) -> None:
         """Deserialize and apply the corresponding query string arg
@@ -1724,6 +1789,11 @@ class Connection(abc.ABC):
                 value.NAME, value.channel_number, self)
             return
 
+        if (isinstance(value, frame.Header) and
+                value.body_size > self.params.max_inbound_message_body_size):
+            raise exceptions.MessageBodyTooLargeError(
+                value.body_size, self.params.max_inbound_message_body_size)
+
         self._channels[value.channel_number]._handle_content_frame(value)
 
     def _ensure_closed(self) -> None:
@@ -2094,6 +2164,11 @@ class Connection(abc.ABC):
 
         :param data_in: The data that is available to read
         """
+        if isinstance(self._error, (exceptions.FrameTooLargeError,
+                                    exceptions.MessageBodyTooLargeError)):
+            # Transport teardown is asynchronous, so reads can still arrive; drop them.
+            return
+
         buffer = self._frame_buffer
         buffer += data_in
 
@@ -2108,14 +2183,28 @@ class Connection(abc.ABC):
         # when one read contains many frames.
         self._processing_frame_buffer = True
         offset = 0
+        # The floor keeps a small body limit from refusing ordinary method frames.
+        frame_limit = max(self.params.max_inbound_message_body_size,
+                          spec.FRAME_MAX_SIZE)
         try:
             while offset < len(buffer):
-                consumed_count, frame_value = frame.decode_frame(buffer, offset)
-                if not frame_value:
-                    break
-                offset += consumed_count
-                self.bytes_received += consumed_count
-                self._process_frame(frame_value)
+                try:
+                    consumed_count, frame_value = frame.decode_frame(
+                        buffer, offset, frame_limit)
+                    if not frame_value:
+                        break
+                    offset += consumed_count
+                    self.bytes_received += consumed_count
+                    self._process_frame(frame_value)
+                except (exceptions.FrameTooLargeError,
+                        exceptions.MessageBodyTooLargeError) as error:
+                    # Ends the connection with this error as its reason, rather than letting the
+                    # adapter wrap it as a lost stream, and decodes nothing more.
+                    error.host = self.params.host
+                    error.port = self.params.port
+                    LOGGER.error('%r', error)
+                    self._terminate_stream(error)
+                    return
                 if self._frame_buffer is not buffer:
                     # A frame callback reset the connection state (e.g. stream
                     # terminated); leftover data is no longer relevant.

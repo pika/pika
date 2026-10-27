@@ -210,8 +210,11 @@ class ProtocolHeader(amqp_object.AMQPObject):
                                      self.revision)
 
 
-def decode_frame(data_in: bytes | bytearray,
-                 offset: int = 0) -> tuple[int, Frame | ProtocolHeader | None]:
+def decode_frame(
+    data_in: bytes | bytearray,
+    offset: int = 0,
+    max_frame_size: int | None = None
+) -> tuple[int, Frame | ProtocolHeader | None]:
     """
     Receives raw socket data and attempts to turn it into a frame.
 
@@ -219,7 +222,11 @@ def decode_frame(data_in: bytes | bytearray,
 
     :param data_in: The raw data stream
     :param offset: Offset into ``data_in`` at which the frame starts
+    :param max_frame_size: Largest frame payload accepted, in bytes, or ``None`` for no limit. It is
+        checked as soon as the frame's header is read, before the payload is buffered.
     :raises: pika.exceptions.InvalidFrameError
+    :raises: pika.exceptions.FrameTooLargeError: if the frame declares a payload above
+        *max_frame_size*.
     """
     # Look to see if it's a protocol header frame
     try:
@@ -237,6 +244,9 @@ def decode_frame(data_in: bytes | bytearray,
          frame_size) = _FRAME_HEADER.unpack_from(data_in, offset)
     except struct.error:
         return 0, None
+
+    if max_frame_size is not None and frame_size > max_frame_size:
+        raise exceptions.FrameTooLargeError(frame_size, max_frame_size)
 
     # Get the frame data
     frame_end = spec.FRAME_HEADER_SIZE + frame_size + spec.FRAME_END_SIZE

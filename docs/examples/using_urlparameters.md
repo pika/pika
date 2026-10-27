@@ -52,6 +52,7 @@ amqps://www-data:rabbit_pwd@rabbit1/web_messages?client_properties=%7B%27connect
 - frame_max: Alter the default frame maximum size value by passing in a long integer value [^f1].
 - heartbeat: Pass a value greater than zero to enable heartbeats between the server and your application. The integer value you pass here will be the number of seconds between heartbeats.
 - locale: Set the locale of the client using underscore delimited posix Locale code in ll_CC format (en_US, pt_BR, de_DE).
+- max_inbound_message_body_size: The largest message body, in bytes, to accept from the broker, from 1 to 536870912 (512 MiB). Defaults to 67108864 (64 MiB); a larger message closes the connection.
 - retry_delay: The number of seconds to wait before attempting to reconnect on a failed connection, if connection_attempts is > 0.
 - socket_timeout: Change the `socket.connect()` timeout from its default of 10 seconds to another integer or float value, or `None` to disable it. Adjust with caution.
 - ssl_options: A url encoded dict of values for the SSL connection. The keys are the arguments the corresponding `ssl.SSLContext` methods take:
