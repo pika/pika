@@ -1,8 +1,10 @@
 Thank you for using Pika.
 
-- IMPORTANT -----------------------------------------------------------
-STOP NOW AND READ THIS BEFORE OPENING A NEW ISSUE ON GITHUB
---------------------------------------------------------------------------
+______________________________________________________________________
+
+**IMPORTANT: STOP NOW AND READ THIS BEFORE OPENING A NEW ISSUE ON GITHUB**
+
+______________________________________________________________________
 
 Unless you are CERTAIN you have found a reproducible bug in Pika, you must first ask your question, discuss your suspected issue, or propose your new feature on the mailing list:
 

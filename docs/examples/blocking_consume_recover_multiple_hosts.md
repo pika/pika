@@ -11,6 +11,7 @@ The BlockingConnection adapter relies on exception handling to check for connect
 ```python
 --8<-- "examples/blocking_consume_recover_multiple_hosts.py"
 ```
+
 Generic operation retry libraries such as [retry](https://github.com/invl/retry) can prove useful.
 
 To run the following example, install the library first with `pip install retry`.

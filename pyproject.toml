@@ -139,6 +139,11 @@ dependencies = [
     "tornado",
     "twisted",
     "mypy>=1.20; python_version >= '3.10'",
+    "mdformat; python_version >= '3.10'",
+    "mdformat-footnote; python_version >= '3.10'",
+    "mdformat-frontmatter; python_version >= '3.10'",
+    "mdformat-gfm; python_version >= '3.10'",
+    "mdformat-mkdocs; python_version >= '3.10'",
     "ruff",
     # tests/typing/ uses assert_type, which typing has only from 3.11 and the
     # matrix floor is 3.7. Declared rather than relied on through mypy, which
@@ -163,6 +168,9 @@ docfmt-check = [
     "docformatter --check --diff --recursive pika/ --exclude spec.py",
     "docformatter --check --diff --recursive tests/ examples/ utils/ .ci/",
 ]
+# AGENTS.md is hard-wrapped by decision and HISTORY.md keeps its 1.0.0 and older entries as written.
+mdfmt = "mdformat .github/ .ci/ docs/ examples/ tests/ CONTRIBUTING.md README.md RELEASE.md"
+mdfmt-check = "mdformat --check .github/ .ci/ docs/ examples/ tests/ CONTRIBUTING.md README.md RELEASE.md"
 typecheck = "python -m mypy pika/ tests/typing/ .ci/"
 spec-regen = "python utils/regen_spec.py"
 spec-check = "python utils/regen_spec.py --check"

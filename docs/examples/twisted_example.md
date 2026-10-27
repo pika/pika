@@ -1,4 +1,5 @@
 # Twisted consumer example
+
 Example of writing an application using the `Twisted connection adapter`.
 
 ```python

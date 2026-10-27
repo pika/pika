@@ -14,48 +14,57 @@ To run the full test suite, a RabbitMQ node with all defaults must be running on
 
 Install [Hatch](https://hatch.pypa.io/), which manages the development environment and dependencies automatically:
 
-    pipx install hatch
+```
+pipx install hatch
+```
 
-If you do not have ``pipx``, you can use ``pip install hatch`` instead. Hatch will install all required dependencies when you first run a script.
-
+If you do not have `pipx`, you can use `pip install hatch` instead. Hatch will install all required dependencies when you first run a script.
 
 ## Running Tests
 
 To run all test suites, use
 
-    hatch run test
+```
+hatch run test
+```
 
 To run unit tests only (no RabbitMQ required), use
 
-    hatch run unit
+```
+hatch run unit
+```
 
 Tests run in parallel by default via `pytest-xdist` (`-n auto --dist=loadscope`). `loadscope` keeps tests from the same class on the same worker, which some suites (e.g. `tests/unit/io_services_test_stubs_test.py`) require, because their `tearDownClass` asserts that every dynamically generated test method ran. Pass `-n 0` to disable parallelism if needed.
 
 To start RabbitMQ via Docker for acceptance tests, use
 
-    hatch run rabbitmq
+```
+hatch run rabbitmq
+```
 
 Note that some tests are OS-specific (e.g. epoll on Linux or kqueue on MacOS and BSD). Those will be skipped automatically.
 
 If you would like to run TLS/SSL tests, the quickest route is a broker in Docker with the TLS config and the test certificates already mounted:
 
-    hatch run rabbitmq-tls
+```
+hatch run rabbitmq-tls
+```
 
 That listens on 5671 as well as 5672. To run a broker yourself instead, build a config from the shared template:
 
-* Create a `rabbitmq.conf` from `.ci/rabbitmq.conf.in`, substituting the repository path so the `ssl_options` entries resolve against `tests/certs/`:
+- Create a `rabbitmq.conf` from `.ci/rabbitmq.conf.in`, substituting the repository path so the `ssl_options` entries resolve against `tests/certs/`:
 
     ```
     sed -e "s#PIKA_DIR#$PWD#g" ./.ci/rabbitmq.conf.in > /tmp/pika-rabbitmq.conf
     ```
 
-* Start RabbitMQ with it. `RABBITMQ_CONFIG_FILE` takes the path with or without the `.conf` extension: the broker uses the path as given when it names a file that exists, and otherwise appends `.conf` or `.config` and retries. An example that works with the `generic-unix` package:
+- Start RabbitMQ with it. `RABBITMQ_CONFIG_FILE` takes the path with or without the `.conf` extension: the broker uses the path as given when it names a file that exists, and otherwise appends `.conf` or `.config` and retries. An example that works with the `generic-unix` package:
 
     ```
     $ RABBITMQ_CONFIG_FILE=/tmp/pika-rabbitmq.conf ./sbin/rabbitmq-server
     ```
 
-* Run the tests indicating that TLS/SSL connections should be used:
+- Run the tests indicating that TLS/SSL connections should be used:
 
     ```
     hatch run test -- --use-tls
@@ -67,15 +76,21 @@ Pika documentation is built with MkDocs and Material for MkDocs.
 
 To build the documentation locally, use
 
-    hatch run docs:build
+```
+hatch run docs:build
+```
 
 To preview the documentation, use
 
-    hatch run docs:serve
+```
+hatch run docs:serve
+```
 
 Or with live reload:
 
-    hatch run docs:serve-live
+```
+hatch run docs:serve-live
+```
 
 `hatch run docs:serve` always serves **one** build. The site header version menu (Material `extra.version.provider: mike`) only appears when several versions exist in a **mike** layout (`versions.json` on the `gh-pages` branch), not in a plain `site/` output.
 
@@ -85,47 +100,77 @@ To preview **multiple versions** locally:
 
 2. Deploy the current tree as one or more version labels on your **local** `gh-pages` branch. Always omit `--push`: the published site is deployed by CI and a hand-pushed `gh-pages` fights the next automated deploy over the version index. Use the same naming the deploy uses, so a local preview matches what the real site will look like: a stable release is `MAJOR.MINOR`, a pre-release is its full version, and `dev` is a version in its own right rather than an alias.
 
-        hatch run docs:mike deploy 1.5
-        hatch run docs:mike deploy 1.6.0rc1
-        hatch run docs:mike deploy --update-aliases dev latest
-        hatch run docs:mike set-default latest
+    ```
+    hatch run docs:mike deploy 1.5
+    hatch run docs:mike deploy 1.6.0rc1
+    hatch run docs:mike deploy --update-aliases dev latest
+    hatch run docs:mike set-default latest
+    ```
 
 3. Serve that branch:
 
-        hatch run docs:mike serve
+    ```
+    hatch run docs:mike serve
+    ```
 
 4. Open the URL it prints (default `http://127.0.0.1:8000`) and use the version selector. `mike list` shows what is installed; `mike delete VERSION` removes one version.
 
 5. Delete the local branch when you are done:
 
-        git branch -D gh-pages
+    ```
+    git branch -D gh-pages
+    ```
 
 Do this even though you never pushed. Once CI has published to `gh-pages` and you fetch it, your local branch has diverged from the remote, and every `mike` write command refuses to run against a diverged branch: `deploy`, `delete` and `set-default` all fail with `gh-pages has diverged from origin/gh-pages`. Deleting the local branch is the fix; the next preview recreates it.
-   
+
 ## Code Formatting and Linting
 
-Please format your code using [yapf](https://pypi.org/project/yapf/) with ``google`` style prior to issuing your pull request. *Note: only format those lines that you have changed in your pull request. If you format an entire file and change code outside of the scope of your PR, it will likely be rejected.*
+Please format your code using [yapf](https://pypi.org/project/yapf/) with `google` style prior to issuing your pull request. *Note: only format those lines that you have changed in your pull request. If you format an entire file and change code outside of the scope of your PR, it will likely be rejected.*
 
-    hatch run fmt
+```
+hatch run fmt
+```
 
 To verify formatting without modifying files (mirrors CI), use
 
-    hatch run fmt-check
+```
+hatch run fmt-check
+```
 
 Please also lint your code using [ruff](https://docs.astral.sh/ruff/):
 
-    hatch run lint
+```
+hatch run lint
+```
 
 To verify linting without modifying files (mirrors CI), use
 
-    hatch run lint-check
+```
+hatch run lint-check
+```
 
 Please also format docstrings using [docformatter](https://github.com/PyCQA/docformatter), which enforces [PEP 257](https://peps.python.org/pep-0257/) style:
 
-    hatch run docfmt
+```
+hatch run docfmt
+```
 
 To verify docstring formatting without modifying files (mirrors CI), use
 
-    hatch run docfmt-check
+```
+hatch run docfmt-check
+```
 
-All three checks (`fmt-check`, `lint-check`, `docfmt-check`) run in CI on every push and pull request.
+Markdown is formatted with [mdformat](https://mdformat.readthedocs.io/), which also keeps every paragraph and list item on one line:
+
+```
+hatch run mdfmt
+```
+
+To verify markdown formatting without modifying files (mirrors CI), use
+
+```
+hatch run mdfmt-check
+```
+
+All four checks (`fmt-check`, `lint-check`, `docfmt-check`, `mdfmt-check`) run in CI on every push and pull request.

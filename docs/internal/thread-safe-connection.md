@@ -19,10 +19,12 @@ Deliveries and publisher confirms are dispatched on a per-channel worker thread 
 The guard catches `BaseException` rather than `Exception` because the cases that distinction admits have no meaning on a worker thread worth preserving. `SystemExit` raised off the main thread ends only that thread, leaving the interpreter running, and Python prints nothing for it. The mechanism differs by version, so do not grep for one and conclude the other is unaffected: 3.8 and later return early from `threading.excepthook`, while on the 3.7 floor `threading.excepthook` does not exist and `Thread._bootstrap_inner` carries its own `except SystemExit`. That difference is observable, because a `try/except` catches subclasses and an identity check does not. Measured, stderr bytes from a worker thread raising each:
 
 | raised | 3.7.17 | 3.14.5 |
-|---|---|---|
+| -- | -- | -- |
 | `SystemExit` | 0 | 0 |
 | a subclass of `SystemExit` | 0 | 809 |
-| `KeyboardInterrupt` | 628 | 831 | `KeyboardInterrupt` cannot arrive here from a signal, since CPython delivers SIGINT to the main thread, so it appears only when user code raises it.
+| `KeyboardInterrupt` | 628 | 831 |
+
+`KeyboardInterrupt` cannot arrive here from a signal, since CPython delivers SIGINT to the main thread, so it appears only when user code raises it.
 
 Two members of `BaseException` are ordinary per-item failures rather than requests to stop, and the guard treats them as such: `asyncio.CancelledError`, which a callback awaiting a cancelled future raises and which stopped subclassing `Exception` in 3.8, and gevent's `GreenletExit`, which subclasses `BaseException` precisely so `except Exception` cannot absorb it. Logging and continuing is right for both.
 
