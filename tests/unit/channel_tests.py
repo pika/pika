@@ -491,12 +491,19 @@ class ChannelTests(unittest.TestCase):
 
         chan.basic_cancel('ctag-a', callback=on_cancel_a)
         chan.basic_cancel('ctag-b', callback=on_cancel_b)
-        reply = frame.Method(2, spec.Basic.CancelOk(consumer_tag='ctag-a'))
-        self.connection.callbacks.process(2, reply.method, self.connection,
-                                          reply)
+        reply_a = frame.Method(2, spec.Basic.CancelOk(consumer_tag='ctag-a'))
+        self.connection.callbacks.process(2, reply_a.method, self.connection,
+                                          reply_a)
 
-        on_cancel_a.assert_called_once_with(reply)
+        on_cancel_a.assert_called_once_with(reply_a)
         on_cancel_b.assert_not_called()
+
+        reply_b = frame.Method(2, spec.Basic.CancelOk(consumer_tag='ctag-b'))
+        self.connection.callbacks.process(2, reply_b.method, self.connection,
+                                          reply_b)
+
+        on_cancel_a.assert_called_once_with(reply_a)
+        on_cancel_b.assert_called_once_with(reply_b)
 
     def test_basic_cancel_synch_no_user_callback_raises_value_error(self):
         self.obj._set_state(self.obj.OPEN)

@@ -339,8 +339,9 @@ class Channel:
         window, so this only bites under extreme nowait-cancel churn.
 
         :param consumer_tag: Identifier for the consumer
-        :param callback: callback(pika.frame.Method) for method Basic.CancelOk. If None, do not
-            expect a Basic.CancelOk response, otherwise, callback must be callable
+        :param callback: callback(pika.frame.Method) for the Basic.CancelOk that carries this
+            consumer_tag. If None, do not expect a Basic.CancelOk response, otherwise, callback
+            must be callable
         :raises ValueError:
         """
         validators.require_string(consumer_tag, 'consumer_tag')

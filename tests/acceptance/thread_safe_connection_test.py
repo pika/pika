@@ -233,6 +233,36 @@ class TestConcurrentPublishAndConsume(ThreadSafeTestCaseBase):
         ch.basic_cancel(consumer_tag)
 
 
+class TestConcurrentCancelsReturnTheirOwnCancelOk(ThreadSafeTestCaseBase):
+
+    def test(self):
+        ch = self._connect().channel()
+        for _ in range(5):
+            queue = ch.queue_declare(queue='', exclusive=True).method.queue
+            tags = [ch.basic_consume(queue, lambda *_: None) for _ in range(8)]
+            self.assertEqual(self._cancel_at_once(ch, tags),
+                             {tag: tag for tag in tags})
+
+    def _cancel_at_once(self, ch, tags):
+        replies = {}
+        barrier = threading.Barrier(len(tags))
+
+        def cancel(tag):
+            barrier.wait()
+            try:
+                replies[tag] = ch.basic_cancel(tag).method.consumer_tag
+            except Exception as exc:
+                replies[tag] = repr(exc)
+
+        threads = [threading.Thread(target=cancel, args=(tag,)) for tag in tags]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=BLOCKING_CALL_TIMEOUT)
+        self.assertEqual([t.name for t in threads if t.is_alive()], [])
+        return replies
+
+
 class TestBrokerDropBlockedInChannel(ThreadSafeTestCaseBase):
     """
     A thread blocked in channel() must unblock when the broker drops.
