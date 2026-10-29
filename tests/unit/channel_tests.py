@@ -9,7 +9,7 @@ import warnings
 from typing import cast
 from unittest import mock
 
-from pika import channel, connection, exceptions, frame, spec
+from pika import callback, channel, connection, exceptions, frame, spec
 
 
 class ConnectionTemplate(connection.Connection):
@@ -466,7 +466,9 @@ class ChannelTests(unittest.TestCase):
         self.assertListEqual(list(self.obj._cancelled), [consumer_tag])
         # Verify user completion callback registered
         self.callbacks.add.assert_any_call(self.obj.channel_number,
-                                           spec.Basic.CancelOk, callback_mock)
+                                           spec.Basic.CancelOk,
+                                           callback_mock,
+                                           arguments={'consumer_tag': 'ctag0'})
         # Verify Channel._on_cancelok callback registered
         self.callbacks.add.assert_any_call(self.obj.channel_number,
                                            spec.Basic.CancelOk,
@@ -477,6 +479,31 @@ class ChannelTests(unittest.TestCase):
                                            spec.Basic.CancelOk,
                                            self.obj._on_synchronous_complete,
                                            arguments={'consumer_tag': 'ctag0'})
+
+    def test_basic_cancel_ok_completes_only_its_own_cancel(self):
+        # A real CallbackManager, since the mock one cannot match arguments.
+        self.connection.callbacks = callback.CallbackManager()
+        chan = channel.Channel(self.connection, 2, lambda _ch: None)
+        chan._set_state(chan.OPEN)
+        chan._consumers.update({'ctag-a': mock.Mock(), 'ctag-b': mock.Mock()})
+        on_cancel_a = mock.Mock()
+        on_cancel_b = mock.Mock()
+
+        chan.basic_cancel('ctag-a', callback=on_cancel_a)
+        chan.basic_cancel('ctag-b', callback=on_cancel_b)
+        reply_a = frame.Method(2, spec.Basic.CancelOk(consumer_tag='ctag-a'))
+        self.connection.callbacks.process(2, reply_a.method, self.connection,
+                                          reply_a)
+
+        on_cancel_a.assert_called_once_with(reply_a)
+        on_cancel_b.assert_not_called()
+
+        reply_b = frame.Method(2, spec.Basic.CancelOk(consumer_tag='ctag-b'))
+        self.connection.callbacks.process(2, reply_b.method, self.connection,
+                                          reply_b)
+
+        on_cancel_a.assert_called_once_with(reply_a)
+        on_cancel_b.assert_called_once_with(reply_b)
 
     def test_basic_cancel_synch_no_user_callback_raises_value_error(self):
         self.obj._set_state(self.obj.OPEN)

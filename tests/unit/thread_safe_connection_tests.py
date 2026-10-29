@@ -2783,11 +2783,8 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
         """
         Another consumer's confirmation must not satisfy this sweep.
 
-        `basic_cancel` registers its `Basic.CancelOk` callback with no arguments, and
-        `CallbackManager` collapses identical callables into one reference-counted one-shot entry,
-        so any CancelOk on the channel consumes one registration whoever asked for it. Counting them
-        ended the wait early or never; completion is read from the channel's own consumer map
-        instead, which only this sweep's tags can clear.
+        Completion is read from the channel's own consumer map, which only this sweep's tags can
+        clear.
         """
         ch, raw_ch, wrapper = self._make_channel()
         _wire_cancel(wrapper, raw_ch, {'mine': None}, answer=False)

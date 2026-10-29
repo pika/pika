@@ -564,6 +564,37 @@ class TestConsumeCancel(AsyncTestCase, AsyncAdapters):
         self.stop()
 
 
+class TestEachPendingCancelCompletesOnItsOwnCancelOk(AsyncTestCase,
+                                                     AsyncAdapters):
+    DESCRIPTION = 'Two pending cancels each complete on their own CancelOk'
+
+    TAGS = ('ctag-a', 'ctag-b')
+
+    def begin(self, channel):
+        self.completions = []
+        channel.queue_declare('',
+                              exclusive=True,
+                              callback=self.on_queue_declared)
+
+    def on_queue_declared(self, frame):
+        for tag in self.TAGS:
+            self.channel.basic_consume(frame.method.queue,
+                                       lambda *_: None,
+                                       consumer_tag=tag)
+        for tag in self.TAGS:
+            self.channel.basic_cancel(tag,
+                                      callback=functools.partial(
+                                          self.on_cancelled, tag))
+
+    @async_test_base.stop_on_error_in_async_test_case_method
+    def on_cancelled(self, tag, frame):
+        self.completions.append((tag, frame.method.consumer_tag))
+        if len(self.completions) == len(self.TAGS):
+            self.assertEqual(sorted(self.completions),
+                             [(tag, tag) for tag in self.TAGS])
+            self.stop()
+
+
 class TestExchangeDeclareAndDelete(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = 'Create and delete and exchange'
 

@@ -669,11 +669,6 @@ class Channel:
         def _outstanding() -> set[str]:
             # The channel drops a tag from _consumers when its Basic.CancelOk
             # arrives, so its own bookkeeping says when this sweep is done.
-            # Counting the replies instead cannot work: basic_cancel registers
-            # its callback with no arguments and CallbackManager collapses
-            # identical callables into one reference-counted one-shot entry, so
-            # any CancelOk on the channel consumes one of this sweep's
-            # registrations and the last tag's reply never arrives (#1763).
             return {t for t in asked[0] if t in self._channel._consumers}
 
         # Liveness as well as the budget: the replies come from the IOLoop
