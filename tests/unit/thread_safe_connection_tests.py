@@ -48,8 +48,7 @@ def _wire_cancel(wrapper,
     its whole budget.
 
     :param answer: confirm each cancel at once; pass False and call ``raw_ch.complete(tag)``.
-    :param sends: pass False for a `basic_cancel` that returns without sending, which the real one
-        does for a tag it no longer knows.
+    :param sends: pass False for a `basic_cancel` that returns without sending.
     """
     wrapper._schedule_unchecked.side_effect = lambda cb: cb()
     wrapper._ioloop_thread.is_alive.return_value = True
@@ -2694,8 +2693,7 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
         Without this the broker keeps dispatching while the pool drains, so the drain cannot be
         complete and `auto_ack` deliveries arriving behind it are lost (#1763). The tags come from
         the underlying channel rather than a registry of our own, so a consumer the broker already
-        cancelled is not cancelled again: doing so blocks for the whole budget, because the
-        underlying `basic_cancel` sends no frame and the reply never arrives.
+        cancelled is gone from them and is not cancelled again.
         """
         from pika.exceptions import ChannelClosedByClient
         ch, raw_ch, wrapper = self._make_channel()
@@ -2738,8 +2736,8 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
         """
         A cancel already in flight must not be reissued.
 
-        The underlying `basic_cancel` logs and returns without sending a frame for a tag it has
-        already cancelled, so a second cancel would wait for a confirmation that never comes.
+        A tag still in `_cancelled` may be a nowait cancel's retained one, which no reply removes
+        from `_consumers`, so the sweep would wait on it until its budget ran out.
         """
         ch, raw_ch, wrapper = self._make_channel()
         _wire_cancel(wrapper,

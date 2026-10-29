@@ -595,6 +595,19 @@ class TestEachPendingCancelCompletesOnItsOwnCancelOk(AsyncTestCase,
             self.stop()
 
 
+class TestCancelOfAnUnknownTagCompletesOnTheBrokersCancelOk(
+        AsyncTestCase, AsyncAdapters):
+    DESCRIPTION = 'Cancelling an unknown tag completes on the broker reply'
+
+    def begin(self, channel):
+        channel.basic_cancel('never-consumed', callback=self.on_cancelled)
+
+    @async_test_base.stop_on_error_in_async_test_case_method
+    def on_cancelled(self, frame):
+        self.assertEqual(frame.method.consumer_tag, 'never-consumed')
+        self.stop()
+
+
 class TestExchangeDeclareAndDelete(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = 'Create and delete and exchange'
 

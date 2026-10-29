@@ -464,16 +464,18 @@ class ChannelTests(unittest.TestCase):
 
         # Verify consumer tag added to the cancelled list
         self.assertListEqual(list(self.obj._cancelled), [consumer_tag])
-        # Verify user completion callback registered
-        self.callbacks.add.assert_any_call(self.obj.channel_number,
-                                           spec.Basic.CancelOk,
-                                           callback_mock,
-                                           arguments={'consumer_tag': 'ctag0'})
-        # Verify Channel._on_cancelok callback registered
-        self.callbacks.add.assert_any_call(self.obj.channel_number,
-                                           spec.Basic.CancelOk,
-                                           self.obj._on_cancelok,
-                                           arguments={'consumer_tag': 'ctag0'})
+        # Verify one CancelOk callback retires the consumer, then completes the user's
+        completions = [
+            c[0][2]
+            for c in self.callbacks.add.call_args_list
+            if c[0][1] is spec.Basic.CancelOk and
+            c[0][2] != self.obj._on_synchronous_complete
+        ]
+        self.assertEqual(len(completions), 1)
+        reply = frame.Method(1, spec.Basic.CancelOk(consumer_tag='ctag0'))
+        completions[0](reply)
+        callback_mock.assert_called_once_with(reply)
+        self.assertNotIn(consumer_tag, self.obj._consumers)
         # Verify Channel._on_synchronous_complete callback registered
         self.callbacks.add.assert_any_call(self.obj.channel_number,
                                            spec.Basic.CancelOk,
@@ -529,12 +531,97 @@ class ChannelTests(unittest.TestCase):
         self.assertTrue(self.obj.is_closing)
 
     @mock.patch('pika.channel.Channel._rpc')
-    def test_basic_cancel_unknown_consumer_tag(self, rpc):
+    def test_basic_cancel_unknown_tag_still_asks_the_broker(self, rpc):
         self.obj._set_state(self.obj.OPEN)
-        callback_mock = mock.Mock()
-        consumer_tag = 'ctag0'
-        self.obj.basic_cancel(consumer_tag, callback=callback_mock)
+        on_cancel = mock.Mock()
+        self.obj.basic_cancel('ctag0', callback=on_cancel)
+        rpc.assert_called_once_with(spec.Basic.Cancel(consumer_tag='ctag0'),
+                                    on_cancel, [(spec.Basic.CancelOk, {
+                                        'consumer_tag': 'ctag0'
+                                    })])
+        self.assertNotIn('ctag0', self.obj._cancelled)
+
+    @mock.patch('pika.channel.Channel._rpc')
+    def test_basic_cancel_nowait_unknown_tag_sends_nothing(self, rpc):
+        self.obj._set_state(self.obj.OPEN)
+        self.obj.basic_cancel('ctag0')
         self.assertFalse(rpc.called)
+
+    @mock.patch('pika.channel.Channel._rpc')
+    def test_basic_cancel_of_a_nowait_cancelled_tag_keeps_its_retention(
+            self, rpc):
+        self.obj._set_state(self.obj.OPEN)
+        self.obj._consumers['ctag0'] = mock.Mock()
+        self.obj.basic_cancel('ctag0')
+        rpc.reset_mock()
+
+        on_cancel = mock.Mock()
+        self.obj.basic_cancel('ctag0', callback=on_cancel)
+
+        self.assertIs(rpc.call_args[0][1], on_cancel)
+        self.assertIn('ctag0', self.obj._consumers)
+        self.assertIn('ctag0', self.obj._cancelled)
+        self.assertEqual(list(self.obj._nowait_cancelled), ['ctag0'])
+
+    def _process(self, chan, method):
+        reply = frame.Method(chan.channel_number, method)
+        self.connection.callbacks.process(chan.channel_number, method,
+                                          self.connection, reply)
+        return reply
+
+    def _real_channel(self):
+        self.connection.callbacks = callback.CallbackManager()
+        chan = channel.Channel(self.connection, 2, lambda _ch: None)
+        chan._set_state(chan.OPEN)
+        return chan
+
+    def test_basic_cancel_of_a_cancelling_tag_completes_on_its_own_cancel_ok(
+            self):
+        chan = self._real_channel()
+        chan._consumers['ctag-a'] = mock.Mock()
+        first = mock.Mock()
+        second = mock.Mock()
+
+        chan.basic_cancel('ctag-a', callback=first)
+        chan.basic_cancel('ctag-a', callback=second)
+        reply_1 = self._process(chan,
+                                spec.Basic.CancelOk(consumer_tag='ctag-a'))
+
+        first.assert_called_once_with(reply_1)
+        second.assert_not_called()
+        self.assertNotIn('ctag-a', chan._consumers)
+
+        reply_2 = self._process(chan,
+                                spec.Basic.CancelOk(consumer_tag='ctag-a'))
+
+        first.assert_called_once_with(reply_1)
+        second.assert_called_once_with(reply_2)
+
+    def test_basic_cancel_of_an_unknown_tag_completes_on_the_brokers_reply(
+            self):
+        chan = self._real_channel()
+        on_cancel = mock.Mock()
+
+        chan.basic_cancel('never-consumed', callback=on_cancel)
+        reply = self._process(
+            chan, spec.Basic.CancelOk(consumer_tag='never-consumed'))
+
+        on_cancel.assert_called_once_with(reply)
+
+    def test_a_stale_cancel_ok_does_not_complete_a_later_cancel_of_the_tag(
+            self):
+        chan = self._real_channel()
+        chan._consumers['ctag-a'] = mock.Mock()
+        chan.basic_cancel('ctag-a', callback=mock.Mock())
+        chan.basic_cancel('ctag-a', callback=mock.Mock())
+        self._process(chan, spec.Basic.CancelOk(consumer_tag='ctag-a'))
+        chan.basic_consume('queue', mock.Mock(), consumer_tag='ctag-a')
+        later = mock.Mock()
+        chan.basic_cancel('ctag-a', callback=later)
+
+        self._process(chan, spec.Basic.CancelOk(consumer_tag='ctag-a'))
+
+        later.assert_not_called()
 
     def test_basic_consume_legacy_parameter_queue(self):
         # This is for the unlikely scenario where only
@@ -1619,7 +1706,7 @@ class ChannelTests(unittest.TestCase):
         consumer_tag = 'ctag0'
         self.obj._consumers[consumer_tag] = logging.debug
         frame_value = frame.Method(1, spec.Basic.CancelOk(consumer_tag))
-        self.obj._on_cancelok(frame_value)
+        self.obj._on_cancelok(frame_value, mock.Mock())
         self.assertNotIn(consumer_tag, self.obj._consumers)
 
     @mock.patch('pika.spec.Channel.CloseOk')

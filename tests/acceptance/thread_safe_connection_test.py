@@ -263,6 +263,52 @@ class TestConcurrentCancelsReturnTheirOwnCancelOk(ThreadSafeTestCaseBase):
         return replies
 
 
+class TestCancelOfAGoneTagReturnsTheBrokersCancelOk(ThreadSafeTestCaseBase):
+
+    def test_a_tag_already_cancelled(self):
+        ch = self._connect().channel()
+        queue = ch.queue_declare(queue='', exclusive=True).method.queue
+        tag = ch.basic_consume(queue, lambda *_: None)
+        ch.basic_cancel(tag)
+
+        self.assertEqual(
+            ch.basic_cancel(tag,
+                            timeout=BLOCKING_CALL_TIMEOUT).method.consumer_tag,
+            tag)
+
+    def test_a_tag_never_known(self):
+        ch = self._connect().channel()
+
+        self.assertEqual(
+            ch.basic_cancel('never-consumed',
+                            timeout=BLOCKING_CALL_TIMEOUT).method.consumer_tag,
+            'never-consumed')
+
+    def test_two_threads_cancelling_one_tag(self):
+        ch = self._connect().channel()
+        queue = ch.queue_declare(queue='', exclusive=True).method.queue
+        tag = ch.basic_consume(queue, lambda *_: None)
+        replies = []
+        barrier = threading.Barrier(2)
+
+        def cancel():
+            barrier.wait()
+            try:
+                replies.append(
+                    ch.basic_cancel(
+                        tag, timeout=BLOCKING_CALL_TIMEOUT).method.consumer_tag)
+            except Exception as exc:
+                replies.append(repr(exc))
+
+        threads = [threading.Thread(target=cancel) for _ in range(2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=BLOCKING_CALL_TIMEOUT * 2)
+        self.assertEqual([t.name for t in threads if t.is_alive()], [])
+        self.assertEqual(replies, [tag, tag])
+
+
 class TestBrokerDropBlockedInChannel(ThreadSafeTestCaseBase):
     """
     A thread blocked in channel() must unblock when the broker drops.
