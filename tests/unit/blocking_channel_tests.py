@@ -4,7 +4,7 @@ import unittest
 from collections import deque
 from unittest import mock
 
-from pika import channel
+from pika import channel, exceptions, frame, spec
 from pika.adapters import blocking_connection
 
 BLOCKING_CHANNEL = 'pika.adapters.blocking_connection.BlockingChannel'
@@ -64,6 +64,56 @@ class BlockingChannelTests(unittest.TestCase):
     def test_queue_bind_legacy_parameter_callback(self):
         with self.assertRaises(TypeError):
             self.obj.queue_bind(mock.Mock(), 'queue', 'exchange')
+
+    def _broker_cancelled_consumer(self, auto_ack):
+        info = blocking_connection._ConsumerInfo(
+            'ctag', auto_ack=auto_ack, on_message_callback=mock.Mock())
+        info.state = blocking_connection._ConsumerInfo.CANCELLED_BY_BROKER
+        self.obj._consumer_infos['ctag'] = info
+        self.channel_impl_mock._consumers = {}
+        self.channel_impl_mock.channel_number = 1
+        self.obj._pending_events.extend([
+            blocking_connection._ConsumerDeliveryEvt(
+                spec.Basic.Deliver(consumer_tag='ctag', delivery_tag=7),
+                spec.BasicProperties(), b''),
+            blocking_connection._ConsumerCancellationEvt(
+                frame.Method(1, spec.Basic.Cancel(consumer_tag='ctag'))),
+        ])
+
+    def test_basic_cancel_does_not_cancel_a_broker_cancelled_consumer_again(
+            self):
+        self._broker_cancelled_consumer(auto_ack=False)
+        events = mock.Mock()
+        events.attach_mock(self.channel_impl_mock.basic_reject, 'reject')
+        events.attach_mock(self.connection._flush_output, 'flush')
+
+        self.assertEqual(self.obj.basic_cancel('ctag'), [])
+
+        self.channel_impl_mock.basic_cancel.assert_not_called()
+        self.assertEqual([c[0] for c in events.mock_calls], ['reject', 'flush'])
+        # Waiting on anything but "always ready" would never end: no reply is coming.
+        self.assertEqual(self.connection._flush_output.call_args[0][1:],
+                         self.obj._ALWAYS_READY_WAITERS)
+        self.assertEqual(len(self.obj._pending_events), 0)
+
+    def test_basic_cancel_returns_a_broker_cancelled_auto_ack_consumers_messages(
+            self):
+        self._broker_cancelled_consumer(auto_ack=True)
+
+        messages = self.obj.basic_cancel('ctag')
+
+        self.channel_impl_mock.basic_cancel.assert_not_called()
+        self.assertEqual([m[0].delivery_tag for m in messages], [7])
+        self.assertEqual(len(self.obj._pending_events), 0)
+
+    def test_basic_cancel_of_a_broker_cancelled_consumer_on_a_closing_channel_raises(
+            self):
+        self._broker_cancelled_consumer(auto_ack=True)
+        self.channel_impl_mock._raise_if_not_open.side_effect = (
+            exceptions.ChannelWrongStateError('Channel is closing.'))
+
+        with self.assertRaises(exceptions.ChannelWrongStateError):
+            self.obj.basic_cancel('ctag')
 
     def test_basic_cancel_legacy_parameter(self):
         with self.assertRaises(TypeError):

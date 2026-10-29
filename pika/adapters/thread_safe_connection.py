@@ -642,11 +642,9 @@ class Channel:
             """Make the cancel synchronous; completion is read from the channel."""
 
         def _cancel_all() -> None:
-            # Reading the consumers and cancelling them in one IOLoop callback
-            # is what makes the set current: a tag read on another thread can be
-            # cancelled or gone by the time the cancel runs, and the underlying
-            # basic_cancel then sends no frame, leaving a wait for a reply that
-            # never comes (#1763).
+            # Read and cancel in one IOLoop callback so the set is current, and
+            # skip tags already cancelling: a nowait cancel's retained tag never
+            # leaves _consumers, so waiting on it would never end (#1763).
             try:
                 for tag in [
                         t for t in list(self._channel._consumers)

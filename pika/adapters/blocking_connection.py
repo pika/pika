@@ -1922,16 +1922,20 @@ class BlockingChannel:
                             assert delivery_tag is not None
                             self._impl.basic_reject(delivery_tag, requeue=True)
 
-                # Cancel the consumer.  Deliveries that arrive before the
-                # broker confirms it are handled below.
-                self._impl.basic_cancel(consumer_tag=consumer_tag,
-                                        callback=cancel_ok_result.signal_once)
+                # A consumer the broker already cancelled is not asked about
+                # again: the wait below would end before the reply.
+                waiters: tuple[Callable[[], bool], ...] = ()
+                self._impl._raise_if_not_open()
+                if consumer_tag in self._impl._consumers:
+                    self._impl.basic_cancel(
+                        consumer_tag=consumer_tag,
+                        callback=cancel_ok_result.signal_once)
+                    waiters = (
+                        cancel_ok_result.is_ready,
+                        lambda: consumer_tag not in self._impl._consumers)
 
-                # Flush output and wait for Basic.Cancel-ok or
-                # broker-initiated Basic.Cancel
-                self._flush_output(
-                    cancel_ok_result.is_ready,
-                    lambda: consumer_tag not in self._impl._consumers)
+                # Sends the rejects above whether or not a cancel went out.
+                self._flush_output(*waiters)
 
             if auto_ack:
                 # Return pending messages for auto_ack=True consumer

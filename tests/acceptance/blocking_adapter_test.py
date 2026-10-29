@@ -2272,6 +2272,8 @@ class TestBasicCancelPurgesPendingConsumerCancellationEvt(BlockingTestCaseBase):
         self.assertEqual(messages, [])
 
         self.assertEqual(len(ch._pending_events), 0)
+        # The broker already cancelled it, so no Basic.Cancel is left awaiting a reply.
+        self.assertFalse(ch._impl._blocking)
 
 
 class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
