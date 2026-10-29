@@ -364,8 +364,10 @@ class Channel:
                      nowait)
 
         if callback is not None:
-            self.callbacks.add(self.channel_number, spec.Basic.CancelOk,
-                               callback)
+            self.callbacks.add(self.channel_number,
+                               spec.Basic.CancelOk,
+                               callback,
+                               arguments={'consumer_tag': consumer_tag})
 
         self._cancelled.add(consumer_tag)
 
