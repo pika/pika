@@ -1948,10 +1948,14 @@ class BlockingChannel:
             # unacknowledged they stay invisible to every other consumer until
             # this channel closes, and the broker's consumer_timeout eventually
             # closes it with a 406.
-            for evt in self._remove_pending_deliveries(consumer_tag):
+            late = self._remove_pending_deliveries(consumer_tag)
+            for evt in late:
                 delivery_tag = evt.method.delivery_tag
                 assert delivery_tag is not None
                 self._impl.basic_reject(delivery_tag, requeue=True)
+            if late:
+                # Sent now, not at the caller's next I/O, as `cancel` does.
+                self._flush_output()
 
             return []
         finally:

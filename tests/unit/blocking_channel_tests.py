@@ -115,6 +115,31 @@ class BlockingChannelTests(unittest.TestCase):
         with self.assertRaises(exceptions.ChannelWrongStateError):
             self.obj.basic_cancel('ctag')
 
+    def test_basic_cancel_flushes_rejects_for_deliveries_during_the_cancel(
+            self):
+        self.obj._consumer_infos['ctag'] = blocking_connection._ConsumerInfo(
+            'ctag', auto_ack=False, on_message_callback=mock.Mock())
+        self.obj._consumer_infos['ctag'].state = (
+            blocking_connection._ConsumerInfo.ACTIVE)
+        self.channel_impl_mock._consumers = {'ctag': mock.Mock()}
+        self.channel_impl_mock.channel_number = 1
+
+        def deliver_while_cancelling(**_kwargs):
+            self.obj._pending_events.append(
+                blocking_connection._ConsumerDeliveryEvt(
+                    spec.Basic.Deliver(consumer_tag='ctag', delivery_tag=7),
+                    spec.BasicProperties(), b''))
+
+        self.channel_impl_mock.basic_cancel.side_effect = deliver_while_cancelling
+        events = mock.Mock()
+        events.attach_mock(self.channel_impl_mock.basic_reject, 'reject')
+        events.attach_mock(self.connection._flush_output, 'flush')
+
+        self.assertEqual(self.obj.basic_cancel('ctag'), [])
+
+        self.assertEqual([c[0] for c in events.mock_calls],
+                         ['flush', 'reject', 'flush'])
+
     def test_basic_cancel_legacy_parameter(self):
         with self.assertRaises(TypeError):
             self.obj.basic_cancel(mock.Mock(), 'tag')
