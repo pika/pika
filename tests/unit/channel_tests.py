@@ -1706,7 +1706,7 @@ class ChannelTests(unittest.TestCase):
         consumer_tag = 'ctag0'
         self.obj._consumers[consumer_tag] = logging.debug
         frame_value = frame.Method(1, spec.Basic.CancelOk(consumer_tag))
-        self.obj._on_cancelok(frame_value, None)
+        self.obj._on_cancelok(frame_value, mock.Mock())
         self.assertNotIn(consumer_tag, self.obj._consumers)
 
     @mock.patch('pika.spec.Channel.CloseOk')

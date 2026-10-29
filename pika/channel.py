@@ -350,18 +350,20 @@ class Channel:
         self._raise_if_not_open()
         nowait = validators.rpc_completion_callback(callback)
 
+        # A waited cancel of such a tag still completes, on the broker's reply,
+        # so only a nowait one, which does nothing, is worth a warning.
+        log = LOGGER.warning if nowait else LOGGER.debug
         if consumer_tag in self._cancelled:
             # Before the _consumers check below, so a tag already cancelling
             # reports that rather than reporting itself as unknown.
-            LOGGER.warning('basic_cancel - consumer is already cancelling: %s',
-                           consumer_tag)
+            log('basic_cancel - consumer is already cancelling: %s',
+                consumer_tag)
             self._cancel_without_retiring(consumer_tag, callback)
             return
 
         if consumer_tag not in self._consumers:
             # Could be cancelled by user or broker earlier
-            LOGGER.warning('basic_cancel - consumer not found: %s',
-                           consumer_tag)
+            log('basic_cancel - consumer not found: %s', consumer_tag)
             self._cancel_without_retiring(consumer_tag, callback)
             return
 
@@ -379,12 +381,15 @@ class Channel:
 
         # Through `_rpc`, so the callback is registered when this cancel is
         # sent and completes on its own reply, not an earlier one for the tag.
-        self._rpc(
-            spec.Basic.Cancel(consumer_tag=consumer_tag, nowait=nowait),
-            None if nowait else functools.partial(
-                self._on_cancelok, callback=callback), [(spec.Basic.CancelOk, {
-                    'consumer_tag': consumer_tag
-                })] if not nowait else [])
+        if nowait:
+            self._rpc(spec.Basic.Cancel(consumer_tag=consumer_tag, nowait=True))
+        else:
+            assert callback is not None
+            self._rpc(spec.Basic.Cancel(consumer_tag=consumer_tag),
+                      functools.partial(self._on_cancelok, callback=callback),
+                      [(spec.Basic.CancelOk, {
+                          'consumer_tag': consumer_tag
+                      })])
 
     def _cancel_without_retiring(
             self, consumer_tag: str,
@@ -1271,7 +1276,7 @@ class Channel:
         self._cleanup_consumer_ref(consumer_tag)
 
     def _on_cancelok(self, method_frame: frame.Method,
-                     callback: _OnBasicCancelCallback | None) -> None:
+                     callback: _OnBasicCancelCallback) -> None:
         """
         Called in response to a frame from the Broker when the client sends Basic.Cancel.
 
@@ -1279,8 +1284,7 @@ class Channel:
         :param callback: The caller's `basic_cancel` callback, run once the consumer is retired
         """
         self._cleanup_consumer_ref(method_frame.method.consumer_tag)
-        if callback is not None:
-            callback(method_frame)
+        callback(method_frame)
 
     def _transition_to_closed(self) -> None:
         """Common logic for transitioning the channel to the CLOSED state:
