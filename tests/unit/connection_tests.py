@@ -548,6 +548,31 @@ class ConnectionTests(unittest.TestCase):
 
         self.assertDictEqual(conn._client_properties, expectation)
 
+    def test_client_properties_capabilities_merged(self):
+        """A user-supplied capabilities table merges into pika's defaults."""
+        override = {
+            'capabilities': {
+                'consumer_cancel_notify': False,
+                'custom_extension_flag': True,
+            }
+        }
+        params = connection.ConnectionParameters(client_properties=override)
+
+        with mock.patch.object(ConstructibleConnection,
+                               '_adapter_connect_stream'):
+            conn = ConstructibleConnection(params)
+
+        capabilities = conn._client_properties['capabilities']
+        # The application may add flags and switch individual flags off...
+        self.assertTrue(capabilities['custom_extension_flag'])
+        self.assertFalse(capabilities['consumer_cancel_notify'])
+        # ...without discarding the rest of pika's capabilities (#1791).
+        for expected_key in ('authentication_failure_close', 'basic.nack',
+                             'connection.blocked', 'exchange_exchange_bindings',
+                             'publisher_confirms'):
+            self.assertTrue(capabilities[expected_key],
+                            f'{expected_key} discarded')
+
     def test_close_channels(self):
         """Test closing all channels."""
         self.connection.connection_state = self.connection.CONNECTION_OPEN
