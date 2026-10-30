@@ -117,8 +117,8 @@ class FormatTests(unittest.TestCase):
                              released=datetime.date(2026, 7, 23)), block)
 
     def test_the_heading_names_the_version_being_cut(self):
-        # `github_changelog_generator` wrote the previous tag here, which is why
-        # the committed 1.4.3 entry links to `tree/1.4.2`.
+        # `github_changelog_generator` wrote the previous tag here, so the 1.4.4
+        # entry it produced linked to `tree/1.4.2`.
         entry = changelog.render('1.4.3', '1.4.2', [], [])
         self.assertIn('tree/1.4.3', entry)
         self.assertIn('compare/1.4.2...1.4.3', entry)
