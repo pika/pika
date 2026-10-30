@@ -310,7 +310,7 @@ def refuse_backwards(version: str) -> None:
             f'past it')
 
 
-def reachable_release() -> str:
+def reachable_release(below: str | None = None) -> str:
     """
     Return the newest released tag reachable from HEAD.
 
@@ -324,6 +324,7 @@ def reachable_release() -> str:
     tag that is an ancestor of HEAD, keep the ones this scheme publishes, and pick the newest by
     version order. Tags are fetched first, for the reason `previous_release` gives.
 
+    :param below: Consider only versions below this one, so HEAD's own tag is not its own start.
     :returns: The newest releasable tag reachable from HEAD.
     :raises CheckFailed: if there is none.
     """
@@ -342,6 +343,9 @@ def reachable_release() -> str:
         # Final releases only: a pre-release is part of the release being
         # prepared, not a boundary before it. See docs/internal/release.md.
         if implied['mode'] != 'release':
+            continue
+        if below is not None and (release_version.Version(name)
+                                  >= release_version.Version(below)):
             continue
         released.append(name)
     if not released:
@@ -424,9 +428,8 @@ def cmd_classify(args: argparse.Namespace) -> int:
     """
     Print what a pushed tag implies, as `$GITHUB_OUTPUT` lines.
 
-    This is the one operation a machine runs: `release.yaml` appends its output
-    directly, so every line is a bare `key=value` and a failure prints nothing
-    to stdout.
+    `release.yaml` appends its output directly, as it does `notes-start`'s, so every line is a bare
+    `key=value` and a failure prints nothing to stdout.
 
     :param args: Parsed arguments.
     :returns: Process exit status.
@@ -437,6 +440,27 @@ def cmd_classify(args: argparse.Namespace) -> int:
         raise CheckFailed(str(exc)) from exc
     for key, value in implied.items():
         print(f'{key}={value}')
+    return 0
+
+
+def cmd_notes_start(args: argparse.Namespace) -> int:
+    """
+    Print where a pushed tag's GitHub release notes start, as a `$GITHUB_OUTPUT` line.
+
+    A final release starts from the newest final release reachable from the tag, the same start its
+    `HISTORY.md` entry has. A pre-release prints an empty value, which leaves the start to GitHub:
+    the previous tag.
+
+    :param args: Parsed arguments.
+    :returns: Process exit status.
+    """
+    try:
+        implied = release_version.classify(args.tag)
+    except ValueError as exc:
+        raise CheckFailed(str(exc)) from exc
+    start = (reachable_release(
+        below=implied['version']) if implied['mode'] == 'release' else '')
+    print(f'notes_start={start}')
     return 0
 
 
@@ -853,8 +877,8 @@ def cmd_verify(args: argparse.Namespace) -> int:
     """
     Refuse a pushed tag that must not publish, as `$GITHUB_OUTPUT` lines.
 
-    The one operation `release.yaml` runs on the irreversible path, and the second operation a
-    machine runs, so its output is bare `key=value` lines like `classify`. It exists because the
+    The one operation `release.yaml` runs on the irreversible path, and machine-facing like
+    `classify` and `notes-start`, so its output is bare `key=value` lines. It exists because the
     workflow previously carried its own shell copies of these checks, and the copies had drifted:
     they never asked whether the tag moved the version forwards.
 
@@ -909,6 +933,13 @@ def build_parser() -> argparse.ArgumentParser:
                               help='print what a pushed tag implies')
     classify.add_argument('--tag', required=True)
     classify.set_defaults(func=cmd_classify, dry_run=False, passthrough=())
+
+    notes_start = sub.add_parser(
+        'notes-start', help="print where a pushed tag's release notes start")
+    notes_start.add_argument('--tag', required=True)
+    notes_start.set_defaults(func=cmd_notes_start,
+                             dry_run=False,
+                             passthrough=())
 
     verify = sub.add_parser('verify',
                             help='refuse a pushed tag that must not publish')

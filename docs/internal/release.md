@@ -55,6 +55,8 @@ It replaced `github_changelog_generator`, which crawls every tag and every close
 
 `reachable_release` keeps final releases only. A pre-release is part of the release being prepared rather than a boundary before it, so counting 1.5.0a1 would start the 1.5.0 entry at a1 and then report every milestone item closed before a1 as mis-milestoned.
 
+The GitHub release notes for a final release start at the same place, through `notes-start`. `gh release create --generate-notes` with no start tag begins at the previous tag: 1.5.0rc2's notes started at rc1 and rc3's at rc2, so a final release would have listed only what changed since its last pre-release. rc1's started at 1.4.0, not 1.4.4, for the reachability reason above. A pre-release keeps GitHub's default, which lists what is new since the previous pre-release.
+
 `readiness` asks for a `HISTORY.md` entry only for a final release, because `changelog` refuses to write one for a pre-release without `--force`. Requiring one regardless made the two halves contradict, so no pre-release could be tagged without a flag that advertises itself as something else.
 
 ## Why `RELEASE.md` does not say these things
