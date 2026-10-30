@@ -89,9 +89,9 @@ The errors are accurate and the annotations are an improvement, so nothing here 
 
 `pyright` users see little change, since it reported most of these already.
 
-## [1.4.3](https://github.com/pika/pika/tree/1.4.2) (2026-08-06)
+## [1.4.4](https://github.com/pika/pika/tree/1.4.4) (2026-08-06)
 
-[Full Changelog](https://github.com/pika/pika/compare/1.4.2...1.4.3)
+[Full Changelog](https://github.com/pika/pika/compare/1.4.2...1.4.4)
 
 **Merged pull requests:**
 
