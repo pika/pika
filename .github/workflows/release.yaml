@@ -101,6 +101,7 @@ jobs:
       docs-version: ${{ steps.version.outputs.docs_version }}
       docs-aliases: ${{ steps.version.outputs.docs_aliases }}
       docs-set-default: ${{ steps.version.outputs.docs_set_default }}
+      notes-start: ${{ steps.version.outputs.notes_start }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -146,6 +147,8 @@ jobs:
             # refuses any tag this scheme does not publish, so `1.5.0.dev3` or
             # `v1.5.0` fails here rather than part-way through publishing.
             python .ci/release.py classify --tag "$TAG" \
+              >> "$GITHUB_OUTPUT"
+            python .ci/release.py notes-start --tag "$TAG" \
               >> "$GITHUB_OUTPUT"
             echo "Releasing from tag $TAG"
           else
@@ -380,6 +383,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.release.outputs.version }}
           IS_PRERELEASE: ${{ needs.release.outputs.mode == 'prerelease' }}
+          NOTES_START: ${{ needs.release.outputs.notes-start }}
         run: |
           PRERELEASE_FLAG=""
           if [ "$IS_PRERELEASE" = "true" ]; then
@@ -401,9 +405,18 @@ jobs:
             echo "::notice::$NOTES_FILE is absent or empty; generated notes only"
           fi
 
+          # Without a start tag GitHub begins at the previous tag, so a final
+          # release would list only what changed since its last pre-release.
+          START_FLAG=()
+          if [ -n "$NOTES_START" ]; then
+            START_FLAG=(--notes-start-tag "$NOTES_START")
+            echo "::notice::Release notes start from $NOTES_START"
+          fi
+
           gh release create "$TAG" \
             --title "pika $TAG" \
             --generate-notes \
+            "${START_FLAG[@]}" \
             "${PREAMBLE_FLAG[@]}" \
             $PRERELEASE_FLAG
 

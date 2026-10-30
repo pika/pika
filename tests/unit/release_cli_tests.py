@@ -5,7 +5,7 @@ The operations that touch the repository are driven through `--dry-run` or with 
 patched, because the point of this file is the argument handling and the refusals, not git. Two
 things here matter beyond their size.
 
-`classify` is the one operation a machine runs: `release.yaml` appends its stdout straight to
+`classify` and `notes-start` are run by a machine: `release.yaml` appends their stdout straight to
 `$GITHUB_OUTPUT`, so a stray line or a half-written failure becomes a workflow variable holding
 nonsense. `compute` serves both that workflow and a human picking the next version, so it is checked
 with the full flag set the workflow sends and with the shorter one a person types.
@@ -109,7 +109,7 @@ def _flatten(command):
 
 
 class ClassifyTests(unittest.TestCase):
-    """The machine-facing operation, so its output shape is the contract."""
+    """A machine-facing operation, so its output shape is the contract."""
 
     def test_output_is_bare_github_output_lines(self):
         status, out, _ = run(['classify', '--tag', '1.5.0'])
@@ -138,7 +138,7 @@ class ClassifyTests(unittest.TestCase):
 
 class VerifyTests(unittest.TestCase):
     """
-    The other machine-facing operation, and the only one on the irreversible path.
+    A machine-facing operation, and the only one on the irreversible path.
 
     `release.yaml` runs this instead of the shell copies it used to carry, so its output shape is
     the same contract `classify` has: bare `key=value` lines, and nothing at all on a refusal.
@@ -508,6 +508,50 @@ class ReachableReleaseTests(unittest.TestCase):
             caught = stack.enter_context(self.assertRaises(release.CheckFailed))
             release.reachable_release()
         self.assertIn('--since-tag', str(caught.exception))
+
+
+class NotesStartTests(unittest.TestCase):
+    """
+    Where a pushed tag's GitHub release notes start.
+
+    Left to GitHub, the notes start at the previous tag, so a final release would list only what
+    changed since its last pre-release.
+    """
+
+    @staticmethod
+    def _tags(listed):
+        """
+        :param listed: Tag names `git tag --list --merged HEAD` returns.
+        :returns: A git stand-in answering those.
+        """
+
+        def fake(*args, **kwargs):
+            if args[:2] == ('tag', '--list'):
+                return '\n'.join(listed)
+            return ''
+
+        return fake
+
+    def test_a_final_release_starts_at_the_previous_final_release(self):
+        with mock.patch.object(
+                release.tag_release, 'git',
+                self._tags(['1.4.0', '1.5.0rc1', '1.5.0rc3', '1.5.0'])):
+            status, out, _ = run(['notes-start', '--tag', '1.5.0'])
+        self.assertEqual(status, 0)
+        self.assertEqual(out, 'notes_start=1.4.0\n')
+
+    def test_a_prerelease_leaves_the_start_to_github(self):
+        with mock.patch.object(release.tag_release, 'git',
+                               self._tags(['1.4.0', '1.5.0rc1', '1.5.0rc2'])):
+            status, out, _ = run(['notes-start', '--tag', '1.5.0rc2'])
+        self.assertEqual(status, 0)
+        self.assertEqual(out, 'notes_start=\n')
+
+    def test_a_refused_tag_writes_nothing_to_stdout(self):
+        status, out, err = run(['notes-start', '--tag', 'v1.5.0'])
+        self.assertEqual(status, 1)
+        self.assertEqual(out, '')
+        self.assertIn('error:', err)
 
 
 class ResolveVersionTests(unittest.TestCase):

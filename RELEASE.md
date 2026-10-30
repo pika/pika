@@ -83,7 +83,8 @@ Every operation that changes something takes `--dry-run`, which prints the git, 
 | Operation | Does |
 | -- | -- |
 | `compute` | print the version a bump would produce, and nothing else |
-| `classify` | print what a pushed tag implies. The one operation a machine runs: `release.yaml` appends it to `$GITHUB_OUTPUT` |
+| `classify` | print what a pushed tag implies. `release.yaml` appends it to `$GITHUB_OUTPUT` |
+| `notes-start` | print the tag a pushed tag's GitHub release notes start from: the newest final release reachable from it, or nothing for a pre-release. `release.yaml` appends it to `$GITHUB_OUTPUT` |
 | `bump` | create `pika-X.Y.Z`, write both version files, commit `pika X.Y.Z` |
 | `changelog` | generate the `HISTORY.md` entry and commit it, on the release branch |
 | `pr` | push the branch and open its pull request |
