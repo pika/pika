@@ -41,12 +41,6 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
-# Non-blocking socket read/send returns one of these errnos when no data is
-# available or the operation would block. On POSIX systems EAGAIN and
-# EWOULDBLOCK have the same value; on Windows they differ (EWOULDBLOCK is
-# WSAEWOULDBLOCK / 10035), so both must be checked for portable handling.
-_TRY_IO_AGAIN_SOCK_ERROR_CODES = (errno.EAGAIN, errno.EWOULDBLOCK)
-
 # One of select, epoll, kqueue or poll
 SELECT_TYPE = None
 
@@ -720,7 +714,7 @@ class _PollerBase(abc.ABC):
                 # os.write for Windows compatibility
                 self._w_interrupt.send(b'X')
             except pika._utils.SOCKET_ERROR as err:
-                if err.errno not in _TRY_IO_AGAIN_SOCK_ERROR_CODES:
+                if err.errno not in pika._utils.TRY_IO_AGAIN_SOCK_ERROR_CODES:
                     raise
             except Exception as err:
                 # There's nothing sensible to do here, we'll exit the interrupt
@@ -983,7 +977,7 @@ class _PollerBase(abc.ABC):
             # NOTE Use recv instead of os.read for windows compatibility
             self._r_interrupt.recv(512)
         except pika._utils.SOCKET_ERROR as err:
-            if err.errno not in _TRY_IO_AGAIN_SOCK_ERROR_CODES:
+            if err.errno not in pika._utils.TRY_IO_AGAIN_SOCK_ERROR_CODES:
                 raise
 
 

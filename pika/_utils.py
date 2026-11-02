@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import os
 import re
 import socket
@@ -57,6 +58,10 @@ try:
     SOL_TCP = socket.SOL_TCP
 except AttributeError:
     SOL_TCP = socket.IPPROTO_TCP
+
+# Same value on POSIX, but on Windows EWOULDBLOCK is WSAEWOULDBLOCK (10035),
+# so both have to be checked.
+TRY_IO_AGAIN_SOCK_ERROR_CODES = (errno.EAGAIN, errno.EWOULDBLOCK)
 
 HAVE_SIGNAL = os.name == 'posix'
 

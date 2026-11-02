@@ -132,7 +132,7 @@ not follow from the steps.
 
 ```python
 # Same value on POSIX, different on Windows, so both have to be checked.
-_TRY_IO_AGAIN_SOCK_ERROR_CODES = (errno.EAGAIN, errno.EWOULDBLOCK)
+TRY_IO_AGAIN_SOCK_ERROR_CODES = (errno.EAGAIN, errno.EWOULDBLOCK)
 ```
 
 ### Prose style
@@ -333,10 +333,6 @@ parallelism.
 
 - `pika/_utils.py` holds internal platform and socket utilities used across the
   adapters and connection internals.
-- `_TRY_IO_AGAIN_SOCK_ERROR_CODES` is defined in both
-  `pika/adapters/select_connection.py` and
-  `pika/adapters/utils/io_services_utils.py`. Keep the two in sync, and always
-  check both errno values.
 - `pika/adapters/twisted_connection.py` and
   `pika/adapters/tornado_connection.py` depend on optional third-party
   libraries. Their `type: ignore` comments are only valid when those libraries
