@@ -433,6 +433,28 @@ class ChannelTests(unittest.TestCase):
         self.assertIn('ctag0', self.obj._cancelled)
         self.assertEqual(len(self.obj._nowait_cancelled), 0)
 
+    def test_basic_cancel_synch_retires_a_queued_tag_from_eviction(self):
+        # A nowait cancel queues the tag; a later waited cancel retires it on
+        # Basic.CancelOk while it is still queued. Reusing the tag then queues
+        # it a second time, and each duplicate takes a slot from the cap, so
+        # the tag has to leave the queue when it is retired.
+        self.obj._set_state(self.obj.OPEN)
+        self.obj._consumers['ctag0'] = logging.debug
+
+        self._cancel_nowait('ctag0')
+        callback = mock.Mock()
+        self.obj.basic_cancel('ctag0', callback=callback)
+        self.obj._on_cancelok(
+            frame.Method(self.obj.channel_number,
+                         spec.Basic.CancelOk('ctag0')), callback)
+
+        self.assertEqual(len(self.obj._nowait_cancelled), 0)
+
+        self.obj._consumers['ctag0'] = logging.debug
+        self._cancel_nowait('ctag0')
+
+        self.assertEqual(list(self.obj._nowait_cancelled), ['ctag0'])
+
     def test_basic_cancel_asynch_with_user_callback_raises_value_error(self):
         self.obj._set_state(self.obj.OPEN)
         consumer_tag = 'ctag0'

@@ -1176,10 +1176,19 @@ class Channel:
         """
         Remove any references to the consumer tag in internal structures for consumer state.
 
+        A tag retired here leaves the eviction queue too, so that a tag cancelled with nowait and
+        then waited on is not queued a second time when the tag is reused.
+
         :param consumer_tag: The consumer tag to cleanup
         """
         self._consumers.pop(consumer_tag, None)
+        was_cancelled = consumer_tag in self._cancelled
         self._cancelled.discard(consumer_tag)
+        if was_cancelled:
+            try:
+                self._nowait_cancelled.remove(consumer_tag)
+            except ValueError:
+                pass
 
     def _retain_cancelled_tag(self, consumer_tag: str) -> None:
         """
