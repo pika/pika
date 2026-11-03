@@ -59,23 +59,6 @@ def check_fd_arg(fd: int) -> None:
         raise TypeError(f'Paramter must be a file descriptor, but got {fd!r}')
 
 
-def _retry_on_sigint(func):
-    """Function decorator for retrying on SIGINT."""
-
-    @functools.wraps(func)
-    def retry_sigint_wrap(*args, **kwargs):
-        """Wrapper for decorated function."""
-        while True:
-            try:
-                return func(*args, **kwargs)
-            except pika._utils.SOCKET_ERROR as error:
-                if error.errno == errno.EINTR:
-                    continue
-                raise
-
-    return retry_sigint_wrap
-
-
 class SocketConnectionMixin:
     """Implements
     `pika.adapters.utils.nbio_interface.AbstractIOServices.connect_socket()`
@@ -798,8 +781,7 @@ class _AsyncTransportBase(AbstractStreamTransport):
         Consumes up to `self._MAX_CONSUME_BYTES` to prevent event starvation or until state becomes
         inactive (e.g., `protocol.data_received()` callback aborts the transport)
 
-        :raises: Whatever the corresponding `sock.recv()` raises except the socket error with
-            errno.EINTR
+        :raises: Whatever the corresponding `sock.recv()` raises
         :raises: Whatever the `protocol.data_received()` callback raises
         :raises _AsyncTransportBase.RxEndOfFile: upon shutdown of input stream
         """
@@ -810,7 +792,7 @@ class _AsyncTransportBase(AbstractStreamTransport):
 
         while (self._state == self._STATE_ACTIVE and
                bytes_consumed < self._MAX_CONSUME_BYTES):
-            data = self._sigint_safe_recv(self._sock, self._MAX_RECV_BYTES)
+            data = self._sock.recv(self._MAX_RECV_BYTES)
             bytes_consumed += len(data)
 
             # Empty data, should disconnect
@@ -833,12 +815,12 @@ class _AsyncTransportBase(AbstractStreamTransport):
         This method sends chunks from `tx_buffers` until all chunks are exhausted or sending is
         interrupted by an exception. Maintains integrity of `self.tx_buffers`.
 
-        :raises: whatever the corresponding `sock.send()` raises except the socket error with
-            errno.EINTR
+        :raises: whatever the corresponding `sock.send()` raises
         """
+        assert self._sock is not None
+
         while self._tx_buffers:
-            num_bytes_sent = self._sigint_safe_send(self._sock,
-                                                    self._tx_buffers[0])
+            num_bytes_sent = self._sock.send(self._tx_buffers[0])
 
             chunk = self._tx_buffers.popleft()
             if num_bytes_sent < len(chunk):
@@ -850,36 +832,6 @@ class _AsyncTransportBase(AbstractStreamTransport):
             assert self._tx_buffered_byte_count >= 0, (
                 '_AsyncTransportBase._produce() tx buffer size underflow',
                 self._tx_buffered_byte_count, self._state)
-
-    @staticmethod
-    @_retry_on_sigint
-    def _sigint_safe_recv(sock: socket.socket | ssl.SSLSocket,
-                          max_bytes: int) -> bytes:
-        """
-        Receive data from socket, retrying on SIGINT.
-
-        :param sock: stream or SSL socket
-        :param max_bytes: maximum number of bytes to receive
-        :returns: received data or empty bytes uppon end of file
-        :raises: whatever the corresponding `sock.recv()` raises except socket error with
-            errno.EINTR
-        """
-        return sock.recv(max_bytes)
-
-    @staticmethod
-    @_retry_on_sigint
-    def _sigint_safe_send(sock: socket.socket | ssl.SSLSocket,
-                          data: bytes) -> int:
-        """
-        Send data to socket, retrying on SIGINT.
-
-        :param sock: stream or SSL socket
-        :param data: data bytes to send
-        :returns: number of bytes actually sent
-        :raises: whatever the corresponding `sock.send()` raises except socket error with
-            errno.EINTR
-        """
-        return sock.send(data)
 
     @_log_exceptions
     def _deactivate(self) -> None:
