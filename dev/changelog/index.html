@@ -2005,6 +2005,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#a-consumer-rabbitmq-cancels-for-a-timeout-is-released-at-once-so-its-channel-can-close-sooner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A consumer RabbitMQ cancels for a timeout is released at once, so its channel can close sooner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#messages-larger-than-64-mib-now-close-the-connection" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2543,6 +2554,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#a-consumer-rabbitmq-cancels-for-a-timeout-is-released-at-once-so-its-channel-can-close-sooner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A consumer RabbitMQ cancels for a timeout is released at once, so its channel can close sooner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#messages-larger-than-64-mib-now-close-the-connection" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3025,7 +3047,7 @@
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <p>Notes for each release are also published on the <a href="https://github.com/pika/pika/releases">GitHub releases page</a>, generated from the pull requests and issues the release contains.</p>
 <h2 id="upgrading-to-150">Upgrading to 1.5.0<a class="headerlink" href="#upgrading-to-150" title="Permanent link">&para;</a></h2>
-<p>Eight changes are worth reading before you upgrade. Three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, one refuses messages larger than 64 MiB, and one changes what the Twisted adapter reports when a connection closes.</p>
+<p>Nine changes are worth reading before you upgrade. Three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, one lets RabbitMQ close a channel sooner after a consumer timeout, one refuses messages larger than 64 MiB, and one changes what the Twisted adapter reports when a connection closes.</p>
 <h3 id="pikaconnection-is-new-and-is-the-connection-to-use"><code>pika.Connection</code> is new, and is the connection to use<a class="headerlink" href="#pikaconnection-is-new-and-is-the-connection-to-use" title="Permanent link">&para;</a></h3>
 <p>1.5.0 introduces <code>pika.Connection</code> and its <code>Channel</code>, a connection that runs its own IOLoop on a background thread and offers a thread-safe blocking API that does not stall heartbeats while your code processes a message. There is nothing to migrate <em>from</em>: these classes are new in this release, and <code>pika.Connection</code> is the documented import.</p>
 <p><code>from pika.adapters.thread_safe_connection import Connection</code> also works, though the module moves in 2.0 (see #1681). <code>Channel</code> is not exported from <code>pika</code>, because channels come from <code>Connection.channel()</code>.</p>
@@ -3054,6 +3076,9 @@
 <h3 id="channelclose-on-an-asynchronous-adapter-still-discards-those-deliveries"><code>channel.close()</code> on an asynchronous adapter still discards those deliveries<a class="headerlink" href="#channelclose-on-an-asynchronous-adapter-still-discards-those-deliveries" title="Permanent link">&para;</a></h3>
 <p>A channel that is closing discards them, because a callback could not acknowledge one anyway and the attempt would abort the connection; the Java client discards them at the same point. <code>Channel.close</code> cancels each consumer without waiting for the broker to confirm, so this is what a bare <code>channel.close()</code> does on <code>SelectConnection</code>, <code>AsyncioConnection</code>, <code>TornadoConnection</code> and <code>GeventConnection</code>. A discarded delivery is redelivered to the next consumer with <code>auto_ack=False</code> and lost with <code>auto_ack=True</code>. Pika now logs a warning naming the count as the channel closes.</p>
 <p><code>pika.Connection</code> and <code>BlockingConnection</code> are unaffected and keep every delivery across a close, since both cancel their consumers and wait for the broker to confirm before closing anything. To get the same guarantee from an asynchronous adapter, cancel each consumer with a callback and close the channel from the last <code>Basic.CancelOk</code>; the <a href="https://pika.github.io/pika/latest/modules/channel/#closing-a-channel-with-active-consumers">channel documentation</a> has the pattern. Pika 2.0 removes these adapters, which leaves <code>Connection</code> and its <code>Channel</code> as the only close path and so retires the gap rather than fixing it.</p>
+<h3 id="a-consumer-rabbitmq-cancels-for-a-timeout-is-released-at-once-so-its-channel-can-close-sooner">A consumer RabbitMQ cancels for a timeout is released at once, so its channel can close sooner<a class="headerlink" href="#a-consumer-rabbitmq-cancels-for-a-timeout-is-released-at-once-so-its-channel-can-close-sooner" title="Permanent link">&para;</a></h3>
+<p>On RabbitMQ 4.3 and later, a consumer on a quorum queue whose delivery exceeds the <a href="https://www.rabbitmq.com/docs/consumers#acknowledgement-timeout">consumer timeout</a> is cancelled with <code>Basic.Cancel</code> instead of having its channel closed. pika now confirms that cancellation with <code>Basic.CancelOk</code>, as the Java, .NET and Go clients do, so the broker releases the consumer at once instead of after its own 10 second wait.</p>
+<p>If the consumer still holds another unacknowledged delivery, the broker closes the channel with 406 <code>PRECONDITION_FAILED</code> when that delivery times out as well. With 1.4.x that happened only when the second delivery timed out more than 10 seconds after the first; it now happens whenever it times out after the cancellation. Code that handles the cancellation should also expect the channel to close, or acknowledge within the timeout, raise <code>consumer-timeout</code>, or lower the prefetch. The broker side is discussed in <a href="https://github.com/rabbitmq/rabbitmq-server/discussions/18207">rabbitmq/rabbitmq-server#18207</a>.</p>
 <h3 id="messages-larger-than-64-mib-now-close-the-connection">Messages larger than 64 MiB now close the connection<a class="headerlink" href="#messages-larger-than-64-mib-now-close-the-connection" title="Permanent link">&para;</a></h3>
 <p>pika now refuses an inbound message whose body is larger than <code>max_inbound_message_body_size</code>, 64 MiB by default, and a frame larger than that limit or 128 KiB, whichever is greater. Either closes the connection with <code>MessageBodyTooLargeError</code> or <code>FrameTooLargeError</code>, both subclasses of <code>AMQPConnectionError</code>. The Java and .NET clients use the same 64 MiB default. RabbitMQ refuses messages above its own <code>max_message_size</code>, 16 MiB by default, so the limit is reached only when the broker is configured to allow larger messages.</p>
 <p>If you consume larger messages, raise the limit with <code>ConnectionParameters(max_inbound_message_body_size=...)</code> or <code>?max_inbound_message_body_size=</code> in a URL, up to 512 MiB, RabbitMQ's own maximum. A refused message delivered without <code>auto_ack</code> is requeued, so a consumer that reconnects is closed again: raise the limit, or dead-letter or remove the message on the broker. With <code>auto_ack</code> the broker has already discarded it. Returned messages and <code>basic_get</code> replies are checked too, so a publisher can be closed by its own oversized mandatory message coming back.</p>
