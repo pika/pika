@@ -4,7 +4,7 @@ Notes for each release are also published on the [GitHub releases page](https://
 
 ## Upgrading to 1.5.0
 
-Eight changes are worth reading before you upgrade. Three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, one refuses messages larger than 64 MiB, and one changes what the Twisted adapter reports when a connection closes.
+Nine changes are worth reading before you upgrade. Three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, one lets RabbitMQ close a channel sooner after a consumer timeout, one refuses messages larger than 64 MiB, and one changes what the Twisted adapter reports when a connection closes.
 
 ### `pika.Connection` is new, and is the connection to use
 
@@ -57,6 +57,12 @@ One thing follows for existing code: a consumer callback can now run for a messa
 A channel that is closing discards them, because a callback could not acknowledge one anyway and the attempt would abort the connection; the Java client discards them at the same point. `Channel.close` cancels each consumer without waiting for the broker to confirm, so this is what a bare `channel.close()` does on `SelectConnection`, `AsyncioConnection`, `TornadoConnection` and `GeventConnection`. A discarded delivery is redelivered to the next consumer with `auto_ack=False` and lost with `auto_ack=True`. Pika now logs a warning naming the count as the channel closes.
 
 `pika.Connection` and `BlockingConnection` are unaffected and keep every delivery across a close, since both cancel their consumers and wait for the broker to confirm before closing anything. To get the same guarantee from an asynchronous adapter, cancel each consumer with a callback and close the channel from the last `Basic.CancelOk`; the [channel documentation](https://pika.github.io/pika/latest/modules/channel/#closing-a-channel-with-active-consumers) has the pattern. Pika 2.0 removes these adapters, which leaves `Connection` and its `Channel` as the only close path and so retires the gap rather than fixing it.
+
+### A consumer RabbitMQ cancels for a timeout is released at once, so its channel can close sooner
+
+On RabbitMQ 4.3 and later, a consumer on a quorum queue whose delivery exceeds the [consumer timeout](https://www.rabbitmq.com/docs/consumers#acknowledgement-timeout) is cancelled with `Basic.Cancel` instead of having its channel closed. pika now confirms that cancellation with `Basic.CancelOk`, as the Java, .NET and Go clients do, so the broker releases the consumer at once instead of after its own 10 second wait.
+
+If the consumer still holds another unacknowledged delivery, the broker closes the channel with 406 `PRECONDITION_FAILED` when that delivery times out as well. With 1.4.x that happened only when the second delivery timed out more than 10 seconds after the first; it now happens whenever it times out after the cancellation. Code that handles the cancellation should also expect the channel to close, or acknowledge within the timeout, raise `consumer-timeout`, or lower the prefetch. The broker side is discussed in [rabbitmq/rabbitmq-server#18207](https://github.com/rabbitmq/rabbitmq-server/discussions/18207).
 
 ### Messages larger than 64 MiB now close the connection
 
