@@ -75,6 +75,18 @@ _LIVENESS_POLL_INTERVAL = 0.05
 _CLOSE_HANDSHAKE_FLOOR = 1.0
 
 
+def _remaining(deadline: float | None) -> float | None:
+    """
+    Return the seconds left until *deadline*, never negative.
+
+    :param deadline: A `time.monotonic` value, or ``None`` for no deadline.
+    :returns: Seconds left, or ``None`` when *deadline* is ``None``.
+    """
+    if deadline is None:
+        return None
+    return max(0.0, deadline - time.monotonic())
+
+
 def _validate_shutdown_drain_timeout(drain_timeout: float) -> float:
     """
     Validate a public shutdown drain timeout.
@@ -356,11 +368,6 @@ class _BoundedWorkPool:
             return False
         deadline = None if timeout is None else time.monotonic() + timeout
 
-        def _remaining() -> float | None:
-            if deadline is None:
-                return None
-            return max(0.0, deadline - time.monotonic())
-
         done = threading.Event()
         with self._lock:
             if self._shutdown:
@@ -377,13 +384,13 @@ class _BoundedWorkPool:
             except queue.Full:
                 if not thread.is_alive():
                     return False
-                budget = _remaining()
+                budget = _remaining(deadline)
                 if budget is not None and budget <= 0:
                     return False
         while not done.wait(timeout=_LIVENESS_POLL_INTERVAL):
             if not thread.is_alive():
                 return done.is_set()
-            budget = _remaining()
+            budget = _remaining(deadline)
             if budget is not None and budget <= 0:
                 return done.is_set()
         return True
@@ -629,12 +636,6 @@ class Channel:
         :param deadline:`time.monotonic` value the cancellations must finish by, or ``None`` to wait
             indefinitely.
         """
-
-        def _remaining() -> float | None:
-            if deadline is None:
-                return None
-            return max(0.0, deadline - time.monotonic())
-
         asked: list[set[str]] = [set()]
         issued = threading.Event()
 
@@ -684,7 +685,7 @@ class Channel:
                     return
             if self._channel.is_closed:
                 return
-            budget = _remaining()
+            budget = _remaining(deadline)
             if budget is not None and budget <= 0:
                 LOGGER.warning(
                     'Channel %s did not finish cancelling its consumers '
@@ -704,8 +705,7 @@ class Channel:
         :param deadline:`time.monotonic` value the drain must finish by, or ``None`` to wait
             indefinitely.
         """
-        remaining = (None if deadline is None else max(
-            0.0, deadline - time.monotonic()))
+        remaining = _remaining(deadline)
         pool = self._consumer_work_pool
         if pool.drain(timeout=remaining):
             return
@@ -1810,11 +1810,6 @@ class Channel:
                 error[0] = exc
                 ready.set()
 
-        def _remaining() -> float | None:
-            if deadline is None:
-                return None
-            return max(0.0, deadline - time.monotonic())
-
         try:
             # Cancel consumers and run the queued callbacks before closing, so
             # the acknowledgements they issue still have a live channel (#1763).
@@ -1838,7 +1833,7 @@ class Channel:
             if ready.is_set():
                 # The quiesce ran the backlog; this picks up anything that
                 # arrived while the channel was closing.
-                self._shutdown_pool(timeout=_remaining())
+                self._shutdown_pool(timeout=_remaining(deadline))
             else:
                 # The channel is not closed, so the broker may still be
                 # dispatching.  Shutting the pool down here would make submit
@@ -2205,8 +2200,7 @@ class Connection:
             ch._cancel_consumers(deadline)
         for ch in channels:
             ch._drain_pool(deadline)
-        remaining = (None if deadline is None else max(
-            0.0, deadline - time.monotonic()))
+        remaining = _remaining(deadline)
         if not self._connection_work_pool.drain(timeout=remaining):
             LOGGER.warning(
                 'Connection %s event work pool did not finish its queued '
@@ -2446,12 +2440,7 @@ class Connection:
             force_deadline = (None if timeout is None else time.monotonic() +
                               timeout)
 
-            def _remaining() -> float | None:
-                if force_deadline is None:
-                    return None
-                return max(0.0, force_deadline - time.monotonic())
-
-            self._ioloop_thread.join(timeout=_remaining())
+            self._ioloop_thread.join(timeout=_remaining(force_deadline))
             if self._ioloop_thread.is_alive():
                 LOGGER.warning(
                     'Connection %s IOLoop thread did not exit within the close '
@@ -2468,8 +2457,9 @@ class Connection:
                 if budget_spent_before_handshake else None)
             # Normally the IOLoop tail already claimed these pools, making the
             # calls no-ops; bound them in case this thread reaches them first.
-            self._shutdown_all_consumer_pools(timeout=_remaining())
-            self._shutdown_connection_pool(timeout=_remaining())
+            self._shutdown_all_consumer_pools(
+                timeout=_remaining(force_deadline))
+            self._shutdown_connection_pool(timeout=_remaining(force_deadline))
 
     def _record_forced_close(self, reason: str | None = None) -> bool:
         """
