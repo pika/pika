@@ -566,20 +566,10 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
 
     @unittest.skipUnless(pika._utils.HAVE_SIGNAL,
                          "This platform doesn't support posix signals")
-    @mock.patch('pika.adapters.select_connection._is_resumable')
-    def test_eintr(self,
-                   is_resumable_mock,
-                   is_resumable_raw=select_connection._is_resumable):
-        """
-        Test that poll() is properly restarted after receiving EINTR error.
-
-        Class of an exception raised to signal the error differs in one implementation of polling
-        mechanism and another.
-        """
+    def test_poll_survives_signal(self):
+        """Test that a signal delivered during poll() does not end the poll loop (PEP 475)."""
         if threading.current_thread() is not threading.main_thread():
             self.skipTest('signal.signal() requires the main thread')
-
-        is_resumable_mock.side_effect = is_resumable_raw
 
         timer = select_connection._Timer()
         self.poller = self.ioloop._get_poller(timer.get_remaining_interval,
@@ -609,7 +599,6 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
         tmr_w.start()
         self.poller.start()
         self.assertTrue(self._eintr_read_handler_is_called)
-        self.assertEqual(is_resumable_mock.call_count, 0)
 
 
 @unittest.skipIf(not POLL_SUPPORTED, 'poll not supported')

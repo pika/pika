@@ -6,14 +6,13 @@ from __future__ import annotations
 
 import abc
 import collections
-import errno
 import heapq
 import logging
 import select
 import sys
 import threading
 import time
-from typing import TYPE_CHECKING, Any, Callable, Sequence, Union
+from typing import TYPE_CHECKING, Any, Callable, Sequence
 
 import pika._utils
 from pika._utils import override
@@ -32,8 +31,6 @@ if TYPE_CHECKING:
     from pika import connection
     from pika.adapters.utils import connection_workflow
 
-    SELECT_ERROR_T = Union[OSError, IOError, InterruptedError, select.error]
-
     class POLLER_PARAMS(TypedDict):
         get_wait_seconds: Callable[[], float | None]
         process_timeouts: Callable[[], None]
@@ -43,39 +40,6 @@ LOGGER = logging.getLogger(__name__)
 
 # One of select, epoll, kqueue or poll
 SELECT_TYPE = None
-
-# Reason for this unconventional dict initialization is the fact that on some
-# platforms select.error is an aliases for OSError. We don't want the lambda
-# for select.error to win over one for OSError.
-_SELECT_ERROR_CHECKERS: dict[type[SELECT_ERROR_T], Callable[
-    [SELECT_ERROR_T], bool]] = {
-        InterruptedError: lambda _: True,
-        select.error: lambda e: e.args[0] == errno.EINTR,
-        IOError: lambda e: e.errno == errno.EINTR,
-        OSError: lambda e: e.errno == errno.EINTR,
-    }
-
-# We can reduce the number of elements in the list by looking at super-sub
-# class relationship because only the most generic ones needs to be caught.
-# For now the optimization is left out.
-# Following is better but still incomplete.
-# _SELECT_ERRORS = tuple(filter(lambda e: not isinstance(e, OSError),
-#                              _SELECT_ERROR_CHECKERS.keys())
-#                       + [OSError])
-_SELECT_ERRORS: tuple[type[SELECT_ERROR_T],
-                      ...] = tuple(_SELECT_ERROR_CHECKERS.keys())
-
-
-def _is_resumable(exc: SELECT_ERROR_T) -> bool:
-    """
-    Check if caught exception represents EINTR error.
-
-    :param exc: exception; must be one of classes in _SELECT_ERRORS
-    """
-    checker = _SELECT_ERROR_CHECKERS.get(exc.__class__, None)
-    if checker is not None:
-        return checker(exc)
-    return False
 
 
 class SelectConnection(BaseConnection):
@@ -1000,26 +964,19 @@ class SelectPoller(_PollerBase):
         """
         assert self._fd_events is not None
 
-        while True:
-            try:
-                if (self._fd_events[PollEvents.READ] or
-                        self._fd_events[PollEvents.WRITE] or
-                        self._fd_events[PollEvents.ERROR]):
-                    read, write, error = select.select(
-                        self._fd_events[PollEvents.READ],
-                        self._fd_events[PollEvents.WRITE],
-                        self._fd_events[PollEvents.ERROR], self._get_max_wait())
-                else:
-                    # NOTE When called without any FDs, select fails on
-                    # Windows with error 10022, 'An invalid argument was
-                    # supplied'.
-                    time.sleep(self._get_max_wait())
-                    read, write, error = [], [], []
-                break
-            except _SELECT_ERRORS as error:
-                if _is_resumable(error):
-                    continue
-                raise
+        if (self._fd_events[PollEvents.READ] or
+                self._fd_events[PollEvents.WRITE] or
+                self._fd_events[PollEvents.ERROR]):
+            read, write, error = select.select(
+                self._fd_events[PollEvents.READ],
+                self._fd_events[PollEvents.WRITE],
+                self._fd_events[PollEvents.ERROR], self._get_max_wait())
+        else:
+            # NOTE When called without any FDs, select fails on
+            # Windows with error 10022, 'An invalid argument was
+            # supplied'.
+            time.sleep(self._get_max_wait())
+            read, write, error = [], [], []
 
         # Build an event bit mask for each fileno we've received an event for
         fd_event_map: dict[int, int] = collections.defaultdict(int)
@@ -1142,15 +1099,8 @@ class KQueuePoller(_PollerBase):
         occurs or next timer deadline or _MAX_POLL_TIMEOUT, whichever is sooner, and dispatch the
         corresponding event handlers.
         """
-        while True:
-            try:
-                assert self._kqueue is not None
-                kevents = self._kqueue.control(None, 1000, self._get_max_wait())
-                break
-            except _SELECT_ERRORS as error:
-                if _is_resumable(error):
-                    continue
-                raise
+        assert self._kqueue is not None
+        kevents = self._kqueue.control(None, 1000, self._get_max_wait())
 
         fd_event_map: dict[int, int] = collections.defaultdict(int)
         for event in kevents:
@@ -1275,14 +1225,7 @@ class PollPoller(_PollerBase):
         occurs or next timer deadline or _MAX_POLL_TIMEOUT, whichever is sooner, and dispatch the
         corresponding event handlers.
         """
-        while True:
-            try:
-                events = self._poll.poll(self._get_max_wait())
-                break
-            except _SELECT_ERRORS as error:
-                if _is_resumable(error):
-                    continue
-                raise
+        events = self._poll.poll(self._get_max_wait())
 
         fd_event_map: dict[int, int] = collections.defaultdict(int)
         for fileno, event in events:
