@@ -165,7 +165,6 @@ class HeartbeatTests(unittest.TestCase):
 
     def test_connection_close(self):
         self.obj._idle_byte_intervals = 3
-        self.obj._idle_heartbeat_intervals = 4
         self.obj._close_connection()
         reason = self.obj._STALE_CONNECTION % self.obj._timeout
         self.mock_conn._terminate_stream.assert_called_once_with(mock.ANY)
