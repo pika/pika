@@ -677,10 +677,10 @@ class URLParametersTests(ParametersTestsBase):
 
     def test_ssl_default_protocol_version_fallback(self):
         """
-        This test does not set protocol_version option in ssl_options.
+        This test does not set the `protocol` option in ssl_options.
 
         Instead, it relies on connection.URLParameters class to setup the default, and then it
-        asserts the protocol is what we expected (auto or TLSv1_2)
+        asserts the protocol is `ssl.PROTOCOL_TLS_CLIENT`.
         """
         params = connection.URLParameters(
             'amqps://foo.bar/some-vhost?ssl_options=%7B%27ca_certs%27%3A%27tests%2Fcerts%2Fca_certificate.pem%27%7D'
