@@ -1791,11 +1791,6 @@ class Connection(abc.ABC):
 
         self._channels[value.channel_number]._handle_content_frame(value)
 
-    def _ensure_closed(self) -> None:
-        """If the connection is not closed, close it."""
-        if self.is_open:
-            self.close()
-
     def _get_body_frame_max_length(self) -> int:
         """Calculate the maximum amount of bytes that can be in a body frame."""
         return (self.params.frame_max - spec.FRAME_HEADER_SIZE -
