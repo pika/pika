@@ -9,6 +9,7 @@ import collections
 import heapq
 import logging
 import select
+import socket
 import sys
 import threading
 import time
@@ -24,8 +25,6 @@ from pika.adapters.utils.selector_ioloop_adapter import (
 )
 
 if TYPE_CHECKING:
-    import socket
-
     from typing_extensions import TypedDict
 
     from pika import connection
@@ -920,12 +919,18 @@ class _PollerBase(abc.ABC):
     @staticmethod
     def _get_interrupt_pair() -> tuple[socket.socket, socket.socket]:
         """
-        Use a socketpair to be able to interrupt the ioloop if called from another thread.
+        Create the non-blocking socket pair that interrupts the ioloop from another thread.
 
-        Socketpair() is not supported on some OS (Win) so use a pair of simple TCP sockets instead.
-        The sockets will be closed and garbage collected by python when the ioloop itself is.
+        POSIX gets a native `socket.socketpair()`. Windows has none, so it gets a loopback TCP pair
+        from `pika._utils.nonblocking_socketpair`, which rejects a peer that is not its own client.
         """
-        return pika._utils.nonblocking_socketpair()
+        if pika._utils.ON_WINDOWS:
+            return pika._utils.nonblocking_socketpair()
+        # No listening socket, so nothing else can connect to the pair (#1820).
+        pair = socket.socketpair()
+        for sock in pair:
+            sock.setblocking(False)
+        return pair
 
     def _read_interrupt(self, _interrupt_fd: int, _events: int) -> None:
         """

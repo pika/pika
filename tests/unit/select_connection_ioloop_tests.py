@@ -1,5 +1,6 @@
 """Tests for SelectConnection IOLoops."""
 
+import contextlib
 import errno
 import functools
 import logging
@@ -215,6 +216,56 @@ class IOLoopThreadStopTestKqueue(IOLoopThreadStopTestSelect):
     """Same as IOLoopThreadStopTestSelect but uses 'kqueue' syscall."""
 
     SELECT_POLLER = 'kqueue'
+
+
+class InterruptPairTests(unittest.TestCase):
+
+    def assert_connected_nonblocking_pair(self, pair):
+        for sock in pair:
+            self.addCleanup(sock.close)
+            self.assertEqual(sock.gettimeout(), 0.0)
+        pair[1].send(b'X')
+        self.assertEqual(pair[0].recv(1), b'X')
+
+    @unittest.skipIf(pika._utils.ON_WINDOWS, 'POSIX only')
+    def test_posix_pair_has_no_listening_socket(self):
+        pair = select_connection._PollerBase._get_interrupt_pair()
+        self.assert_connected_nonblocking_pair(pair)
+        self.assertEqual(pair[0].family, socket.AF_UNIX)
+
+    def test_windows_pair_is_the_checked_tcp_pair(self):
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(
+                mock.patch.object(pika._utils, 'ON_WINDOWS', True))
+            checked_pair = stack.enter_context(
+                mock.patch.object(pika._utils,
+                                  'nonblocking_socketpair',
+                                  wraps=pika._utils.nonblocking_socketpair))
+            pair = select_connection._PollerBase._get_interrupt_pair()
+        self.assert_connected_nonblocking_pair(pair)
+        checked_pair.assert_called_once_with()
+        self.assertEqual(pair[0].family, socket.AF_INET)
+
+
+class IOLoopWakeupStormTestSelect(IOLoopBaseTest):
+    """More wake-ups than the interrupt pair can buffer must not fail."""
+
+    SELECT_POLLER = 'select'
+    CALLBACKS = 5000
+
+    @unittest.skipIf(pika._utils.ON_WINDOWS,
+                     'a TCP pair buffers far more than CALLBACKS bytes')
+    def test_every_callback_runs_after_the_pair_fills(self):
+        ran = []
+        # Nothing drains the pair before start(), so each wake-up byte queues.
+        for _ in range(self.CALLBACKS):
+            self.ioloop.add_callback_threadsafe(lambda: ran.append(1))
+        self.ioloop.add_callback_threadsafe(self.ioloop.stop)
+        with self.assertRaises(BlockingIOError,
+                               msg='the pair never filled; raise CALLBACKS'):
+            self.ioloop._poller._w_interrupt.send(b'X')
+        self.start()
+        self.assertEqual(len(ran), self.CALLBACKS)
 
 
 class IOLoopAddCallbackAfterCloseDoesNotRaiseTestSelect(IOLoopBaseTest):
