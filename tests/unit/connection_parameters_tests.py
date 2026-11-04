@@ -686,10 +686,8 @@ class URLParametersTests(ParametersTestsBase):
             'amqps://foo.bar/some-vhost?ssl_options=%7B%27ca_certs%27%3A%27tests%2Fcerts%2Fca_certificate.pem%27%7D'
         )
         assert params.ssl_options is not None
-        self.assertTrue(
-            params.ssl_options.context.protocol == ssl.PROTOCOL_TLS_CLIENT or
-            params.ssl_options.context.protocol == ssl.PROTOCOL_TLSv1_2,
-            msg='Expected to fallback to a secure protocol')
+        self.assertEqual(params.ssl_options.context.protocol,
+                         ssl.PROTOCOL_TLS_CLIENT)
 
     def test_no_url_scheme_defaults_to_plaintext(self):
         params = connection.URLParameters('//')

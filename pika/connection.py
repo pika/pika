@@ -990,12 +990,7 @@ class URLParameters(Parameters):
             # https://docs.python.org/3/library/ssl.html#ssl.wrap_socket
             #
             # SSLContext.load_verify_locations(cafile=None, capath=None, cadata=None)
-            try:
-                opt_protocol = ssl.PROTOCOL_TLS_CLIENT
-            except AttributeError:
-                opt_protocol = ssl.PROTOCOL_TLSv1_2
-            if 'protocol' in opts:
-                opt_protocol = opts['protocol']
+            opt_protocol = opts.get('protocol', ssl.PROTOCOL_TLS_CLIENT)
 
             cxt = ssl.SSLContext(protocol=opt_protocol)
 
