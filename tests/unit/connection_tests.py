@@ -674,23 +674,35 @@ class ConnectionTests(unittest.TestCase):
                          self.connection.connection_state)
         self.assertEqual(20, self.connection.params.channel_max)
         self.assertEqual(10000, self.connection.params.frame_max)
-        self.assertEqual(20, self.connection.params.heartbeat)
+        # Heartbeat is negotiated: with both values nonzero the lower one
+        # wins, so the server's 10 beats the client's 20. See pika/pika#1456.
+        self.assertEqual(10, self.connection.params.heartbeat)
         self.assertEqual(9992, self.connection._body_max_length)
-        heartbeat_checker.assert_called_once_with(self.connection, 20)
+        heartbeat_checker.assert_called_once_with(self.connection, 10)
         self.assertEqual(
             ['ab'], [call[0][0] for call in _adapter_emit_data.call_args_list])
         self.assertEqual('heartbeat obj', self.connection._heartbeat_checker)
 
-        # Pika gives precedence to client heartbeat values if set
-        # See pika/pika#965.
+        # Heartbeat is negotiated per AMQP 0-9-1, matching the Java client
+        # and Bunny: a zero from either peer defers to the other peer's
+        # value, otherwise the lower value wins. See pika/pika#1456.
 
-        # Both client and server values set. Pick client value
+        # Both client and server nonzero: the lower value wins
         method_frame.method.heartbeat = 60
         self.connection.params.heartbeat = 20
         # Test
         self.connection._on_connection_tune(method_frame)
         # verify
         self.assertEqual(20, self.connection.params.heartbeat)
+
+        # Server proposes a lower value than the client: the server's
+        # lower limit wins (the client may only reduce the server's limit)
+        method_frame.method.heartbeat = 30
+        self.connection.params.heartbeat = 80
+        # Test
+        self.connection._on_connection_tune(method_frame)
+        # verify
+        self.assertEqual(30, self.connection.params.heartbeat)
 
         # Client value is None, use the server's
         method_frame.method.heartbeat = 500
@@ -700,8 +712,16 @@ class ConnectionTests(unittest.TestCase):
         # verify
         self.assertEqual(500, self.connection.params.heartbeat)
 
-        # Client value is 0, use it
+        # Client passes 0 (disabled): defers to the server's proposal
         method_frame.method.heartbeat = 60
+        self.connection.params.heartbeat = 0
+        # Test
+        self.connection._on_connection_tune(method_frame)
+        # verify
+        self.assertEqual(60, self.connection.params.heartbeat)
+
+        # Both peers pass 0: heartbeat stays disabled
+        method_frame.method.heartbeat = 0
         self.connection.params.heartbeat = 0
         # Test
         self.connection._on_connection_tune(method_frame)
@@ -716,14 +736,6 @@ class ConnectionTests(unittest.TestCase):
         # verify
         self.assertEqual(0, self.connection.params.heartbeat)
 
-        # Both client and server values are 0
-        method_frame.method.heartbeat = 0
-        self.connection.params.heartbeat = 0
-        # Test
-        self.connection._on_connection_tune(method_frame)
-        # verify
-        self.assertEqual(0, self.connection.params.heartbeat)
-
         # Server value is 0, use the client's
         method_frame.method.heartbeat = 0
         self.connection.params.heartbeat = 60
@@ -733,7 +745,8 @@ class ConnectionTests(unittest.TestCase):
         self.assertEqual(60, self.connection.params.heartbeat)
 
         # Server value is 10, client passes a heartbeat function that
-        # chooses max(servervalue,60). Pick 60
+        # chooses max(servervalue,60). The callable's return is the client's
+        # proposal and is still negotiated: the server's lower 10 wins.
         def choose_max(conn, val):
             self.assertIs(conn, self.connection)
             self.assertEqual(val, 10)
@@ -744,7 +757,7 @@ class ConnectionTests(unittest.TestCase):
         # Test
         self.connection._on_connection_tune(method_frame)
         # verify
-        self.assertEqual(60, self.connection.params.heartbeat)
+        self.assertEqual(10, self.connection.params.heartbeat)
 
     def test_on_connection_close_from_broker_passes_correct_exception(self):
         """Make sure connection close from broker passes correct exception."""
