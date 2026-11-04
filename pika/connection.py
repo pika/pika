@@ -990,12 +990,7 @@ class URLParameters(Parameters):
             # https://docs.python.org/3/library/ssl.html#ssl.wrap_socket
             #
             # SSLContext.load_verify_locations(cafile=None, capath=None, cadata=None)
-            try:
-                opt_protocol = ssl.PROTOCOL_TLS_CLIENT
-            except AttributeError:
-                opt_protocol = ssl.PROTOCOL_TLSv1_2
-            if 'protocol' in opts:
-                opt_protocol = opts['protocol']
+            opt_protocol = opts.get('protocol', ssl.PROTOCOL_TLS_CLIENT)
 
             cxt = ssl.SSLContext(protocol=opt_protocol)
 
@@ -1795,11 +1790,6 @@ class Connection(abc.ABC):
                 value.body_size, self.params.max_inbound_message_body_size)
 
         self._channels[value.channel_number]._handle_content_frame(value)
-
-    def _ensure_closed(self) -> None:
-        """If the connection is not closed, close it."""
-        if self.is_open:
-            self.close()
 
     def _get_body_frame_max_length(self) -> int:
         """Calculate the maximum amount of bytes that can be in a body frame."""

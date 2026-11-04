@@ -286,8 +286,8 @@ class _AsyncSocketConnector:
 
         try:
             self._sock.connect(self._addr)
-        except (Exception, pika._utils.SOCKET_ERROR) as error:
-            if (isinstance(error, pika._utils.SOCKET_ERROR) and
+        except Exception as error:
+            if (isinstance(error, OSError) and
                     error.errno in _CONNECTION_IN_PROGRESS_SOCK_ERROR_CODES):
                 # Connection establishment is pending
                 pass
@@ -334,7 +334,7 @@ class _AsyncSocketConnector:
             error_msg = os.strerror(error_code)
             _LOGGER.error('Socket failed to connect: %s; error=%s (%s)',
                           self._sock, error_code, error_msg)
-            result = pika._utils.SOCKET_ERROR(error_code, error_msg)
+            result = OSError(error_code, error_msg)
 
         self._report_completion(result)
 
@@ -856,7 +856,7 @@ class _AsyncTransportBase(AbstractStreamTransport):
             assert self._sock is not None
             try:
                 self._sock.shutdown(socket.SHUT_RDWR)
-            except pika._utils.SOCKET_ERROR:
+            except OSError:
                 pass
             self._sock.close()
             self._sock = None
@@ -1045,8 +1045,8 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
                     _LOGGER.info('protocol.eof_received() elected to close: %s',
                                  self._sock)
                     self._initiate_abort(None)
-        except (Exception, pika._utils.SOCKET_ERROR) as error:
-            if (isinstance(error, pika._utils.SOCKET_ERROR) and
+        except Exception as error:
+            if (isinstance(error, OSError) and
                     error.errno in pika._utils.TRY_IO_AGAIN_SOCK_ERROR_CODES):
                 _LOGGER.debug('Recv would block on %s', self._sock)
             else:
@@ -1083,8 +1083,8 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
         try:
             # Transmit buffered data to remote socket
             self._produce()
-        except (Exception, pika._utils.SOCKET_ERROR) as error:
-            if (isinstance(error, pika._utils.SOCKET_ERROR) and
+        except Exception as error:
+            if (isinstance(error, OSError) and
                     error.errno in pika._utils.TRY_IO_AGAIN_SOCK_ERROR_CODES):
                 _LOGGER.debug('Send would block on %s', self._sock)
             else:

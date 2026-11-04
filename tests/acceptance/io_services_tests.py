@@ -65,7 +65,7 @@ class AsyncServicesTestBase(unittest.TestCase):
         """
         try:
             sock.connect(addr_pair)
-        except pika._utils.SOCKET_ERROR as error:
+        except OSError as error:
             # EINPROGRESS for posix and EWOULDBLOCK for windows
             if error.errno not in (
                     errno.EINPROGRESS,
@@ -980,7 +980,7 @@ class TestStreamConnectorBrokenPipe(StreamingTestBase, IOServicesTestStubs):
             0]  # type: TestStreamConnectorTxRxStreamProtocol
 
         error = my_proto.connection_lost_error_bucket[0]
-        self.assertIsInstance(error, pika._utils.SOCKET_ERROR)
+        self.assertIsInstance(error, OSError)
         # NOTE: we occasionally see EPROTOTYPE on OSX
         self.assertIn(error.errno,
                       [errno.EPIPE, errno.ECONNRESET, errno.EPROTOTYPE])

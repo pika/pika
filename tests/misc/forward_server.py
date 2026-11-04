@@ -1,6 +1,5 @@
 """TCP/IP forwarding/echo service for testing."""
 
-import array
 import errno
 import logging
 import multiprocessing
@@ -14,11 +13,6 @@ from datetime import datetime, timezone
 from functools import partial
 
 import pika._utils
-
-
-def buffer(object_, offset, size):
-    """Array etc. have the buffer protocol."""
-    return object_[offset:offset + size]
 
 
 def _trace(fmt, *args):
@@ -364,8 +358,6 @@ class _TCPHandler(socketserver.StreamRequestHandler):
                    datetime.now(timezone.utc), remote_dest_sock.getpeername())
         else:
             # Echo set-up
-            # NOTE: Use pika._utils.nonblocking_socketpair() since
-            # socket.socketpair() isn't available on Windows under python 2 yet.
             remote_dest_sock, remote_src_sock = pika._utils.nonblocking_socketpair(
             )
             # We rely on blocking I/O
@@ -405,19 +397,13 @@ class _TCPHandler(socketserver.StreamRequestHandler):
         _trace('%s forwarding from %s to %s', datetime.now(timezone.utc),
                src_peername, dest_sock.getpeername())
         try:
-            # NOTE: python 2.6 doesn't support bytearray with recv_into, so
-            # we use array.array instead; this is only okay as long as the
-            # array instance isn't shared across threads. See
-            # https://bugs.python.org/issue7827 and
-            # groups.google.com/forum/#!topic/comp.lang.python/M6Pqr-KUjQw
-            rx_buf = array.array('B', [0] * self._SOCK_RX_BUF_SIZE)
+            rx_buf = bytearray(self._SOCK_RX_BUF_SIZE)
+            rx_view = memoryview(rx_buf)
 
             while True:
                 try:
                     nbytes = src_sock.recv_into(rx_buf)
-                except pika._utils.SOCKET_ERROR as exc:
-                    if exc.errno == errno.EINTR:
-                        continue
+                except OSError as exc:
                     if exc.errno == errno.ECONNRESET:
                         # Source peer forcibly closed connection
                         _trace('%s errno.ECONNRESET from %s',
@@ -435,8 +421,8 @@ class _TCPHandler(socketserver.StreamRequestHandler):
                     break
 
                 try:
-                    dest_sock.sendall(buffer(rx_buf, 0, nbytes))
-                except pika._utils.SOCKET_ERROR as exc:
+                    dest_sock.sendall(rx_view[:nbytes])
+                except OSError as exc:
                     if exc.errno == errno.EPIPE:
                         # Destination peer closed its end of the connection
                         _trace(
@@ -489,12 +475,7 @@ def echo(port=0):
     try:
         _trace('Connection from peer=%s', remote_addr)
         while True:
-            try:
-                data = sock.recv(4 * 1024)
-            except pika._utils.SOCKET_ERROR as exc:
-                if exc.errno == errno.EINTR:
-                    continue
-                raise
+            data = sock.recv(4 * 1024)
 
             if not data:
                 break
@@ -511,6 +492,6 @@ def _safe_shutdown_socket(sock, how=socket.SHUT_RDWR):
     """Shutdown a socket, suppressing ENOTCONN."""
     try:
         sock.shutdown(how)
-    except pika._utils.SOCKET_ERROR as exc:
+    except OSError as exc:
         if exc.errno != errno.ENOTCONN:
             raise

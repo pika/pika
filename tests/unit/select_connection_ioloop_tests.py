@@ -761,7 +761,7 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
         """
         try:
             sock.connect(addr_pair)
-        except pika._utils.SOCKET_ERROR as error:
+        except OSError as error:
             # EINPROGRESS for posix and EWOULDBLOCK for windows
             if error.errno not in (
                     errno.EINPROGRESS,

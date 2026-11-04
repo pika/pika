@@ -52,8 +52,6 @@ ON_LINUX = sys.platform.startswith('linux')
 ON_OSX = sys.platform == 'darwin'
 ON_WINDOWS = sys.platform == 'win32'
 
-SOCKET_ERROR = OSError
-
 try:
     SOL_TCP = socket.SOL_TCP
 except AttributeError:

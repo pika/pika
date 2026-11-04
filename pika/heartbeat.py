@@ -75,11 +75,9 @@ class HeartbeatChecker:
 
         # Initialize counters
         self._bytes_received = 0
-        self._bytes_sent = 0
         self._heartbeat_frames_received = 0
         self._heartbeat_frames_sent = 0
         self._idle_byte_intervals = 0
-        self._idle_heartbeat_intervals = 0
 
         self._send_timer: object | None = None
         self._check_timer: object | None = None
@@ -199,8 +197,5 @@ class HeartbeatChecker:
             self._check_interval, self._check_heartbeat)
 
     def _update_counters(self) -> None:
-        """Update the internal counters for bytes sent and received and the number of frames
-        received.
-        """
-        self._bytes_sent = self._connection.bytes_sent
+        """Update the internal counter for bytes received."""
         self._bytes_received = self._connection.bytes_received
