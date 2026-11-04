@@ -47,7 +47,6 @@ class HeartbeatTests(unittest.TestCase):
     def setUp(self):
         self.mock_conn = mock.Mock(spec_set=ConstructableConnection())
         self.mock_conn.bytes_received = 100
-        self.mock_conn.bytes_sent = 100
         self.mock_conn._heartbeat_checker = mock.Mock(
             spec=heartbeat.HeartbeatChecker)
         self.obj = heartbeat.HeartbeatChecker(self.mock_conn, self.INTERVAL)
@@ -69,12 +68,6 @@ class HeartbeatTests(unittest.TestCase):
         # which reads the initial values from the connection
         self.assertEqual(self.obj._bytes_received,
                          self.mock_conn.bytes_received)
-
-    def test_constructor_initial_bytes_sent(self):
-        # Note: _bytes_received is initialized by calls
-        # to _start_check_timer which calls _update_counters
-        # which reads the initial values from the connection
-        self.assertEqual(self.obj._bytes_sent, self.mock_conn.bytes_sent)
 
     def test_constructor_initial_heartbeat_frames_received(self):
         self.assertEqual(self.obj._heartbeat_frames_received, 0)
@@ -209,8 +202,3 @@ class HeartbeatTests(unittest.TestCase):
         self.mock_conn.bytes_received = 256
         self.obj._update_counters()
         self.assertEqual(self.obj._bytes_received, 256)
-
-    def test_update_counters_bytes_sent(self):
-        self.mock_conn.bytes_sent = 256
-        self.obj._update_counters()
-        self.assertEqual(self.obj._bytes_sent, 256)
