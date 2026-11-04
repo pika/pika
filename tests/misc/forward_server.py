@@ -415,7 +415,7 @@ class _TCPHandler(socketserver.StreamRequestHandler):
             while True:
                 try:
                     nbytes = src_sock.recv_into(rx_buf)
-                except pika._utils.SOCKET_ERROR as exc:
+                except OSError as exc:
                     if exc.errno == errno.EINTR:
                         continue
                     if exc.errno == errno.ECONNRESET:
@@ -436,7 +436,7 @@ class _TCPHandler(socketserver.StreamRequestHandler):
 
                 try:
                     dest_sock.sendall(buffer(rx_buf, 0, nbytes))
-                except pika._utils.SOCKET_ERROR as exc:
+                except OSError as exc:
                     if exc.errno == errno.EPIPE:
                         # Destination peer closed its end of the connection
                         _trace(
@@ -491,7 +491,7 @@ def echo(port=0):
         while True:
             try:
                 data = sock.recv(4 * 1024)
-            except pika._utils.SOCKET_ERROR as exc:
+            except OSError as exc:
                 if exc.errno == errno.EINTR:
                     continue
                 raise
@@ -511,6 +511,6 @@ def _safe_shutdown_socket(sock, how=socket.SHUT_RDWR):
     """Shutdown a socket, suppressing ENOTCONN."""
     try:
         sock.shutdown(how)
-    except pika._utils.SOCKET_ERROR as exc:
+    except OSError as exc:
         if exc.errno != errno.ENOTCONN:
             raise

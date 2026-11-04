@@ -677,7 +677,7 @@ class _PollerBase(abc.ABC):
                 # Send byte to interrupt the poll loop, use send() instead of
                 # os.write for Windows compatibility
                 self._w_interrupt.send(b'X')
-            except pika._utils.SOCKET_ERROR as err:
+            except OSError as err:
                 if err.errno not in pika._utils.TRY_IO_AGAIN_SOCK_ERROR_CODES:
                     raise
             except Exception as err:
@@ -940,7 +940,7 @@ class _PollerBase(abc.ABC):
         try:
             # NOTE Use recv instead of os.read for windows compatibility
             self._r_interrupt.recv(512)
-        except pika._utils.SOCKET_ERROR as err:
+        except OSError as err:
             if err.errno not in pika._utils.TRY_IO_AGAIN_SOCK_ERROR_CODES:
                 raise
 

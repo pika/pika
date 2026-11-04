@@ -78,7 +78,7 @@ When pika closes a Twisted connection, the reason now reaches the `closed` defer
 
 The module is removed. It held Python 2 compatibility shims and platform checks, was never documented as public API, and nothing in pika imports it any more. It had no leading underscore, though, so it has been importable for years and an upgrade turns `import pika.compat` into `ModuleNotFoundError`.
 
-Twelve of its names moved to `pika._utils`: `ON_LINUX`, `ON_OSX`, `ON_WINDOWS`, `LINUX_VERSION`, `SOCKET_ERROR`, `HAVE_SIGNAL`, `RE_NUM`, `time_now()`, `as_bytes()`, `to_digit()`, `get_linux_version()` and `nonblocking_socketpair()`. That module is private, so it is not a migration target; copy what you need instead. The four that are gone were Python 2 artefacts, and the standard library covers each: `byte()` (a `bytes` literal), `long` (`int`), `AbstractBase` (`abc.ABC`), `str_or_bytes` (`(str, bytes)`). `pika.spec.str`, which was `str = bytes`, goes with them.
+Eleven of its names moved to `pika._utils`: `ON_LINUX`, `ON_OSX`, `ON_WINDOWS`, `LINUX_VERSION`, `HAVE_SIGNAL`, `RE_NUM`, `time_now()`, `as_bytes()`, `to_digit()`, `get_linux_version()` and `nonblocking_socketpair()`. That module is private, so it is not a migration target; copy what you need instead. The five that are gone were Python 2 artefacts, and the standard library covers each: `byte()` (a `bytes` literal), `long` (`int`), `SOCKET_ERROR` (`OSError`), `AbstractBase` (`abc.ABC`), `str_or_bytes` (`(str, bytes)`). `pika.spec.str`, which was `str = bytes`, goes with them.
 
 ### `pika.spec` is now annotated, which may fail your type checker
 
