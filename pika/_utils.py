@@ -125,6 +125,7 @@ def nonblocking_socketpair(
     :param socket_type: socket type (default SOCK_STREAM)
     :param proto: socket protocol (default 0)
     :returns: a pair of connected non-blocking sockets
+    :raises ConnectionError: if another connection reached the listening socket first
     """
     if family == socket.AF_INET:
         host = _LOCALHOST
@@ -149,6 +150,17 @@ def nonblocking_socketpair(
             csock.connect((addr, port))
             ssock, _ = lsock.accept()
         except Exception:
+            csock.close()
+            raise
+        # Reject a connection from anything else that reached the listener
+        # first, as CPython's fallback socketpair does since CVE-2024-3219
+        # (#1820). Checked before lsock closes, which resets csock if queued.
+        try:
+            if (ssock.getsockname() != csock.getpeername() or
+                    csock.getsockname() != ssock.getpeername()):
+                raise ConnectionError('Unexpected peer connection')
+        except Exception:
+            ssock.close()
             csock.close()
             raise
     finally:
