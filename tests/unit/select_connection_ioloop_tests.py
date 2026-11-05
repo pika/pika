@@ -248,22 +248,23 @@ class InterruptPairTests(unittest.TestCase):
 
 
 class IOLoopWakeupStormTestSelect(IOLoopBaseTest):
-    """More wake-ups than the interrupt pair can buffer must not fail."""
+    """Wake-ups sent while the interrupt pair is full must not fail."""
 
     SELECT_POLLER = 'select'
-    CALLBACKS = 5000
+    CALLBACKS = 100
 
     @unittest.skipIf(pika._utils.ON_WINDOWS,
-                     'a TCP pair buffers far more than CALLBACKS bytes')
+                     'a loopback TCP pair takes megabytes to fill')
     def test_every_callback_runs_after_the_pair_fills(self):
+        w_interrupt = self.ioloop._poller._w_interrupt
+        # Fill the pair first: its capacity differs by platform.
+        with self.assertRaises(BlockingIOError):
+            while True:
+                w_interrupt.send(b'X' * 4096)
         ran = []
-        # Nothing drains the pair before start(), so each wake-up byte queues.
         for _ in range(self.CALLBACKS):
             self.ioloop.add_callback_threadsafe(lambda: ran.append(1))
         self.ioloop.add_callback_threadsafe(self.ioloop.stop)
-        with self.assertRaises(BlockingIOError,
-                               msg='the pair never filled; raise CALLBACKS'):
-            self.ioloop._poller._w_interrupt.send(b'X')
         self.start()
         self.assertEqual(len(ran), self.CALLBACKS)
 
