@@ -75,7 +75,8 @@ class DiagnosticUtilsTest(unittest.TestCase):
         # Check log message
         self.assertEqual(len(log_record_bucket), 1)
         log_record = log_record_bucket[0]  # type: logging.LogRecord
-        print(log_record.getMessage())
-        expected_ending = 'Exception: Oops!\n'
-        self.assertEqual(log_record.getMessage()[-len(expected_ending):],
-                         expected_ending)
+        self.assertIs(log_record.exc_info[1], exception)
+        formatted = logging.Formatter().format(log_record)
+        self.assertEqual(formatted.count('Traceback (most recent call last)'),
+                         1)
+        self.assertTrue(formatted.endswith('Exception: Oops!'), formatted)
