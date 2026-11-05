@@ -1021,8 +1021,11 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
 
     @_log_exceptions
     def _on_socket_readable(self) -> None:
-        """Ingest data from socket and dispatch it to protocol until `sock.recv()` would block,
-        per-event data consumption limit is reached, transport becomes inactive, or failure.
+        """
+        Ingest data from the socket and dispatch it to the protocol.
+
+        Stops when `sock.recv()` would block, the per-event consumption limit is reached, the
+        transport becomes inactive, or on failure.
         """
         if self._state != self._STATE_ACTIVE:
             _LOGGER.debug(
