@@ -21,6 +21,7 @@ from pika.adapters.thread_safe_connection import (
     _validate_shutdown_drain_timeout,
     _with_close_traceback,
 )
+from pika.connection import Connection as _AsyncConnection
 from pika.exceptions import (
     AMQPConnectionError,
     ConnectionClosedByClient,
@@ -80,6 +81,13 @@ def _wire_cancel(wrapper,
 def _cancel_ok(consumer_tag):
     """A Basic.CancelOk frame for *consumer_tag*, as the broker would send."""
     return frame.Method(1, spec.Basic.CancelOk(consumer_tag=consumer_tag))
+
+
+def _marshal(channel_number, method, content):
+    """`Connection._marshal_message` with the default body frame size."""
+    stand_in = type('StandIn', (), {'_body_max_length': 131072 - 8})()
+    return _AsyncConnection._marshal_message(stand_in, channel_number, method,
+                                             content)
 
 
 class SubmitOrTerminateTests(unittest.TestCase):
@@ -760,6 +768,7 @@ class ChannelTests(unittest.TestCase):
     def _make_channel(self):
         raw_ch = MagicMock()
         raw_ch.channel_number = 1
+        raw_ch.connection._marshal_message.side_effect = _marshal
         raw_ch.is_open = True
         raw_ch.is_closed = False
         wrapper = MagicMock()
@@ -800,7 +809,7 @@ class ChannelTests(unittest.TestCase):
                 with self.assertRaises(TypeError):
                     ch.basic_publish('', 'queue', b'body', on_publish=value)
                 wrapper._schedule_unchecked.assert_not_called()
-                raw_ch.basic_publish.assert_not_called()
+                raw_ch._publish_marshaled.assert_not_called()
 
     def test_cached_confirm_rejects_invalid_callback(self):
         ch, _raw_ch, wrapper = self._make_channel()
@@ -817,7 +826,7 @@ class ChannelTests(unittest.TestCase):
     def test_basic_publish_does_not_call_raw_channel_directly(self):
         ch, raw_ch, _wrapper = self._make_channel()
         ch.basic_publish(exchange='ex', routing_key='rk', body=b'hello')
-        raw_ch.basic_publish.assert_not_called()
+        raw_ch._publish_marshaled.assert_not_called()
 
     def test_basic_publish_callback_calls_raw_channel(self):
         ch, raw_ch, wrapper = self._make_channel()
@@ -830,13 +839,27 @@ class ChannelTests(unittest.TestCase):
         # Extract and invoke the scheduled callback manually
         scheduled_cb = wrapper._schedule_unchecked.call_args[0][0]
         scheduled_cb()
-        raw_ch.basic_publish.assert_called_once_with(
-            exchange='ex',
-            routing_key='rk',
-            body=b'msg',
-            properties=props,
-            mandatory=True,
-        )
+        raw_ch._publish_marshaled.assert_called_once_with(
+            _marshal(
+                1,
+                spec.Basic.Publish(exchange='ex',
+                                   routing_key='rk',
+                                   mandatory=True), (props, b'msg')))
+
+    def test_properties_are_encoded_when_published_not_when_sent(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        props = spec.BasicProperties(headers={'n': 1})
+        ch.basic_publish(exchange='',
+                         routing_key='rk',
+                         body=b'msg',
+                         properties=props)
+        props.headers['n'] = 2
+        wrapper._schedule_unchecked.call_args[0][0]()
+        sent = raw_ch._publish_marshaled.call_args[0][0]
+        self.assertEqual(
+            sent,
+            _marshal(1, spec.Basic.Publish(exchange='', routing_key='rk'),
+                     (spec.BasicProperties(headers={'n': 1}), b'msg')))
 
     def test_unencodable_publish_raises_at_the_call_site(self):
         cases = [
@@ -856,14 +879,14 @@ class ChannelTests(unittest.TestCase):
                 with self.assertRaises(error):
                     ch.basic_publish(on_publish=on_publish, **args)
                 wrapper._schedule_unchecked.assert_not_called()
-                raw_ch.basic_publish.assert_not_called()
+                raw_ch._publish_marshaled.assert_not_called()
 
     def test_str_body_is_sent_as_utf8_bytes(self):
         ch, raw_ch, wrapper = self._make_channel()
         ch.basic_publish(exchange='', routing_key='rk', body='caf\u00e9')
         wrapper._schedule_unchecked.call_args[0][0]()
-        self.assertEqual(raw_ch.basic_publish.call_args[1]['body'],
-                         'caf\u00e9'.encode('utf-8'))
+        sent = raw_ch._publish_marshaled.call_args[0][0]
+        self.assertEqual(sent[-1][7:-1], 'caf\u00e9'.encode('utf-8'))
 
     def test_basic_publish_callback_swallows_channel_wrong_state_error(self):
         """ChannelWrongStateError inside the scheduled callback must not propagate to the IOLoop,
@@ -871,12 +894,12 @@ class ChannelTests(unittest.TestCase):
         """
         from pika.exceptions import ChannelWrongStateError
         ch, raw_ch, wrapper = self._make_channel()
-        raw_ch.basic_publish.side_effect = ChannelWrongStateError(
+        raw_ch._publish_marshaled.side_effect = ChannelWrongStateError(
             'channel closed')
         ch.basic_publish(exchange='ex', routing_key='rk', body=b'x')
         scheduled_cb = wrapper._schedule_unchecked.call_args[0][0]
         scheduled_cb()  # must not raise
-        raw_ch.basic_publish.assert_called_once()
+        raw_ch._publish_marshaled.assert_called_once()
 
     def test_on_publish_not_called_when_confirms_not_enabled(self):
         """on_publish callback is ignored when confirm_delivery has not been called
@@ -890,7 +913,7 @@ class ChannelTests(unittest.TestCase):
                          on_publish=on_publish)
         scheduled_cb = wrapper._schedule_unchecked.call_args[0][0]
         scheduled_cb()
-        raw_ch.basic_publish.assert_called_once()
+        raw_ch._publish_marshaled.assert_called_once()
         on_publish.assert_not_called()
 
     def test_on_publish_called_with_delivery_tag_when_confirms_enabled(self):
@@ -946,7 +969,7 @@ class ChannelTests(unittest.TestCase):
         from pika.exceptions import ChannelWrongStateError
         ch, raw_ch, wrapper = self._make_channel()
         ch._next_publish_seq_no = 0
-        raw_ch.basic_publish.side_effect = ChannelWrongStateError('closed')
+        raw_ch._publish_marshaled.side_effect = ChannelWrongStateError('closed')
         on_publish = MagicMock()
         ch.basic_publish(exchange='ex',
                          routing_key='rk',
@@ -1518,6 +1541,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
     def _make_channel(self):
         raw_ch = MagicMock()
         raw_ch.channel_number = 1
+        raw_ch.connection._marshal_message.side_effect = _marshal
         raw_ch.is_open = True
         raw_ch.is_closed = False
         wrapper = MagicMock()
@@ -2101,6 +2125,7 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
     def _make_channel(self):
         raw_ch = MagicMock()
         raw_ch.channel_number = 1
+        raw_ch.connection._marshal_message.side_effect = _marshal
         raw_ch.is_open = True
         raw_ch.is_closed = False
         wrapper = MagicMock()
@@ -2273,6 +2298,7 @@ class BlockingRPCPassthroughTests(unittest.TestCase):
     def _make_channel(self):
         raw_ch = MagicMock()
         raw_ch.channel_number = 1
+        raw_ch.connection._marshal_message.side_effect = _marshal
         raw_ch.is_open = True
         raw_ch.is_closed = False
         wrapper = MagicMock()
@@ -2376,6 +2402,7 @@ class BlockingRPCErrorPathTests(unittest.TestCase):
     def _make_channel(self):
         raw_ch = MagicMock()
         raw_ch.channel_number = 1
+        raw_ch.connection._marshal_message.side_effect = _marshal
         raw_ch.is_open = True
         raw_ch.is_closed = False
         wrapper = MagicMock()
@@ -2480,6 +2507,7 @@ class BasicGetTests(unittest.TestCase):
     def _make_channel(self):
         raw_ch = MagicMock()
         raw_ch.channel_number = 1
+        raw_ch.connection._marshal_message.side_effect = _marshal
         raw_ch.is_open = True
         raw_ch.is_closed = False
         wrapper = MagicMock()
@@ -2571,6 +2599,7 @@ class PerRPCCallbackReleaseTests(unittest.TestCase):
     def _make_channel(self):
         raw_ch = MagicMock()
         raw_ch.channel_number = 1
+        raw_ch.connection._marshal_message.side_effect = _marshal
         raw_ch.is_open = True
         raw_ch.is_closed = False
         wrapper = MagicMock()
@@ -2669,6 +2698,7 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
     def _make_channel(self):
         raw_ch = MagicMock()
         raw_ch.channel_number = 1
+        raw_ch.connection._marshal_message.side_effect = _marshal
         raw_ch.is_open = True
         raw_ch.is_closed = False
         raw_ch.is_closing = False
@@ -2976,6 +3006,7 @@ class CallbackRegistrationFailureTests(unittest.TestCase):
     def _make_channel(self):
         raw_ch = MagicMock()
         raw_ch.channel_number = 1
+        raw_ch.connection._marshal_message.side_effect = _marshal
         raw_ch.is_open = True
         raw_ch.is_closed = False
         wrapper = MagicMock()

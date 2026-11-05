@@ -894,6 +894,19 @@ class ChannelTests(unittest.TestCase):
         self.obj.basic_nack(1, False, True)
         send_method.assert_called_once_with(spec.Basic.Nack(1, False, True))
 
+    def test_publish_marshaled_outputs_the_frames_when_open(self):
+        self.obj._set_state(self.obj.OPEN)
+        frames = [b'method', b'header', b'body']
+        self.obj._publish_marshaled(frames)
+        self.obj.connection._output_marshaled_frames.assert_called_once_with(
+            frames)
+
+    def test_publish_marshaled_raises_when_not_open(self):
+        self.obj._set_state(self.obj.CLOSED)
+        with self.assertRaises(exceptions.ChannelWrongStateError):
+            self.obj._publish_marshaled([b'method'])
+        self.obj.connection._output_marshaled_frames.assert_not_called()
+
     def test_basic_publish_raises_channel_wrong_state(self):
         self.assertRaises(exceptions.ChannelWrongStateError,
                           self.obj.basic_publish, 'foo', 'bar', 'baz')

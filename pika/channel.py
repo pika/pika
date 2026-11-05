@@ -577,6 +577,16 @@ class Channel:
                                routing_key=routing_key,
                                mandatory=mandatory), (properties, body))
 
+    def _publish_marshaled(self, marshaled_frames: list[bytes]) -> None:
+        """
+        Send a message already marshaled by `Connection._marshal_message`.
+
+        :param marshaled_frames: The message's frames, in sending order
+        :raises exceptions.ChannelWrongStateError: if the channel is not open
+        """
+        self._raise_if_not_open()
+        self.connection._output_marshaled_frames(marshaled_frames)
+
     def basic_qos(self,
                   prefetch_size: int = 0,
                   prefetch_count: int = 0,

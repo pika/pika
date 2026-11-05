@@ -960,24 +960,18 @@ class Channel:
 
         self._check_not_closed()
 
-        # Encode in the caller's thread: an error on the IOLoop thread can only be logged, so the
-        # message would be dropped without the caller learning why (#1827).
-        body = as_bytes(body)
-        spec.Basic.Publish(exchange=exchange,
-                           routing_key=routing_key,
-                           mandatory=mandatory).encode()
-        if properties is not None:
-            properties.encode()
+        # Marshal in the caller's thread: an error on the IOLoop thread can only be logged, and the
+        # IOLoop would encode whatever the caller's objects hold by the time it runs (#1827).
+        frames = self._channel.connection._marshal_message(
+            self._channel.channel_number,
+            spec.Basic.Publish(exchange=exchange,
+                               routing_key=routing_key,
+                               mandatory=mandatory),
+            (properties or spec.BasicProperties(), as_bytes(body)))
 
         def _publish() -> None:
             try:
-                self._channel.basic_publish(
-                    exchange=exchange,
-                    routing_key=routing_key,
-                    body=body,
-                    properties=properties,
-                    mandatory=mandatory,
-                )
+                self._channel._publish_marshaled(frames)
             except Exception:
                 LOGGER.warning('basic_publish failed (channel may have closed)',
                                exc_info=True)
