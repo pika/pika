@@ -60,14 +60,14 @@ amqps://www-data:rabbit_pwd@rabbit1/web_messages?client_properties=%7B%27connect
 - socket_timeout: Change the `socket.connect()` timeout from its default of 10 seconds to another integer or float value, or `None` to disable it. Adjust with caution.
 - ssl_options: A url encoded dict of values for the SSL connection. The keys are the arguments the corresponding `ssl.SSLContext` methods take:
     - protocol, passed to `ssl.SSLContext`
-    - ca_certs (or cafile), ca_path (or capath), ca_data (or cadata), passed to `SSLContext.load_verify_locations`
+    - ca_certs (or cafile), ca_path (or capath), ca_data (or cadata), passed to `SSLContext.load_verify_locations`; with none of them, the system's default CA certificates are loaded, as for an *amqps* URL without `ssl_options`
     - certfile, keyfile, password, passed to `SSLContext.load_cert_chain`
     - ciphers, passed to `SSLContext.set_ciphers`
     - server_hostname, passed to `pika.SSLOptions`
 
 !!! note
 
-    `cert_reqs` and `ssl_version` are not among them. They were arguments of the removed `ssl.wrap_socket` and are ignored, so a `cert_reqs` of `CERT_NONE` silently leaves verification on. A URL that sets no other `ssl_options` key is worse than ignored: it raises `TypeError: cafile, capath and cadata cannot be all omitted`.
+    `cert_reqs` and `ssl_version` are not among them. They were arguments of the removed `ssl.wrap_socket` and are ignored, so a `cert_reqs` of `CERT_NONE` silently leaves verification on.
 
 For information on what the ssl_options can be set to reference the [official Python documentation](https://docs.python.org/3/library/ssl.html). Here is an example of setting the client certificate and key. Note the *amqps* scheme: the query argument configures TLS but does not select it, so with *amqp* you would get a TLS context aimed at the plaintext port 5672.
 
