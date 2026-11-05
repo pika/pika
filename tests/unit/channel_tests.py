@@ -894,25 +894,36 @@ class ChannelTests(unittest.TestCase):
         self.obj.basic_nack(1, False, True)
         send_method.assert_called_once_with(spec.Basic.Nack(1, False, True))
 
+    def test_publish_marshaled_outputs_the_frames_when_open(self):
+        self.obj._set_state(self.obj.OPEN)
+        frames = [b'method', b'header', b'body']
+        self.obj._publish_marshaled(frames)
+        self.obj.connection._output_marshaled_frames.assert_called_once_with(
+            frames)
+
+    def test_publish_marshaled_raises_when_not_open(self):
+        self.obj._set_state(self.obj.CLOSED)
+        with self.assertRaises(exceptions.ChannelWrongStateError):
+            self.obj._publish_marshaled([b'method'])
+        self.obj.connection._output_marshaled_frames.assert_not_called()
+
     def test_basic_publish_raises_channel_wrong_state(self):
         self.assertRaises(exceptions.ChannelWrongStateError,
                           self.obj.basic_publish, 'foo', 'bar', 'baz')
 
-    @mock.patch('pika.spec.Basic.Publish')
-    @mock.patch('pika.channel.Channel._send_method')
-    def test_basic_publish_send_method_request(self, send_method, _unused):
+    def test_basic_publish_marshals_and_outputs_the_message(self):
         self.obj._set_state(self.obj.OPEN)
-        exchange = 'basic_publish_test'
-        routing_key = 'routing-key-fun'
-        body = b'This is my body'
         properties = spec.BasicProperties(content_type='text/plain')
-        mandatory = False
-        self.obj.basic_publish(exchange, routing_key, body, properties,
-                               mandatory)
-        send_method.assert_called_once_with(
-            spec.Basic.Publish(exchange=exchange,
-                               routing_key=routing_key,
-                               mandatory=mandatory), (properties, body))
+        self.obj.basic_publish('basic_publish_test', 'routing-key-fun',
+                               b'This is my body', properties, False)
+        self.obj.connection._marshal_message.assert_called_once_with(
+            self.obj.channel_number,
+            spec.Basic.Publish(exchange='basic_publish_test',
+                               routing_key='routing-key-fun',
+                               mandatory=False),
+            (properties, b'This is my body'))
+        self.obj.connection._output_marshaled_frames.assert_called_once_with(
+            self.obj.connection._marshal_message.return_value)
 
     def test_basic_qos_raises_channel_wrong_state(self):
         self.assertRaises(exceptions.ChannelWrongStateError, self.obj.basic_qos,
