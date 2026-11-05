@@ -95,6 +95,31 @@ class TransportFailureIsLoggedOnceTests(unittest.TestCase):
             self.readable_failure_records(io_services_utils._AsyncSSLTransport,
                                           sock))
 
+    def writable_failure_records(self, transport_class, sock):
+        protocol = mock.Mock()
+        nbio = mock.Mock()
+        transport = transport_class(sock, protocol, nbio)
+        nbio.add_callback_threadsafe.side_effect = lambda callback: callback()
+        transport.write(b'frame')
+        with self.assertLogs('pika', level='ERROR') as logs:
+            transport._on_socket_writable()
+        protocol.connection_lost.assert_called_once()
+        return logs.records
+
+    def test_plaintext_send_failure(self):
+        sock = mock.Mock(spec=socket.socket)
+        sock.send.side_effect = ConnectionResetError(errno.ECONNRESET, 'reset')
+        self.assert_one_traceback(
+            self.writable_failure_records(
+                io_services_utils._AsyncPlaintextTransport, sock))
+
+    def test_tls_send_failure(self):
+        sock = mock.Mock(spec=ssl.SSLSocket)
+        sock.send.side_effect = ssl.SSLError(1, 'bad record mac')
+        self.assert_one_traceback(
+            self.writable_failure_records(io_services_utils._AsyncSSLTransport,
+                                          sock))
+
 
 if __name__ == '__main__':
     unittest.main()
