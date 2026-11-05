@@ -21,6 +21,7 @@ from pika.adapters.thread_safe_connection import (
     _validate_shutdown_drain_timeout,
     _with_close_traceback,
 )
+from pika.channel import Channel as _AsyncChannel
 from pika.connection import Connection as _AsyncConnection
 from pika.exceptions import (
     AMQPConnectionError,
@@ -88,6 +89,17 @@ def _marshal(channel_number, method, content):
     stand_in = type('StandIn', (), {'_body_max_length': 131072 - 8})()
     return _AsyncConnection._marshal_message(stand_in, channel_number, method,
                                              content)
+
+
+def _marshal_publish(*args):
+    """The raw `Channel._marshal_publish` on channel 1 of a stand-in connection."""
+    connection = type('StandIn', (), {})()
+    connection._marshal_message = _marshal
+    channel = type('StandIn', (), {
+        'channel_number': 1,
+        'connection': connection
+    })()
+    return _AsyncChannel._marshal_publish(channel, *args)
 
 
 class SubmitOrTerminateTests(unittest.TestCase):
@@ -768,7 +780,7 @@ class ChannelTests(unittest.TestCase):
     def _make_channel(self):
         raw_ch = MagicMock()
         raw_ch.channel_number = 1
-        raw_ch.connection._marshal_message.side_effect = _marshal
+        raw_ch._marshal_publish.side_effect = _marshal_publish
         raw_ch.is_open = True
         raw_ch.is_closed = False
         wrapper = MagicMock()
@@ -1541,7 +1553,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
     def _make_channel(self):
         raw_ch = MagicMock()
         raw_ch.channel_number = 1
-        raw_ch.connection._marshal_message.side_effect = _marshal
+        raw_ch._marshal_publish.side_effect = _marshal_publish
         raw_ch.is_open = True
         raw_ch.is_closed = False
         wrapper = MagicMock()
@@ -2125,7 +2137,7 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
     def _make_channel(self):
         raw_ch = MagicMock()
         raw_ch.channel_number = 1
-        raw_ch.connection._marshal_message.side_effect = _marshal
+        raw_ch._marshal_publish.side_effect = _marshal_publish
         raw_ch.is_open = True
         raw_ch.is_closed = False
         wrapper = MagicMock()
@@ -2298,7 +2310,7 @@ class BlockingRPCPassthroughTests(unittest.TestCase):
     def _make_channel(self):
         raw_ch = MagicMock()
         raw_ch.channel_number = 1
-        raw_ch.connection._marshal_message.side_effect = _marshal
+        raw_ch._marshal_publish.side_effect = _marshal_publish
         raw_ch.is_open = True
         raw_ch.is_closed = False
         wrapper = MagicMock()
@@ -2402,7 +2414,7 @@ class BlockingRPCErrorPathTests(unittest.TestCase):
     def _make_channel(self):
         raw_ch = MagicMock()
         raw_ch.channel_number = 1
-        raw_ch.connection._marshal_message.side_effect = _marshal
+        raw_ch._marshal_publish.side_effect = _marshal_publish
         raw_ch.is_open = True
         raw_ch.is_closed = False
         wrapper = MagicMock()
@@ -2507,7 +2519,7 @@ class BasicGetTests(unittest.TestCase):
     def _make_channel(self):
         raw_ch = MagicMock()
         raw_ch.channel_number = 1
-        raw_ch.connection._marshal_message.side_effect = _marshal
+        raw_ch._marshal_publish.side_effect = _marshal_publish
         raw_ch.is_open = True
         raw_ch.is_closed = False
         wrapper = MagicMock()
@@ -2599,7 +2611,7 @@ class PerRPCCallbackReleaseTests(unittest.TestCase):
     def _make_channel(self):
         raw_ch = MagicMock()
         raw_ch.channel_number = 1
-        raw_ch.connection._marshal_message.side_effect = _marshal
+        raw_ch._marshal_publish.side_effect = _marshal_publish
         raw_ch.is_open = True
         raw_ch.is_closed = False
         wrapper = MagicMock()
@@ -2698,7 +2710,7 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
     def _make_channel(self):
         raw_ch = MagicMock()
         raw_ch.channel_number = 1
-        raw_ch.connection._marshal_message.side_effect = _marshal
+        raw_ch._marshal_publish.side_effect = _marshal_publish
         raw_ch.is_open = True
         raw_ch.is_closed = False
         raw_ch.is_closing = False
@@ -3006,7 +3018,7 @@ class CallbackRegistrationFailureTests(unittest.TestCase):
     def _make_channel(self):
         raw_ch = MagicMock()
         raw_ch.channel_number = 1
-        raw_ch.connection._marshal_message.side_effect = _marshal
+        raw_ch._marshal_publish.side_effect = _marshal_publish
         raw_ch.is_open = True
         raw_ch.is_closed = False
         wrapper = MagicMock()

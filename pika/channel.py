@@ -570,12 +570,30 @@ class Channel:
         :param mandatory: The mandatory flag
         """
         self._raise_if_not_open()
-        body = as_bytes(body)
-        properties = properties or spec.BasicProperties()
-        self._send_method(
+        self._publish_marshaled(
+            self._marshal_publish(exchange, routing_key, body, properties,
+                                  mandatory))
+
+    def _marshal_publish(self, exchange: str, routing_key: str,
+                         body: str | bytes,
+                         properties: spec.BasicProperties | None,
+                         mandatory: bool) -> list[bytes]:
+        """
+        Marshal a `basic_publish` without sending it; see `Connection._marshal_message`.
+
+        :param exchange: The exchange to publish to
+        :param routing_key: The routing key to bind on
+        :param body: The message body
+        :param properties: Basic.properties
+        :param mandatory: The mandatory flag
+        :returns: The marshaled frames, in sending order
+        """
+        return self.connection._marshal_message(
+            self.channel_number,
             spec.Basic.Publish(exchange=exchange,
                                routing_key=routing_key,
-                               mandatory=mandatory), (properties, body))
+                               mandatory=mandatory),
+            (properties or spec.BasicProperties(), as_bytes(body)))
 
     def _publish_marshaled(self, marshaled_frames: list[bytes]) -> None:
         """

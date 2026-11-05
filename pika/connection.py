@@ -2544,8 +2544,8 @@ class Connection(abc.ABC):
         length = len(content[1])
         marshaled_body_frames = []
 
-        # Note: we construct the Method, Header and Content objects, marshal them
-        # *then* output in case the marshaling operation throws an exception
+        # Marshal everything before any of it is output, so a marshaling error
+        # sends nothing.
         frame_method = frame.Method(channel_number, method_frame)
         frame_header = frame.Header(channel_number, length, content[0])
         marshaled_body_frames.append(frame_method.marshal())

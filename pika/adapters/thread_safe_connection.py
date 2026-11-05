@@ -31,7 +31,6 @@ if TYPE_CHECKING:
     import pika.channel
 
 from pika import frame, spec, validators
-from pika._utils import as_bytes
 from pika.adapters.select_connection import SelectConnection
 from pika.exceptions import ConnectionWrongStateError, WorkQueueFullError
 
@@ -962,12 +961,8 @@ class Channel:
 
         # Marshal in the caller's thread: an error on the IOLoop thread can only be logged, and the
         # IOLoop would encode whatever the caller's objects hold by the time it runs (#1827).
-        frames = self._channel.connection._marshal_message(
-            self._channel.channel_number,
-            spec.Basic.Publish(exchange=exchange,
-                               routing_key=routing_key,
-                               mandatory=mandatory),
-            (properties or spec.BasicProperties(), as_bytes(body)))
+        frames = self._channel._marshal_publish(exchange, routing_key, body,
+                                                properties, mandatory)
 
         def _publish() -> None:
             try:
