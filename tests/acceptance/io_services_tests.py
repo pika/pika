@@ -1246,14 +1246,19 @@ class TestStreamConnectorEOFReceivedFails(
         self.assertEqual(remote_sock.recv(1), b'')
 
 
+class DataReceivedError(Exception):
+    pass
+
+
 class TestStreamConnectorDataReceivedFails(
         TestStreamConnectorProtocolInterfaceFailsBase, IOServicesTestStubs):
 
+    def make_data_received_error(self):
+        return DataReceivedError()
+
     def start(self):
         nbio = self.create_nbio()
-
-        class DataReceivedError(Exception):
-            pass
+        data_received_error = self.make_data_received_error()
 
         local_sock, remote_sock = self.create_nonblocking_socketpair()
         remote_sock.settimeout(10)
@@ -1270,7 +1275,7 @@ class TestStreamConnectorDataReceivedFails(
             nbio,
             local_sock,
             on_linkup_completed,
-            proto_data_received_exc=DataReceivedError)
+            proto_data_received_exc=data_received_error)
 
         remote_sock.send(b'abc')
 
@@ -1279,11 +1284,19 @@ class TestStreamConnectorDataReceivedFails(
         _transport, proto = linkup_result_bucket[0]
 
         self.assertFalse(proto.eof_rx)
-        self.assertIsInstance(proto.connection_lost_error_bucket[0],
-                              DataReceivedError)
+        self.assertIs(proto.connection_lost_error_bucket[0],
+                      data_received_error)
 
         # Verify that stream connector closed "local socket"
         self.assertEqual(remote_sock.recv(1), b'')
+
+
+class TestStreamConnectorDataReceivedRaisesTryAgain(
+        TestStreamConnectorDataReceivedFails):
+
+    def make_data_received_error(self):
+        # Must abort, not be read as recv() would-block (#1819).
+        return BlockingIOError(errno.EAGAIN, 'raised by data_received()')
 
 
 class TestStreamConnectorAbortTransport(

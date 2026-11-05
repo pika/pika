@@ -775,13 +775,14 @@ class _AsyncTransportBase(AbstractStreamTransport):
     def _consume(self) -> None:
         """
         Utility method for use by subclasses to ingest data from socket and dispatch it to
-        protocol's `data_received()` method socket-specific "try again" exception, per-event data
+        protocol's `data_received()` method until `sock.recv()` would block, per-event data
         consumption limit is reached, transport becomes inactive, or a fatal failure.
 
         Consumes up to `self._MAX_CONSUME_BYTES` to prevent event starvation or until state becomes
         inactive (e.g., `protocol.data_received()` callback aborts the transport)
 
-        :raises: Whatever the corresponding `sock.recv()` raises
+        :raises: Whatever the corresponding `sock.recv()` raises, except the "try again" errors,
+            which return
         :raises: Whatever the `protocol.data_received()` callback raises
         :raises _AsyncTransportBase.RxEndOfFile: upon shutdown of input stream
         """
@@ -792,7 +793,15 @@ class _AsyncTransportBase(AbstractStreamTransport):
 
         while (self._state == self._STATE_ACTIVE and
                bytes_consumed < self._MAX_CONSUME_BYTES):
-            data = self._sock.recv(self._MAX_RECV_BYTES)
+            try:
+                data = self._sock.recv(self._MAX_RECV_BYTES)
+            except OSError as error:
+                # Checked here, not by callers, so a "try again" error raised by
+                # data_received() is not mistaken for one from recv() (#1819).
+                if error.errno in pika._utils.TRY_IO_AGAIN_SOCK_ERROR_CODES:
+                    _LOGGER.debug('Recv would block on %s', self._sock)
+                    return
+                raise
             bytes_consumed += len(data)
 
             # Empty data, should disconnect
@@ -1012,9 +1021,11 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
 
     @_log_exceptions
     def _on_socket_readable(self) -> None:
-        """Ingest data from socket and dispatch it to protocol until exception occurs (typically
-        EAGAIN or EWOULDBLOCK), per-event data consumption limit is reached, transport becomes
-        inactive, or failure.
+        """
+        Ingest data from the socket and dispatch it to the protocol.
+
+        Stops when `sock.recv()` would block, the per-event consumption limit is reached, the
+        transport becomes inactive, or on failure.
         """
         if self._state != self._STATE_ACTIVE:
             _LOGGER.debug(
@@ -1046,15 +1057,11 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
                                  self._sock)
                     self._initiate_abort(None)
         except Exception as error:
-            if (isinstance(error, OSError) and
-                    error.errno in pika._utils.TRY_IO_AGAIN_SOCK_ERROR_CODES):
-                _LOGGER.debug('Recv would block on %s', self._sock)
-            else:
-                _LOGGER.exception(
-                    '_AsyncBaseTransport._consume() failed, aborting '
-                    "connection: sock=%s; Caller's stack:\n%s", self._sock,
-                    ''.join(traceback.format_exception(*sys.exc_info())))
-                self._initiate_abort(error)
+            _LOGGER.exception(
+                '_AsyncBaseTransport._consume() failed, aborting '
+                "connection: sock=%s; Caller's stack:\n%s", self._sock,
+                ''.join(traceback.format_exception(*sys.exc_info())))
+            self._initiate_abort(error)
         else:
             if self._state != self._STATE_ACTIVE:
                 # Most likely our protocol's `data_received()` aborted the
