@@ -225,6 +225,9 @@ class InterruptPairTests(unittest.TestCase):
             self.addCleanup(sock.close)
             self.assertEqual(sock.gettimeout(), 0.0)
         pair[1].send(b'X')
+        # Loopback TCP can deliver after send() returns (seen on macOS).
+        readable, _, _ = select.select([pair[0]], [], [], 10)
+        self.assertEqual(readable, [pair[0]], 'the byte never arrived')
         self.assertEqual(pair[0].recv(1), b'X')
 
     @unittest.skipIf(pika._utils.ON_WINDOWS, 'POSIX only')
