@@ -9,7 +9,7 @@ import unittest
 import weakref
 from unittest.mock import ANY, MagicMock, patch
 
-from pika import frame, spec
+from pika import exceptions, frame, spec
 from pika.adapters.thread_safe_connection import (
     _CLOSE_HANDSHAKE_FLOOR,
     DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
@@ -821,10 +821,11 @@ class ChannelTests(unittest.TestCase):
 
     def test_basic_publish_callback_calls_raw_channel(self):
         ch, raw_ch, wrapper = self._make_channel()
+        props = spec.BasicProperties(headers={'k': 'v'})
         ch.basic_publish(exchange='ex',
                          routing_key='rk',
                          body=b'msg',
-                         properties='props',
+                         properties=props,
                          mandatory=True)
         # Extract and invoke the scheduled callback manually
         scheduled_cb = wrapper._schedule_unchecked.call_args[0][0]
@@ -833,9 +834,36 @@ class ChannelTests(unittest.TestCase):
             exchange='ex',
             routing_key='rk',
             body=b'msg',
-            properties='props',
+            properties=props,
             mandatory=True,
         )
+
+    def test_unencodable_publish_raises_at_the_call_site(self):
+        cases = [
+            ({
+                'properties': spec.BasicProperties(headers={'k': {1}})
+            }, exceptions.UnsupportedAMQPFieldException),
+            ({
+                'exchange': 'e' * 256
+            }, exceptions.ShortStringTooLong),
+        ]
+        for kwargs, error in cases:
+            with self.subTest(error=error.__name__):
+                ch, raw_ch, wrapper = self._make_channel()
+                on_publish = MagicMock()
+                args = {'exchange': '', 'routing_key': 'rk', 'body': b'msg'}
+                args.update(kwargs)
+                with self.assertRaises(error):
+                    ch.basic_publish(on_publish=on_publish, **args)
+                wrapper._schedule_unchecked.assert_not_called()
+                raw_ch.basic_publish.assert_not_called()
+
+    def test_str_body_is_sent_as_utf8_bytes(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        ch.basic_publish(exchange='', routing_key='rk', body='caf\u00e9')
+        wrapper._schedule_unchecked.call_args[0][0]()
+        self.assertEqual(raw_ch.basic_publish.call_args[1]['body'],
+                         'caf\u00e9'.encode('utf-8'))
 
     def test_basic_publish_callback_swallows_channel_wrong_state_error(self):
         """ChannelWrongStateError inside the scheduled callback must not propagate to the IOLoop,
