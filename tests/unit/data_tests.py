@@ -14,7 +14,7 @@ from pika import data, exceptions
 class DataTests(unittest.TestCase):
 
     FIELD_TBL_ENCODED = (
-        b'\x00\x00\x00\xf7'
+        b'\x00\x00\x00\xff'
         b'\x05arrayA\x00\x00\x00\x0fI\x00\x00\x00\x01I'
         b'\x00\x00\x00\x02I\x00\x00\x00\x03'
         b'\x07boolvalt\x01'
@@ -23,8 +23,8 @@ class DataTests(unittest.TestCase):
         b'\x07dictvalF\x00\x00\x00\x0c\x03fooS\x00\x00\x00\x03bar'
         b'\x06intvalI\x00\x00\x00\x01'
         b'\x06bigintl\x00\x00\x00\x00\x9a\x7e\xc8\x00'
-        b'\x07longvalI\x36\x65\x26\x55'
-        b'\x07neglongI\xff\xff\xff\xff'
+        b'\x07longvall\x00\x00\x00\x00\x36\x65\x26\x55'
+        b'\x07neglongl\xff\xff\xff\xff\xff\xff\xff\xff'
         b'\x04nullV'
         b'\x06strvalS\x00\x00\x00\x04Test'
         b'\x0ctimestampvalT\x00\x00\x00\x00Ec)\x92'
@@ -43,8 +43,8 @@ class DataTests(unittest.TestCase):
         }),
         ('intval', 1),
         ('bigint', 2592000000),
-        ('longval', 912598613),
-        ('neglong', -1),
+        ('longval', data.LongLong(912598613)),
+        ('neglong', data.LongLong(-1)),
         ('null', None),
         ('strval', 'Test'),
         ('timestampval',
@@ -82,7 +82,7 @@ class DataTests(unittest.TestCase):
     def test_encode_table_bytes(self):
         result = []
         byte_count = data.encode_table(result, self.FIELD_TBL_VALUE)
-        self.assertEqual(byte_count, 251)
+        self.assertEqual(byte_count, 259)
 
     def test_decode_table(self):
         value, _byte_count = data.decode_table(self.FIELD_TBL_ENCODED, 0)
@@ -90,29 +90,63 @@ class DataTests(unittest.TestCase):
 
     def test_decode_table_bytes(self):
         _value, byte_count = data.decode_table(self.FIELD_TBL_ENCODED, 0)
-        self.assertEqual(byte_count, 251)
+        self.assertEqual(byte_count, 259)
+
+    # x-delay = -30000 as a signed 64-bit 'l', as RabbitMQ sends it (#1531).
+    X_DELAY_TABLE = (b'\x00\x00\x00\x11'
+                     b'\x07x-delayl\xff\xff\xff\xff\xff\xff\x8a\xd0')
 
     def test_decode_signed_long_negative(self):
-        """
-        Verify that type tag 'l' decodes as signed 64-bit (fixes #1531).
-
-        RabbitMQ encodes negative longs (e.g. x-delay after delivery) with type tag 'l' and signed
-        64-bit representation.
-        """
-        # Table with x-delay = -30000 encoded as signed 64-bit 'l'
-        input = (b'\x00\x00\x00\x10'
-                 b'\x07x-delayl\xff\xff\xff\xff\xff\xff\x8a\xd0')
-        result, _ = data.decode_table(input, 0)
+        result, _ = data.decode_table(self.X_DELAY_TABLE, 0)
         self.assertEqual(result, {'x-delay': -30000})
+        self.assertIs(type(result['x-delay']), data.LongLong)
 
-    def test_encode_decode_negative_long_roundtrip(self):
-        """Verify negative long values round-trip correctly."""
-        table = {'x-delay': -30000}
+    def test_negative_long_long_encodes_as_l(self):
         pieces = []
-        data.encode_table(pieces, table)
-        encoded = b''.join(pieces)
-        decoded, _ = data.decode_table(encoded, 0)
-        self.assertEqual(decoded, table)
+        data.encode_table(pieces, {'x-delay': data.LongLong(-30000)})
+        self.assertEqual(b''.join(pieces), self.X_DELAY_TABLE)
+
+    def test_long_long_encodes_as_l_whatever_its_magnitude(self):
+        for value in (0, 5, -1, 2**31, -2**63, 2**63 - 1):
+            with self.subTest(value=value):
+                pieces = []
+                self.assertEqual(
+                    data.encode_value(pieces, data.LongLong(value)), 9)
+                self.assertEqual(b''.join(pieces),
+                                 b'l' + struct.pack('>q', value))
+
+    def test_plain_int_that_fits_32_bits_encodes_as_I(self):
+        for value in (5, -1, -2**31, 2**31 - 1):
+            with self.subTest(value=value):
+                pieces = []
+                data.encode_value(pieces, value)
+                self.assertEqual(b''.join(pieces),
+                                 b'I' + struct.pack('>i', value))
+
+    def test_I_decodes_as_a_signed_plain_int(self):
+        value, _ = data.decode_value(b'I\xff\xff\xff\xff', 0)
+        self.assertEqual(value, -1)
+        self.assertIs(type(value), int)
+
+    def test_received_l_and_L_values_are_resent_as_l(self):
+        payload = struct.pack('>q', 5)
+        for tag in (b'l', b'L'):
+            with self.subTest(tag=tag):
+                value, _ = data.decode_value(tag + payload, 0)
+                self.assertIs(type(value), data.LongLong)
+                pieces = []
+                data.encode_value(pieces, value)
+                self.assertEqual(b''.join(pieces), b'l' + payload)
+
+    def test_long_long_outside_signed_64_bits_raises_unencodable_long_error(
+            self):
+        for value in (2**63, -2**63 - 1):
+            with self.subTest(value=value):
+                self.assertRaises(exceptions.UnencodableLongError,
+                                  data.encode_value, [], data.LongLong(value))
+
+    def test_long_long_arithmetic_returns_int(self):
+        self.assertIs(type(data.LongLong(5) + 1), int)
 
     def test_encode_raises(self):
         self.assertRaises(exceptions.UnsupportedAMQPFieldException,
@@ -281,6 +315,7 @@ class DataTests(unittest.TestCase):
         encoded = b'\x00\x00\x00\x0b\x01kL' + struct.pack('>q', -30000)
         result, _ = data.decode_table(encoded, 0)
         self.assertEqual(result, {'k': -30000})
+        self.assertIs(type(result['k']), data.LongLong)
 
     def test_decode_value_float(self):
         # b'f' = 32-bit float

@@ -2,7 +2,7 @@
 
 ## Upgrading to 1.5.0
 
-Nine changes are worth reading before you upgrade. Three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, one lets RabbitMQ close a channel sooner after a consumer timeout, one refuses messages larger than 64 MiB, and one changes what the Twisted adapter reports when a connection closes.
+Ten changes are worth reading before you upgrade. Three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, one lets RabbitMQ close a channel sooner after a consumer timeout, one refuses messages larger than 64 MiB, one changes what the Twisted adapter reports when a connection closes, and one changes the Python types that field-table numbers decode to.
 
 ### `pika.Connection` is new, and is the connection to use
 
@@ -76,7 +76,11 @@ When pika closes a Twisted connection, the reason now reaches the `closed` defer
 
 The module is removed. It held Python 2 compatibility shims and platform checks, was never documented as public API, and nothing in pika imports it any more. It had no leading underscore, though, so it has been importable for years and an upgrade turns `import pika.compat` into `ModuleNotFoundError`.
 
-Twelve of its names moved to `pika._utils`: `ON_LINUX`, `ON_OSX`, `ON_WINDOWS`, `LINUX_VERSION`, `SOL_TCP`, `HAVE_SIGNAL`, `RE_NUM`, `time_now()`, `as_bytes()`, `to_digit()`, `get_linux_version()` and `nonblocking_socketpair()`. That module is private, so it is not a migration target; copy what you need instead. Four that are gone were Python 2 artefacts, and the standard library covers each: `byte()` (`bytes((n,))`), `SOCKET_ERROR` (`OSError`), `AbstractBase` (`abc.ABC`), `str_or_bytes` (`(str, bytes)`). `pika.spec.str`, which was `str = bytes`, goes with them. `long` is gone too, and `int` does not replace it in a field table. 1.4.x sent a `long` as a 64-bit `l` value and decoded every received `l` or `L` value as `long`, so a header passed back on stayed `l`. 1.5.0 decodes those values as `int` and sends an `int` as `l` only when it does not fit a signed 32-bit `I`, so a small value is re-sent as `I`. #1821 tracks restoring a way to send `l`.
+Twelve of its names moved to `pika._utils`: `ON_LINUX`, `ON_OSX`, `ON_WINDOWS`, `LINUX_VERSION`, `SOL_TCP`, `HAVE_SIGNAL`, `RE_NUM`, `time_now()`, `as_bytes()`, `to_digit()`, `get_linux_version()` and `nonblocking_socketpair()`. That module is private, so it is not a migration target; copy what you need instead. Four that are gone were Python 2 artefacts, and the standard library covers each: `byte()` (`bytes((n,))`), `SOCKET_ERROR` (`OSError`), `AbstractBase` (`abc.ABC`), `str_or_bytes` (`(str, bytes)`). `pika.spec.str`, which was `str = bytes`, goes with them. `long` is gone too; in a field table, `pika.data.LongLong` replaces it, as the next section describes.
+
+### 64-bit field-table integers keep their type, and floats decode as `float`
+
+An `l` or `L` field-table value now decodes as `pika.data.LongLong`, an `int` subclass that is always sent as `l`, so a header passed on keeps its 64-bit type, as it did with 1.4.x's `long`. Wrap an `int` in `LongLong` to send it as `l`, which is what a Java consumer reads as `Long`; a plain `int` is still sent as `I` when it fits a signed 32 bits. An `f` or `d` value now decodes as a `float`, where 1.4.x truncated it to an integer.
 
 ### `pika.spec` is now annotated, which may fail your type checker
 

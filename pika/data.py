@@ -59,6 +59,23 @@ _PACK_TAG_DOUBLE = struct.Struct('>cd')
 # `fromtimestamp` goes through a `time_t` that stops at year 3000.
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
+
+class LongLong(int):
+    """
+    An `int` that is sent as a signed 64-bit `l` field-table value, whatever its magnitude.
+
+    A plain `int` is sent as `I` when it fits a signed 32 bits and as `l` otherwise. `l` is how Java
+    sends a `Long`, .NET a `long` and Go an `int64`, and what each decodes `l` into. Values decoded
+    from `l` or `L` fields are `LongLong`, so a received header is sent on with the same type.
+    Arithmetic on a `LongLong` returns a plain `int`, and a serializer that accepts only an exact
+    `int`, such as `yaml.safe_dump`, needs `int(value)`.
+
+    Encoding a value outside signed 64-bit raises `pika.exceptions.UnencodableLongError`.
+    """
+
+    __slots__ = ()
+
+
 # Single-byte `bytes` objects indexed by value. Shared with `pika.spec`,
 # which imports this table for its bit-field buffers.
 _OCTET_BYTES = tuple(bytes((i,)) for i in range(256))
@@ -156,26 +173,28 @@ def encode_value(pieces: list[bytes], value: Any) -> int:
         pieces.append(_PACK_TAG_BYTE.pack(b't', int(value)))
         return 2
     if isinstance(value, int):
+        if not isinstance(value, LongLong):
+            try:
+                pieces.append(_PACK_TAG_INT.pack(b'I', value))
+                return 5
+            except struct.error:
+                pass
+        # A LongLong, or an int too wide for a long ('I'), is a long-long
+        # ('l'). Nothing wider exists, so reject a value outside signed 64-bit
+        # rather than let struct.error escape.
         try:
-            packed = _PACK_TAG_INT.pack(b'I', value)
-            pieces.append(packed)
-            return 5
-        except struct.error:
-            # Too wide for a long ('I'), so fall back to a long-long ('l'). A
-            # Python int outside signed 64-bit has no wider AMQP field-table
-            # integer type, so reject it rather than let struct.error escape.
-            if not -2**63 <= value < 2**63:
-                raise exceptions.UnencodableLongError(value) from None
             pieces.append(_PACK_TAG_LONG_LONG.pack(b'l', value))
-            return 9
-    elif isinstance(value, float):
+        except struct.error:
+            raise exceptions.UnencodableLongError(value) from None
+        return 9
+    if isinstance(value, float):
         # A Python float is a C double, so 'd' is the lossless tag. It is also
         # what decode_value yields for both 'f' and 'd'. Non-finite values
         # (inf, nan) are valid IEEE-754 doubles and encode losslessly, unlike
         # decimal.Decimal, which has no wire representation for them.
         pieces.append(_PACK_TAG_DOUBLE.pack(b'd', value))
         return 9
-    elif isinstance(value, decimal.Decimal):
+    if isinstance(value, decimal.Decimal):
         if not value.is_finite():
             raise exceptions.UnencodableDecimalError(value)
         # Derive the mantissa and scale from as_tuple() using integer
@@ -203,7 +222,7 @@ def encode_value(pieces: list[bytes], value: Any) -> int:
             raise exceptions.UnencodableDecimalError(value)
         pieces.append(_PACK_TAG_BYTE_INT.pack(b'D', decimals, raw))
         return 6
-    elif isinstance(value, datetime):
+    if isinstance(value, datetime):
         seconds = calendar.timegm(value.utctimetuple())
         # 'T' is an unsigned 64-bit POSIX time (see decode_value), so a
         # datetime before the Unix epoch is negative and has no AMQP timestamp
@@ -212,10 +231,10 @@ def encode_value(pieces: list[bytes], value: Any) -> int:
             raise exceptions.UnencodableTimestampError(value)
         pieces.append(_PACK_TAG_UNSIGNED_LONG_LONG.pack(b'T', seconds))
         return 9
-    elif isinstance(value, dict):
+    if isinstance(value, dict):
         pieces.append(b'F')
         return 1 + encode_table(pieces, value)
-    elif isinstance(value, list):
+    if isinstance(value, list):
         list_pieces: list[Any] = []
         for val in value:
             encode_value(list_pieces, val)
@@ -223,11 +242,10 @@ def encode_value(pieces: list[bytes], value: Any) -> int:
         pieces.append(_PACK_TAG_UINT.pack(b'A', len(piece)))
         pieces.append(piece)
         return 5 + len(piece)
-    elif value is None:
+    if value is None:
         pieces.append(b'V')
         return 1
-    else:
-        raise exceptions.UnsupportedAMQPFieldException(pieces, value)
+    raise exceptions.UnsupportedAMQPFieldException(pieces, value)
 
 
 def decode_table(encoded: bytes,
@@ -291,7 +309,7 @@ def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:
     # Long-Long Int (both 'l' and 'L' are signed per RabbitMQ and the
     # AMQP 0-9-1 errata; see rabbitmq/rabbitmq-server#1093)
     elif kind == _FIELD_LONG_LONG_INT_ALT:
-        value = _PACK_LONG_LONG.unpack_from(encoded, offset)[0]
+        value = LongLong(_PACK_LONG_LONG.unpack_from(encoded, offset)[0])
         offset += 8
 
     # Timestamp
@@ -357,7 +375,7 @@ def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:
 
     # Long-Long Int
     elif kind == _FIELD_LONG_LONG_INT:
-        value = _PACK_LONG_LONG.unpack_from(encoded, offset)[0]
+        value = LongLong(_PACK_LONG_LONG.unpack_from(encoded, offset)[0])
         offset += 8
 
     # Float
