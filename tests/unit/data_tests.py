@@ -101,7 +101,7 @@ class DataTests(unittest.TestCase):
         self.assertEqual(result, {'x-delay': -30000})
         self.assertIs(type(result['x-delay']), data.LongLong)
 
-    def test_encode_decode_negative_long_roundtrip(self):
+    def test_negative_long_long_encodes_as_l(self):
         pieces = []
         data.encode_table(pieces, {'x-delay': data.LongLong(-30000)})
         self.assertEqual(b''.join(pieces), self.X_DELAY_TABLE)
