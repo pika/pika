@@ -2,7 +2,7 @@
 
 ## Upgrading to 1.5.0
 
-Ten changes are worth reading before you upgrade. Three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, one lets RabbitMQ close a channel sooner after a consumer timeout, one refuses messages larger than 64 MiB, one changes what the Twisted adapter reports when a connection closes, and one changes the Python types that field-table numbers decode to.
+Eleven changes are worth reading before you upgrade. Three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, one lets RabbitMQ close a channel sooner after a consumer timeout, one refuses messages larger than 64 MiB, one changes what the Twisted adapter reports when a connection closes, one changes the Python types that field-table numbers decode to, and one makes URL `ssl_options` verify the broker.
 
 ### `pika.Connection` is new, and is the connection to use
 
@@ -81,6 +81,10 @@ Twelve of its names moved to `pika._utils`: `ON_LINUX`, `ON_OSX`, `ON_WINDOWS`, 
 ### 64-bit field-table integers keep their type, and floats decode as `float`
 
 An `l` or `L` field-table value now decodes as `pika.data.LongLong`, an `int` subclass that is always sent as `l`, so a header passed on keeps its 64-bit type, as it did with 1.4.x's `long`. Wrap an `int` in `LongLong` to send it as `l`, which is what a Java consumer reads as `Long`; a plain `int` is still sent as `I` when it fits a signed 32 bits. An `f` or `d` value now decodes as a `float`, where 1.4.x truncated it to an integer.
+
+### URL `ssl_options` now always verify the broker
+
+A URL whose `ssl_options` set `protocol` to anything other than `PROTOCOL_TLS_CLIENT` used to build a context that accepted any certificate for any host, because `ssl.SSLContext` starts at `CERT_NONE` for those protocols. Every URL `ssl_options` context now requires a certificate that chains to the named CA, or to the system CAs when none is named, and checks the host name, as `ssl.create_default_context()` does. A connection that only worked because nothing was checked now fails at the TLS handshake. No URL key turns verification off; to connect without it, build an `ssl.SSLContext` yourself and pass it in `pika.SSLOptions`.
 
 ### `pika.spec` is now annotated, which may fail your type checker
 

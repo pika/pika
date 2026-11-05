@@ -706,19 +706,21 @@ class URLParametersTests(ParametersTestsBase):
         # load_default_certs with a purpose; this matches only pika's call.
         load_default_certs.assert_any_call(params.ssl_options.context)
 
-    def test_ssl_options_without_a_ca_verify_whatever_the_protocol(self):
-        for protocol in (ssl.PROTOCOL_TLS, ssl.PROTOCOL_TLSv1_2):
-            opts = url_quote(str({'protocol': int(protocol)}))
-            with warnings.catch_warnings():
-                # ssl deprecates both protocols, which is what this case covers.
-                warnings.simplefilter('ignore', DeprecationWarning)
-                params = connection.URLParameters(
-                    f'amqps://foo.bar/%2F?ssl_options={opts}')
-            assert params.ssl_options is not None
-            context = params.ssl_options.context
-            self.assertEqual(context.protocol, protocol)
-            self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED, protocol)
-            self.assertTrue(context.check_hostname, protocol)
+    def test_ssl_options_verify_whatever_the_protocol(self):
+        for ca in ({}, {'ca_certs': 'tests/certs/ca_certificate.pem'}):
+            for protocol in (ssl.PROTOCOL_TLS, ssl.PROTOCOL_TLSv1_2):
+                with self.subTest(ca=bool(ca), protocol=protocol):
+                    opts = url_quote(str({'protocol': int(protocol), **ca}))
+                    with warnings.catch_warnings():
+                        # ssl deprecates both protocols, which these cases cover.
+                        warnings.simplefilter('ignore', DeprecationWarning)
+                        params = connection.URLParameters(
+                            f'amqps://foo.bar/%2F?ssl_options={opts}')
+                    assert params.ssl_options is not None
+                    context = params.ssl_options.context
+                    self.assertEqual(context.protocol, protocol)
+                    self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
+                    self.assertTrue(context.check_hostname)
 
     def test_ssl_options_with_a_ca_load_only_that_ca(self):
         opts = url_quote(str({'ca_certs': 'tests/certs/ca_certificate.pem'}))
