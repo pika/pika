@@ -997,7 +997,14 @@ class URLParameters(Parameters):
             opt_cafile = opts.get('ca_certs') or opts.get('cafile')
             opt_capath = opts.get('ca_path') or opts.get('capath')
             opt_cadata = opts.get('ca_data') or opts.get('cadata')
-            cxt.load_verify_locations(opt_cafile, opt_capath, opt_cadata)
+            if opt_cafile or opt_capath or opt_cadata:
+                cxt.load_verify_locations(opt_cafile, opt_capath, opt_cadata)
+            else:
+                # The system CAs, as for an amqps URL without ssl_options, and
+                # verified whatever `protocol` set, as create_default_context does.
+                cxt.verify_mode = ssl.CERT_REQUIRED
+                cxt.check_hostname = True
+                cxt.load_default_certs()
 
             # SSLContext.load_cert_chain(certfile, keyfile=None, password=None)
             if 'certfile' in opts:
