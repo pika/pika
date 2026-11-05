@@ -6,6 +6,7 @@ import copy
 import ssl
 import unittest
 import warnings
+from unittest import mock
 from urllib.parse import quote as url_quote
 from urllib.parse import urlencode
 
@@ -688,6 +689,48 @@ class URLParametersTests(ParametersTestsBase):
         assert params.ssl_options is not None
         self.assertEqual(params.ssl_options.context.protocol,
                          ssl.PROTOCOL_TLS_CLIENT)
+
+    def test_ssl_options_without_a_ca_use_the_default_certs(self):
+        opts = url_quote(
+            str({
+                'certfile': 'tests/certs/client_certificate.pem',
+                'keyfile': 'tests/certs/client_key.pem'
+            }))
+        with mock.patch.object(ssl.SSLContext,
+                               'load_default_certs',
+                               autospec=True) as load_default_certs:
+            params = connection.URLParameters(
+                f'amqps://foo.bar/%2F?ssl_options={opts}')
+        assert params.ssl_options is not None
+        # The amqps scheme first builds its own default context, which calls
+        # load_default_certs with a purpose; this matches only pika's call.
+        load_default_certs.assert_any_call(params.ssl_options.context)
+
+    def test_ssl_options_without_a_ca_verify_whatever_the_protocol(self):
+        for protocol in (ssl.PROTOCOL_TLS, ssl.PROTOCOL_TLSv1_2):
+            opts = url_quote(str({'protocol': int(protocol)}))
+            with warnings.catch_warnings():
+                # ssl deprecates both protocols, which is what this case covers.
+                warnings.simplefilter('ignore', DeprecationWarning)
+                params = connection.URLParameters(
+                    f'amqps://foo.bar/%2F?ssl_options={opts}')
+            assert params.ssl_options is not None
+            context = params.ssl_options.context
+            self.assertEqual(context.protocol, protocol)
+            self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED, protocol)
+            self.assertTrue(context.check_hostname, protocol)
+
+    def test_ssl_options_with_a_ca_load_only_that_ca(self):
+        opts = url_quote(str({'ca_certs': 'tests/certs/ca_certificate.pem'}))
+        with mock.patch.object(ssl.SSLContext,
+                               'load_default_certs',
+                               autospec=True) as load_default_certs:
+            params = connection.URLParameters(
+                f'amqps://foo.bar/%2F?ssl_options={opts}')
+        assert params.ssl_options is not None
+        self.assertNotIn(mock.call(params.ssl_options.context),
+                         load_default_certs.call_args_list)
+        self.assertEqual(len(params.ssl_options.context.get_ca_certs()), 1)
 
     def test_no_url_scheme_defaults_to_plaintext(self):
         params = connection.URLParameters('//')
