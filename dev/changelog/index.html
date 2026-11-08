@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../assets/pika.jpg">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -2090,6 +2090,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#url-ssl_options-now-always-verify-the-broker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        URL ssl_options now always verify the broker
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pikaspec-is-now-annotated-which-may-fail-your-type-checker" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2650,6 +2661,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#url-ssl_options-now-always-verify-the-broker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        URL ssl_options now always verify the broker
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pikaspec-is-now-annotated-which-may-fail-your-type-checker" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3099,7 +3121,7 @@
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <p>Notes for each release are also published on the <a href="https://github.com/pika/pika/releases">GitHub releases page</a>, generated from the pull requests and issues the release contains.</p>
 <h2 id="upgrading-to-150">Upgrading to 1.5.0<a class="headerlink" href="#upgrading-to-150" title="Permanent link">&para;</a></h2>
-<p>Ten changes are worth reading before you upgrade. Three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, one lets RabbitMQ close a channel sooner after a consumer timeout, one refuses messages larger than 64 MiB, one changes what the Twisted adapter reports when a connection closes, and one changes the Python types that field-table numbers decode to.</p>
+<p>Eleven changes are worth reading before you upgrade. Three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, one lets RabbitMQ close a channel sooner after a consumer timeout, one refuses messages larger than 64 MiB, one changes what the Twisted adapter reports when a connection closes, one changes the Python types that field-table numbers decode to, and one makes URL <code>ssl_options</code> verify the broker.</p>
 <h3 id="pikaconnection-is-new-and-is-the-connection-to-use"><code>pika.Connection</code> is new, and is the connection to use<a class="headerlink" href="#pikaconnection-is-new-and-is-the-connection-to-use" title="Permanent link">&para;</a></h3>
 <p>1.5.0 introduces <code>pika.Connection</code> and its <code>Channel</code>, a connection that runs its own IOLoop on a background thread and offers a thread-safe blocking API that does not stall heartbeats while your code processes a message. There is nothing to migrate <em>from</em>: these classes are new in this release, and <code>pika.Connection</code> is the documented import.</p>
 <p><code>from pika.adapters.thread_safe_connection import Connection</code> also works, though the module moves in 2.0 (see #1681). <code>Channel</code> is not exported from <code>pika</code>, because channels come from <code>Connection.channel()</code>.</p>
@@ -3141,6 +3163,8 @@
 <p>Twelve of its names moved to <code>pika._utils</code>: <code>ON_LINUX</code>, <code>ON_OSX</code>, <code>ON_WINDOWS</code>, <code>LINUX_VERSION</code>, <code>SOL_TCP</code>, <code>HAVE_SIGNAL</code>, <code>RE_NUM</code>, <code>time_now()</code>, <code>as_bytes()</code>, <code>to_digit()</code>, <code>get_linux_version()</code> and <code>nonblocking_socketpair()</code>. That module is private, so it is not a migration target; copy what you need instead. Four that are gone were Python 2 artefacts, and the standard library covers each: <code>byte()</code> (<code>bytes((n,))</code>), <code>SOCKET_ERROR</code> (<code>OSError</code>), <code>AbstractBase</code> (<code>abc.ABC</code>), <code>str_or_bytes</code> (<code>(str, bytes)</code>). <code>pika.spec.str</code>, which was <code>str = bytes</code>, goes with them. <code>long</code> is gone too; in a field table, <code>pika.data.LongLong</code> replaces it, as the next section describes.</p>
 <h3 id="64-bit-field-table-integers-keep-their-type-and-floats-decode-as-float">64-bit field-table integers keep their type, and floats decode as <code>float</code><a class="headerlink" href="#64-bit-field-table-integers-keep-their-type-and-floats-decode-as-float" title="Permanent link">&para;</a></h3>
 <p>An <code>l</code> or <code>L</code> field-table value now decodes as <code>pika.data.LongLong</code>, an <code>int</code> subclass that is always sent as <code>l</code>, so a header passed on keeps its 64-bit type, as it did with 1.4.x's <code>long</code>. Wrap an <code>int</code> in <code>LongLong</code> to send it as <code>l</code>, which is what a Java consumer reads as <code>Long</code>; a plain <code>int</code> is still sent as <code>I</code> when it fits a signed 32 bits. An <code>f</code> or <code>d</code> value now decodes as a <code>float</code>, where 1.4.x truncated it to an integer.</p>
+<h3 id="url-ssl_options-now-always-verify-the-broker">URL <code>ssl_options</code> now always verify the broker<a class="headerlink" href="#url-ssl_options-now-always-verify-the-broker" title="Permanent link">&para;</a></h3>
+<p>A URL whose <code>ssl_options</code> set <code>protocol</code> to anything other than <code>PROTOCOL_TLS_CLIENT</code> used to build a context that accepted any certificate for any host, because <code>ssl.SSLContext</code> starts at <code>CERT_NONE</code> for those protocols. Every URL <code>ssl_options</code> context now requires a certificate that chains to the named CA, or to the system CAs when none is named, and checks the host name, as <code>ssl.create_default_context()</code> does. A connection that only worked because nothing was checked now fails at the TLS handshake. No URL key turns verification off; to connect without it, build an <code>ssl.SSLContext</code> yourself and pass it in <code>pika.SSLOptions</code>.</p>
 <h3 id="pikaspec-is-now-annotated-which-may-fail-your-type-checker"><code>pika.spec</code> is now annotated, which may fail your type checker<a class="headerlink" href="#pikaspec-is-now-annotated-which-may-fail-your-type-checker" title="Permanent link">&para;</a></h3>
 <p>Pika ships a <code>py.typed</code> marker, so a type checker reads pika's own annotations. <code>pika.spec</code> is generated code and was previously excluded from pika's <code>mypy</code> configuration, which left every field of a decoded frame typed as <code>Any</code>. <code>Any</code> silences all checking, so a downstream <code>mypy</code> run that was clean can go red on upgrade without any change on your end. The most common line in every pika tutorial is affected:</p>
 <div class="highlight"><pre><span></span><code><span id="__span-3-1">error: Argument "delivery_tag" to "basic_ack" of "BlockingChannel" has incompatible type "int | None"; expected "int"  [arg-type]
@@ -4559,7 +4583,7 @@ timer resolution. It is now implemented as a client of the
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.code.copy", "content.code.annotate", "content.footnote.tooltips", "content.tabs.link", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.instant", "navigation.instant.prefetch", "navigation.instant.progress", "navigation.path", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>
