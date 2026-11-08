@@ -1051,7 +1051,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
                     self._initiate_abort(None)
         except Exception as error:
             _LOGGER.exception(
-                '_AsyncBaseTransport._consume() failed, aborting '
+                '_AsyncTransportBase._consume() failed, aborting '
                 'connection: sock=%s', self._sock)
             self._initiate_abort(error)
         else:
@@ -1088,7 +1088,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
                 _LOGGER.debug('Send would block on %s', self._sock)
             else:
                 _LOGGER.exception(
-                    '_AsyncBaseTransport._produce() failed, aborting '
+                    '_AsyncTransportBase._produce() failed, aborting '
                     'connection: sock=%s', self._sock)
                 self._initiate_abort(error)
         else:
