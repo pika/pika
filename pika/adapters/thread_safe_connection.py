@@ -949,22 +949,24 @@ class Channel:
             callback is logged and suppressed rather than propagated, so it does not tear down the
             connection.
         :raises TypeError: if *on_publish* is not callable and not ``None``.
-        :raises Exception: if the connection is already closed.
+        :raises Exception: if the connection is already closed, or whatever encoding the method,
+            properties or body raises, such as `pika.exceptions.UnsupportedAMQPFieldException` for a
+            header value with no field-table type. Both are raised here, before anything is
+            scheduled.
         """
         if on_publish is not None:
             validators.require_callback(on_publish, 'on_publish')
 
         self._check_not_closed()
 
+        # Marshal in the caller's thread: an error on the IOLoop thread can only be logged, and the
+        # IOLoop would encode whatever the caller's objects hold by the time it runs (#1827).
+        frames = self._channel._marshal_publish(exchange, routing_key, body,
+                                                properties, mandatory)
+
         def _publish() -> None:
             try:
-                self._channel.basic_publish(
-                    exchange=exchange,
-                    routing_key=routing_key,
-                    body=body,
-                    properties=properties,
-                    mandatory=mandatory,
-                )
+                self._channel._publish_marshaled(frames)
             except Exception:
                 LOGGER.warning('basic_publish failed (channel may have closed)',
                                exc_info=True)

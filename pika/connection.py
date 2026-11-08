@@ -2525,11 +2525,28 @@ class Connection(abc.ABC):
         :param method_frame: The method frame to send
         :param content: A content frame, which is tuple of properties and body.
         """
+        self._output_marshaled_frames(
+            self._marshal_message(channel_number, method_frame, content))
+
+    def _marshal_message(
+            self, channel_number: int, method_frame: amqp_object.Method,
+            content: tuple[spec.BasicProperties, bytes]) -> list[bytes]:
+        """
+        Marshal a message's method, header and body frames without sending them.
+
+        Reads only the negotiated frame size, so it may run on any thread once the connection is
+        open.
+
+        :param channel_number: The channel number for the frames
+        :param method_frame: The method frame to send
+        :param content: A content frame, which is tuple of properties and body.
+        :returns: The marshaled frames, in sending order
+        """
         length = len(content[1])
         marshaled_body_frames = []
 
-        # Note: we construct the Method, Header and Content objects, marshal them
-        # *then* output in case the marshaling operation throws an exception
+        # Marshal everything before any of it is output, so a marshaling error
+        # sends nothing.
         frame_method = frame.Method(channel_number, method_frame)
         frame_header = frame.Header(channel_number, length, content[0])
         marshaled_body_frames.append(frame_method.marshal())
@@ -2544,7 +2561,7 @@ class Connection(abc.ABC):
                 frame_body = frame.Body(channel_number, content[1][start:end])
                 marshaled_body_frames.append(frame_body.marshal())
 
-        self._output_marshaled_frames(marshaled_body_frames)
+        return marshaled_body_frames
 
     def _set_connection_state(self, connection_state: int) -> None:
         """
