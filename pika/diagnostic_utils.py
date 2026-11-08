@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import functools
-import sys
-import traceback
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 
 if TYPE_CHECKING:
@@ -58,9 +56,7 @@ def create_log_exception_decorator(logger: logging.Logger) -> Callable[[F], F]:
             try:
                 return func(*args, **kwargs)
             except Exception:
-                logger.exception(
-                    "Wrapped func exited with exception. Caller's stack:\n%s",
-                    ''.join(traceback.format_exception(*sys.exc_info())))
+                logger.exception('Wrapped func exited with exception.')
                 raise
 
         return cast(F, log_exception_func_wrap)

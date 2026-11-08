@@ -10,8 +10,6 @@ import numbers
 import os
 import socket
 import ssl
-import sys
-import traceback
 from typing import TYPE_CHECKING, Any, Callable, cast
 
 import pika._utils
@@ -809,13 +807,8 @@ class _AsyncTransportBase(AbstractStreamTransport):
                 _LOGGER.error('Socket EOF; %s', self._sock)
                 raise self.RxEndOfFile()
 
-            # Pass the data to the protocol
-            try:
-                self._protocol.data_received(data)
-            except Exception:
-                _LOGGER.exception('protocol.data_received() failed: %s',
-                                  self._sock)
-                raise
+            # The caller that aborts the transport logs a failure here.
+            self._protocol.data_received(data)
 
     def _produce(self) -> None:
         """
@@ -1058,9 +1051,8 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
                     self._initiate_abort(None)
         except Exception as error:
             _LOGGER.exception(
-                '_AsyncBaseTransport._consume() failed, aborting '
-                "connection: sock=%s; Caller's stack:\n%s", self._sock,
-                ''.join(traceback.format_exception(*sys.exc_info())))
+                '_AsyncTransportBase._consume() failed, aborting '
+                'connection: sock=%s', self._sock)
             self._initiate_abort(error)
         else:
             if self._state != self._STATE_ACTIVE:
@@ -1096,9 +1088,8 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
                 _LOGGER.debug('Send would block on %s', self._sock)
             else:
                 _LOGGER.exception(
-                    '_AsyncBaseTransport._produce() failed, aborting '
-                    "connection: sock=%s; Caller's stack:\n%s", self._sock,
-                    ''.join(traceback.format_exception(*sys.exc_info())))
+                    '_AsyncTransportBase._produce() failed, aborting '
+                    'connection: sock=%s', self._sock)
                 self._initiate_abort(error)
         else:
             if not self._tx_buffers:
@@ -1178,6 +1169,9 @@ class _AsyncSSLTransport(_AsyncTransportBase):
             try:
                 self._ssl_readable_action()
             except Exception as error:
+                _LOGGER.exception(
+                    'SSL readable action %r failed, aborting connection: '
+                    'sock=%s', self._ssl_readable_action, self._sock)
                 self._initiate_abort(error)
         else:
             _LOGGER.debug(
@@ -1198,6 +1192,9 @@ class _AsyncSSLTransport(_AsyncTransportBase):
             try:
                 self._ssl_writable_action()
             except Exception as error:
+                _LOGGER.exception(
+                    'SSL writable action %r failed, aborting connection: '
+                    'sock=%s', self._ssl_writable_action, self._sock)
                 self._initiate_abort(error)
         else:
             _LOGGER.debug(
@@ -1205,7 +1202,6 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                 'ssl_readable_action=%r; %s', self._ssl_readable_action,
                 self._sock)
 
-    @_log_exceptions
     @override
     def _consume(self) -> None:
         """
@@ -1232,11 +1228,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                 _LOGGER.debug('SSL ingester wants write: %s', self._sock)
                 next_consume_on_readable = False
             else:
-                _LOGGER.exception(
-                    '_AsyncBaseTransport._consume() failed, aborting '
-                    "connection: sock=%s; Caller's stack:\n%s", self._sock,
-                    ''.join(traceback.format_exception(*sys.exc_info())))
-                raise  # let outer catch block abort the transport
+                raise  # the readable or writable handler logs and aborts
         else:
             if self._state != self._STATE_ACTIVE:
                 # Most likely our protocol's `data_received()` aborted the
@@ -1280,7 +1272,6 @@ class _AsyncSSLTransport(_AsyncTransportBase):
             self._ssl_writable_action = self._produce
             self._nbio.set_writer(self._sock.fileno(), self._on_socket_writable)
 
-    @_log_exceptions
     @override
     def _produce(self) -> None:
         """
@@ -1307,11 +1298,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                 _LOGGER.debug('SSL emitter wants write: %s', self._sock)
                 next_produce_on_writable = True
             else:
-                _LOGGER.exception(
-                    '_AsyncBaseTransport._produce() failed, aborting '
-                    "connection: sock=%s; Caller's stack:\n%s", self._sock,
-                    ''.join(traceback.format_exception(*sys.exc_info())))
-                raise  # let outer catch block abort the transport
+                raise  # the readable or writable handler logs and aborts
         else:
             # No exception, so everything must have been written to the socket
             assert not self._tx_buffers, (
