@@ -949,10 +949,10 @@ class Channel:
             callback is logged and suppressed rather than propagated, so it does not tear down the
             connection.
         :raises TypeError: if *on_publish* is not callable and not ``None``.
-        :raises Exception: if the connection is already closed.
-        :raises Exception: whatever encoding the method, properties or body raises, such as
-            `pika.exceptions.UnsupportedAMQPFieldException` for a header value with no field-table
-            type. It is raised here, before anything is scheduled.
+        :raises Exception: if the connection is already closed, or whatever encoding the method,
+            properties or body raises, such as `pika.exceptions.UnsupportedAMQPFieldException` for a
+            header value with no field-table type. Both are raised here, before anything is
+            scheduled.
         """
         if on_publish is not None:
             validators.require_callback(on_publish, 'on_publish')
