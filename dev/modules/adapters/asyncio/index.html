@@ -1575,6 +1575,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#pika.adapters.asyncio_connection.AsyncioConnection._marshal_message" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;_marshal_message
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pika.adapters.asyncio_connection.AsyncioConnection._negotiate_integer_value" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4242,6 +4253,17 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;_is_protocol_header_frame
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pika.adapters.asyncio_connection.AsyncioConnection._marshal_message" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;_marshal_message
       
     </span>
   </a>
@@ -8350,6 +8372,154 @@ connection workflow was aborted.</p>
 <div class="doc doc-object doc-function">
 
 
+<h3 id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">_marshal_message</span>
+
+
+<a href="#pika.adapters.asyncio_connection.AsyncioConnection._marshal_message" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">_marshal_message</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="n">channel_number</span><span class="p">:</span> <span class="n"><span title="int">int</span></span><span class="p">,</span>
+</span><span id="__span-0-3">    <span class="n">method_frame</span><span class="p">:</span> <span class="n"><span title="pika.amqp_object.Method">Method</span></span><span class="p">,</span>
+</span><span id="__span-0-4">    <span class="n">content</span><span class="p">:</span> <span class="n"><span title="tuple">tuple</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;BasicProperties&lt;/span&gt; (&lt;code&gt;pika.spec.BasicProperties&lt;/code&gt;)" href="../../spec/#pika.spec.BasicProperties">BasicProperties</a></span><span class="p">,</span> <span class="n"><span title="bytes">bytes</span></span><span class="p">],</span>
+</span><span id="__span-0-5"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><span title="bytes">bytes</span></span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Marshal a message's method, header and body frames without sending them.</p>
+<p>Reads only the negotiated frame size, so it may run on any thread once the connection is
+open.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>channel_number</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>The channel number for the frames</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="int">int</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>method_frame</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>The method frame to send</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="pika.amqp_object.Method">Method</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>content</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>A content frame, which is tuple of properties and body.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="tuple">tuple</span>[<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;BasicProperties&lt;/span&gt; (&lt;code&gt;pika.spec.BasicProperties&lt;/code&gt;)" href="../../spec/#pika.spec.BasicProperties">BasicProperties</a>, <span title="bytes">bytes</span>]</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <span class="doc-returns-annotation">
+                    <code><span title="list">list</span>[<span title="bytes">bytes</span>]</code>
+                </span>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>The marshaled frames, in sending order</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>pika/connection.py</code></summary>
+              <div class="highlight"><pre><span></span><code><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2531"><span class="linenos" data-linenos="2531 "></span><span class="k">def</span><span class="w"> </span><span class="nf">_marshal_message</span><span class="p">(</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2532"><span class="linenos" data-linenos="2532 "></span>        <span class="bp">self</span><span class="p">,</span> <span class="n">channel_number</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">method_frame</span><span class="p">:</span> <span class="n">amqp_object</span><span class="o">.</span><span class="n">Method</span><span class="p">,</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2533"><span class="linenos" data-linenos="2533 "></span>        <span class="n">content</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">spec</span><span class="o">.</span><span class="n">BasicProperties</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]:</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2534"><span class="linenos" data-linenos="2534 "></span><span class="w">    </span><span class="sd">"""</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2535"><span class="linenos" data-linenos="2535 "></span><span class="sd">    Marshal a message's method, header and body frames without sending them.</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2536"><span class="linenos" data-linenos="2536 "></span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2537"><span class="linenos" data-linenos="2537 "></span><span class="sd">    Reads only the negotiated frame size, so it may run on any thread once the connection is</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2538"><span class="linenos" data-linenos="2538 "></span><span class="sd">    open.</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2539"><span class="linenos" data-linenos="2539 "></span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2540"><span class="linenos" data-linenos="2540 "></span><span class="sd">    :param channel_number: The channel number for the frames</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2541"><span class="linenos" data-linenos="2541 "></span><span class="sd">    :param method_frame: The method frame to send</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2542"><span class="linenos" data-linenos="2542 "></span><span class="sd">    :param content: A content frame, which is tuple of properties and body.</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2543"><span class="linenos" data-linenos="2543 "></span><span class="sd">    :returns: The marshaled frames, in sending order</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2544"><span class="linenos" data-linenos="2544 "></span><span class="sd">    """</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2545"><span class="linenos" data-linenos="2545 "></span>    <span class="n">length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">content</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2546"><span class="linenos" data-linenos="2546 "></span>    <span class="n">marshaled_body_frames</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2547"><span class="linenos" data-linenos="2547 "></span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2548"><span class="linenos" data-linenos="2548 "></span>    <span class="c1"># Marshal everything before any of it is output, so a marshaling error</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2549"><span class="linenos" data-linenos="2549 "></span>    <span class="c1"># sends nothing.</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2550"><span class="linenos" data-linenos="2550 "></span>    <span class="n">frame_method</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">Method</span><span class="p">(</span><span class="n">channel_number</span><span class="p">,</span> <span class="n">method_frame</span><span class="p">)</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2551"><span class="linenos" data-linenos="2551 "></span>    <span class="n">frame_header</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">Header</span><span class="p">(</span><span class="n">channel_number</span><span class="p">,</span> <span class="n">length</span><span class="p">,</span> <span class="n">content</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2552"><span class="linenos" data-linenos="2552 "></span>    <span class="n">marshaled_body_frames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">frame_method</span><span class="o">.</span><span class="n">marshal</span><span class="p">())</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2553"><span class="linenos" data-linenos="2553 "></span>    <span class="n">marshaled_body_frames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">frame_header</span><span class="o">.</span><span class="n">marshal</span><span class="p">())</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2554"><span class="linenos" data-linenos="2554 "></span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2555"><span class="linenos" data-linenos="2555 "></span>    <span class="k">if</span> <span class="n">content</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2556"><span class="linenos" data-linenos="2556 "></span>        <span class="n">chunks</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">length</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_body_max_length</span><span class="p">)</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2557"><span class="linenos" data-linenos="2557 "></span>        <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">chunks</span><span class="p">):</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2558"><span class="linenos" data-linenos="2558 "></span>            <span class="n">start</span> <span class="o">=</span> <span class="n">chunk</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_body_max_length</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2559"><span class="linenos" data-linenos="2559 "></span>            <span class="n">end</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_body_max_length</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2560"><span class="linenos" data-linenos="2560 "></span>            <span class="n">end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">end</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2561"><span class="linenos" data-linenos="2561 "></span>            <span class="n">frame_body</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">Body</span><span class="p">(</span><span class="n">channel_number</span><span class="p">,</span> <span class="n">content</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">])</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2562"><span class="linenos" data-linenos="2562 "></span>            <span class="n">marshaled_body_frames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">frame_body</span><span class="o">.</span><span class="n">marshal</span><span class="p">())</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2563"><span class="linenos" data-linenos="2563 "></span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._marshal_message--source--__span-0-2564"><span class="linenos" data-linenos="2564 "></span>    <span class="k">return</span> <span class="n">marshaled_body_frames</span>
+</span></code></pre></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h3 id="pika.adapters.asyncio_connection.AsyncioConnection._negotiate_integer_value" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">_negotiate_integer_value</span>
 
@@ -9682,17 +9852,17 @@ describes the unexpected loss of connection.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pika/connection.py</code></summary>
-              <div class="highlight"><pre><span></span><code><span id="pika.adapters.asyncio_connection.AsyncioConnection._output_marshaled_frames--source--__span-0-2577"><span class="linenos" data-linenos="2577 "></span><span class="k">def</span><span class="w"> </span><span class="nf">_output_marshaled_frames</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._output_marshaled_frames--source--__span-0-2578"><span class="linenos" data-linenos="2578 "></span>                             <span class="n">marshaled_frames</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">bytes</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._output_marshaled_frames--source--__span-0-2579"><span class="linenos" data-linenos="2579 "></span><span class="w">    </span><span class="sd">"""</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._output_marshaled_frames--source--__span-0-2580"><span class="linenos" data-linenos="2580 "></span><span class="sd">    Output list of marshaled frames to buffer and update stats.</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._output_marshaled_frames--source--__span-0-2581"><span class="linenos" data-linenos="2581 "></span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._output_marshaled_frames--source--__span-0-2582"><span class="linenos" data-linenos="2582 "></span><span class="sd">    :param marshaled_frames: A list of frames marshaled to bytes</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._output_marshaled_frames--source--__span-0-2583"><span class="linenos" data-linenos="2583 "></span><span class="sd">    """</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._output_marshaled_frames--source--__span-0-2584"><span class="linenos" data-linenos="2584 "></span>    <span class="k">for</span> <span class="n">marshaled_frame</span> <span class="ow">in</span> <span class="n">marshaled_frames</span><span class="p">:</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._output_marshaled_frames--source--__span-0-2585"><span class="linenos" data-linenos="2585 "></span>        <span class="bp">self</span><span class="o">.</span><span class="n">bytes_sent</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">marshaled_frame</span><span class="p">)</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._output_marshaled_frames--source--__span-0-2586"><span class="linenos" data-linenos="2586 "></span>        <span class="bp">self</span><span class="o">.</span><span class="n">frames_sent</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._output_marshaled_frames--source--__span-0-2587"><span class="linenos" data-linenos="2587 "></span>        <span class="bp">self</span><span class="o">.</span><span class="n">_adapter_emit_data</span><span class="p">(</span><span class="n">marshaled_frame</span><span class="p">)</span>
+              <div class="highlight"><pre><span></span><code><span id="pika.adapters.asyncio_connection.AsyncioConnection._output_marshaled_frames--source--__span-0-2594"><span class="linenos" data-linenos="2594 "></span><span class="k">def</span><span class="w"> </span><span class="nf">_output_marshaled_frames</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._output_marshaled_frames--source--__span-0-2595"><span class="linenos" data-linenos="2595 "></span>                             <span class="n">marshaled_frames</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">bytes</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._output_marshaled_frames--source--__span-0-2596"><span class="linenos" data-linenos="2596 "></span><span class="w">    </span><span class="sd">"""</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._output_marshaled_frames--source--__span-0-2597"><span class="linenos" data-linenos="2597 "></span><span class="sd">    Output list of marshaled frames to buffer and update stats.</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._output_marshaled_frames--source--__span-0-2598"><span class="linenos" data-linenos="2598 "></span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._output_marshaled_frames--source--__span-0-2599"><span class="linenos" data-linenos="2599 "></span><span class="sd">    :param marshaled_frames: A list of frames marshaled to bytes</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._output_marshaled_frames--source--__span-0-2600"><span class="linenos" data-linenos="2600 "></span><span class="sd">    """</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._output_marshaled_frames--source--__span-0-2601"><span class="linenos" data-linenos="2601 "></span>    <span class="k">for</span> <span class="n">marshaled_frame</span> <span class="ow">in</span> <span class="n">marshaled_frames</span><span class="p">:</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._output_marshaled_frames--source--__span-0-2602"><span class="linenos" data-linenos="2602 "></span>        <span class="bp">self</span><span class="o">.</span><span class="n">bytes_sent</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">marshaled_frame</span><span class="p">)</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._output_marshaled_frames--source--__span-0-2603"><span class="linenos" data-linenos="2603 "></span>        <span class="bp">self</span><span class="o">.</span><span class="n">frames_sent</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._output_marshaled_frames--source--__span-0-2604"><span class="linenos" data-linenos="2604 "></span>        <span class="bp">self</span><span class="o">.</span><span class="n">_adapter_emit_data</span><span class="p">(</span><span class="n">marshaled_frame</span><span class="p">)</span>
 </span></code></pre></div>
             </details>
     </div>
@@ -10925,26 +11095,8 @@ be then sent via the connection adapter.</p>
 </span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2525"><span class="linenos" data-linenos="2525 "></span><span class="sd">    :param method_frame: The method frame to send</span>
 </span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2526"><span class="linenos" data-linenos="2526 "></span><span class="sd">    :param content: A content frame, which is tuple of properties and body.</span>
 </span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2527"><span class="linenos" data-linenos="2527 "></span><span class="sd">    """</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2528"><span class="linenos" data-linenos="2528 "></span>    <span class="n">length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">content</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2529"><span class="linenos" data-linenos="2529 "></span>    <span class="n">marshaled_body_frames</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2530"><span class="linenos" data-linenos="2530 "></span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2531"><span class="linenos" data-linenos="2531 "></span>    <span class="c1"># Note: we construct the Method, Header and Content objects, marshal them</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2532"><span class="linenos" data-linenos="2532 "></span>    <span class="c1"># *then* output in case the marshaling operation throws an exception</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2533"><span class="linenos" data-linenos="2533 "></span>    <span class="n">frame_method</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">Method</span><span class="p">(</span><span class="n">channel_number</span><span class="p">,</span> <span class="n">method_frame</span><span class="p">)</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2534"><span class="linenos" data-linenos="2534 "></span>    <span class="n">frame_header</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">Header</span><span class="p">(</span><span class="n">channel_number</span><span class="p">,</span> <span class="n">length</span><span class="p">,</span> <span class="n">content</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2535"><span class="linenos" data-linenos="2535 "></span>    <span class="n">marshaled_body_frames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">frame_method</span><span class="o">.</span><span class="n">marshal</span><span class="p">())</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2536"><span class="linenos" data-linenos="2536 "></span>    <span class="n">marshaled_body_frames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">frame_header</span><span class="o">.</span><span class="n">marshal</span><span class="p">())</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2537"><span class="linenos" data-linenos="2537 "></span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2538"><span class="linenos" data-linenos="2538 "></span>    <span class="k">if</span> <span class="n">content</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2539"><span class="linenos" data-linenos="2539 "></span>        <span class="n">chunks</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">length</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_body_max_length</span><span class="p">)</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2540"><span class="linenos" data-linenos="2540 "></span>        <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">chunks</span><span class="p">):</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2541"><span class="linenos" data-linenos="2541 "></span>            <span class="n">start</span> <span class="o">=</span> <span class="n">chunk</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_body_max_length</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2542"><span class="linenos" data-linenos="2542 "></span>            <span class="n">end</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_body_max_length</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2543"><span class="linenos" data-linenos="2543 "></span>            <span class="n">end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">end</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2544"><span class="linenos" data-linenos="2544 "></span>            <span class="n">frame_body</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">Body</span><span class="p">(</span><span class="n">channel_number</span><span class="p">,</span> <span class="n">content</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">])</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2545"><span class="linenos" data-linenos="2545 "></span>            <span class="n">marshaled_body_frames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">frame_body</span><span class="o">.</span><span class="n">marshal</span><span class="p">())</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2546"><span class="linenos" data-linenos="2546 "></span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2547"><span class="linenos" data-linenos="2547 "></span>    <span class="bp">self</span><span class="o">.</span><span class="n">_output_marshaled_frames</span><span class="p">(</span><span class="n">marshaled_body_frames</span><span class="p">)</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2528"><span class="linenos" data-linenos="2528 "></span>    <span class="bp">self</span><span class="o">.</span><span class="n">_output_marshaled_frames</span><span class="p">(</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._send_message--source--__span-0-2529"><span class="linenos" data-linenos="2529 "></span>        <span class="bp">self</span><span class="o">.</span><span class="n">_marshal_message</span><span class="p">(</span><span class="n">channel_number</span><span class="p">,</span> <span class="n">method_frame</span><span class="p">,</span> <span class="n">content</span><span class="p">))</span>
 </span></code></pre></div>
             </details>
     </div>
@@ -11105,17 +11257,17 @@ be then sent via the connection adapter.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pika/connection.py</code></summary>
-              <div class="highlight"><pre><span></span><code><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_connection_state--source--__span-0-2549"><span class="linenos" data-linenos="2549 "></span><span class="k">def</span><span class="w"> </span><span class="nf">_set_connection_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection_state</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_connection_state--source--__span-0-2550"><span class="linenos" data-linenos="2550 "></span><span class="w">    </span><span class="sd">"""</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_connection_state--source--__span-0-2551"><span class="linenos" data-linenos="2551 "></span><span class="sd">    Set the connection state.</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_connection_state--source--__span-0-2552"><span class="linenos" data-linenos="2552 "></span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_connection_state--source--__span-0-2553"><span class="linenos" data-linenos="2553 "></span><span class="sd">    :param connection_state: The connection state to set</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_connection_state--source--__span-0-2554"><span class="linenos" data-linenos="2554 "></span><span class="sd">    """</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_connection_state--source--__span-0-2555"><span class="linenos" data-linenos="2555 "></span>    <span class="n">LOGGER</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">'New Connection state: </span><span class="si">%s</span><span class="s1"> (prev=</span><span class="si">%s</span><span class="s1">)'</span><span class="p">,</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_connection_state--source--__span-0-2556"><span class="linenos" data-linenos="2556 "></span>                 <span class="bp">self</span><span class="o">.</span><span class="n">_STATE_NAMES</span><span class="p">[</span><span class="n">connection_state</span><span class="p">],</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_connection_state--source--__span-0-2557"><span class="linenos" data-linenos="2557 "></span>                 <span class="bp">self</span><span class="o">.</span><span class="n">_STATE_NAMES</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">connection_state</span><span class="p">])</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_connection_state--source--__span-0-2558"><span class="linenos" data-linenos="2558 "></span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_connection_state--source--__span-0-2559"><span class="linenos" data-linenos="2559 "></span>    <span class="bp">self</span><span class="o">.</span><span class="n">connection_state</span> <span class="o">=</span> <span class="n">connection_state</span>
+              <div class="highlight"><pre><span></span><code><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_connection_state--source--__span-0-2566"><span class="linenos" data-linenos="2566 "></span><span class="k">def</span><span class="w"> </span><span class="nf">_set_connection_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection_state</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_connection_state--source--__span-0-2567"><span class="linenos" data-linenos="2567 "></span><span class="w">    </span><span class="sd">"""</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_connection_state--source--__span-0-2568"><span class="linenos" data-linenos="2568 "></span><span class="sd">    Set the connection state.</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_connection_state--source--__span-0-2569"><span class="linenos" data-linenos="2569 "></span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_connection_state--source--__span-0-2570"><span class="linenos" data-linenos="2570 "></span><span class="sd">    :param connection_state: The connection state to set</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_connection_state--source--__span-0-2571"><span class="linenos" data-linenos="2571 "></span><span class="sd">    """</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_connection_state--source--__span-0-2572"><span class="linenos" data-linenos="2572 "></span>    <span class="n">LOGGER</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">'New Connection state: </span><span class="si">%s</span><span class="s1"> (prev=</span><span class="si">%s</span><span class="s1">)'</span><span class="p">,</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_connection_state--source--__span-0-2573"><span class="linenos" data-linenos="2573 "></span>                 <span class="bp">self</span><span class="o">.</span><span class="n">_STATE_NAMES</span><span class="p">[</span><span class="n">connection_state</span><span class="p">],</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_connection_state--source--__span-0-2574"><span class="linenos" data-linenos="2574 "></span>                 <span class="bp">self</span><span class="o">.</span><span class="n">_STATE_NAMES</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">connection_state</span><span class="p">])</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_connection_state--source--__span-0-2575"><span class="linenos" data-linenos="2575 "></span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_connection_state--source--__span-0-2576"><span class="linenos" data-linenos="2576 "></span>    <span class="bp">self</span><span class="o">.</span><span class="n">connection_state</span> <span class="o">=</span> <span class="n">connection_state</span>
 </span></code></pre></div>
             </details>
     </div>
@@ -11170,21 +11322,21 @@ be then sent via the connection adapter.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pika/connection.py</code></summary>
-              <div class="highlight"><pre><span></span><code><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2561"><span class="linenos" data-linenos="2561 "></span><span class="k">def</span><span class="w"> </span><span class="nf">_set_server_information</span><span class="p">(</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2562"><span class="linenos" data-linenos="2562 "></span>        <span class="bp">self</span><span class="p">,</span> <span class="n">method_frame</span><span class="p">:</span> <span class="n">frame</span><span class="o">.</span><span class="n">Method</span><span class="p">[</span><span class="n">spec</span><span class="o">.</span><span class="n">Connection</span><span class="o">.</span><span class="n">Start</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2563"><span class="linenos" data-linenos="2563 "></span><span class="w">    </span><span class="sd">"""</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2564"><span class="linenos" data-linenos="2564 "></span><span class="sd">    Set the server properties and capabilities.</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2565"><span class="linenos" data-linenos="2565 "></span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2566"><span class="linenos" data-linenos="2566 "></span><span class="sd">    :param method_frame: The Connection.Start frame</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2567"><span class="linenos" data-linenos="2567 "></span><span class="sd">    """</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2568"><span class="linenos" data-linenos="2568 "></span>    <span class="bp">self</span><span class="o">.</span><span class="n">server_properties</span> <span class="o">=</span> <span class="n">method_frame</span><span class="o">.</span><span class="n">method</span><span class="o">.</span><span class="n">server_properties</span>  <span class="c1"># pyright: ignore[reportAttributeAccessIssue]</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2569"><span class="linenos" data-linenos="2569 "></span>    <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_properties</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2570"><span class="linenos" data-linenos="2570 "></span>    <span class="c1"># Note: 'capabilities' is deliberately kept in server_properties.</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2571"><span class="linenos" data-linenos="2571 "></span>    <span class="c1"># Code that removed it never worked (it used hasattr on a dict, dead</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2572"><span class="linenos" data-linenos="2572 "></span>    <span class="c1"># since 2011), so callers have always seen the key there; removing it</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2573"><span class="linenos" data-linenos="2573 "></span>    <span class="c1"># now would break them.</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2574"><span class="linenos" data-linenos="2574 "></span>    <span class="bp">self</span><span class="o">.</span><span class="n">server_capabilities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_properties</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
-</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2575"><span class="linenos" data-linenos="2575 "></span>        <span class="s1">'capabilities'</span><span class="p">,</span> <span class="p">{})</span>
+              <div class="highlight"><pre><span></span><code><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2578"><span class="linenos" data-linenos="2578 "></span><span class="k">def</span><span class="w"> </span><span class="nf">_set_server_information</span><span class="p">(</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2579"><span class="linenos" data-linenos="2579 "></span>        <span class="bp">self</span><span class="p">,</span> <span class="n">method_frame</span><span class="p">:</span> <span class="n">frame</span><span class="o">.</span><span class="n">Method</span><span class="p">[</span><span class="n">spec</span><span class="o">.</span><span class="n">Connection</span><span class="o">.</span><span class="n">Start</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2580"><span class="linenos" data-linenos="2580 "></span><span class="w">    </span><span class="sd">"""</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2581"><span class="linenos" data-linenos="2581 "></span><span class="sd">    Set the server properties and capabilities.</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2582"><span class="linenos" data-linenos="2582 "></span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2583"><span class="linenos" data-linenos="2583 "></span><span class="sd">    :param method_frame: The Connection.Start frame</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2584"><span class="linenos" data-linenos="2584 "></span><span class="sd">    """</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2585"><span class="linenos" data-linenos="2585 "></span>    <span class="bp">self</span><span class="o">.</span><span class="n">server_properties</span> <span class="o">=</span> <span class="n">method_frame</span><span class="o">.</span><span class="n">method</span><span class="o">.</span><span class="n">server_properties</span>  <span class="c1"># pyright: ignore[reportAttributeAccessIssue]</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2586"><span class="linenos" data-linenos="2586 "></span>    <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_properties</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2587"><span class="linenos" data-linenos="2587 "></span>    <span class="c1"># Note: 'capabilities' is deliberately kept in server_properties.</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2588"><span class="linenos" data-linenos="2588 "></span>    <span class="c1"># Code that removed it never worked (it used hasattr on a dict, dead</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2589"><span class="linenos" data-linenos="2589 "></span>    <span class="c1"># since 2011), so callers have always seen the key there; removing it</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2590"><span class="linenos" data-linenos="2590 "></span>    <span class="c1"># now would break them.</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2591"><span class="linenos" data-linenos="2591 "></span>    <span class="bp">self</span><span class="o">.</span><span class="n">server_capabilities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_properties</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+</span><span id="pika.adapters.asyncio_connection.AsyncioConnection._set_server_information--source--__span-0-2592"><span class="linenos" data-linenos="2592 "></span>        <span class="s1">'capabilities'</span><span class="p">,</span> <span class="p">{})</span>
 </span></code></pre></div>
             </details>
     </div>
