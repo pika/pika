@@ -368,6 +368,12 @@ class ExceptionTests(unittest.TestCase):
             'UnencodableDecimalError: decimal.Decimal value has no AMQP decimal '
             'representation: NaN')
 
+    def test_unencodable_float_error_repr(self):
+        self.assertEqual(
+            repr(exceptions.UnencodableFloatError(float('nan'))),
+            'UnencodableFloatError: float value is not finite, which RabbitMQ '
+            'cannot decode: nan')
+
     def test_unencodable_long_error_repr(self):
         self.assertEqual(
             repr(exceptions.UnencodableLongError(2**63)),

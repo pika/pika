@@ -452,6 +452,15 @@ class UnencodableDecimalError(AMQPError):
             f'representation: {self.args[0]!s:.300}')
 
 
+class UnencodableFloatError(AMQPError):
+
+    @override
+    def __repr__(self) -> str:
+        return (
+            f'{self.__class__.__name__}: float value is not finite, which RabbitMQ '
+            f'cannot decode: {self.args[0]!s:.300}')
+
+
 class UnencodableLongError(AMQPError):
 
     @override

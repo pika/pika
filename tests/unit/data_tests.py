@@ -2,7 +2,6 @@
 
 import datetime
 import decimal
-import math
 import struct
 import unittest
 from collections import OrderedDict
@@ -337,21 +336,23 @@ class DataTests(unittest.TestCase):
         self.assertEqual(length, 9)
 
     def test_encode_decode_float_roundtrip(self):
-        # Every float decode_value can yield must also be encodable
-        for value in (0.0, 3.14, -1.5, 1e300, float('inf'), float('-inf')):
+        for value in (0.0, -0.0, 3.14, -1.5, 1e300, -1e300, 5e-324):
             table = {'k': value}
             pieces = []
             data.encode_table(pieces, table)
             decoded, _ = data.decode_table(b''.join(pieces), 0)
             self.assertEqual(decoded, table)
 
-    def test_encode_decode_nan_roundtrip(self):
-        # NaN is a float decode_value can yield too, but it is never equal to
-        # itself, so it cannot ride the assertEqual loop above
-        pieces = []
-        data.encode_table(pieces, {'k': float('nan')})
-        decoded, _ = data.decode_table(b''.join(pieces), 0)
-        self.assertTrue(math.isnan(decoded['k']))
+    def test_encode_non_finite_float_raises(self):
+        for value in (float('inf'), float('-inf'), float('nan')):
+            with self.subTest(value=value):
+                self.assertRaises(exceptions.UnencodableFloatError,
+                                  data.encode_value, [], value)
+
+    def test_encode_table_with_non_finite_float_raises(self):
+        table = {'nested': [{'k': float('nan')}]}
+        self.assertRaises(exceptions.UnencodableFloatError, data.encode_table,
+                          [], table)
 
     def test_reencode_wire_float(self):
         # A 32-bit b'f' field off the wire must survive a decode/encode cycle,
