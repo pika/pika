@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import calendar
 import decimal
+import math
 import struct
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -188,10 +189,12 @@ def encode_value(pieces: list[bytes], value: Any) -> int:
             raise exceptions.UnencodableLongError(value) from None
         return 9
     if isinstance(value, float):
+        # RabbitMQ fails to parse a non-finite double and closes the whole
+        # connection with 541 INTERNAL_ERROR, so reject it before sending.
+        if not math.isfinite(value):
+            raise exceptions.UnencodableFloatError(value)
         # A Python float is a C double, so 'd' is the lossless tag. It is also
-        # what decode_value yields for both 'f' and 'd'. Non-finite values
-        # (inf, nan) are valid IEEE-754 doubles and encode losslessly, unlike
-        # decimal.Decimal, which has no wire representation for them.
+        # what decode_value yields for both 'f' and 'd'.
         pieces.append(_PACK_TAG_DOUBLE.pack(b'd', value))
         return 9
     if isinstance(value, decimal.Decimal):
