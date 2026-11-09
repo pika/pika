@@ -568,6 +568,7 @@ class Channel:
         :param body: The message body
         :param properties: Basic.properties
         :param mandatory: The mandatory flag
+        :raises TypeError: if *body* is not `bytes` or `str`, or a header key is not a string
         """
         self._raise_if_not_open()
         self._publish_marshaled(
@@ -587,13 +588,15 @@ class Channel:
         :param properties: Basic.properties
         :param mandatory: The mandatory flag
         :returns: The marshaled frames, in sending order
+        :raises TypeError: if *body* is not `bytes` or `str`
         """
         return self.connection._marshal_message(
             self.channel_number,
             spec.Basic.Publish(exchange=exchange,
                                routing_key=routing_key,
                                mandatory=mandatory),
-            (properties or spec.BasicProperties(), as_bytes(body)))
+            (properties or
+             spec.BasicProperties(), as_bytes(body, 'basic_publish body')))
 
     def _publish_marshaled(self, marshaled_frames: list[bytes]) -> None:
         """

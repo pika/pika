@@ -72,15 +72,19 @@ def time_now() -> float:
     return time.monotonic()
 
 
-def as_bytes(value: str | bytes) -> bytes:
+def as_bytes(value: str | bytes, name: str = 'value') -> bytes:
     """
     Returns value as bytes.
 
     :param value: value to convert
+    :param name: what *value* is, for the error message
+    :raises TypeError: if *value* is not `str` or `bytes`
     """
-    if not isinstance(value, bytes):
+    if isinstance(value, bytes):
+        return value
+    if isinstance(value, str):
         return value.encode('UTF-8')
-    return value
+    raise TypeError(f'{name} must be bytes or str, not {type(value).__name__}')
 
 
 def to_digit(value: str) -> int:

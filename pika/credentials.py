@@ -88,8 +88,9 @@ class PlainCredentials:
         if as_bytes(PlainCredentials.TYPE) not in as_bytes(
                 start.mechanisms).split():
             return None, None
-        return (PlainCredentials.TYPE, b'\0' + as_bytes(self.username or '') +
-                b'\0' + as_bytes(self.password or ''))
+        return (PlainCredentials.TYPE,
+                b'\0' + as_bytes(self.username or '', 'username') + b'\0' +
+                as_bytes(self.password or '', 'password'))
 
     def erase_credentials(self) -> None:
         """Called by Connection when it no longer needs the credentials."""

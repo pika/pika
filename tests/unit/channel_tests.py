@@ -911,6 +911,13 @@ class ChannelTests(unittest.TestCase):
         self.assertRaises(exceptions.ChannelWrongStateError,
                           self.obj.basic_publish, 'foo', 'bar', 'baz')
 
+    def test_basic_publish_body_of_wrong_type_raises_type_error(self):
+        self.obj._set_state(self.obj.OPEN)
+        for body in (bytearray(b'x'), None):
+            self.assertRaisesRegex(TypeError, 'body must be bytes or str',
+                                   self.obj.basic_publish, '', 'rk', body)
+        self.obj.connection._output_marshaled_frames.assert_not_called()
+
     def test_basic_publish_marshals_and_outputs_the_message(self):
         self.obj._set_state(self.obj.OPEN)
         properties = spec.BasicProperties(content_type='text/plain')

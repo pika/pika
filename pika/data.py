@@ -90,8 +90,15 @@ def encode_short_string(pieces: list[bytes], value: str | bytes) -> int:
     :param pieces: Already encoded values
     :param value: String value to encode; bytes are encoded as-is, which is what
         `decode_short_string` yields for a payload that is not valid UTF-8
+    :raises TypeError: if *value* is not `str` or `bytes`
     """
-    encoded_value = value if isinstance(value, bytes) else value.encode('UTF-8')
+    if isinstance(value, bytes):
+        encoded_value = value
+    elif isinstance(value, str):
+        encoded_value = value.encode('UTF-8')
+    else:
+        raise TypeError('AMQP short string must be str or bytes, not '
+                        f'{type(value).__name__}')
     length = len(encoded_value)
 
     # 4.2.5.3

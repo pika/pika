@@ -17,6 +17,11 @@ class UtilsTests(unittest.TestCase):
     def test_get_linux_version_gcp(self):
         self.assertEqual(pika._utils.get_linux_version('4.4.64+'), (4, 4, 64))
 
+    def test_as_bytes_of_wrong_type_raises_type_error_naming_it(self):
+        with self.assertRaisesRegex(TypeError,
+                                    'username must be bytes or str, not int'):
+            pika._utils.as_bytes(5, 'username')
+
     def test_to_digit(self):
         self.assertEqual(pika._utils.to_digit('64'), 64)
 
