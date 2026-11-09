@@ -2176,20 +2176,20 @@ Arithmetic on a <code>LongLong</code> returns a plain <code>int</code>, and a se
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pika/data.py</code></summary>
-                <div class="highlight"><pre><span></span><code><span id="pika.data.LongLong--source--__span-0-63"><span class="linenos" data-linenos="63 "></span><span class="k">class</span><span class="w"> </span><span class="nc">LongLong</span><span class="p">(</span><span class="nb">int</span><span class="p">):</span>
-</span><span id="pika.data.LongLong--source--__span-0-64"><span class="linenos" data-linenos="64 "></span><span class="w">    </span><span class="sd">"""</span>
-</span><span id="pika.data.LongLong--source--__span-0-65"><span class="linenos" data-linenos="65 "></span><span class="sd">    An `int` that is sent as a signed 64-bit `l` field-table value, whatever its magnitude.</span>
-</span><span id="pika.data.LongLong--source--__span-0-66"><span class="linenos" data-linenos="66 "></span>
-</span><span id="pika.data.LongLong--source--__span-0-67"><span class="linenos" data-linenos="67 "></span><span class="sd">    A plain `int` is sent as `I` when it fits a signed 32 bits and as `l` otherwise. `l` is how Java</span>
-</span><span id="pika.data.LongLong--source--__span-0-68"><span class="linenos" data-linenos="68 "></span><span class="sd">    sends a `Long`, .NET a `long` and Go an `int64`, and what each decodes `l` into. Values decoded</span>
-</span><span id="pika.data.LongLong--source--__span-0-69"><span class="linenos" data-linenos="69 "></span><span class="sd">    from `l` or `L` fields are `LongLong`, so a received header is sent on with the same type.</span>
-</span><span id="pika.data.LongLong--source--__span-0-70"><span class="linenos" data-linenos="70 "></span><span class="sd">    Arithmetic on a `LongLong` returns a plain `int`, and a serializer that accepts only an exact</span>
-</span><span id="pika.data.LongLong--source--__span-0-71"><span class="linenos" data-linenos="71 "></span><span class="sd">    `int`, such as `yaml.safe_dump`, needs `int(value)`.</span>
-</span><span id="pika.data.LongLong--source--__span-0-72"><span class="linenos" data-linenos="72 "></span>
-</span><span id="pika.data.LongLong--source--__span-0-73"><span class="linenos" data-linenos="73 "></span><span class="sd">    Encoding a value outside signed 64-bit raises `pika.exceptions.UnencodableLongError`.</span>
-</span><span id="pika.data.LongLong--source--__span-0-74"><span class="linenos" data-linenos="74 "></span><span class="sd">    """</span>
-</span><span id="pika.data.LongLong--source--__span-0-75"><span class="linenos" data-linenos="75 "></span>
-</span><span id="pika.data.LongLong--source--__span-0-76"><span class="linenos" data-linenos="76 "></span>    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+                <div class="highlight"><pre><span></span><code><span id="pika.data.LongLong--source--__span-0-64"><span class="linenos" data-linenos="64 "></span><span class="k">class</span><span class="w"> </span><span class="nc">LongLong</span><span class="p">(</span><span class="nb">int</span><span class="p">):</span>
+</span><span id="pika.data.LongLong--source--__span-0-65"><span class="linenos" data-linenos="65 "></span><span class="w">    </span><span class="sd">"""</span>
+</span><span id="pika.data.LongLong--source--__span-0-66"><span class="linenos" data-linenos="66 "></span><span class="sd">    An `int` that is sent as a signed 64-bit `l` field-table value, whatever its magnitude.</span>
+</span><span id="pika.data.LongLong--source--__span-0-67"><span class="linenos" data-linenos="67 "></span>
+</span><span id="pika.data.LongLong--source--__span-0-68"><span class="linenos" data-linenos="68 "></span><span class="sd">    A plain `int` is sent as `I` when it fits a signed 32 bits and as `l` otherwise. `l` is how Java</span>
+</span><span id="pika.data.LongLong--source--__span-0-69"><span class="linenos" data-linenos="69 "></span><span class="sd">    sends a `Long`, .NET a `long` and Go an `int64`, and what each decodes `l` into. Values decoded</span>
+</span><span id="pika.data.LongLong--source--__span-0-70"><span class="linenos" data-linenos="70 "></span><span class="sd">    from `l` or `L` fields are `LongLong`, so a received header is sent on with the same type.</span>
+</span><span id="pika.data.LongLong--source--__span-0-71"><span class="linenos" data-linenos="71 "></span><span class="sd">    Arithmetic on a `LongLong` returns a plain `int`, and a serializer that accepts only an exact</span>
+</span><span id="pika.data.LongLong--source--__span-0-72"><span class="linenos" data-linenos="72 "></span><span class="sd">    `int`, such as `yaml.safe_dump`, needs `int(value)`.</span>
+</span><span id="pika.data.LongLong--source--__span-0-73"><span class="linenos" data-linenos="73 "></span>
+</span><span id="pika.data.LongLong--source--__span-0-74"><span class="linenos" data-linenos="74 "></span><span class="sd">    Encoding a value outside signed 64-bit raises `pika.exceptions.UnencodableLongError`.</span>
+</span><span id="pika.data.LongLong--source--__span-0-75"><span class="linenos" data-linenos="75 "></span><span class="sd">    """</span>
+</span><span id="pika.data.LongLong--source--__span-0-76"><span class="linenos" data-linenos="76 "></span>
+</span><span id="pika.data.LongLong--source--__span-0-77"><span class="linenos" data-linenos="77 "></span>    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
 </span></code></pre></div>
               </details>
 
