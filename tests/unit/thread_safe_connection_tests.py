@@ -893,6 +893,14 @@ class ChannelTests(unittest.TestCase):
                 wrapper._schedule_unchecked.assert_not_called()
                 raw_ch._publish_marshaled.assert_not_called()
 
+    def test_body_of_wrong_type_raises_at_the_call_site(self):
+        ch, _raw_ch, wrapper = self._make_channel()
+        with self.assertRaisesRegex(TypeError, 'body must be bytes or str'):
+            ch.basic_publish(exchange='',
+                             routing_key='rk',
+                             body=bytearray(b'x'))
+        wrapper._schedule_unchecked.assert_not_called()
+
     def test_str_body_is_sent_as_utf8_bytes(self):
         ch, raw_ch, wrapper = self._make_channel()
         ch.basic_publish(exchange='', routing_key='rk', body='caf\u00e9')

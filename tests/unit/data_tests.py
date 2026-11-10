@@ -147,6 +147,16 @@ class DataTests(unittest.TestCase):
     def test_long_long_arithmetic_returns_int(self):
         self.assertIs(type(data.LongLong(5) + 1), int)
 
+    def test_bytes_table_key_is_encoded_as_is(self):
+        pieces = []
+        data.encode_table(pieces, {b'k\xff': 1})
+        self.assertEqual(b''.join(pieces),
+                         b'\x00\x00\x00\x08\x02k\xffI\x00\x00\x00\x01')
+
+    def test_non_string_table_key_raises_type_error_naming_it(self):
+        with self.assertRaisesRegex(TypeError, 'short string.*not int'):
+            data.encode_table([], {1: 'a'})
+
     def test_encode_raises(self):
         self.assertRaises(exceptions.UnsupportedAMQPFieldException,
                           data.encode_table, [], {'foo': {1, 2, 3}})
