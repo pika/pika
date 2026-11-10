@@ -1437,6 +1437,8 @@ class Connection(abc.ABC):
         :param channel_number: The channel number to use, defaults to the next available.
         :param on_open_callback: The callback when the channel is opened. The callback will be
             invoked with the `Channel` instance as its only argument.
+        :raises ValueError: if *channel_number* is outside 1 to `pika.channel.MAX_CHANNELS` or
+            belongs to a channel this connection has not finished closing.
         """
         if not self.is_open:
             raise exceptions.ConnectionWrongStateError(
@@ -1446,6 +1448,13 @@ class Connection(abc.ABC):
 
         if not channel_number:
             channel_number = self._next_channel_number()
+        elif not 1 <= channel_number <= pika.channel.MAX_CHANNELS:
+            raise ValueError(
+                f'channel_number must be between 1 and {pika.channel.MAX_CHANNELS}, '
+                f'but got {channel_number!r}')
+        elif channel_number in self._channels:
+            raise ValueError(
+                f'channel_number {channel_number} is already in use')
 
         self._channels[channel_number] = self._create_channel(
             channel_number, on_open_callback)

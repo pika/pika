@@ -451,6 +451,32 @@ class ConnectionTests(unittest.TestCase):
         self.connection._add_channel_callbacks.assert_called_once_with(42)
         test_channel.open.assert_called_once_with()
 
+    def test_channel_with_number_in_use_raises_without_replacing(self):
+        existing = mock.Mock(spec=channel.Channel)
+        self.connection._channels[5] = existing
+        self.connection._create_channel = mock.Mock()
+        with self.assertRaises(ValueError):
+            self.connection.channel(5)
+        self.assertIs(self.connection._channels[5], existing)
+        self.connection._create_channel.assert_not_called()
+
+    def test_channel_with_number_out_of_range_raises_without_registering(self):
+        self.connection._create_channel = mock.Mock()
+        for number in (-1, channel.MAX_CHANNELS + 1):
+            with self.subTest(number=number):
+                with self.assertRaises(ValueError):
+                    self.connection.channel(number)
+                self.assertNotIn(number, self.connection._channels)
+        self.connection._create_channel.assert_not_called()
+
+    def test_channel_with_max_number_opens(self):
+        test_channel = mock.Mock(spec=channel.Channel)
+        self.connection._create_channel = mock.Mock(return_value=test_channel)
+        self.connection._add_channel_callbacks = mock.Mock()
+        self.assertIs(self.connection.channel(channel.MAX_CHANNELS),
+                      test_channel)
+        test_channel.open.assert_called_once_with()
+
     def test_channel_on_closed_connection_raises_connection_closed(self):
         self.connection.connection_state = self.connection.CONNECTION_CLOSED
         with self.assertRaises(exceptions.ConnectionWrongStateError):
