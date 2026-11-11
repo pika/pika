@@ -342,6 +342,18 @@ class BlockingConnectionTests(unittest.TestCase):
     @patch.object(blocking_connection.select_connection,
                   'SelectConnection',
                   spec_set=SelectConnectionTemplate)
+    def test_channel_propagates_impl_error(self, select_connection_class_mock):
+        connection, impl_mock = self._make_open_connection(
+            select_connection_class_mock)
+        impl_mock.channel.side_effect = ValueError('already in use')
+        with self.assertRaisesRegex(ValueError, 'already in use'):
+            connection.channel(5)
+        impl_mock.channel.assert_called_once_with(channel_number=5,
+                                                  on_open_callback=mock.ANY)
+
+    @patch.object(blocking_connection.select_connection,
+                  'SelectConnection',
+                  spec_set=SelectConnectionTemplate)
     def test_sleep(self, select_connection_class_mock):
         with mock.patch.object(blocking_connection.BlockingConnection,
                                '_create_connection'):

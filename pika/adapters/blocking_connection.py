@@ -987,6 +987,11 @@ class BlockingConnection:
         manage the channel numbers.
 
         :param channel_number: optional channel number to use
+        :raises InvalidChannelNumber: if *channel_number* is neither `None` nor an `int`, or is a
+            `bool`.
+        :raises ValueError: if a non-zero *channel_number* is outside 1 to
+            `pika.channel.MAX_CHANNELS` or belongs to a channel this connection has not finished
+            closing.
         """
         with _CallbackResult(self._OnChannelOpenedArgs) as opened_args:
             impl_channel = self._impl.channel(
