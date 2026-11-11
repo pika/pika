@@ -1258,10 +1258,19 @@ class TwistedProtocolConnection(protocol.Protocol):
         """
         Create a new channel with the next available channel number or pass in a channel number to
         use. Must be non-zero if you would like to specify but it is recommended that you let Pika
-        manage the channel numbers.
+        manage the channel numbers. An invalid *channel_number* raises from this call rather than
+        failing the returned Deferred.
 
         :param channel_number: The channel number to use, defaults to the next available.
         :returns: a Deferred that fires with an instance of a wrapper around the Pika Channel class.
+        :raises InvalidChannelNumber: if *channel_number* is neither `None` nor an `int`, or is a
+            `bool`.
+        :raises ValueError: if a non-zero *channel_number* is outside 1 to
+            `pika.channel.MAX_CHANNELS` or belongs to a channel this connection has not finished
+            closing. That includes code resumed by the channel's close, such as an errback of one of
+            its pending calls or `TwistedChannel.on_closed`; defer such a reopen to a later turn of
+            the connection's reactor with `twisted.internet.task.deferLater(reactor, 0,
+            connection.channel, channel_number)`, which returns a Deferred for the new channel.
         """
         d: defer.Deferred[Any] = defer.Deferred()
         self._impl.channel(channel_number, d.callback)

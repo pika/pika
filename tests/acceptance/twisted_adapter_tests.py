@@ -794,6 +794,14 @@ class TwistedProtocolConnectionTestCase(TestCase):
         self.assertFailure(d, RuntimeError)
         assert d.called
 
+    @pytest.mark.timeout(5)
+    def test_channel_raises_impl_error_synchronously(self):
+        self.conn_impl_mock.channel.side_effect = ValueError('already in use')
+        with self.assertRaisesRegex(ValueError, 'already in use'):
+            self.conn.channel(5)
+        self.conn_impl_mock.channel.assert_called_once_with(5, mock.ANY)
+        self.assertEqual(len(self.conn._calls), 0)
+
     def test_dataReceived(self):
         # Verify that the data is transmitted to the callback method.
         self.conn.dataReceived(b'testdata')

@@ -1,5 +1,6 @@
 """Tests for pika.connection.Connection."""
 
+import enum
 import platform
 import random
 import struct
@@ -450,6 +451,118 @@ class ConnectionTests(unittest.TestCase):
             42, dummy_callback)
         self.connection._add_channel_callbacks.assert_called_once_with(42)
         test_channel.open.assert_called_once_with()
+
+    def test_channel_with_number_of_unfinished_channel_raises(self):
+        # CLOSED covers a reopen from the channel's own on-close callback,
+        # which runs before cleanup removes the number from `_channels`.
+        self.connection._create_channel = mock.Mock()
+        for state in (channel.Channel.OPENING, channel.Channel.OPEN,
+                      channel.Channel.CLOSING, channel.Channel.CLOSED):
+            with self.subTest(state=state):
+                existing = channel.Channel(self.connection, 5, None)
+                existing._set_state(state)
+                self.connection._channels[5] = existing
+                with self.assertRaisesRegex(ValueError, 'already in use'):
+                    self.connection.channel(5)
+                self.assertIs(self.connection._channels[5], existing)
+        self.connection._create_channel.assert_not_called()
+
+    def test_channel_bound_is_max_channels_not_negotiated_channel_max(self):
+        self.connection.params.channel_max = 100
+        self.connection._create_channel = mock.Mock()
+        self.connection._add_channel_callbacks = mock.Mock()
+        self.connection.channel(101)
+        self.connection._create_channel.assert_called_once_with(101, None)
+
+    def test_channel_with_number_out_of_range_raises_without_creating(self):
+        self.connection._create_channel = mock.Mock()
+        for number in (-1, channel.MAX_CHANNELS + 1):
+            with self.subTest(number=number), self.assertRaisesRegex(
+                    ValueError, 'must be between'):
+                self.connection.channel(number)
+        self.connection._create_channel.assert_not_called()
+
+    def test_channel_with_non_int_number_raises_invalid_channel_number(self):
+        # setUp registers channel 1, so 1.0 and True must fail the type check
+        # rather than the in-use check.
+        self.connection._create_channel = mock.Mock()
+        for number in ('5', '', 0.0, 1.0, -1.0, channel.MAX_CHANNELS + 1.0,
+                       True, False):
+            with self.subTest(number=number), self.assertRaises(
+                    exceptions.InvalidChannelNumber) as raised:
+                self.connection.channel(number)
+            self.assertIs(raised.exception.args[0], number)
+        self.connection._create_channel.assert_not_called()
+
+    def test_channel_with_zero_allocates_next_number(self):
+        self.connection._next_channel_number = mock.Mock(return_value=42)
+        self.connection._create_channel = mock.Mock()
+        self.connection.channel(0)
+        self.connection._create_channel.assert_called_once_with(42, None)
+        self.assertIn(42, self.connection._channels)
+
+    def test_channel_with_explicit_number_uses_it(self):
+        # setUp registers channel 1; free it so the lower bound is exercised.
+        self.connection._channels.clear()
+        self.connection._next_channel_number = mock.Mock()
+        for number in (1, 2, channel.MAX_CHANNELS):
+            with self.subTest(number=number):
+                test_channel = mock.Mock(spec=channel.Channel)
+                self.connection._create_channel = mock.Mock(
+                    return_value=test_channel)
+                self.connection._add_channel_callbacks = mock.Mock()
+                self.assertIs(self.connection.channel(number), test_channel)
+                self.connection._create_channel.assert_called_once_with(
+                    number, None)
+                self.connection._add_channel_callbacks.assert_called_once_with(
+                    number)
+                self.assertIs(self.connection._channels[number], test_channel)
+                test_channel.open.assert_called_once_with()
+        self.connection._next_channel_number.assert_not_called()
+
+    def test_channel_with_int_subclass_number_uses_plain_int(self):
+
+        class IntNumber(enum.IntEnum):
+            FIVE = 5
+
+        class MixinNumber(int, enum.Enum):
+            SIX = 6
+
+        class LyingInt(int):
+
+            def __int__(self):
+                return 7
+
+            def __str__(self):
+                return '7'
+
+        self.connection._create_channel = mock.Mock()
+        with self.assertRaisesRegex(ValueError, 'must be between'):
+            self.connection.channel(LyingInt(70000))
+        for number, expected in ((IntNumber.FIVE, 5), (MixinNumber.SIX, 6),
+                                 (LyingInt(8), 8)):
+            with self.subTest(number=number):
+                self.connection.channel(number)
+                registered = self.connection._create_channel.call_args[0][0]
+                self.assertIs(type(registered), int)
+                self.assertEqual(registered, expected)
+                self.assertIn(expected, self.connection._channels)
+
+    def test_channel_on_closed_connection_with_bad_number_raises_wrong_state(
+            self):
+        self.connection.connection_state = self.connection.CONNECTION_CLOSED
+        for number in (self.channel.channel_number, channel.MAX_CHANNELS + 1,
+                       '5'):
+            with self.subTest(number=number), self.assertRaises(
+                    exceptions.ConnectionWrongStateError):
+                self.connection.channel(number)
+
+    def test_channel_with_bad_number_and_callback_raises_type_error(self):
+        for number in (self.channel.channel_number, channel.MAX_CHANNELS + 1,
+                       '5'):
+            with self.subTest(number=number), self.assertRaisesRegex(
+                    TypeError, 'callable'):
+                self.connection.channel(number, on_open_callback='x')
 
     def test_channel_on_closed_connection_raises_connection_closed(self):
         self.connection.connection_state = self.connection.CONNECTION_CLOSED
