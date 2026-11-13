@@ -1132,15 +1132,15 @@ class Connection(abc.ABC):
 
         # Set our configuration options
         if parameters is not None:
-            # NOTE: Work around inability to copy ssl.SSLContext contained in
-            # our SSLOptions; ssl.SSLContext fails to implement __getnewargs__
-            saved_ssl_options = parameters.ssl_options
-            parameters.ssl_options = None
-            try:
-                self.params = copy.deepcopy(parameters)
-                self.params.ssl_options = saved_ssl_options
-            finally:
-                parameters.ssl_options = saved_ssl_options
+            # NOTE: ssl.SSLContext fails to implement __getnewargs__, so the
+            # SSLOptions containing it cannot be copied. Seed the memo with
+            # the existing SSLOptions to share it with the copy instead of
+            # temporarily clearing it on the caller's parameters object,
+            # which races with other threads constructing connections from
+            # the same object (gh-1842)
+            ssl_options = parameters.ssl_options
+            self.params = copy.deepcopy(parameters,
+                                        {id(ssl_options): ssl_options})
         else:
             self.params = ConnectionParameters()
 
