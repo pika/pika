@@ -1,9 +1,12 @@
 """Tests for pika.connection.Connection."""
 
+import copy
 import enum
 import platform
 import random
+import ssl
 import struct
+import threading
 import unittest
 from unittest import mock
 
@@ -47,6 +50,54 @@ class ConstructibleConnection(connection.Connection):
 
 
 class ConnectionTests(unittest.TestCase):
+
+    def test_constructor_does_not_mutate_caller_ssl_options(self):
+        """
+        Constructing a Connection must not mutate the caller's parameters.
+
+        gh-1842: Connection used to clear `parameters.ssl_options` around
+        the deepcopy, so a second thread building a connection from the
+        same parameters object could observe the `None` and permanently
+        drop TLS from the shared object.
+        """
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ssl_options = connection.SSLOptions(context)
+        params = connection.ConnectionParameters(ssl_options=ssl_options)
+
+        original_deepcopy = copy.deepcopy
+        entered = threading.Event()
+        release = threading.Event()
+        observed_cleared = []
+
+        def pausing_deepcopy(obj, memo=None):
+            if isinstance(obj, connection.ConnectionParameters):
+                entered.set()
+                # Hold open the window where the caller's object used to
+                # have ssl_options cleared so the watcher can observe it
+                release.wait(5)
+            return original_deepcopy(obj, memo)
+
+        def watcher():
+            entered.wait(5)
+            if params.ssl_options is None:
+                observed_cleared.append(True)
+            release.set()
+
+        with mock.patch.object(connection.copy, 'deepcopy', pausing_deepcopy):
+            thread = threading.Thread(target=watcher)
+            thread.start()
+            with mock.patch.object(ConstructibleConnection,
+                                   '_adapter_connect_stream'):
+                conn = ConstructibleConnection(params)
+            thread.join(10)
+
+        self.assertFalse(
+            observed_cleared, "caller's parameters.ssl_options was observed "
+            'cleared during construction')
+        self.assertIs(params.ssl_options, ssl_options)
+        self.assertIs(conn.params.ssl_options, ssl_options)
+        self.assertIsNot(conn.params, params)
+        self.assertEqual(conn.params.host, params.host)
 
     def setUp(self):
 
