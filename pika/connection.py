@@ -1050,6 +1050,18 @@ class SSLOptions:
         self.context = context
         self.server_hostname = server_hostname
 
+    def __deepcopy__(self, memo: dict) -> SSLOptions:
+        """
+        Return self: the wrapped ssl.SSLContext cannot be copied.
+
+        ssl.SSLContext fails to implement __getnewargs__, so a plain
+        copy.deepcopy of an SSLOptions (or of a parameters object holding
+        one) raises TypeError (gh-1845). Share the instance with the copy
+        instead: the context and server_hostname are caller-owned and are
+        not mutated by pika.
+        """
+        return self
+
 
 class Connection(abc.ABC):
     """

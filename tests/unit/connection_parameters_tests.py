@@ -509,6 +509,24 @@ class ConnectionParametersTests(ParametersTestsBase):
         self.assertIsNotNone(params.ssl_options)
         self.assertEqual(params.port, params.DEFAULT_SSL_PORT)
 
+    def test_deepcopy_with_ssl_options(self):
+        # gh-1845: ssl.SSLContext cannot be copied, so deepcopying
+        # parameters that carry SSLOptions must not raise; the copy
+        # shares the one SSLOptions instance.
+        ssl_options = connection.SSLOptions(ssl.create_default_context())
+        params = connection.ConnectionParameters(ssl_options=ssl_options)
+
+        params_copy = copy.deepcopy(params)
+
+        self.assertIsNot(params_copy, params)
+        self.assertIs(params_copy.ssl_options, ssl_options)
+        self.assertEqual(params_copy.host, params.host)
+
+    def test_deepcopy_ssl_options_returns_same_instance(self):
+        ssl_options = connection.SSLOptions(ssl.create_default_context())
+
+        self.assertIs(copy.deepcopy(ssl_options), ssl_options)
+
     def test_explicit_ssl_with_explict_port(self):
         params = connection.ConnectionParameters(
             ssl_options=connection.SSLOptions(ssl.create_default_context()),
@@ -738,6 +756,19 @@ class URLParametersTests(ParametersTestsBase):
         params = connection.URLParameters('//')
         self.assertIsNone(params.ssl_options)
         self.assertEqual(params.port, params.DEFAULT_PORT)
+
+    def test_deepcopy_with_ssl_options(self):
+        # gh-1845: an amqps URL builds SSLOptions with a real SSLContext;
+        # deepcopying the parameters must not raise, and the copy shares
+        # the one SSLOptions instance.
+        params = connection.URLParameters('amqps://guest:guest@localhost/%2F')
+        assert params.ssl_options is not None
+
+        params_copy = copy.deepcopy(params)
+
+        self.assertIsNot(params_copy, params)
+        self.assertIs(params_copy.ssl_options, params.ssl_options)
+        self.assertEqual(params_copy.host, params.host)
 
     def test_bad_max_inbound_message_body_size_raises_value_error(self):
         for value in ('abc', '0', str(512 * 1024 * 1024 + 1)):
