@@ -2,7 +2,7 @@
 
 ## Upgrading to 1.5.0
 
-Eleven changes are worth reading before you upgrade. Three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, one lets RabbitMQ close a channel sooner after a consumer timeout, one refuses messages larger than 64 MiB, one changes what the Twisted adapter reports when a connection closes, one changes the Python types that field-table numbers decode to, and one makes URL `ssl_options` verify the broker.
+Twelve changes are worth reading before you upgrade. Three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, one lets RabbitMQ close a channel sooner after a consumer timeout, one refuses messages larger than 64 MiB, one changes what the Twisted adapter reports when a connection closes, one changes the Python types that field-table numbers decode to, one makes URL `ssl_options` verify the broker, and one lets connection parameters that carry TLS options be deep-copied.
 
 ### `pika.Connection` is new, and is the connection to use
 
@@ -100,5 +100,9 @@ Two properties of the generated code account for it. Every generated constructor
 The errors are accurate and the annotations are an improvement, so nothing here should be reverted. The FAQ covers the narrowing idioms: https://pika.github.io/pika/latest/faq/
 
 `pyright` users see little change, since it reported most of these already.
+
+### Connection parameters that carry TLS options can be deep-copied
+
+`copy.deepcopy` of a parameters object holding `SSLOptions`, including `URLParameters('amqps://...')`, used to raise `TypeError: cannot pickle 'SSLContext' object`, because `ssl.SSLContext` supports neither copy nor pickle. `SSLOptions` now implements `__deepcopy__` and shares itself with the copy, so parameters with TLS options copy cleanly and user code no longer needs its own workaround. The trade-off: `copy.deepcopy(ssl_options)` no longer raises, and the copy's `ssl_options` is the same instance as the original's, so mutating one affects the other (gh-1845).
 
 The same notes are in the changelog, which also carries the full version history: https://pika.github.io/pika/latest/changelog/
