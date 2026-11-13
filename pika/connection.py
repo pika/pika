@@ -1434,16 +1434,16 @@ class Connection(abc.ABC):
         use. Must be non-zero if you would like to specify but it is recommended that you let Pika
         manage the channel numbers.
 
+        A closed channel's number may be reused from its on-close callback while the connection
+        remains open.
+
         :param channel_number: The channel number to use, defaults to the next available.
         :param on_open_callback: The callback when the channel is opened. The callback will be
             invoked with the `Channel` instance as its only argument.
         :raises InvalidChannelNumber: if *channel_number* is neither `None` nor an `int`, or is a
             `bool`.
         :raises ValueError: if a non-zero *channel_number* is outside 1 to
-            `pika.channel.MAX_CHANNELS` or belongs to a channel this connection has not finished
-            closing. A channel finishes closing only after its on-close callbacks return, so to
-            reopen its number from one of them, schedule the call on the IOLoop instead of making it
-            directly.
+            `pika.channel.MAX_CHANNELS` or belongs to a channel that is not closed.
         """
         if not self.is_open:
             raise exceptions.ConnectionWrongStateError(
@@ -1465,8 +1465,11 @@ class Connection(abc.ABC):
                 f'channel_number must be between 1 and {pika.channel.MAX_CHANNELS}, '
                 f'but got {channel_number!r}')
         elif channel_number in self._channels:
-            raise ValueError(
-                f'channel_number {channel_number} is already in use')
+            existing = self._channels[channel_number]
+            if not existing.is_closed:
+                raise ValueError(
+                    f'channel_number {channel_number} is already in use')
+            existing._cleanup()
 
         self._channels[channel_number] = self._create_channel(
             channel_number, on_open_callback)
@@ -1705,8 +1708,7 @@ class Connection(abc.ABC):
         :param channel_number: The channel number for the callbacks
         """
         # This permits us to garbage-collect our reference to the channel
-        # regardless of whether it was closed by client or broker, and do so
-        # after all channel-close callbacks.
+        # regardless of whether it was closed by client or broker.
         self._channels[channel_number]._add_on_cleanup_callback(
             self._on_channel_cleanup)
 
