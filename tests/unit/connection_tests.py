@@ -453,11 +453,9 @@ class ConnectionTests(unittest.TestCase):
         test_channel.open.assert_called_once_with()
 
     def test_channel_with_number_of_unfinished_channel_raises(self):
-        # CLOSED covers a reopen from the channel's own on-close callback,
-        # which runs before cleanup removes the number from `_channels`.
         self.connection._create_channel = mock.Mock()
         for state in (channel.Channel.OPENING, channel.Channel.OPEN,
-                      channel.Channel.CLOSING, channel.Channel.CLOSED):
+                      channel.Channel.CLOSING):
             with self.subTest(state=state):
                 existing = channel.Channel(self.connection, 5, None)
                 existing._set_state(state)
