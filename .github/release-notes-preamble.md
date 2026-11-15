@@ -2,7 +2,7 @@
 
 ## Upgrading to 1.5.0
 
-Eleven changes are worth reading before you upgrade. Three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, one lets RabbitMQ close a channel sooner after a consumer timeout, one refuses messages larger than 64 MiB, one changes what the Twisted adapter reports when a connection closes, one changes the Python types that field-table numbers decode to, and one makes URL `ssl_options` verify the broker.
+Twelve changes are worth reading before you upgrade. Three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, one lets RabbitMQ close a channel sooner after a consumer timeout, one refuses messages larger than 64 MiB, one changes what the Twisted adapter reports when a connection closes, one changes the Python types that field-table numbers decode to, one makes URL `ssl_options` verify the broker, and one allows channel-number reuse from a close callback.
 
 ### `pika.Connection` is new, and is the connection to use
 
@@ -71,6 +71,10 @@ If you consume larger messages, raise the limit with `ConnectionParameters(max_i
 ### `TwistedProtocolConnection` reports why it closed, not `ConnectionDone`
 
 When pika closes a Twisted connection, the reason now reaches the `closed` deferred, the `on_close_callback`, and pending channel and queue deferreds, as on the other adapters, instead of `twisted.internet.error.ConnectionDone`: `ConnectionClosedByClient` after `close()`, which is also what `yield connection.close()` returns; `ConnectionClosedByBroker` when the broker closes it; `AMQPHeartbeatTimeout`; `ConnectionBlockedTimeout`; and the size errors above. Code that traps or tests for `ConnectionDone` must handle these instead. A peer that drops the connection without pika closing it still reports `ConnectionDone`.
+
+### A closed channel number can be reused from its close callback
+
+While the connection remains open, asynchronous connections now allow `connection.channel(channel_number=n)` from channel `n`'s on-close callback, including `TwistedChannel.on_closed` and pending-call errbacks. Scheduling the reopen on the IOLoop is no longer required. Numbers belonging to opening, open or closing channels still raise `ValueError`.
 
 ### `pika.compat` is gone
 

@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Union
 
 from pika import exceptions, frame, spec, validators
 from pika._utils import as_bytes, override
+from pika.callback import CallbackManager
 from pika.exchange_type import ExchangeType
 
 if TYPE_CHECKING:
@@ -1182,7 +1183,7 @@ class Channel:
         """
         For internal use only (e.g., Connection needs to remove closed channels from its channel
         container). Pass a callback function that will be called when the channel is being cleaned
-        up after all channel-close callbacks callbacks.
+        up, possibly during a close callback that reuses its number.
 
         :param callback: The callback to call, having the
             signature: callback(channel)
@@ -1195,13 +1196,18 @@ class Channel:
 
     def _cleanup(self) -> None:
         """Remove all consumers and any callbacks for the channel."""
-        self.callbacks.process(self.channel_number,
-                               self._ON_CHANNEL_CLEANUP_CB_KEY, self, self)
-        self._consumers = {}
-        self._cancelled = set()
-        self._nowait_cancelled = deque()
-        self.callbacks.cleanup(str(self.channel_number))
-        self._cookie = None
+        callbacks = self.callbacks
+        # A close callback may reuse this number before the final cleanup.
+        self.callbacks = CallbackManager()
+        try:
+            callbacks.process(self.channel_number,
+                              self._ON_CHANNEL_CLEANUP_CB_KEY, self, self)
+        finally:
+            self._consumers = {}
+            self._cancelled = set()
+            self._nowait_cancelled = deque()
+            callbacks.cleanup(str(self.channel_number))
+            self._cookie = None
 
     def _cleanup_consumer_ref(self, consumer_tag: str) -> None:
         """
