@@ -3873,31 +3873,31 @@
 
 <a href="#pika.connection.ConnectionParameters.__init__" class="headerlink" title="Permanent link">&para;</a></h3>
 <div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">__init__</span><span class="p">(</span>
-</span><span id="__span-0-2">    <span class="n">host</span><span class="p">:</span> <span class="n"><span title="DefaultT">DefaultT</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
-</span><span id="__span-0-3">    <span class="n">port</span><span class="p">:</span> <span class="n"><span title="DefaultT">DefaultT</span></span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
-</span><span id="__span-0-4">    <span class="n">virtual_host</span><span class="p">:</span> <span class="n"><span title="DefaultT">DefaultT</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
-</span><span id="__span-0-5">    <span class="n">credentials</span><span class="p">:</span> <span class="n"><span title="DefaultT">DefaultT</span></span><span class="p">[</span>
+</span><span id="__span-0-2">    <span class="n">host</span><span class="p">:</span> <span class="n">DefaultT</span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
+</span><span id="__span-0-3">    <span class="n">port</span><span class="p">:</span> <span class="n">DefaultT</span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
+</span><span id="__span-0-4">    <span class="n">virtual_host</span><span class="p">:</span> <span class="n">DefaultT</span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
+</span><span id="__span-0-5">    <span class="n">credentials</span><span class="p">:</span> <span class="n">DefaultT</span><span class="p">[</span>
 </span><span id="__span-0-6">        <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;PlainCredentials&lt;/span&gt; (&lt;code&gt;pika.credentials.PlainCredentials&lt;/code&gt;)" href="../credentials/#pika.credentials.PlainCredentials">PlainCredentials</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ExternalCredentials&lt;/span&gt; (&lt;code&gt;pika.credentials.ExternalCredentials&lt;/code&gt;)" href="../credentials/#pika.credentials.ExternalCredentials">ExternalCredentials</a></span>
 </span><span id="__span-0-7">    <span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
-</span><span id="__span-0-8">    <span class="n">channel_max</span><span class="p">:</span> <span class="n"><span title="DefaultT">DefaultT</span></span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
-</span><span id="__span-0-9">    <span class="n">frame_max</span><span class="p">:</span> <span class="n"><span title="DefaultT">DefaultT</span></span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
-</span><span id="__span-0-10">    <span class="n">heartbeat</span><span class="p">:</span> <span class="n"><span title="DefaultT">DefaultT</span></span><span class="p">[</span>
+</span><span id="__span-0-8">    <span class="n">channel_max</span><span class="p">:</span> <span class="n">DefaultT</span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
+</span><span id="__span-0-9">    <span class="n">frame_max</span><span class="p">:</span> <span class="n">DefaultT</span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
+</span><span id="__span-0-10">    <span class="n">heartbeat</span><span class="p">:</span> <span class="n">DefaultT</span><span class="p">[</span>
 </span><span id="__span-0-11">        <span class="n"><span title="int">int</span></span> <span class="o">|</span> <span class="n"><span title="typing.Callable">Callable</span></span><span class="p">[[</span><span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Connection&lt;/span&gt; (&lt;code&gt;pika.connection.Connection&lt;/code&gt;)" href="../connection/#pika.connection.Connection">Connection</a></span><span class="p">,</span> <span class="n"><span title="float">float</span></span><span class="p">],</span> <span class="n"><span title="int">int</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
 </span><span id="__span-0-12">    <span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
-</span><span id="__span-0-13">    <span class="n">ssl_options</span><span class="p">:</span> <span class="n"><span title="DefaultT">DefaultT</span></span><span class="p">[</span><span class="n"><span title="pika.connection.SSLOptions">SSLOptions</span></span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
-</span><span id="__span-0-14">    <span class="n">connection_attempts</span><span class="p">:</span> <span class="n"><span title="DefaultT">DefaultT</span></span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
-</span><span id="__span-0-15">    <span class="n">retry_delay</span><span class="p">:</span> <span class="n"><span title="DefaultT">DefaultT</span></span><span class="p">[</span><span class="n"><span title="float">float</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
-</span><span id="__span-0-16">    <span class="n">socket_timeout</span><span class="p">:</span> <span class="n"><span title="DefaultT">DefaultT</span></span><span class="p">[</span><span class="n"><span title="float">float</span></span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
-</span><span id="__span-0-17">    <span class="n">stack_timeout</span><span class="p">:</span> <span class="n"><span title="DefaultT">DefaultT</span></span><span class="p">[</span><span class="n"><span title="float">float</span></span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
-</span><span id="__span-0-18">    <span class="n">locale</span><span class="p">:</span> <span class="n"><span title="DefaultT">DefaultT</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
-</span><span id="__span-0-19">    <span class="n">blocked_connection_timeout</span><span class="p">:</span> <span class="n"><span title="DefaultT">DefaultT</span></span><span class="p">[</span>
+</span><span id="__span-0-13">    <span class="n">ssl_options</span><span class="p">:</span> <span class="n">DefaultT</span><span class="p">[</span><span class="n"><span title="pika.connection.SSLOptions">SSLOptions</span></span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
+</span><span id="__span-0-14">    <span class="n">connection_attempts</span><span class="p">:</span> <span class="n">DefaultT</span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
+</span><span id="__span-0-15">    <span class="n">retry_delay</span><span class="p">:</span> <span class="n">DefaultT</span><span class="p">[</span><span class="n"><span title="float">float</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
+</span><span id="__span-0-16">    <span class="n">socket_timeout</span><span class="p">:</span> <span class="n">DefaultT</span><span class="p">[</span><span class="n"><span title="float">float</span></span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
+</span><span id="__span-0-17">    <span class="n">stack_timeout</span><span class="p">:</span> <span class="n">DefaultT</span><span class="p">[</span><span class="n"><span title="float">float</span></span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
+</span><span id="__span-0-18">    <span class="n">locale</span><span class="p">:</span> <span class="n">DefaultT</span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
+</span><span id="__span-0-19">    <span class="n">blocked_connection_timeout</span><span class="p">:</span> <span class="n">DefaultT</span><span class="p">[</span>
 </span><span id="__span-0-20">        <span class="n"><span title="float">float</span></span> <span class="o">|</span> <span class="kc">None</span>
 </span><span id="__span-0-21">    <span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
-</span><span id="__span-0-22">    <span class="n">client_properties</span><span class="p">:</span> <span class="n"><span title="DefaultT">DefaultT</span></span><span class="p">[</span>
+</span><span id="__span-0-22">    <span class="n">client_properties</span><span class="p">:</span> <span class="n">DefaultT</span><span class="p">[</span>
 </span><span id="__span-0-23">        <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
 </span><span id="__span-0-24">    <span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
-</span><span id="__span-0-25">    <span class="n">tcp_options</span><span class="p">:</span> <span class="n"><span title="DefaultT">DefaultT</span></span><span class="p">[</span><span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
-</span><span id="__span-0-26">    <span class="n">max_inbound_message_body_size</span><span class="p">:</span> <span class="n"><span title="DefaultT">DefaultT</span></span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
+</span><span id="__span-0-25">    <span class="n">tcp_options</span><span class="p">:</span> <span class="n">DefaultT</span><span class="p">[</span><span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
+</span><span id="__span-0-26">    <span class="n">max_inbound_message_body_size</span><span class="p">:</span> <span class="n">DefaultT</span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="pika.connection.ConnectionParameters._DEFAULT">_DEFAULT</span></span><span class="p">,</span>
 </span><span id="__span-0-27">    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span>
 </span><span id="__span-0-28"><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </span></code></pre></div>
@@ -3927,7 +3927,7 @@
               <p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
-                      <code><span title="DefaultT">DefaultT</span>[<span title="str">str</span>]</code>
+                      <code>DefaultT[<span title="str">str</span>]</code>
                   </span>
                   <span class="doc-param-default">
                     <b>DEFAULT:</b>
@@ -3947,7 +3947,7 @@
               <p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
-                      <code><span title="DefaultT">DefaultT</span>[<span title="int">int</span>]</code>
+                      <code>DefaultT[<span title="int">int</span>]</code>
                   </span>
                   <span class="doc-param-default">
                     <b>DEFAULT:</b>
@@ -3967,7 +3967,7 @@
               <p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
-                      <code><span title="DefaultT">DefaultT</span>[<span title="str">str</span>]</code>
+                      <code>DefaultT[<span title="str">str</span>]</code>
                   </span>
                   <span class="doc-param-default">
                     <b>DEFAULT:</b>
@@ -3987,7 +3987,7 @@
               <p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
-                      <code><span title="DefaultT">DefaultT</span>[<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;PlainCredentials&lt;/span&gt; (&lt;code&gt;pika.credentials.PlainCredentials&lt;/code&gt;)" href="../credentials/#pika.credentials.PlainCredentials">PlainCredentials</a> | <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ExternalCredentials&lt;/span&gt; (&lt;code&gt;pika.credentials.ExternalCredentials&lt;/code&gt;)" href="../credentials/#pika.credentials.ExternalCredentials">ExternalCredentials</a>]</code>
+                      <code>DefaultT[<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;PlainCredentials&lt;/span&gt; (&lt;code&gt;pika.credentials.PlainCredentials&lt;/code&gt;)" href="../credentials/#pika.credentials.PlainCredentials">PlainCredentials</a> | <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ExternalCredentials&lt;/span&gt; (&lt;code&gt;pika.credentials.ExternalCredentials&lt;/code&gt;)" href="../credentials/#pika.credentials.ExternalCredentials">ExternalCredentials</a>]</code>
                   </span>
                   <span class="doc-param-default">
                     <b>DEFAULT:</b>
@@ -4007,7 +4007,7 @@
               <p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
-                      <code><span title="DefaultT">DefaultT</span>[<span title="int">int</span>]</code>
+                      <code>DefaultT[<span title="int">int</span>]</code>
                   </span>
                   <span class="doc-param-default">
                     <b>DEFAULT:</b>
@@ -4027,7 +4027,7 @@
               <p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
-                      <code><span title="DefaultT">DefaultT</span>[<span title="int">int</span>]</code>
+                      <code>DefaultT[<span title="int">int</span>]</code>
                   </span>
                   <span class="doc-param-default">
                     <b>DEFAULT:</b>
@@ -4053,7 +4053,7 @@ will be used to override the broker's proposal.</p>
               <p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
-                      <code><span title="DefaultT">DefaultT</span>[<span title="int">int</span> | <span title="typing.Callable">Callable</span>[[<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Connection&lt;/span&gt; (&lt;code&gt;pika.connection.Connection&lt;/code&gt;)" href="../connection/#pika.connection.Connection">Connection</a>, <span title="float">float</span>], <span title="int">int</span>] | None]</code>
+                      <code>DefaultT[<span title="int">int</span> | <span title="typing.Callable">Callable</span>[[<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Connection&lt;/span&gt; (&lt;code&gt;pika.connection.Connection&lt;/code&gt;)" href="../connection/#pika.connection.Connection">Connection</a>, <span title="float">float</span>], <span title="int">int</span>] | None]</code>
                   </span>
                   <span class="doc-param-default">
                     <b>DEFAULT:</b>
@@ -4074,7 +4074,7 @@ will be used to override the broker's proposal.</p>
               <p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
-                      <code><span title="DefaultT">DefaultT</span>[<span title="pika.connection.SSLOptions">SSLOptions</span> | None]</code>
+                      <code>DefaultT[<span title="pika.connection.SSLOptions">SSLOptions</span> | None]</code>
                   </span>
                   <span class="doc-param-default">
                     <b>DEFAULT:</b>
@@ -4094,7 +4094,7 @@ will be used to override the broker's proposal.</p>
               <p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
-                      <code><span title="DefaultT">DefaultT</span>[<span title="int">int</span>]</code>
+                      <code>DefaultT[<span title="int">int</span>]</code>
                   </span>
                   <span class="doc-param-default">
                     <b>DEFAULT:</b>
@@ -4114,7 +4114,7 @@ will be used to override the broker's proposal.</p>
               <p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
-                      <code><span title="DefaultT">DefaultT</span>[<span title="float">float</span>]</code>
+                      <code>DefaultT[<span title="float">float</span>]</code>
                   </span>
                   <span class="doc-param-default">
                     <b>DEFAULT:</b>
@@ -4135,7 +4135,7 @@ seconds.</p>
               <p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
-                      <code><span title="DefaultT">DefaultT</span>[<span title="float">float</span> | None]</code>
+                      <code>DefaultT[<span title="float">float</span> | None]</code>
                   </span>
                   <span class="doc-param-default">
                     <b>DEFAULT:</b>
@@ -4157,7 +4157,7 @@ set this value higher than <code>socket_timeout</code>.</p>
               <p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
-                      <code><span title="DefaultT">DefaultT</span>[<span title="float">float</span> | None]</code>
+                      <code>DefaultT[<span title="float">float</span> | None]</code>
                   </span>
                   <span class="doc-param-default">
                     <b>DEFAULT:</b>
@@ -4177,7 +4177,7 @@ set this value higher than <code>socket_timeout</code>.</p>
               <p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
-                      <code><span title="DefaultT">DefaultT</span>[<span title="str">str</span>]</code>
+                      <code>DefaultT[<span title="str">str</span>]</code>
                   </span>
                   <span class="doc-param-default">
                     <b>DEFAULT:</b>
@@ -4204,7 +4204,7 @@ in asynchronous adapters or raising it in <code>BlockingConnection</code>.</p>
               <p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
-                      <code><span title="DefaultT">DefaultT</span>[<span title="float">float</span> | None]</code>
+                      <code>DefaultT[<span title="float">float</span> | None]</code>
                   </span>
                   <span class="doc-param-default">
                     <b>DEFAULT:</b>
@@ -4226,7 +4226,7 @@ RabbitMQ via <code>Connection.StartOk</code> method.</p>
               <p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
-                      <code><span title="DefaultT">DefaultT</span>[<span title="dict">dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>] | None]</code>
+                      <code>DefaultT[<span title="dict">dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>] | None]</code>
                   </span>
                   <span class="doc-param-default">
                     <b>DEFAULT:</b>
@@ -4246,7 +4246,7 @@ RabbitMQ via <code>Connection.StartOk</code> method.</p>
               <p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
-                      <code><span title="DefaultT">DefaultT</span>[<span title="dict">dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>] | None]</code>
+                      <code>DefaultT[<span title="dict">dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>] | None]</code>
                   </span>
                   <span class="doc-param-default">
                     <b>DEFAULT:</b>
@@ -4274,7 +4274,7 @@ from the broker, from 1 to 512 MiB; see
               <p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
-                      <code><span title="DefaultT">DefaultT</span>[<span title="int">int</span>]</code>
+                      <code>DefaultT[<span title="int">int</span>]</code>
                   </span>
                   <span class="doc-param-default">
                     <b>DEFAULT:</b>
