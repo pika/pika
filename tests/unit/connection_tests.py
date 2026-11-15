@@ -51,15 +51,31 @@ class ConstructibleConnection(connection.Connection):
 
 class ConnectionTests(unittest.TestCase):
 
-    def test_constructor_does_not_mutate_caller_ssl_options(self):
-        """
-        Constructing a Connection must not mutate the caller's parameters.
+    def setUp(self):
 
-        gh-1842: Connection used to clear `parameters.ssl_options` around
-        the deepcopy, so a second thread building a connection from the
-        same parameters object could observe the `None` and permanently
-        drop TLS from the shared object.
-        """
+        class ChannelTemplate(channel.Channel):
+            channel_number = None
+
+        with mock.patch.object(ConstructibleConnection,
+                               '_adapter_connect_stream'):
+            self.connection = ConstructibleConnection()
+            self.connection._set_connection_state(
+                connection.Connection.CONNECTION_OPEN)
+            self.connection._opened = True
+
+        self.channel = mock.Mock(spec=ChannelTemplate)
+        self.channel.channel_number = 1
+        self.channel.is_open = True
+        self.channel.is_closing = False
+        self.channel.is_closed = False
+        self.connection._channels[self.channel.channel_number] = self.channel
+
+    def tearDown(self):
+        del self.connection
+        del self.channel
+
+    def test_constructor_does_not_mutate_caller_ssl_options(self):
+        """Constructing a Connection must not mutate the caller's parameters."""
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         ssl_options = connection.SSLOptions(context)
         params = connection.ConnectionParameters(ssl_options=ssl_options)
@@ -98,29 +114,6 @@ class ConnectionTests(unittest.TestCase):
         self.assertIs(conn.params.ssl_options, ssl_options)
         self.assertIsNot(conn.params, params)
         self.assertEqual(conn.params.host, params.host)
-
-    def setUp(self):
-
-        class ChannelTemplate(channel.Channel):
-            channel_number = None
-
-        with mock.patch.object(ConstructibleConnection,
-                               '_adapter_connect_stream'):
-            self.connection = ConstructibleConnection()
-            self.connection._set_connection_state(
-                connection.Connection.CONNECTION_OPEN)
-            self.connection._opened = True
-
-        self.channel = mock.Mock(spec=ChannelTemplate)
-        self.channel.channel_number = 1
-        self.channel.is_open = True
-        self.channel.is_closing = False
-        self.channel.is_closed = False
-        self.connection._channels[self.channel.channel_number] = self.channel
-
-    def tearDown(self):
-        del self.connection
-        del self.channel
 
     @mock.patch('pika.connection.Connection._on_close_ready')
     def test_close_calls_on_close_ready_when_no_channels(
