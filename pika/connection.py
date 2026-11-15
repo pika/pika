@@ -1136,6 +1136,7 @@ class Connection(abc.ABC):
             ssl_options = parameters.ssl_options
             self.params = copy.deepcopy(parameters,
                                         {id(ssl_options): ssl_options})
+            self.params.ssl_options = ssl_options
         else:
             self.params = ConnectionParameters()
 

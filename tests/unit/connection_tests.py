@@ -84,6 +84,7 @@ class ConnectionTests(unittest.TestCase):
         entered = threading.Event()
         release = threading.Event()
         observed_cleared = []
+        watched = []
 
         def pausing_deepcopy(obj, memo=None):
             if isinstance(obj, connection.ConnectionParameters):
@@ -94,7 +95,7 @@ class ConnectionTests(unittest.TestCase):
             return original_deepcopy(obj, memo)
 
         def watcher():
-            entered.wait(5)
+            watched.append(entered.wait(5))
             if params.ssl_options is None:
                 observed_cleared.append(True)
             release.set()
@@ -107,6 +108,8 @@ class ConnectionTests(unittest.TestCase):
                 conn = ConstructibleConnection(params)
             thread.join(10)
 
+        self.assertEqual(watched, [True],
+                         'watcher never saw construction reach deepcopy')
         self.assertFalse(
             observed_cleared, "caller's parameters.ssl_options was observed "
             'cleared during construction')
@@ -114,6 +117,49 @@ class ConnectionTests(unittest.TestCase):
         self.assertIs(conn.params.ssl_options, ssl_options)
         self.assertIsNot(conn.params, params)
         self.assertEqual(conn.params.host, params.host)
+
+    def test_constructor_copies_parameters_without_writing_to_them(self):
+        caller = []
+
+        class RecordingParameters(connection.ConnectionParameters):
+
+            def __setattr__(self, name, value):
+                if caller and self is caller[0]:
+                    writes.append(name)
+                super().__setattr__(name, value)
+
+        writes = []
+        ssl_options = connection.SSLOptions(
+            ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT))
+        params = RecordingParameters(host='broker.example',
+                                     credentials=credentials.PlainCredentials(
+                                         'u', 'p'),
+                                     ssl_options=ssl_options)
+        caller.append(params)
+        with mock.patch.object(ConstructibleConnection,
+                               '_adapter_connect_stream'):
+            conn = ConstructibleConnection(params)
+        self.assertEqual(writes, [])
+        self.assertIs(params.ssl_options, ssl_options)
+        self.assertIsNot(conn.params, params)
+        self.assertIsNot(conn.params.credentials, params.credentials)
+        self.assertEqual(conn.params.host, 'broker.example')
+        self.assertIs(conn.params.ssl_options, ssl_options)
+
+    def test_constructor_keeps_ssl_options_a_custom_copy_drops(self):
+
+        class DroppingParameters(connection.ConnectionParameters):
+
+            def __deepcopy__(self, memo):
+                return connection.ConnectionParameters(host=self.host)
+
+        ssl_options = connection.SSLOptions(
+            ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT))
+        with mock.patch.object(ConstructibleConnection,
+                               '_adapter_connect_stream'):
+            conn = ConstructibleConnection(
+                DroppingParameters(ssl_options=ssl_options))
+        self.assertIs(conn.params.ssl_options, ssl_options)
 
     @mock.patch('pika.connection.Connection._on_close_ready')
     def test_close_calls_on_close_ready_when_no_channels(
