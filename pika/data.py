@@ -291,8 +291,12 @@ def _decode_table(encoded: bytes, offset: int,
     return result, offset
 
 
-def _nesting_error() -> exceptions.InvalidFrameError:
-    return exceptions.InvalidFrameError(
+class _FieldNestingError(exceptions.InvalidFrameError):
+    """Received field tables and arrays nest more than `_MAX_FIELD_NESTING_DEPTH` deep."""
+
+
+def _nesting_error() -> _FieldNestingError:
+    return _FieldNestingError(
         f'field tables and arrays nest more than {_MAX_FIELD_NESTING_DEPTH} deep'
     )
 

@@ -6,7 +6,7 @@ import logging
 import struct
 from typing import Generic, TypeVar
 
-from pika import amqp_object, exceptions, spec
+from pika import amqp_object, data, exceptions, spec
 from pika._utils import override
 
 LOGGER = logging.getLogger(__name__)
@@ -124,6 +124,9 @@ class Header(Frame):
         Frame.__init__(self, spec.FRAME_HEADER, channel_number)
         self.body_size = body_size
         self.properties = props
+        # Set by `decode_frame` when the properties nest too deeply to decode; see
+        # `Channel._on_deliver`.
+        self.decode_error: exceptions.InvalidFrameError | None = None
 
     @override
     def marshal(self) -> bytes:
@@ -305,7 +308,13 @@ def decode_frame(
         properties = spec.props[class_id]()
 
         # Decode the properties
-        properties.decode(frame_data[12:])
+        try:
+            properties.decode(frame_data[12:])
+        except data._FieldNestingError as error:
+            # The body frames still follow, so keep the frame and let the channel decide.
+            header = Header(channel_number, body_size, spec.props[class_id]())
+            header.decode_error = error
+            return frame_end, header
 
         # Return a Header frame
         return frame_end, Header(channel_number, body_size, properties)

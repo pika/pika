@@ -1614,6 +1614,11 @@ class Channel:
         callback that blocks (e.g. on a database write or a call to [`queue_declare`][pika.adapters.thread_safe_connection.Channel.queue_declare]) delays
         subsequent deliveries on the same channel until it returns.
 
+        A delivery whose headers nest tables and arrays more than 32 deep never reaches
+        *on_message_callback*. While the consumer is active on an open channel, the delivery is
+        logged and, unless *auto_ack* is set, rejected without requeueing, so the queue's
+        dead-letter exchange receives it if one is configured.
+
         Safe to call from any thread.
 
         :param queue: Queue to consume from.

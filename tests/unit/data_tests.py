@@ -467,8 +467,8 @@ class DataTests(unittest.TestCase):
         return (struct.pack('>BHI', frame_type, channel, len(payload)) +
                 payload + b'\xce')
 
-    def _header_frame(self, headers):
-        payload = (struct.pack('>HHQH', spec.Basic.INDEX, 0, 0,
+    def _header_frame(self, headers, body_size=0):
+        payload = (struct.pack('>HHQH', spec.Basic.INDEX, 0, body_size,
                                spec.BasicProperties.FLAG_HEADERS) + headers)
         return self._frame(spec.FRAME_HEADER, 1, payload)
 
@@ -478,17 +478,37 @@ class DataTests(unittest.TestCase):
                    struct.pack('>I', 5) + b'en_US')
         return self._frame(spec.FRAME_METHOD, 0, payload)
 
-    def test_decode_frame_rejects_deep_headers_and_server_properties(self):
-        for name, build in (('headers', self._header_frame),
-                            ('server_properties', self._start_frame)):
-            with self.subTest(table=name):
-                for kinds in ('F', 'FA'):
-                    _, decoded = frame.decode_frame(
-                        build(_nested_table(32, kinds)), 0)
-                    self.assertIsNotNone(decoded)
-                    for containers in (33, 2000):
-                        with self.assertRaisesRegex(
-                                exceptions.InvalidFrameError,
-                                'more than 32 deep'):
-                            frame.decode_frame(
-                                build(_nested_table(containers, kinds)), 0)
+    def test_decode_frame_rejects_deep_server_properties(self):
+        for kinds in ('F', 'FA'):
+            with self.subTest(kinds=kinds):
+                _, decoded = frame.decode_frame(
+                    self._start_frame(_nested_table(32, kinds)), 0)
+                self.assertIsInstance(decoded.method, spec.Connection.Start)
+                for containers in (33, 2000):
+                    with self.assertRaisesRegex(exceptions.InvalidFrameError,
+                                                'more than 32 deep'):
+                        frame.decode_frame(
+                            self._start_frame(_nested_table(containers, kinds)),
+                            0)
+
+    def test_decode_frame_marks_deep_headers_and_keeps_body_size(self):
+        for kinds in ('F', 'FA'):
+            with self.subTest(kinds=kinds):
+                encoded = self._header_frame(_nested_table(32, kinds))
+                consumed, decoded = frame.decode_frame(encoded, 0)
+                self.assertEqual(consumed, len(encoded))
+                self.assertIsNone(decoded.decode_error)
+                self.assertEqual(_containers(decoded.properties.headers),
+                                 (32, 1))
+                for containers in (33, 2000):
+                    encoded = self._header_frame(_nested_table(
+                        containers, kinds),
+                                                 body_size=7)
+                    consumed, decoded = frame.decode_frame(encoded, 0)
+                    self.assertEqual(consumed, len(encoded))
+                    self.assertIsInstance(decoded, frame.Header)
+                    self.assertEqual(decoded.body_size, 7)
+                    self.assertRegex(str(decoded.decode_error),
+                                     'more than 32 deep')
+                    self.assertIsInstance(decoded.decode_error,
+                                          exceptions.InvalidFrameError)
