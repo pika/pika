@@ -34,6 +34,9 @@ _FIELD_TIMESTAMP = ord('T')
 _FIELD_TABLE = ord('F')
 _FIELD_VOID = ord('V')
 
+# Decoding recurses once per level, and the peer chooses how deeply its tables nest.
+_MAX_FIELD_NESTING_DEPTH = 32
+
 # Pre-compiled struct formats for field-table values. The bare formats are
 # used on decode, where the type tag has already been consumed; the `_TAG_`
 # ones pack the type tag together with the value on encode.
@@ -266,16 +269,32 @@ def decode_table(encoded: bytes,
 
     :param encoded: The binary encoded data to decode
     :param offset: The starting byte offset
+    :raises: pika.exceptions.InvalidFrameError: if tables and arrays nest more than 32 deep,
+        counting this table.
     """
+    return _decode_table(encoded, offset, 0)
+
+
+def _decode_table(encoded: bytes, offset: int,
+                  depth: int) -> tuple[dict[str | bytes, Any], int]:
+    """Decode a table enclosed by *depth* tables and arrays."""
+    if depth >= _MAX_FIELD_NESTING_DEPTH:
+        raise _nesting_error()
     result = {}
     tablesize = _PACK_UINT.unpack_from(encoded, offset)[0]
     offset += 4
     limit = offset + tablesize
     while offset < limit:
         key, offset = decode_short_string(encoded, offset)
-        value, offset = decode_value(encoded, offset)
+        value, offset = _decode_value(encoded, offset, depth + 1)
         result[key] = value
     return result, offset
+
+
+def _nesting_error() -> exceptions.InvalidFrameError:
+    return exceptions.InvalidFrameError(
+        f'field tables and arrays nest more than {_MAX_FIELD_NESTING_DEPTH} deep'
+    )
 
 
 def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:
@@ -288,7 +307,14 @@ def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:
     :returns: tuple of (decoded value, new offset). A `timestamp` is a u64, so one outside the range
         `datetime` can hold decodes to its raw integer seconds.
     :raises: pika.exceptions.InvalidFieldTypeException
+    :raises: pika.exceptions.InvalidFrameError: if tables and arrays nest more than 32 deep,
+        counting this value.
     """
+    return _decode_value(encoded, offset, 0)
+
+
+def _decode_value(encoded: bytes, offset: int, depth: int) -> tuple[Any, int]:
+    """Decode a value enclosed by *depth* tables and arrays."""
     # Dispatch on the raw type-tag byte (avoids a bytes allocation per field);
     # the most common field types are checked first.
     value: Any
@@ -340,16 +366,18 @@ def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:
 
     # Field Table
     elif kind == _FIELD_TABLE:
-        (value, offset) = decode_table(encoded, offset)
+        (value, offset) = _decode_table(encoded, offset, depth)
 
     # Field Array
     elif kind == _FIELD_ARRAY:
+        if depth >= _MAX_FIELD_NESTING_DEPTH:
+            raise _nesting_error()
         length = _PACK_UINT.unpack_from(encoded, offset)[0]
         offset += 4
         offset_end = offset + length
         value = []
         while offset < offset_end:
-            val, offset = decode_value(encoded, offset)
+            val, offset = _decode_value(encoded, offset, depth + 1)
             value.append(val)
 
     elif kind == _FIELD_BYTE_ARRAY:
