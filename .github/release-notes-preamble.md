@@ -2,7 +2,7 @@
 
 ## Upgrading to 1.5.0
 
-Eleven changes are worth reading before you upgrade. Three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, one lets RabbitMQ close a channel sooner after a consumer timeout, one refuses messages larger than 64 MiB, one changes what the Twisted adapter reports when a connection closes, one changes the Python types that field-table numbers decode to, and one makes URL `ssl_options` verify the broker.
+Twelve changes are worth reading before you upgrade. One adds `pika.Connection`, three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, one lets RabbitMQ close a channel sooner after a consumer timeout, one refuses messages larger than 64 MiB, one changes what the Twisted adapter reports when a connection closes, one closes the connection when a consumer or reply callback raises `BlockingIOError`, one changes the Python types that field-table numbers decode to, and one makes URL `ssl_options` verify the broker.
 
 ### `pika.Connection` is new, and is the connection to use
 
@@ -40,8 +40,6 @@ python -W 'ignore:BlockingConnection is deprecated' your_app.py
 
 The two forms are not interchangeable. In `filterwarnings` the message is a regular expression, while `-W` on the command line, for `python` and for `pytest` alike, matches it as a literal prefix, so the `pyproject.toml` pattern given as a `-W` argument matches nothing and the warning still fails the run.
 
-or migrate to `Connection`, which runs its own IOLoop on a background thread and provides a thread-safe blocking API that does not stall heartbeats on slow message processing.
-
 ### Cancelling a consumer no longer rejects the messages still arriving for it
 
 A `Basic.Cancel` does not stop the broker immediately: the specification allows it to keep dispatching until it sends `Basic.CancelOk`, and pika used to reject every delivery that arrived in that window, or discard it outright for an `auto_ack` consumer. Discarding loses the message, because an `auto_ack` delivery has no copy left at the broker, and rejecting is a decision pika was making on your behalf that no other client makes. Measured on RabbitMQ 4.3.6, closing a channel with an `auto_ack` consumer half a second after its first delivery, 400 messages, `work_queue_maxsize=50` and a 50 ms callback. At 8 KiB bodies with `close(timeout=10)`: 339 of 400 lost before this change, 179 to 189 across five runs after it. `close(timeout=None)` loses none after the change, at either body size, and lost the same 339 before it, because that loss was the cancel window rather than the budget. At 64 bytes the deliveries still queued when a bounded close returns fit in the work queue, so the worker finishes them and nothing is lost; at 8 KiB they do not fit and the excess is discarded when the pool shuts. Quote the whole configuration with any figure from this area, because the message count, body size, queue size, callback cost and timeout all move it. `utils/measure_close_loss.py` in the repository reproduces each of them.
@@ -71,6 +69,10 @@ If you consume larger messages, raise the limit with `ConnectionParameters(max_i
 ### `TwistedProtocolConnection` reports why it closed, not `ConnectionDone`
 
 When pika closes a Twisted connection, the reason now reaches the `closed` deferred, the `on_close_callback`, and pending channel and queue deferreds, as on the other adapters, instead of `twisted.internet.error.ConnectionDone`: `ConnectionClosedByClient` after `close()`, which is also what `yield connection.close()` returns; `ConnectionClosedByBroker` when the broker closes it; `AMQPHeartbeatTimeout`; `ConnectionBlockedTimeout`; and the size errors above. Code that traps or tests for `ConnectionDone` must handle these instead. A peer that drops the connection without pika closing it still reports `ConnectionDone`.
+
+### A `BlockingIOError` from a consumer or reply callback now closes the connection
+
+On a connection without TLS, `SelectConnection`, `AsyncioConnection`, `TornadoConnection` and `GeventConnection` used to treat a `BlockingIOError`, or any `OSError` with a would-block errno, raised by a callback pika runs for a received frame (a consumer, RPC-reply or close callback) as the socket having no more data: pika logged it at ERROR with a traceback, kept the connection open, and left the frames after it unprocessed until the next read. It now closes the connection with `StreamLostError`, as any other exception from those callbacks does. A callback that does its own non-blocking I/O should catch the error itself.
 
 ### `pika.compat` is gone
 
