@@ -2068,6 +2068,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#a-blockingioerror-from-a-consumer-or-reply-callback-now-closes-the-connection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A BlockingIOError from a consumer or reply callback now closes the connection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pikacompat-is-gone" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2113,6 +2124,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#150-2026-11-17" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.5.0 (2026-11-17)
+      
+    </span>
+  </a>
   
 </li>
       
@@ -2639,6 +2661,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#a-blockingioerror-from-a-consumer-or-reply-callback-now-closes-the-connection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A BlockingIOError from a consumer or reply callback now closes the connection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pikacompat-is-gone" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2684,6 +2717,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#150-2026-11-17" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.5.0 (2026-11-17)
+      
+    </span>
+  </a>
   
 </li>
       
@@ -3121,7 +3165,7 @@
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <p>Notes for each release are also published on the <a href="https://github.com/pika/pika/releases">GitHub releases page</a>, generated from the pull requests and issues the release contains.</p>
 <h2 id="upgrading-to-150">Upgrading to 1.5.0<a class="headerlink" href="#upgrading-to-150" title="Permanent link">&para;</a></h2>
-<p>Eleven changes are worth reading before you upgrade. Three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, one lets RabbitMQ close a channel sooner after a consumer timeout, one refuses messages larger than 64 MiB, one changes what the Twisted adapter reports when a connection closes, one changes the Python types that field-table numbers decode to, and one makes URL <code>ssl_options</code> verify the broker.</p>
+<p>Twelve changes are worth reading before you upgrade. One adds <code>pika.Connection</code>, three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, one lets RabbitMQ close a channel sooner after a consumer timeout, one refuses messages larger than 64 MiB, one changes what the Twisted adapter reports when a connection closes, one closes the connection when a consumer or reply callback raises <code>BlockingIOError</code>, one changes the Python types that field-table numbers decode to, and one makes URL <code>ssl_options</code> verify the broker.</p>
 <h3 id="pikaconnection-is-new-and-is-the-connection-to-use"><code>pika.Connection</code> is new, and is the connection to use<a class="headerlink" href="#pikaconnection-is-new-and-is-the-connection-to-use" title="Permanent link">&para;</a></h3>
 <p>1.5.0 introduces <code>pika.Connection</code> and its <code>Channel</code>, a connection that runs its own IOLoop on a background thread and offers a thread-safe blocking API that does not stall heartbeats while your code processes a message. There is nothing to migrate <em>from</em>: these classes are new in this release, and <code>pika.Connection</code> is the documented import.</p>
 <p><code>from pika.adapters.thread_safe_connection import Connection</code> also works, though the module moves in 2.0 (see #1681). <code>Channel</code> is not exported from <code>pika</code>, because channels come from <code>Connection.channel()</code>.</p>
@@ -3142,7 +3186,6 @@
 <div class="highlight"><pre><span></span><code><span id="__span-2-1">python<span class="w"> </span>-W<span class="w"> </span><span class="s1">'ignore:BlockingConnection is deprecated'</span><span class="w"> </span>your_app.py
 </span></code></pre></div>
 <p>The two forms are not interchangeable. In <code>filterwarnings</code> the message is a regular expression, while <code>-W</code> on the command line, for <code>python</code> and for <code>pytest</code> alike, matches it as a literal prefix, so the <code>pyproject.toml</code> pattern given as a <code>-W</code> argument matches nothing and the warning still fails the run.</p>
-<p>or migrate to <code>Connection</code>, which runs its own IOLoop on a background thread and provides a thread-safe blocking API that does not stall heartbeats on slow message processing.</p>
 <h3 id="cancelling-a-consumer-no-longer-rejects-the-messages-still-arriving-for-it">Cancelling a consumer no longer rejects the messages still arriving for it<a class="headerlink" href="#cancelling-a-consumer-no-longer-rejects-the-messages-still-arriving-for-it" title="Permanent link">&para;</a></h3>
 <p>A <code>Basic.Cancel</code> does not stop the broker immediately: the specification allows it to keep dispatching until it sends <code>Basic.CancelOk</code>, and pika used to reject every delivery that arrived in that window, or discard it outright for an <code>auto_ack</code> consumer. Discarding loses the message, because an <code>auto_ack</code> delivery has no copy left at the broker, and rejecting is a decision pika was making on your behalf that no other client makes. Measured on RabbitMQ 4.3.6, closing a channel with an <code>auto_ack</code> consumer half a second after its first delivery, 400 messages, <code>work_queue_maxsize=50</code> and a 50 ms callback. At 8 KiB bodies with <code>close(timeout=10)</code>: 339 of 400 lost before this change, 179 to 189 across five runs after it. <code>close(timeout=None)</code> loses none after the change, at either body size, and lost the same 339 before it, because that loss was the cancel window rather than the budget. At 64 bytes the deliveries still queued when a bounded close returns fit in the work queue, so the worker finishes them and nothing is lost; at 8 KiB they do not fit and the excess is discarded when the pool shuts. Quote the whole configuration with any figure from this area, because the message count, body size, queue size, callback cost and timeout all move it. <code>utils/measure_close_loss.py</code> in the repository reproduces each of them.</p>
 <p>Those deliveries are now passed to your callback instead, which is what the Java client does, as long as the channel is still open.</p>
@@ -3158,6 +3201,8 @@
 <p>If you consume larger messages, raise the limit with <code>ConnectionParameters(max_inbound_message_body_size=...)</code> or <code>?max_inbound_message_body_size=</code> in a URL, up to 512 MiB, RabbitMQ's own maximum. A refused message delivered without <code>auto_ack</code> is requeued, so a consumer that reconnects is closed again: raise the limit, or dead-letter or remove the message on the broker. With <code>auto_ack</code> the broker has already discarded it. Returned messages and <code>basic_get</code> replies are checked too, so a publisher can be closed by its own oversized mandatory message coming back.</p>
 <h3 id="twistedprotocolconnection-reports-why-it-closed-not-connectiondone"><code>TwistedProtocolConnection</code> reports why it closed, not <code>ConnectionDone</code><a class="headerlink" href="#twistedprotocolconnection-reports-why-it-closed-not-connectiondone" title="Permanent link">&para;</a></h3>
 <p>When pika closes a Twisted connection, the reason now reaches the <code>closed</code> deferred, the <code>on_close_callback</code>, and pending channel and queue deferreds, as on the other adapters, instead of <code>twisted.internet.error.ConnectionDone</code>: <code>ConnectionClosedByClient</code> after <code>close()</code>, which is also what <code>yield connection.close()</code> returns; <code>ConnectionClosedByBroker</code> when the broker closes it; <code>AMQPHeartbeatTimeout</code>; <code>ConnectionBlockedTimeout</code>; and the size errors above. Code that traps or tests for <code>ConnectionDone</code> must handle these instead. A peer that drops the connection without pika closing it still reports <code>ConnectionDone</code>.</p>
+<h3 id="a-blockingioerror-from-a-consumer-or-reply-callback-now-closes-the-connection">A <code>BlockingIOError</code> from a consumer or reply callback now closes the connection<a class="headerlink" href="#a-blockingioerror-from-a-consumer-or-reply-callback-now-closes-the-connection" title="Permanent link">&para;</a></h3>
+<p>On a connection without TLS, <code>SelectConnection</code>, <code>AsyncioConnection</code>, <code>TornadoConnection</code> and <code>GeventConnection</code> used to treat a <code>BlockingIOError</code>, or any <code>OSError</code> with a would-block errno, raised by a callback pika runs for a received frame (a consumer, RPC-reply or close callback) as the socket having no more data: pika logged it at ERROR with a traceback, kept the connection open, and left the frames after it unprocessed until the next read. It now closes the connection with <code>StreamLostError</code>, as any other exception from those callbacks does. A callback that does its own non-blocking I/O should catch the error itself.</p>
 <h3 id="pikacompat-is-gone"><code>pika.compat</code> is gone<a class="headerlink" href="#pikacompat-is-gone" title="Permanent link">&para;</a></h3>
 <p>The module is removed. It held Python 2 compatibility shims and platform checks, was never documented as public API, and nothing in pika imports it any more. It had no leading underscore, though, so it has been importable for years and an upgrade turns <code>import pika.compat</code> into <code>ModuleNotFoundError</code>.</p>
 <p>Twelve of its names moved to <code>pika._utils</code>: <code>ON_LINUX</code>, <code>ON_OSX</code>, <code>ON_WINDOWS</code>, <code>LINUX_VERSION</code>, <code>SOL_TCP</code>, <code>HAVE_SIGNAL</code>, <code>RE_NUM</code>, <code>time_now()</code>, <code>as_bytes()</code>, <code>to_digit()</code>, <code>get_linux_version()</code> and <code>nonblocking_socketpair()</code>. That module is private, so it is not a migration target; copy what you need instead. Four that are gone were Python 2 artefacts, and the standard library covers each: <code>byte()</code> (<code>bytes((n,))</code>), <code>SOCKET_ERROR</code> (<code>OSError</code>), <code>AbstractBase</code> (<code>abc.ABC</code>), <code>str_or_bytes</code> (<code>(str, bytes)</code>). <code>pika.spec.str</code>, which was <code>str = bytes</code>, goes with them. <code>long</code> is gone too; in a field table, <code>pika.data.LongLong</code> replaces it, as the next section describes.</p>
@@ -3173,6 +3218,264 @@
 <p>Two properties of the generated code account for it. Every generated constructor defaults its arguments to <code>None</code>, so fields are optional even though a frame off the wire always carries them. And AMQP <code>shortstr</code> has no declared encoding, so pika falls back to raw <code>bytes</code> on invalid UTF-8, making <code>routing_key</code>, <code>exchange</code> and <code>consumer_tag</code> all <code>str | bytes | None</code>.</p>
 <p>The errors are accurate and the annotations are an improvement, so nothing here should be reverted. The FAQ covers the narrowing idioms: https://pika.github.io/pika/latest/faq/</p>
 <p><code>pyright</code> users see little change, since it reported most of these already.</p>
+<h2 id="150-2026-11-17"><a href="https://github.com/pika/pika/tree/1.5.0">1.5.0</a> (2026-11-17)<a class="headerlink" href="#150-2026-11-17" title="Permanent link">&para;</a></h2>
+<p><a href="https://github.com/pika/pika/compare/1.4.0...1.5.0">Full Changelog</a></p>
+<p><strong>Implemented enhancements:</strong></p>
+<ul>
+<li>Raise a <code>TypeError</code> naming a wrong-typed body or short string <a href="https://github.com/pika/pika/pull/1838">#1838</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Passing the wrong type to <code>basic_publish</code> raises a confusing error <a href="https://github.com/pika/pika/issues/1836">#1836</a></li>
+<li>Run every example in CI against a real broker <a href="https://github.com/pika/pika/pull/1794">#1794</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Make the shutdown drain budget settable per connection <a href="https://github.com/pika/pika/issues/1762">#1762</a></li>
+<li>Gate the no-hard-wrap rule for <code>.md</code> files <a href="https://github.com/pika/pika/issues/1757">#1757</a></li>
+<li>Add Python 3.15 official support <a href="https://github.com/pika/pika/pull/1741">#1741</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Adopt writing guidance for agents, and trim AGENTS.md <a href="https://github.com/pika/pika/pull/1739">#1739</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Run the examples in CI, so they cannot rot silently again <a href="https://github.com/pika/pika/issues/1735">#1735</a></li>
+<li>Build the changelog entry from the milestone, not by crawling history <a href="https://github.com/pika/pika/pull/1732">#1732</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Replace <code>github_changelog_generator</code> with a milestone-driven generator <a href="https://github.com/pika/pika/issues/1731">#1731</a></li>
+<li>Trigger the release from a pushed tag, not a push to <code>main</code> <a href="https://github.com/pika/pika/pull/1729">#1729</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Trigger the release from a pushed tag, not a push to main <a href="https://github.com/pika/pika/issues/1728">#1728</a></li>
+<li>Reply with <code>Basic.CancelOk</code> to brokers that accept it <a href="https://github.com/pika/pika/pull/1722">#1722</a> (<a href="https://github.com/suchitd">suchitd</a>)</li>
+<li>Redirect the retired ReadTheDocs site to GitHub Pages <a href="https://github.com/pika/pika/pull/1720">#1720</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Check <code>pika/spec.py</code> against <code>codegen.py</code> output in CI <a href="https://github.com/pika/pika/pull/1695">#1695</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>suggestion: Enforce spec regen in CI <a href="https://github.com/pika/pika/issues/1677">#1677</a></li>
+<li>Build the release dist once and add a TestPyPI test mode <a href="https://github.com/pika/pika/pull/1656">#1656</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Bound work queues in <code>ThreadSafe*</code> adapters. <a href="https://github.com/pika/pika/pull/1651">#1651</a> (<a href="https://github.com/jholaj">jholaj</a>)</li>
+<li>Add ThreadSafe examples for publisher confirms and long-running publisher <a href="https://github.com/pika/pika/pull/1637">#1637</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Include hostname and port in connection error reporting <a href="https://github.com/pika/pika/pull/1635">#1635</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Include py.typed marker in distribution <a href="https://github.com/pika/pika/pull/1632">#1632</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Include <code>py.typed</code> file in distribution <a href="https://github.com/pika/pika/issues/1631">#1631</a></li>
+<li><code>Channel.confirm_delivery</code>: append ack/nack callback instead replace <a href="https://github.com/pika/pika/pull/1630">#1630</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>feat: Callback removal API <a href="https://github.com/pika/pika/pull/1628">#1628</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Rename ThreadSafeConnection to Connection and ThreadSafeChannel to Channel <a href="https://github.com/pika/pika/issues/1617">#1617</a></li>
+<li>Deprecate Tornado, Twisted, Blocking, and Gevent connection adapters <a href="https://github.com/pika/pika/pull/1615">#1615</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Deprecate BlockingConnection, TornadoConnection, TwistedProtocolConnection, and GeventConnection in 1.5.0 <a href="https://github.com/pika/pika/issues/1608">#1608</a></li>
+<li>Add ThreadSafe* examples for publisher confirms and long-running publisher <a href="https://github.com/pika/pika/issues/1607">#1607</a></li>
+<li>Add TLS test runs to Linux and macOS CI <a href="https://github.com/pika/pika/issues/1605">#1605</a></li>
+<li><code>Channel.confirm_delivery</code> appends callbacks instead of replacing on repeated calls <a href="https://github.com/pika/pika/issues/1602">#1602</a></li>
+<li>Add public callback removal API to <code>Channel</code> and <code>Connection</code> <a href="https://github.com/pika/pika/issues/1601">#1601</a></li>
+<li>Bound work queues in <code>ThreadSafe*</code> adapters <a href="https://github.com/pika/pika/issues/1600">#1600</a></li>
+<li>Add ThreadSafeConnection: fix _tx_buffers race and thread-safety bugs <a href="https://github.com/pika/pika/pull/1582">#1582</a> (<a href="https://github.com/Dheeraj4103">Dheeraj4103</a>)</li>
+<li>Update example code to work with RabbitMQ 4.3 <a href="https://github.com/pika/pika/issues/1580">#1580</a></li>
+<li>Remove pylint suppression comments and .pylintrc <a href="https://github.com/pika/pika/issues/1570">#1570</a></li>
+<li>Review and update GitHub issue labels <a href="https://github.com/pika/pika/issues/1567">#1567</a></li>
+<li>Remove all type: ignore comments from the codebase <a href="https://github.com/pika/pika/issues/1565">#1565</a></li>
+<li>Remove Python 2 compatibility code and modernize for Python 3 <a href="https://github.com/pika/pika/issues/1559">#1559</a></li>
+</ul>
+<p><strong>Fixed bugs:</strong></p>
+<ul>
+<li>Copy connection parameters without mutating the caller's object <a href="https://github.com/pika/pika/pull/1844">#1844</a> (<a href="https://github.com/anish-yen">anish-yen</a>)</li>
+<li>Connections built concurrently from one parameters object can leave its <code>ssl_options</code> as <code>None</code> <a href="https://github.com/pika/pika/issues/1842">#1842</a></li>
+<li>Connection.channel() accepts a channel_number that is in use or out of range <a href="https://github.com/pika/pika/issues/1839">#1839</a></li>
+<li>Reject non-finite floats when encoding field tables <a href="https://github.com/pika/pika/pull/1835">#1835</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>A NaN or inf float in a header makes RabbitMQ close the whole connection <a href="https://github.com/pika/pika/issues/1834">#1834</a></li>
+<li>Log each transport failure once, at the layer that aborts <a href="https://github.com/pika/pika/pull/1833">#1833</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Verify the broker for every URL <code>ssl_options</code> protocol <a href="https://github.com/pika/pika/pull/1832">#1832</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Raise encoding errors from <code>pika.Connection</code> publishes at the call site <a href="https://github.com/pika/pika/pull/1831">#1831</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>URL <code>ssl_options</code> with a CA and a non-client <code>protocol</code> does not verify the broker <a href="https://github.com/pika/pika/issues/1828">#1828</a></li>
+<li><code>pika.Connection.basic_publish</code> silently drops a message whose properties cannot be encoded <a href="https://github.com/pika/pika/issues/1827">#1827</a></li>
+<li>Build the IOLoop interrupt pair without a listener on POSIX <a href="https://github.com/pika/pika/pull/1826">#1826</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Load the default CAs when URL <code>ssl_options</code> names none <a href="https://github.com/pika/pika/pull/1825">#1825</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Abort the connection when a callback raises <code>BlockingIOError</code> <a href="https://github.com/pika/pika/pull/1824">#1824</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Add <code>pika.data.LongLong</code> to send integers as 64-bit <code>l</code> values <a href="https://github.com/pika/pika/pull/1823">#1823</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Transport failures log the same traceback two or more times <a href="https://github.com/pika/pika/issues/1822">#1822</a></li>
+<li><code>pika.data.LongLong</code>: restore 64-bit <code>l</code> field-table integers lost in 1.5.0 <a href="https://github.com/pika/pika/issues/1821">#1821</a></li>
+<li><code>nonblocking_socketpair</code> accepts any peer on its loopback listener <a href="https://github.com/pika/pika/issues/1820">#1820</a></li>
+<li>A <code>BlockingIOError</code> raised from a callback is handled as a would-block, and the connection stays open <a href="https://github.com/pika/pika/issues/1819">#1819</a></li>
+<li><code>URLParameters</code> raises <code>TypeError</code> when <code>ssl_options</code> has no CA, including the documented example <a href="https://github.com/pika/pika/issues/1818">#1818</a></li>
+<li>Start a final release's GitHub notes at the previous final release <a href="https://github.com/pika/pika/pull/1809">#1809</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Retitle the 1.4.3 changelog entry as 1.4.4 <a href="https://github.com/pika/pika/pull/1808">#1808</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Ask the broker to cancel a gone or cancelling tag <a href="https://github.com/pika/pika/pull/1805">#1805</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li><code>pika.Connection</code> <code>basic_cancel</code> of a gone or unknown tag waits out its timeout <a href="https://github.com/pika/pika/issues/1804">#1804</a></li>
+<li>Complete each <code>basic_cancel</code> callback only on its own <code>CancelOk</code> <a href="https://github.com/pika/pika/pull/1803">#1803</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li><code>basic_cancel</code> completes on another consumer's <code>Basic.CancelOk</code> <a href="https://github.com/pika/pika/issues/1802">#1802</a></li>
+<li>Ignore SIGINT in the runner tests only on the main thread <a href="https://github.com/pika/pika/pull/1801">#1801</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Document the connection parameter properties once, on <code>Parameters</code> <a href="https://github.com/pika/pika/pull/1797">#1797</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Kill a stuck <code>ForwardServer</code> subprocess with <code>Process.kill()</code> <a href="https://github.com/pika/pika/pull/1796">#1796</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li><code>ConnectionParameters</code> docs show each property as its constructor assignment, without its docstring <a href="https://github.com/pika/pika/issues/1795">#1795</a></li>
+<li><code>ForwardServer.stop()</code> raises <code>TypeError</code> when it falls back to killing the subprocess <a href="https://github.com/pika/pika/issues/1790">#1790</a></li>
+<li>docfmt and docfmt-check do not exclude the generated <code>pika/spec.py</code> <a href="https://github.com/pika/pika/issues/1789">#1789</a></li>
+<li>List tags through the <code>git</code> helper when no root is given <a href="https://github.com/pika/pika/pull/1787">#1787</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>tag_release tests read the repository's real tags, so 1.5.0rc1 broke them locally <a href="https://github.com/pika/pika/issues/1786">#1786</a></li>
+<li>Declare <code>test_exchange</code> durable in the publishing comparison <a href="https://github.com/pika/pika/pull/1785">#1785</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Make <code>--use-tls</code> reach the xdist workers that run the tests <a href="https://github.com/pika/pika/pull/1784">#1784</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>The examples declare test_exchange with conflicting durable settings <a href="https://github.com/pika/pika/issues/1783">#1783</a></li>
+<li>The tls=true CI legs have run the plaintext suite since pytest-xdist was enabled <a href="https://github.com/pika/pika/issues/1782">#1782</a></li>
+<li>Decode AMQP decimals without applying the caller's context <a href="https://github.com/pika/pika/pull/1780">#1780</a> (<a href="https://github.com/JackyHsu-X">JackyHsu-X</a>)</li>
+<li>Annotate the return values of the blocking RPC wrappers <a href="https://github.com/pika/pika/pull/1772">#1772</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Drain the callback pools before the connection closes <a href="https://github.com/pika/pika/pull/1768">#1768</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>BlockingConnection leaves cancelled-consumer deliveries unacknowledged on an open channel <a href="https://github.com/pika/pika/issues/1767">#1767</a></li>
+<li>Identify a pool worker by a stamp, not by the channel list <a href="https://github.com/pika/pika/pull/1764">#1764</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Delivery callbacks run after <code>close()</code> tears the connection down, duplicating work <a href="https://github.com/pika/pika/issues/1763">#1763</a></li>
+<li>Three ways <code>pika.Connection</code> can hang or leak at shutdown <a href="https://github.com/pika/pika/issues/1761">#1761</a></li>
+<li>Contain any exception a <code>_BoundedWorkPool</code> work item raises <a href="https://github.com/pika/pika/pull/1756">#1756</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Render every documentation cross-reference, and check it <a href="https://github.com/pika/pika/pull/1753">#1753</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li><code>_BoundedWorkPool</code> loses its worker when a dispatched callback raises <a href="https://github.com/pika/pika/issues/1751">#1751</a></li>
+<li>Sphinx inline roles reach the published docs as literal text <a href="https://github.com/pika/pika/issues/1750">#1750</a></li>
+<li>Validate user callbacks before wrapping channel operations <a href="https://github.com/pika/pika/pull/1749">#1749</a> (<a href="https://github.com/ac1982">ac1982</a>)</li>
+<li>Honor connection close deadlines from callback pool workers <a href="https://github.com/pika/pika/pull/1748">#1748</a> (<a href="https://github.com/Grivn">Grivn</a>)</li>
+<li>Accept an AMQP URL with a username but no password <a href="https://github.com/pika/pika/pull/1747">#1747</a> (<a href="https://github.com/eeshsaxena">eeshsaxena</a>)</li>
+<li>Report a crashed IOLoop through <code>is_open</code> and <code>is_closed</code> <a href="https://github.com/pika/pika/pull/1745">#1745</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li><code>Connection.is_open</code> reports True after the IOLoop thread crashes <a href="https://github.com/pika/pika/issues/1743">#1743</a></li>
+<li><code>Channel.confirm_delivery</code> accepts a non-callable and fails once per confirm <a href="https://github.com/pika/pika/issues/1742">#1742</a></li>
+<li>Stop the preview leg reporting an unexpanded check name <a href="https://github.com/pika/pika/pull/1726">#1726</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Give the big-message acceptance test its own timeout budget <a href="https://github.com/pika/pika/pull/1725">#1725</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Let a pre-release be promoted to its final version <a href="https://github.com/pika/pika/pull/1723">#1723</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>release.yaml cannot promote a pre-release to its final version <a href="https://github.com/pika/pika/issues/1721">#1721</a></li>
+<li>Reject out-of-range integers and pre-epoch timestamps on encode <a href="https://github.com/pika/pika/pull/1718">#1718</a> (<a href="https://github.com/eeshsaxena">eeshsaxena</a>)</li>
+<li>Reject bool for port and socket/stack timeouts <a href="https://github.com/pika/pika/pull/1716">#1716</a> (<a href="https://github.com/Pitchfork-and-Torch">Pitchfork-and-Torch</a>)</li>
+<li>Client properties advertise the old pika.rtfd.org docs URL <a href="https://github.com/pika/pika/issues/1713">#1713</a></li>
+<li>Force-close from a pool-worker callback ignores close(timeout) on an unresponsive broker <a href="https://github.com/pika/pika/issues/1706">#1706</a></li>
+<li>Encode Python <code>float</code> values as the AMQP <code>d</code> field type <a href="https://github.com/pika/pika/pull/1705">#1705</a> (<a href="https://github.com/dylanpulver">dylanpulver</a>)</li>
+<li>Reject decimal.Decimal values with no AMQP wire representation <a href="https://github.com/pika/pika/pull/1704">#1704</a> (<a href="https://github.com/afonsojanu">afonsojanu</a>)</li>
+<li>Stop <code>StreamLostError</code> from hiding the original traceback <a href="https://github.com/pika/pika/pull/1703">#1703</a> (<a href="https://github.com/jholaj">jholaj</a>)</li>
+<li>Stop an out-of-range <code>timestamp</code> header from closing the connection <a href="https://github.com/pika/pika/pull/1699">#1699</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Fix <code>Connection.close()</code> self-deadlock from a consumer callback <a href="https://github.com/pika/pika/pull/1697">#1697</a> (<a href="https://github.com/zanarellidev">zanarellidev</a>)</li>
+<li>Fix: Stop <code>ThreadSafeChannel</code> confirm tags drifting from the broker <a href="https://github.com/pika/pika/pull/1694">#1694</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Make <code>CallbackManager.remove</code> honor its remove-all docstring <a href="https://github.com/pika/pika/pull/1693">#1693</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Bound how long a channel retains nowait-cancelled consumer tags <a href="https://github.com/pika/pika/pull/1692">#1692</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li><code>Channel._cancelled</code> grows without bound on nowait <code>basic_cancel</code> <a href="https://github.com/pika/pika/issues/1691">#1691</a></li>
+<li>Contain exceptions from the basic_publish on_publish callback <a href="https://github.com/pika/pika/pull/1690">#1690</a> (<a href="https://github.com/aryansk">aryansk</a>)</li>
+<li>Drop each closed channel from the connection's tracking list <a href="https://github.com/pika/pika/pull/1689">#1689</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li><code>Connection._channels</code> is append-only, so every closed channel is retained forever <a href="https://github.com/pika/pika/issues/1688">#1688</a></li>
+<li>An exception from <code>basic_publish(on_publish=...)</code> kills the whole connection <a href="https://github.com/pika/pika/issues/1687">#1687</a></li>
+<li><code>Connection.close()</code> called from a consumer callback self-deadlocks <a href="https://github.com/pika/pika/issues/1686">#1686</a></li>
+<li>Fix: gh-1684 (Release each blocking RPC's channel callbacks) <a href="https://github.com/pika/pika/pull/1685">#1685</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Every blocking RPC on a <code>ThreadSafeChannel</code> leaks a channel close callback <a href="https://github.com/pika/pika/issues/1684">#1684</a></li>
+<li><code>ThreadSafeChannel</code> publisher-confirm tags drift out of sync with the broker <a href="https://github.com/pika/pika/issues/1683">#1683</a></li>
+<li>Fix: gh-1679 (Reject work scheduled on a closed ThreadSafeConnection) <a href="https://github.com/pika/pika/pull/1680">#1680</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li><code>ThreadSafeConnection.add_callback_threadsafe</code> doesn't raise error when connection closed <a href="https://github.com/pika/pika/issues/1679">#1679</a></li>
+<li>fix: Stop the getaddrinfo acceptance tests from depending on live DNS <a href="https://github.com/pika/pika/pull/1667">#1667</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Flaky getaddrinfo acceptance tests depend on live DNS <a href="https://github.com/pika/pika/issues/1661">#1661</a></li>
+<li>Stop mutating global asyncio event loop policy on import <a href="https://github.com/pika/pika/pull/1641">#1641</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Fix <code>DeliveryMode</code> to inherit from <code>IntEnum</code> <a href="https://github.com/pika/pika/pull/1604">#1604</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li><code>DeliveryMode</code> enum is not an integer; <code>struct.pack</code> rejects it on Python 3.12+ <a href="https://github.com/pika/pika/issues/1603">#1603</a></li>
+<li>fix: handle channel closure in BlockingConnection.process_data_events <a href="https://github.com/pika/pika/pull/1586">#1586</a> (<a href="https://github.com/dadodimauro">dadodimauro</a>)</li>
+<li>fix: examples with rabbitmq 4.3 need durable queues <a href="https://github.com/pika/pika/pull/1585">#1585</a> (<a href="https://github.com/dadodimauro">dadodimauro</a>)</li>
+<li>BlockingConnection.process_data_events does not account for channel closure <a href="https://github.com/pika/pika/issues/1472">#1472</a></li>
+<li>Remove the NACK during the stop_consuming  <a href="https://github.com/pika/pika/issues/1389">#1389</a></li>
+<li>AsyncioConnection with a custom_ioloop raises exception <a href="https://github.com/pika/pika/issues/1296">#1296</a></li>
+<li>Duplicate callback found for "0:Connection.Unblocked" <a href="https://github.com/pika/pika/issues/1052">#1052</a></li>
+<li>Table encoder and decoder mixes signed and unsigned integers <a href="https://github.com/pika/pika/issues/601">#601</a></li>
+<li>Decoded floats and doubles get cast to long ints <a href="https://github.com/pika/pika/issues/599">#599</a></li>
+</ul>
+<p><strong>Documentation:</strong></p>
+<ul>
+<li>Add the consumer-timeout channel close to the 1.5.0 upgrade notes <a href="https://github.com/pika/pika/pull/1815">#1815</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Say the two warning-filter forms are not interchangeable <a href="https://github.com/pika/pika/pull/1788">#1788</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Make <code>RELEASE.md</code> the procedure, and move the reasoning out <a href="https://github.com/pika/pika/pull/1778">#1778</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Smoke-test the connection 1.5.0 documents, and note <code>pika.compat</code> <a href="https://github.com/pika/pika/pull/1776">#1776</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Document what happens when a consumer callback raises <a href="https://github.com/pika/pika/pull/1774">#1774</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Add a script that reproduces the close-loss figures <a href="https://github.com/pika/pika/pull/1771">#1771</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Document that no pika connection survives os.fork() <a href="https://github.com/pika/pika/pull/1766">#1766</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Narrow the empty-intensifier rule, and clear the real cases <a href="https://github.com/pika/pika/pull/1760">#1760</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Narrow the empty-intensifier rule, then clear the real cases <a href="https://github.com/pika/pika/issues/1759">#1759</a></li>
+<li>Unwrap the hard-wrapped markdown, and broaden the rule <a href="https://github.com/pika/pika/pull/1758">#1758</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Fix the defects the 1.5.0 documentation review found <a href="https://github.com/pika/pika/pull/1744">#1744</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li><code>Channel.confirm_delivery</code> has required argument <code>ack_nack_callback</code> <a href="https://github.com/pika/pika/issues/1737">#1737</a></li>
+<li>Remove the duplicated TLS example and rework the TLS consumer <a href="https://github.com/pika/pika/pull/1734">#1734</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Final documentation review before 1.5.0 <a href="https://github.com/pika/pika/issues/1730">#1730</a></li>
+<li>Add the 1.5.0 upgrade notes, in both places a reader looks <a href="https://github.com/pika/pika/pull/1727">#1727</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Rename ThreadSafeConnection/Channel to Connection/Channel <a href="https://github.com/pika/pika/pull/1682">#1682</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Pre-1.5.0 miscellaneous items <a href="https://github.com/pika/pika/issues/1675">#1675</a></li>
+<li>README: drop unsupported <code>maxAge</code> parameter from downloads badge <a href="https://github.com/pika/pika/pull/1668">#1668</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Correct stale file names and CI details in <code>AGENTS.md</code> <a href="https://github.com/pika/pika/pull/1665">#1665</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Clarify connection_is_idle single-interval threshold is by design <a href="https://github.com/pika/pika/pull/1648">#1648</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Deploy versioned docs to GitHub Pages via mike <a href="https://github.com/pika/pika/pull/1614">#1614</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Deploy MkDocs documentation to GitHub Pages <a href="https://github.com/pika/pika/issues/1612">#1612</a></li>
+<li>feat(docs): add DeliveryMode enum documentation <a href="https://github.com/pika/pika/pull/1592">#1592</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Migrate Docs to MkDocs <a href="https://github.com/pika/pika/pull/1576">#1576</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Migrate documentation to MkDocs + Material + GitHub Pages <a href="https://github.com/pika/pika/issues/1571">#1571</a></li>
+<li>Review and update all inline code documentation and comments <a href="https://github.com/pika/pika/issues/1569">#1569</a></li>
+<li>Expand docs and examples with regard to thread-safety <a href="https://github.com/pika/pika/issues/1426">#1426</a></li>
+</ul>
+<p><strong>Closed issues:</strong></p>
+<ul>
+<li>Enable mypy's warn_return_any, so a false return annotation cannot pass <a href="https://github.com/pika/pika/issues/1773">#1773</a></li>
+<li>Consolidate the three divergent _make_connection harnesses in the thread-safe unit tests <a href="https://github.com/pika/pika/issues/1765">#1765</a></li>
+<li>Drop the versionless <code>License ::</code> classifier now that <code>license</code> is a valid SPDX expression <a href="https://github.com/pika/pika/issues/1700">#1700</a></li>
+<li>An out-of-range field-table timestamp tears down the connection <a href="https://github.com/pika/pika/issues/1698">#1698</a></li>
+<li><code>ruff</code>: select vs extend-select approach <a href="https://github.com/pika/pika/issues/1663">#1663</a></li>
+<li>suggestion: add docformatter to enforce PEP 257 docstring style <a href="https://github.com/pika/pika/issues/1623">#1623</a></li>
+<li>Configure readthedocs.io redirects to new GitHub Pages docs site <a href="https://github.com/pika/pika/issues/1620">#1620</a></li>
+<li>Remove remaining 21 <code>type: ignore</code> comments <a href="https://github.com/pika/pika/issues/1618">#1618</a></li>
+<li>Add codecov.yml to fix premature coverage reporting <a href="https://github.com/pika/pika/issues/1611">#1611</a></li>
+<li>DeliveryMode is not documented <a href="https://github.com/pika/pika/issues/1406">#1406</a></li>
+<li>SelectConnection catches all errors and hides details.  <a href="https://github.com/pika/pika/issues/1390">#1390</a></li>
+</ul>
+<p><strong>Merged pull requests:</strong></p>
+<ul>
+<li>Reject a channel number that is in use or out of range <a href="https://github.com/pika/pika/pull/1840">#1840</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Remove dead code <a href="https://github.com/pika/pika/pull/1817">#1817</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>pika 1.5.0rc4 <a href="https://github.com/pika/pika/pull/1813">#1813</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Remove EINTR retry code that PEP 475 made unreachable <a href="https://github.com/pika/pika/pull/1812">#1812</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Share one <code>_remaining</code> deadline helper in <code>thread_safe_connection</code> <a href="https://github.com/pika/pika/pull/1811">#1811</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Define <code>TRY_IO_AGAIN_SOCK_ERROR_CODES</code> once in <code>pika._utils</code> <a href="https://github.com/pika/pika/pull/1810">#1810</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>pika 1.5.0rc3 <a href="https://github.com/pika/pika/pull/1807">#1807</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>build(deps): bump the github-actions group with 5 updates <a href="https://github.com/pika/pika/pull/1806">#1806</a> (<a href="https://github.com/apps/dependabot">dependabot[bot]</a>)</li>
+<li>pika 1.5.0rc2 <a href="https://github.com/pika/pika/pull/1800">#1800</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Gate the no-hard-wrap rule with mdformat <a href="https://github.com/pika/pika/pull/1799">#1799</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Exclude only <code>pika/spec.py</code> from the docformatter recipes <a href="https://github.com/pika/pika/pull/1793">#1793</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>build(deps): bump the github-actions group with 3 updates <a href="https://github.com/pika/pika/pull/1781">#1781</a> (<a href="https://github.com/apps/dependabot">dependabot[bot]</a>)</li>
+<li>pika 1.5.0rc1 <a href="https://github.com/pika/pika/pull/1779">#1779</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Enable mypy's <code>warn_return_any</code> and make the returns true <a href="https://github.com/pika/pika/pull/1777">#1777</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Share one connection harness between the five test classes <a href="https://github.com/pika/pika/pull/1775">#1775</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>build(deps): bump the github-actions group with 5 updates <a href="https://github.com/pika/pika/pull/1746">#1746</a> (<a href="https://github.com/apps/dependabot">dependabot[bot]</a>)</li>
+<li>build(deps): bump the github-actions group with 4 updates <a href="https://github.com/pika/pika/pull/1733">#1733</a> (<a href="https://github.com/apps/dependabot">dependabot[bot]</a>)</li>
+<li>build(deps): bump the github-actions group with 4 updates <a href="https://github.com/pika/pika/pull/1715">#1715</a> (<a href="https://github.com/apps/dependabot">dependabot[bot]</a>)</li>
+<li>build(deps): bump the github-actions group with 3 updates <a href="https://github.com/pika/pika/pull/1710">#1710</a> (<a href="https://github.com/apps/dependabot">dependabot[bot]</a>)</li>
+<li>CI: run macOS on one Python version in a minimal non-blocking leg <a href="https://github.com/pika/pika/pull/1709">#1709</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>CI: Test against pre-release Python 3.15 in a non-blocking leg <a href="https://github.com/pika/pika/pull/1707">#1707</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>build(deps): bump the github-actions group with 3 updates <a href="https://github.com/pika/pika/pull/1702">#1702</a> (<a href="https://github.com/apps/dependabot">dependabot[bot]</a>)</li>
+<li>Resolve "Drop the versionless License :: classifier now that license is a valid SPDX expression <a href="https://github.com/pika/pika/pull/1701">#1701</a> (<a href="https://github.com/btschwertfeger">btschwertfeger</a>)</li>
+<li>build(deps): bump the github-actions group with 3 updates <a href="https://github.com/pika/pika/pull/1696">#1696</a> (<a href="https://github.com/apps/dependabot">dependabot[bot]</a>)</li>
+<li>Perf: codec hot paths <a href="https://github.com/pika/pika/pull/1676">#1676</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Type-annotate the generated <code>spec.py</code> and drop its mypy exemption <a href="https://github.com/pika/pika/pull/1674">#1674</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Drop the six tractable Twisted <code>type: ignore</code> comments <a href="https://github.com/pika/pika/pull/1672">#1672</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Make <code>AbstractSelectorIOLoop</code> a structural <code>Protocol</code> <a href="https://github.com/pika/pika/pull/1671">#1671</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Remove six <code>type: ignore</code> comments from three adapters <a href="https://github.com/pika/pika/pull/1670">#1670</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>ruff: extend the default rule set and fix the fallout <a href="https://github.com/pika/pika/pull/1666">#1666</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Upload coverage to Codecov once after all tests finish <a href="https://github.com/pika/pika/pull/1664">#1664</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Add Ruff quote style (<code>Q</code>) <a href="https://github.com/pika/pika/pull/1662">#1662</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Fix ruff 0.16.0 <code>RUF036</code> and <code>ISC004</code> violations <a href="https://github.com/pika/pika/pull/1659">#1659</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Bump the github-actions group across 1 directory with 6 updates <a href="https://github.com/pika/pika/pull/1657">#1657</a> (<a href="https://github.com/apps/dependabot">dependabot[bot]</a>)</li>
+<li>Optimization: Speed up field-table codec <a href="https://github.com/pika/pika/pull/1655">#1655</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Optimization: Eliminate quadratic copying in inbound frame buffer <a href="https://github.com/pika/pika/pull/1653">#1653</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Fix: pyright errors <a href="https://github.com/pika/pika/pull/1652">#1652</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Fix: address pyright issues <a href="https://github.com/pika/pika/pull/1649">#1649</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Remove dead capabilities-stripping code from Connection._set_server_information <a href="https://github.com/pika/pika/pull/1647">#1647</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Chore: guard type-only imports and tighten mypy <a href="https://github.com/pika/pika/pull/1646">#1646</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Bump the github-actions group with 3 updates <a href="https://github.com/pika/pika/pull/1644">#1644</a> (<a href="https://github.com/apps/dependabot">dependabot[bot]</a>)</li>
+<li>Add <code>FA</code> ruff rule and apply fixes <a href="https://github.com/pika/pika/pull/1643">#1643</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Bump the github-actions group with 4 updates <a href="https://github.com/pika/pika/pull/1640">#1640</a> (<a href="https://github.com/apps/dependabot">dependabot[bot]</a>)</li>
+<li>Chore: general typing fixes <a href="https://github.com/pika/pika/pull/1638">#1638</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Bump actions/cache from 5 to 6 in the github-actions group <a href="https://github.com/pika/pika/pull/1636">#1636</a> (<a href="https://github.com/apps/dependabot">dependabot[bot]</a>)</li>
+<li>Chore: expand ruff rules <a href="https://github.com/pika/pika/pull/1633">#1633</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Chore: re-apply redundant <code>rtype</code> removal lost in #1625 merge <a href="https://github.com/pika/pika/pull/1629">#1629</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Bump actions/checkout from 6 to 7 in the github-actions group <a href="https://github.com/pika/pika/pull/1627">#1627</a> (<a href="https://github.com/apps/dependabot">dependabot[bot]</a>)</li>
+<li>Chore: remove redundant <code>rtype</code> <a href="https://github.com/pika/pika/pull/1626">#1626</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Add docformatter to enforce PEP 257 docstring style <a href="https://github.com/pika/pika/pull/1625">#1625</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Bump codecov/codecov-action from 6 to 7 in the github-actions group <a href="https://github.com/pika/pika/pull/1622">#1622</a> (<a href="https://github.com/apps/dependabot">dependabot[bot]</a>)</li>
+<li>Fix: Wide typehints and docstrings <a href="https://github.com/pika/pika/pull/1621">#1621</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Remove type: ignore comments from the codebase <a href="https://github.com/pika/pika/pull/1619">#1619</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>Fix flaky test_concurrent_publishes_all_scheduled <a href="https://github.com/pika/pika/pull/1616">#1616</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Add codecov.yml to fix premature coverage reporting <a href="https://github.com/pika/pika/pull/1613">#1613</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Run tests in parallel via pytest-xdist by default <a href="https://github.com/pika/pika/pull/1610">#1610</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>feat(CI): Add TLS to Linux and macOS <a href="https://github.com/pika/pika/pull/1609">#1609</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Reorganize CI under .ci/, drop testdata/versions.json, always-latest <a href="https://github.com/pika/pika/pull/1606">#1606</a> (<a href="https://github.com/lukebakken">lukebakken</a>)</li>
+<li>chore: upgrade RabbitMQ to 4.3.1 and pin Linux CI Docker image <a href="https://github.com/pika/pika/pull/1599">#1599</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>feat(CI): improved version release flow <a href="https://github.com/pika/pika/pull/1598">#1598</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>tests: fix invisible tests and improve coverage <a href="https://github.com/pika/pika/pull/1595">#1595</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>fix: codecov coverage upload <a href="https://github.com/pika/pika/pull/1594">#1594</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>tests: Expand unit tests for <code>DeliveryMode</code> and enhance <code>ExchangeType</code> and <code>exceptions</code> <a href="https://github.com/pika/pika/pull/1593">#1593</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Expands Ruff lint coverage <a href="https://github.com/pika/pika/pull/1591">#1591</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Enable expanded Ruff rules <a href="https://github.com/pika/pika/pull/1590">#1590</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Fix mypy error caused by twisted <a href="https://github.com/pika/pika/pull/1589">#1589</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>Update PULL_REQUEST_TEMPLATE.md for clarity and structure <a href="https://github.com/pika/pika/pull/1588">#1588</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>CI: Add macOS <a href="https://github.com/pika/pika/pull/1587">#1587</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+<li>feat: remove pylint suppression comments and .pylintrc  <a href="https://github.com/pika/pika/pull/1584">#1584</a> (<a href="https://github.com/dadodimauro">dadodimauro</a>)</li>
+<li>feat: Inline comments fixes <a href="https://github.com/pika/pika/pull/1583">#1583</a> (<a href="https://github.com/dadodimauro">dadodimauro</a>)</li>
+<li>Remove Python 2 compatibility code and modernize for Python 3 <a href="https://github.com/pika/pika/pull/1581">#1581</a> (<a href="https://github.com/alonfaraj">alonfaraj</a>)</li>
+</ul>
 <h2 id="144-2026-08-06"><a href="https://github.com/pika/pika/tree/1.4.4">1.4.4</a> (2026-08-06)<a class="headerlink" href="#144-2026-08-06" title="Permanent link">&para;</a></h2>
 <p><a href="https://github.com/pika/pika/compare/1.4.2...1.4.4">Full Changelog</a></p>
 <p><strong>Merged pull requests:</strong></p>
