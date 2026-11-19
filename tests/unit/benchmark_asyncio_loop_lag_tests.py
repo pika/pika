@@ -5,6 +5,7 @@ import contextlib
 import importlib.util
 import io
 import time
+import tracemalloc
 import types
 import unittest
 from pathlib import Path
@@ -94,14 +95,26 @@ def _valid_args(**overrides):
     return args
 
 
-def _run_benchmark(messages, rate, duration, timer_interval):
+def _run_benchmark(messages,
+                   rate,
+                   duration,
+                   timer_interval,
+                   burst_size=1,
+                   measure_allocations=False):
 
     async def run():
         loop = asyncio.get_running_loop()
         benchmark = _BENCHMARK._Run(loop,
                                     _BENCHMARK.pika.ConnectionParameters(),
-                                    'sample', messages, 32, rate, 1, duration,
-                                    timer_interval, 0)
+                                    'sample',
+                                    messages,
+                                    32,
+                                    rate,
+                                    burst_size,
+                                    duration,
+                                    timer_interval,
+                                    0,
+                                    measure_allocations=measure_allocations)
         return await benchmark.run()
 
     loop = asyncio.new_event_loop()
@@ -111,7 +124,7 @@ def _run_benchmark(messages, rate, duration, timer_interval):
         loop.close()
 
 
-def _publish_failure(_consumer):
+def _publish_failure(_consumer, _body):
     raise RuntimeError('publish failed')
 
 
@@ -150,7 +163,11 @@ class SamplerAndReportTests(unittest.TestCase):
                                     burst_size=5,
                                     timer_interval=0.001,
                                     sync_work_ms=1.0,
-                                    missed_deadlines=1)
+                                    missed_deadlines=1,
+                                    socket_write_calls=9,
+                                    peak_traced_bytes=1000,
+                                    completion_throughput=4.0,
+                                    body_mismatches=0)
 
         self.assertEqual(result['requested_messages'], 500)
         self.assertEqual(result['published'], 4)
@@ -162,6 +179,11 @@ class SamplerAndReportTests(unittest.TestCase):
         self.assertEqual(result['publish_throughput_msg_per_s'], 2.0)
         self.assertEqual(result['delivery_throughput_msg_per_s'], 1.0)
         self.assertEqual(result['peak_queued_bytes'], 1024)
+        self.assertEqual(result['socket_write_calls'], 9)
+        self.assertEqual(result['peak_traced_bytes'], 1000)
+        self.assertEqual(result['publisher_completion_throughput_msg_per_s'],
+                         4.0)
+        self.assertEqual(result['delivered_body_mismatches'], 0)
         self.assertIs(result['deliveries_finished_within_window'], False)
 
 
@@ -243,7 +265,7 @@ class RunTests(unittest.TestCase):
 
     def _install_connection(self, on_publish, declare_error=None):
         """
-        Replace `AsyncioConnection` with a stub whose channel calls `on_publish(consumer)`.
+        Replace `AsyncioConnection` with a stub whose channel calls `on_publish(consumer, body)`.
 
         With `declare_error`, the channel closes with it instead of declaring the queue.
         """
@@ -270,8 +292,8 @@ class RunTests(unittest.TestCase):
                 self.consumer = consumer
                 asyncio.get_running_loop().call_soon(callback, None)
 
-            def basic_publish(self, _exchange, _queue, _body):
-                on_publish(self.consumer)
+            def basic_publish(self, _exchange, _queue, body):
+                on_publish(self.consumer, body)
 
         class Connection:
 
@@ -320,8 +342,8 @@ class RunTests(unittest.TestCase):
     def test_delivery_before_the_cutoff_finishes_within_the_window_when_the_publisher_wakes_late(
             self):
 
-        def deliver_then_overrun_the_window(consumer):
-            consumer(None, None, None, b'')
+        def deliver_then_overrun_the_window(consumer, body):
+            consumer(None, None, None, body)
             time.sleep(0.15)
 
         connections = self._install_connection(deliver_then_overrun_the_window)
@@ -336,9 +358,9 @@ class RunTests(unittest.TestCase):
 
     def test_delivery_after_the_cutoff_does_not_finish_within_the_window(self):
 
-        def deliver_after_the_window(consumer):
+        def deliver_after_the_window(consumer, body):
             asyncio.get_running_loop().call_later(0.2, consumer, None, None,
-                                                  None, b'')
+                                                  None, body)
 
         self._install_connection(deliver_after_the_window)
 
@@ -349,8 +371,32 @@ class RunTests(unittest.TestCase):
         self.assertEqual(result['delivered_during_window'], 0)
         self.assertIs(result['deliveries_finished_within_window'], False)
 
+    def test_allocation_measurement_does_not_require_reset_peak(self):
+        self._install_connection(
+            lambda consumer, body: consumer(None, None, None, body))
+        if hasattr(tracemalloc, 'reset_peak'):
+            reset_peak = tracemalloc.reset_peak
+            del tracemalloc.reset_peak
+            self.addCleanup(setattr, tracemalloc, 'reset_peak', reset_peak)
+
+        result = _run_benchmark(1, 100.0, 0.1, 0.02, measure_allocations=True)
+
+        self.assertIsNotNone(result['peak_traced_bytes'])
+        self.assertFalse(tracemalloc.is_tracing())
+
+    def test_allocation_measurement_keeps_an_existing_trace_session(self):
+        self._install_connection(
+            lambda consumer, body: consumer(None, None, None, body))
+        tracemalloc.start()
+        self.addCleanup(tracemalloc.stop)
+
+        result = _run_benchmark(1, 100.0, 0.1, 0.02, measure_allocations=True)
+
+        self.assertIsNone(result['peak_traced_bytes'])
+        self.assertTrue(tracemalloc.is_tracing())
+
     def test_run_without_timer_samples_fails_and_closes_connection(self):
-        connections = self._install_connection(lambda _consumer: None)
+        connections = self._install_connection(lambda _consumer, _body: None)
 
         with self.assertRaisesRegex(RuntimeError, 'no timer samples'):
             _run_benchmark(0, 100.0, 0.01, 0.01)

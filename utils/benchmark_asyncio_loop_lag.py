@@ -13,7 +13,8 @@ transport write buffer, sampled after each publish. Publish and delivery rates d
 counts by the fixed measurement window; the final delivery count also includes any drain after that
 window. The epoll selector rounds a timeout up to a whole millisecond, so on Linux even the `idle`
 workload reports about 1 ms of p99 lag and misses some 1 ms deadlines; read other workloads against
-it.
+it. The benchmark compares enabled and disabled batching and reports socket sends, publisher
+throughput, and peak traced memory. Memory tracing changes loop timing.
 """
 
 from __future__ import annotations
@@ -25,8 +26,9 @@ import math
 import ssl
 import sys
 import time
+import tracemalloc
 import uuid
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 
 import pika
 from pika.adapters.asyncio_connection import AsyncioConnection
@@ -93,11 +95,25 @@ def _percentile(samples: list[float], percentile: float) -> float:
                                               ordered[lower_index])
 
 
-def _report(samples: list[float], workload: str, requested_messages: int,
-            published: int, delivered: int, delivered_in_window: int,
-            duration: float, peak_queued_bytes: int, within_window: bool,
-            body_size: int, rate: float, burst_size: int, timer_interval: float,
-            sync_work_ms: float, missed_deadlines: int) -> dict[str, Any]:
+def _report(samples: list[float],
+            workload: str,
+            requested_messages: int,
+            published: int,
+            delivered: int,
+            delivered_in_window: int,
+            duration: float,
+            peak_queued_bytes: int,
+            within_window: bool,
+            body_size: int,
+            rate: float,
+            burst_size: int,
+            timer_interval: float,
+            sync_work_ms: float,
+            missed_deadlines: int,
+            socket_write_calls: int = 0,
+            peak_traced_bytes: int | None = None,
+            completion_throughput: float = 0.0,
+            body_mismatches: int = 0) -> dict[str, Any]:
     return {
         'workload':
             workload,
@@ -131,12 +147,20 @@ def _report(samples: list[float], workload: str, requested_messages: int,
             delivered,
         'delivered_during_window':
             delivered_in_window,
+        'delivered_body_mismatches':
+            body_mismatches,
         'publish_throughput_msg_per_s':
             round(published / duration, 2),
+        'publisher_completion_throughput_msg_per_s':
+            round(completion_throughput, 2),
         'delivery_throughput_msg_per_s':
             round(delivered_in_window / duration, 2),
         'peak_queued_bytes':
             peak_queued_bytes,
+        'socket_write_calls':
+            socket_write_calls,
+        'peak_traced_bytes':
+            peak_traced_bytes,
         'deliveries_finished_within_window':
             within_window,
     }
@@ -161,11 +185,19 @@ def _transport_write_buffer_size(connection: Any) -> int:
 
 class _Run:
 
-    def __init__(self, loop: asyncio.AbstractEventLoop,
-                 params: pika.ConnectionParameters, workload: str,
-                 messages: int, body_size: int, rate: float, burst_size: int,
-                 duration: float, timer_interval: float,
-                 sync_work_ms: float) -> None:
+    def __init__(self,
+                 loop: asyncio.AbstractEventLoop,
+                 params: pika.ConnectionParameters,
+                 workload: str,
+                 messages: int,
+                 body_size: int,
+                 rate: float,
+                 burst_size: int,
+                 duration: float,
+                 timer_interval: float,
+                 sync_work_ms: float,
+                 write_batching: str = 'enabled',
+                 measure_allocations: bool = False) -> None:
         self.loop = loop
         self.params = params
         self.workload = workload
@@ -176,6 +208,8 @@ class _Run:
         self.duration = duration
         self.timer_interval = timer_interval
         self.sync_work_ms = sync_work_ms
+        self.write_batching = write_batching
+        self.measure_allocations = measure_allocations
         self.ready = loop.create_future()
         self.failure = loop.create_future()
         self.closed = loop.create_future()
@@ -186,6 +220,7 @@ class _Run:
         self.published = 0
         self.delivered = 0
         self.delivered_in_window = 0
+        self.delivery_body_mismatches = 0
         self.peak_queued_bytes = 0
         self.publisher_task = None
         self.publisher_finished = False
@@ -194,6 +229,10 @@ class _Run:
         self.sampler = LoopLagSampler(loop, timer_interval)
         self.started = 0.0
         self.window_end = 0.0
+        self.socket_write_calls = 0
+        self._restore_socket_send: Callable[[], None] | None = None
+        self.publisher_finished_at = 0.0
+        self._owns_allocation_trace = False
 
     async def run(self) -> dict[str, Any]:
         self.connection = AsyncioConnection(
@@ -204,6 +243,13 @@ class _Run:
             custom_ioloop=self.loop)
         try:
             await self._wait_or_fail(self.ready)
+            self._count_socket_writes()
+            if self.write_batching == 'disabled':
+                self.connection._transport._coalesce_tx_buffers = lambda: None
+            if self.measure_allocations and not tracemalloc.is_tracing():
+                tracemalloc.start()
+                self._owns_allocation_trace = True
+                starting_bytes = tracemalloc.get_traced_memory()[0]
             self.started = self.loop.time()
             self.window_end = self.started + self.duration
             if self.window_end <= self.started:
@@ -219,23 +265,45 @@ class _Run:
             await self._wait_or_fail(self.publisher_task)
             if self.published:
                 await self._wait_or_fail(self.deliveries_done, timeout=30)
+            if self.delivery_body_mismatches:
+                raise RuntimeError(
+                    f'{self.delivery_body_mismatches} delivered bodies differed'
+                )
+            peak_traced_bytes = None
+            if self._owns_allocation_trace:
+                peak_traced_bytes = max(
+                    0,
+                    tracemalloc.get_traced_memory()[1] - starting_bytes)
+                tracemalloc.stop()
+                self._owns_allocation_trace = False
             within_window = self.delivered_in_window == self.published
-            return _report(samples=self.sampler.lateness,
-                           workload=self.workload,
-                           requested_messages=self.messages,
-                           published=self.published,
-                           delivered=self.delivered,
-                           delivered_in_window=self.delivered_in_window,
-                           duration=self.duration,
-                           peak_queued_bytes=self.peak_queued_bytes,
-                           within_window=within_window,
-                           body_size=len(self.body),
-                           rate=self.rate,
-                           burst_size=self.burst_size,
-                           timer_interval=self.timer_interval,
-                           sync_work_ms=self.sync_work_ms,
-                           missed_deadlines=self.sampler.missed_deadlines)
+            return _report(
+                samples=self.sampler.lateness,
+                workload=self.workload,
+                requested_messages=self.messages,
+                published=self.published,
+                delivered=self.delivered,
+                delivered_in_window=self.delivered_in_window,
+                duration=self.duration,
+                peak_queued_bytes=self.peak_queued_bytes,
+                within_window=within_window,
+                body_size=len(self.body),
+                rate=self.rate,
+                burst_size=self.burst_size,
+                timer_interval=self.timer_interval,
+                sync_work_ms=self.sync_work_ms,
+                missed_deadlines=self.sampler.missed_deadlines,
+                socket_write_calls=self.socket_write_calls,
+                peak_traced_bytes=peak_traced_bytes,
+                completion_throughput=(
+                    self.published / (self.publisher_finished_at - self.started)
+                    if self.publisher_finished_at > self.started else 0.0),
+                body_mismatches=self.delivery_body_mismatches)
         finally:
+            if self._owns_allocation_trace and tracemalloc.is_tracing():
+                tracemalloc.stop()
+                self._owns_allocation_trace = False
+            self._restore_counted_socket_send()
             self.sampler.stop()
             if self.publisher_task is not None and not self.publisher_task.done(
             ):
@@ -243,6 +311,27 @@ class _Run:
                 await asyncio.gather(self.publisher_task,
                                      return_exceptions=True)
             await self._close_connection()
+
+    def _count_socket_writes(self) -> None:
+        sock = getattr(self.connection._transport, '_sock', None)
+        if sock is None:
+            return
+        sock_class = type(sock)
+        original_send = sock_class.send
+
+        def counting_send(sock_arg, data, *args, **kwargs):
+            if sock_arg is sock:
+                self.socket_write_calls += 1
+            return original_send(sock_arg, data, *args, **kwargs)
+
+        sock_class.send = counting_send
+        self._restore_socket_send = lambda: setattr(sock_class, 'send',
+                                                    original_send)
+
+    def _restore_counted_socket_send(self) -> None:
+        if self._restore_socket_send is not None:
+            self._restore_socket_send()
+            self._restore_socket_send = None
 
     async def _wait_or_fail(self,
                             awaitable: Any,
@@ -333,7 +422,9 @@ class _Run:
             self.ready.set_result(None)
 
     def _on_message(self, _channel: Any, _method: Any, _properties: Any,
-                    _body: bytes) -> None:
+                    body: bytes) -> None:
+        if body != self.body:
+            self.delivery_body_mismatches += 1
         if self.sync_work_ms:
             end = time.perf_counter() + self.sync_work_ms / 1000.0
             while time.perf_counter() < end:
@@ -365,6 +456,7 @@ class _Run:
                     self.peak_queued_bytes,
                     _transport_write_buffer_size(self.connection))
         self.publisher_finished = True
+        self.publisher_finished_at = self.loop.time()
         self._check_deliveries_done()
 
 
@@ -426,7 +518,8 @@ async def _run_workload(args: argparse.Namespace,
     loop = asyncio.get_running_loop()
     run = _Run(loop, _params(args), name,
                args.messages if messages is None else messages, body_size,
-               args.rate, burst, args.duration, args.timer_interval, sync_ms)
+               args.rate, burst, args.duration, args.timer_interval, sync_ms,
+               args.write_batching, args.measure_allocations)
     return await run.run()
 
 
@@ -469,6 +562,10 @@ def main(argv: list[str] | None = None) -> int:
                         choices=('all', 'idle', 'small', 'large-single',
                                  'large-burst', 'sync-consumer'),
                         default='all')
+    parser.add_argument('--write-batching',
+                        choices=('enabled', 'disabled'),
+                        default='enabled')
+    parser.add_argument('--measure-allocations', action='store_true')
     parser.add_argument('--messages', type=int, default=DEFAULT_MESSAGES)
     parser.add_argument('--duration', type=float, default=DEFAULT_DURATION)
     parser.add_argument('--rate', type=float, default=DEFAULT_RATE)
