@@ -553,7 +553,7 @@ class Channel:
     def basic_publish(self,
                       exchange: str,
                       routing_key: str,
-                      body: bytes,
+                      body: bytes | str,
                       properties: spec.BasicProperties | None = None,
                       mandatory: bool = False) -> None:
         """
