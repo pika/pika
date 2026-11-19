@@ -1,5 +1,6 @@
 """Tests for `pika.adapters.utils.io_services_utils` transports."""
 
+import asyncio
 import errno
 import logging
 import socket
@@ -7,7 +8,7 @@ import ssl
 import unittest
 from unittest import mock
 
-import pika
+import pika.frame
 from pika.adapters.utils import io_services_utils
 
 
@@ -54,6 +55,165 @@ class PlaintextTransportReadableTests(unittest.TestCase):
         sock.recv.side_effect = error
         self.make_transport(sock)._on_socket_readable()
         self.protocol.connection_lost.assert_called_once_with(error)
+
+
+class StreamSocket:
+    """
+    Stand-in for a socket whose receive buffer always holds `stream`.
+
+    Each `recv(n)` returns up to `n` bytes, as a real socket does, and raises "would block" once
+    `stream` is exhausted. Pass `endless=True` for a peer that never stops sending.
+    """
+
+    def __init__(self, stream=b'', endless=False):
+        self._stream = stream
+        self._endless = endless
+        self._position = 0
+
+    def recv(self, size):
+        if self._endless:
+            chunk = bytes((self._position + i) % 251 for i in range(size))
+        else:
+            chunk = self._stream[self._position:self._position + size]
+            if not chunk:
+                raise BlockingIOError(errno.EAGAIN, 'would block')
+        self._position += len(chunk)
+        return chunk
+
+    def expected(self, length):
+        """Return the first `length` bytes the peer has sent."""
+        if self._endless:
+            return bytes(i % 251 for i in range(length))
+        return self._stream[:length]
+
+
+class ReadTurnTests(unittest.TestCase):
+    """The read turn takes few receive calls and stays within its budget."""
+
+    def make_transport(self, transport_class, spec, stream):
+        self.sock = mock.Mock(spec=spec)
+        stream_socket = StreamSocket(**stream)
+        self.sock.recv.side_effect = stream_socket.recv
+        self.stream_socket = stream_socket
+        self.protocol = mock.Mock()
+        self.protocol.eof_received.return_value = False
+        self.nbio = mock.Mock()
+        return transport_class(self.sock, self.protocol, self.nbio)
+
+    def delivered(self):
+        return b''.join(
+            call[0][0] for call in self.protocol.data_received.call_args_list)
+
+    def assert_delivered_in_order(self, length):
+        self.assertEqual(self.delivered(), self.stream_socket.expected(length))
+
+    def test_full_budget_takes_at_most_two_receive_calls(self):
+        transport = self.make_transport(
+            io_services_utils._AsyncPlaintextTransport, socket.socket,
+            {'endless': True})
+        transport._on_socket_readable()
+        self.assertLessEqual(self.sock.recv.call_count, 2)
+        self.assertLessEqual(self.protocol.data_received.call_count, 2)
+
+    def test_many_frames_in_one_read_are_delivered_in_one_dispatch(self):
+        stream = pika.frame.Heartbeat().marshal() * 5000
+        transport = self.make_transport(
+            io_services_utils._AsyncPlaintextTransport, socket.socket,
+            {'stream': stream})
+        transport._on_socket_readable()
+        self.protocol.data_received.assert_called_once_with(stream)
+
+    def test_fragmented_frame_stream_is_forwarded_in_order(self):
+        # A body frame that straddles the receive boundary, between
+        # heartbeats, to the end of the stream.
+        heartbeat = pika.frame.Heartbeat().marshal()
+        body = pika.frame.Body(1, b'x' * 100000).marshal()
+        stream = heartbeat * 10 + body + heartbeat * 10
+        transport = self.make_transport(
+            io_services_utils._AsyncPlaintextTransport, socket.socket,
+            {'stream': stream})
+        transport._on_socket_readable()
+        self.assertLessEqual(self.sock.recv.call_count, 3)
+        self.assertEqual(self.protocol.data_received.call_count, 2)
+        self.assert_delivered_in_order(len(stream))
+
+    def test_plaintext_turn_is_bounded_then_resumes_on_readiness(self):
+        transport = self.make_transport(
+            io_services_utils._AsyncPlaintextTransport, socket.socket,
+            {'endless': True})
+        budget = transport._MAX_CONSUME_BYTES
+        loop = asyncio.SelectorEventLoop()
+        self.addCleanup(loop.close)
+        completion = loop.create_future()
+        ready_bytes = []
+
+        def ready_work():
+            ready_bytes.append(len(self.delivered()))
+            loop.call_soon(dispatch_registered_readiness)
+
+        def dispatch_registered_readiness():
+            registered_reader()
+            completion.set_result(None)
+
+        def receive_data(data):
+            if self.protocol.data_received.call_count == 1:
+                loop.call_soon(ready_work)
+
+        self.protocol.data_received.side_effect = receive_data
+        registered_reader = self.nbio.set_reader.call_args[0][1]
+        loop.call_soon(registered_reader)
+        loop.run_until_complete(asyncio.wait_for(completion, timeout=1))
+
+        self.assertEqual(ready_bytes, [budget])
+        self.assertEqual(len(self.delivered()), 2 * budget)
+        self.nbio.remove_reader.assert_not_called()
+        self.protocol.connection_lost.assert_not_called()
+        self.assert_delivered_in_order(2 * budget)
+
+    def test_tls_turn_is_bounded_then_resumes_from_buffered_data(self):
+        transport = self.make_transport(io_services_utils._AsyncSSLTransport,
+                                        ssl.SSLSocket, {'endless': True})
+        budget = transport._MAX_CONSUME_BYTES
+        self.nbio.add_callback_threadsafe.reset_mock()
+        loop = asyncio.SelectorEventLoop()
+        self.addCleanup(loop.close)
+        completion = loop.create_future()
+        ready_bytes = []
+
+        def ready_work():
+            ready_bytes.append(len(self.delivered()))
+
+        def receive_data(data):
+            if self.protocol.data_received.call_count == 1:
+                loop.call_soon(ready_work)
+            if len(self.delivered()) >= 2 * budget:
+                completion.set_result(None)
+
+        scheduled_callbacks = []
+
+        def schedule_callback(callback):
+            scheduled_callbacks.append(callback)
+            if len(scheduled_callbacks) <= 2:
+                loop.call_soon(callback)
+
+        self.nbio.add_callback_threadsafe.side_effect = schedule_callback
+        self.protocol.data_received.side_effect = receive_data
+        self.nbio.add_callback_threadsafe(transport._on_socket_readable)
+        loop.run_until_complete(asyncio.wait_for(completion, timeout=1))
+
+        self.assertEqual(ready_bytes, [budget])
+        self.assertEqual(len(self.delivered()), 2 * budget)
+        self.assertEqual(len(scheduled_callbacks), 3)
+        self.protocol.connection_lost.assert_not_called()
+
+    def test_tls_full_budget_takes_one_receive_call_per_record(self):
+        transport = self.make_transport(io_services_utils._AsyncSSLTransport,
+                                        ssl.SSLSocket, {'endless': True})
+        # `SSLSocket.recv` returns at most one 16 KiB TLS record per call.
+        self.sock.recv.side_effect = lambda size: b'x' * min(size, 16 * 1024)
+        transport._on_socket_readable()
+        self.assertEqual(self.sock.recv.call_count, 7)
+        self.assertEqual(len(self.delivered()), transport._MAX_CONSUME_BYTES)
 
 
 class TransportFailureIsLoggedOnceTests(unittest.TestCase):
