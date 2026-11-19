@@ -39,8 +39,7 @@ class Frame(amqp_object.AMQPObject):
     """
     Base Frame object mapping.
 
-    Defines a behavior for all child classes for assignment of core attributes and implementation of
-    the a core _marshal method which child classes use to create the binary AMQP frame.
+    Defines core attributes for child classes, which implement `marshal` to create AMQP frames.
     """
 
     NAME = 'Frame'
@@ -156,7 +155,21 @@ class Body(Frame):
     @override
     def marshal(self) -> bytes:
         """Return the AMQP binary encoded value of the frame."""
-        return self._marshal([self.fragment])
+        return _marshal_body_frame(self.channel_number, self.fragment)
+
+
+def _marshal_body_frame(channel_number: int,
+                        fragment: bytes | memoryview) -> bytes:
+    """
+    Return the AMQP binary encoded value of a body frame for a `bytes` or `memoryview` fragment.
+
+    :param channel_number: The channel number for the frame
+    :param fragment: The fragment of the body
+    """
+    size = len(fragment) if type(fragment) is bytes else memoryview(
+        fragment).nbytes
+    return b''.join((_FRAME_HEADER.pack(spec.FRAME_BODY, channel_number,
+                                        size), fragment, _FRAME_END_BYTE))
 
 
 class Heartbeat(Frame):
