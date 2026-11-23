@@ -13,7 +13,7 @@ pika is a pure-Python implementation of the AMQP 0-9-1 protocol.
 ```
 pika/                   # library source
 pika/adapters/          # connection adapters (asyncio, blocking, gevent,
-                        #   select, tornado, twisted)
+                        #   select, thread_safe, tornado, twisted)
 pika/adapters/utils/    # adapter internals (io_services_utils, nbio_interface,
                         #   connection_workflow, selector_ioloop_adapter)
 pika/spec.py            # auto-generated AMQP spec (see below)
