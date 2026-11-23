@@ -44,7 +44,7 @@ Record each piece of rationale once and link to it from elsewhere.
 
 These rules govern text a change adds or edits. Existing text is in scope only
 for a dedicated cleanup pass, and such a pass states which pull requests it
-covers. This file is the first such pass, over itself.
+covers.
 
 ### Pull requests, commits, and replies
 
