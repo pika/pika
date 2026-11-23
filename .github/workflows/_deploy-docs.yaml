@@ -12,8 +12,9 @@ name: pika docs deploy (reusable)
 # the one decision that must not be wrong: a pre-release that takes the `latest`
 # alias sends every reader to an unreleased version.
 #
-# Invoked via `workflow_call`; never triggered directly. `deploy-docs.yaml` is
-# the entry point for a `main` push and for a manual deploy.
+# Invoked via `workflow_call`; never triggered directly. `main.yaml` calls it
+# for the `dev` docs and the pull-request check, `release.yaml` for a release,
+# and `deploy-docs.yaml` for a manual deploy.
 
 on:
   workflow_call:

@@ -283,8 +283,7 @@ Read the file for detail.
   unconditionally also catches a hand-edited `spec.py`.
 - `docs.yaml` - `hatch run docs:build`; `workflow_call` only.
 - `deploy-docs.yaml` - manual entry point for publishing the site. The
-  automated paths do not go through it, whatever `_deploy-docs.yaml`'s header
-  comment says.
+  automated paths call `_deploy-docs.yaml` directly.
 - `validate-docs-deploy`, a job in `main.yaml` - exercises the publish path on
   every pull request without pushing, and is in the `tests-passed` needs list,
   so it can fail a pull request from `_deploy-docs.yaml` rather than from
