@@ -4,6 +4,8 @@ Set-StrictMode -Version 2.0
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor 'Tls12'
 
+. (Join-Path -Path $PSScriptRoot -ChildPath 'versions.ps1')
+
 if ($env:ERLANG_VERSION)
 {
     $erlang_ver = $env:ERLANG_VERSION
@@ -11,17 +13,8 @@ if ($env:ERLANG_VERSION)
 }
 else
 {
-    Write-Host '[INFO] Resolving latest Erlang 27 release from otp_versions.table...'
-    $otp_table = (gh api 'repos/erlang/otp/contents/otp_versions.table' -H 'Accept: application/vnd.github.raw')
-    $erlang_ver = ($otp_table -split "`n" `
-        | Select-String -Pattern '^OTP-27\.' `
-        | ForEach-Object { ($_.Line -split '\s+')[0] -replace '^OTP-','' } `
-        | Sort-Object -Property { [version]$_ } `
-        | Select-Object -Last 1)
-    if (-Not $erlang_ver)
-    {
-        throw '[ERROR] could not resolve latest Erlang 27 version'
-    }
+    Write-Host '[INFO] Resolving latest Erlang 27 release...'
+    $erlang_ver = Get-LatestErlang27Version
     Write-Host "[INFO] erlang version: '$erlang_ver'"
 }
 
@@ -33,11 +26,7 @@ if ($env:RABBITMQ_VERSION)
 else
 {
     Write-Host '[INFO] Resolving latest RabbitMQ release...'
-    $rabbitmq_ver = (gh release view --repo rabbitmq/rabbitmq-server --json tagName --jq '.tagName | ltrimstr("v")')
-    if (-Not $rabbitmq_ver)
-    {
-        throw '[ERROR] could not resolve latest RabbitMQ version'
-    }
+    $rabbitmq_ver = Get-LatestRabbitMQVersion
     Write-Host "[INFO] rabbitmq version: '$rabbitmq_ver'"
 }
 
