@@ -5,7 +5,7 @@ adapter, it attempts to remain true to the asynchronous RPC nature of the AMQP p
 server sent RPC commands.
 
 The user facing classes in the module consist of the
-:py[`BlockingConnection`][pika.adapters.blocking_connection.BlockingConnection]
+[`BlockingConnection`][pika.adapters.blocking_connection.BlockingConnection]
 and the [`BlockingChannel`][pika.adapters.blocking_connection.BlockingChannel]
 classes.
 """
@@ -1278,9 +1278,9 @@ class _QueueConsumerGeneratorInfo:
 class BlockingChannel:
     """The BlockingChannel implements blocking semantics for most things that
     one would use callback-passing-style for with the
-    :py[`Channel`][pika.channel.Channel] class. In addition,
-    the `BlockingChannel` class implements a :term:`generator` that allows
-    you to :doc:`consume messages </examples/blocking_consumer_generator>`
+    [`Channel`][pika.channel.Channel] class. In addition,
+    the `BlockingChannel` class implements a generator that allows
+    you to [consume messages](../../examples/blocking_consumer_generator.md)
     without using callbacks.
 
     Example of creating a BlockingChannel::
