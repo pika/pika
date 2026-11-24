@@ -7,6 +7,7 @@ import ssl
 import unittest
 from unittest import mock
 
+import pika
 from pika.adapters.utils import io_services_utils
 
 
@@ -119,6 +120,132 @@ class TransportFailureIsLoggedOnceTests(unittest.TestCase):
         self.assert_one_traceback(
             self.writable_failure_records(io_services_utils._AsyncSSLTransport,
                                           sock))
+
+
+class TransportWriteBatchTests(unittest.TestCase):
+
+    def make_transport(self, transport_class, sock_spec):
+        self.sock = mock.Mock(spec=sock_spec)
+        self.protocol = mock.Mock()
+        self.nbio = mock.Mock()
+        return transport_class(self.sock, self.protocol, self.nbio)
+
+    def test_plaintext_batches_adjacent_small_writes(self):
+        transport = self.make_transport(
+            io_services_utils._AsyncPlaintextTransport, socket.socket)
+        for chunk in (b'one', b'two', b'three'):
+            transport.write(chunk)
+
+        self.sock.send.side_effect = lambda data: len(data)
+        transport._on_socket_writable()
+
+        self.sock.send.assert_called_once_with(b'onetwothree')
+        self.assertEqual(transport.get_write_buffer_size(), 0)
+
+    def test_batch_size_is_bounded_for_large_writes(self):
+        transport = self.make_transport(
+            io_services_utils._AsyncPlaintextTransport, socket.socket)
+        chunks = [b'a' * 40000, b'b' * 40000, b'c' * 40000]
+        for chunk in chunks:
+            transport.write(chunk)
+
+        sent = []
+
+        def send(data):
+            sent.append(data)
+            return len(data)
+
+        self.sock.send.side_effect = send
+        transport._on_socket_writable()
+
+        self.assertEqual(b''.join(sent), b''.join(chunks))
+        self.assertTrue(
+            all(
+                len(chunk) <= transport._MAX_COALESCED_WRITE_BYTES
+                for chunk in sent))
+
+    def test_a_batch_may_fill_the_cap_but_not_exceed_it(self):
+        cap = io_services_utils._AsyncTransportBase._MAX_COALESCED_WRITE_BYTES
+        for tail, expected_sends in ((b'b', 1), (b'bb', 2)):
+            with self.subTest(tail=tail):
+                transport = self.make_transport(
+                    io_services_utils._AsyncPlaintextTransport, socket.socket)
+                transport.write(b'a' * (cap - 1))
+                transport.write(tail)
+                self.sock.send.side_effect = lambda data: len(data)
+                transport._on_socket_writable()
+                self.assertEqual(self.sock.send.call_count, expected_sends)
+
+    def test_legal_large_frame_is_sent_without_copying_or_splitting(self):
+        transport = self.make_transport(
+            io_services_utils._AsyncPlaintextTransport, socket.socket)
+        legal_frame = pika.frame.Body(1, b'x' * (128 * 1024 - 8)).marshal()
+        transport.write(legal_frame)
+        self.sock.send.return_value = len(legal_frame)
+
+        transport._on_socket_writable()
+
+        self.sock.send.assert_called_once()
+        self.assertIs(self.sock.send.call_args[0][0], legal_frame)
+        self.assertEqual(transport.get_write_buffer_size(), 0)
+
+    def test_partial_send_and_would_block_preserve_order(self):
+        transport = self.make_transport(
+            io_services_utils._AsyncPlaintextTransport, socket.socket)
+        transport.write(b'first')
+        transport.write(b'second')
+        attempts = []
+
+        def send(data):
+            attempts.append(data)
+            if len(attempts) == 1:
+                return 4
+            if len(attempts) == 2:
+                raise BlockingIOError(errno.EWOULDBLOCK, 'would block')
+            return len(data)
+
+        self.sock.send.side_effect = send
+        transport._on_socket_writable()
+        self.assertEqual(transport.get_write_buffer_size(), 7)
+        transport._on_socket_writable()
+
+        self.assertEqual(attempts[0], b'firstsecond')
+        self.assertEqual(attempts[1], b'tsecond')
+        self.assertEqual(b''.join((attempts[0][:4], attempts[2])),
+                         b'firstsecond')
+        self.assertEqual(transport.get_write_buffer_size(), 0)
+
+    def test_tls_want_retry_keeps_its_data_when_new_output_is_queued(self):
+        for want in (ssl.SSL_ERROR_WANT_READ, ssl.SSL_ERROR_WANT_WRITE):
+            with self.subTest(want=want):
+                transport = self.make_transport(
+                    io_services_utils._AsyncSSLTransport, ssl.SSLSocket)
+                transport.write(b'first')
+                transport.write(b'second')
+                attempts = []
+
+                def send(data, attempts=attempts, want=want):
+                    attempts.append(data)
+                    if len(attempts) == 1:
+                        raise ssl.SSLError(want, 'retry')
+                    return len(data)
+
+                self.sock.send.side_effect = send
+                transport._on_socket_writable()
+                self.assertEqual(transport.get_write_buffer_size(), 11)
+                transport.write(b'new')
+                transport.write(b'more')
+                self.assertEqual(transport.get_write_buffer_size(), 18)
+
+                if want == ssl.SSL_ERROR_WANT_READ:
+                    transport._on_socket_readable()
+                else:
+                    transport._on_socket_writable()
+
+                # The retry repeats its buffer; batching then resumes.
+                self.assertEqual(attempts,
+                                 [b'firstsecond', b'firstsecond', b'newmore'])
+                self.assertEqual(transport.get_write_buffer_size(), 0)
 
 
 if __name__ == '__main__':
