@@ -6236,7 +6236,7 @@ driver. While most of the asynchronous expectations are removed when using the b
 adapter, it attempts to remain true to the asynchronous RPC nature of the AMQP protocol, supporting
 server sent RPC commands.</p>
 <p>The user facing classes in the module consist of the
-:py<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;BlockingConnection&lt;/span&gt;" href="#pika.adapters.blocking_connection.BlockingConnection"><code>BlockingConnection</code></a>
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;BlockingConnection&lt;/span&gt;" href="#pika.adapters.blocking_connection.BlockingConnection"><code>BlockingConnection</code></a>
 and the <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;BlockingChannel&lt;/span&gt;" href="#pika.adapters.blocking_connection.BlockingChannel"><code>BlockingChannel</code></a>
 classes.</p>
 
@@ -6276,9 +6276,9 @@ classes.</p>
 
         <p>The BlockingChannel implements blocking semantics for most things that
 one would use callback-passing-style for with the
-:py<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Channel&lt;/span&gt;" href="../../channel/#pika.channel.Channel"><code>Channel</code></a> class. In addition,
-the <code>BlockingChannel</code> class implements a :term:<code>generator</code> that allows
-you to :doc:<code>consume messages &lt;/examples/blocking_consumer_generator&gt;</code>
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Channel&lt;/span&gt;" href="../../channel/#pika.channel.Channel"><code>Channel</code></a> class. In addition,
+the <code>BlockingChannel</code> class implements a generator that allows
+you to <a href="../../../examples/blocking_consumer_generator/">consume messages</a>
 without using callbacks.</p>
 <p>Example of creating a BlockingChannel::</p>
 <div class="highlight"><pre><span></span><code>import pika
@@ -6302,9 +6302,9 @@ channel = connection.channel()
                 <div class="highlight"><pre><span></span><code><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1278"><span class="linenos" data-linenos="1278 "></span><span class="k">class</span><span class="w"> </span><span class="nc">BlockingChannel</span><span class="p">:</span>
 </span><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1279"><span class="linenos" data-linenos="1279 "></span><span class="w">    </span><span class="sd">"""The BlockingChannel implements blocking semantics for most things that</span>
 </span><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1280"><span class="linenos" data-linenos="1280 "></span><span class="sd">    one would use callback-passing-style for with the</span>
-</span><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1281"><span class="linenos" data-linenos="1281 "></span><span class="sd">    :py[`Channel`][pika.channel.Channel] class. In addition,</span>
-</span><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1282"><span class="linenos" data-linenos="1282 "></span><span class="sd">    the `BlockingChannel` class implements a :term:`generator` that allows</span>
-</span><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1283"><span class="linenos" data-linenos="1283 "></span><span class="sd">    you to :doc:`consume messages &lt;/examples/blocking_consumer_generator&gt;`</span>
+</span><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1281"><span class="linenos" data-linenos="1281 "></span><span class="sd">    [`Channel`][pika.channel.Channel] class. In addition,</span>
+</span><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1282"><span class="linenos" data-linenos="1282 "></span><span class="sd">    the `BlockingChannel` class implements a generator that allows</span>
+</span><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1283"><span class="linenos" data-linenos="1283 "></span><span class="sd">    you to [consume messages](../../examples/blocking_consumer_generator.md)</span>
 </span><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1284"><span class="linenos" data-linenos="1284 "></span><span class="sd">    without using callbacks.</span>
 </span><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1285"><span class="linenos" data-linenos="1285 "></span>
 </span><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1286"><span class="linenos" data-linenos="1286 "></span><span class="sd">    Example of creating a BlockingChannel::</span>
@@ -18549,9 +18549,9 @@ not open.</p>
 
         <p>The BlockingChannel implements blocking semantics for most things that
 one would use callback-passing-style for with the
-:py<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Channel&lt;/span&gt;" href="../../channel/#pika.channel.Channel"><code>Channel</code></a> class. In addition,
-the <code>BlockingChannel</code> class implements a :term:<code>generator</code> that allows
-you to :doc:<code>consume messages &lt;/examples/blocking_consumer_generator&gt;</code>
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Channel&lt;/span&gt;" href="../../channel/#pika.channel.Channel"><code>Channel</code></a> class. In addition,
+the <code>BlockingChannel</code> class implements a generator that allows
+you to <a href="../../../examples/blocking_consumer_generator/">consume messages</a>
 without using callbacks.</p>
 <p>Example of creating a BlockingChannel::</p>
 <div class="highlight"><pre><span></span><code>import pika
@@ -18575,9 +18575,9 @@ channel = connection.channel()
                 <div class="highlight"><pre><span></span><code><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1278"><span class="linenos" data-linenos="1278 "></span><span class="k">class</span><span class="w"> </span><span class="nc">BlockingChannel</span><span class="p">:</span>
 </span><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1279"><span class="linenos" data-linenos="1279 "></span><span class="w">    </span><span class="sd">"""The BlockingChannel implements blocking semantics for most things that</span>
 </span><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1280"><span class="linenos" data-linenos="1280 "></span><span class="sd">    one would use callback-passing-style for with the</span>
-</span><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1281"><span class="linenos" data-linenos="1281 "></span><span class="sd">    :py[`Channel`][pika.channel.Channel] class. In addition,</span>
-</span><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1282"><span class="linenos" data-linenos="1282 "></span><span class="sd">    the `BlockingChannel` class implements a :term:`generator` that allows</span>
-</span><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1283"><span class="linenos" data-linenos="1283 "></span><span class="sd">    you to :doc:`consume messages &lt;/examples/blocking_consumer_generator&gt;`</span>
+</span><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1281"><span class="linenos" data-linenos="1281 "></span><span class="sd">    [`Channel`][pika.channel.Channel] class. In addition,</span>
+</span><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1282"><span class="linenos" data-linenos="1282 "></span><span class="sd">    the `BlockingChannel` class implements a generator that allows</span>
+</span><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1283"><span class="linenos" data-linenos="1283 "></span><span class="sd">    you to [consume messages](../../examples/blocking_consumer_generator.md)</span>
 </span><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1284"><span class="linenos" data-linenos="1284 "></span><span class="sd">    without using callbacks.</span>
 </span><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1285"><span class="linenos" data-linenos="1285 "></span>
 </span><span id="pika.adapters.blocking_connection.BlockingChannel--source--__span-0-1286"><span class="linenos" data-linenos="1286 "></span><span class="sd">    Example of creating a BlockingChannel::</span>
