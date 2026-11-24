@@ -1551,7 +1551,8 @@ class ConnectionTests(unittest.TestCase):
         sizes = (0, 1, max_body - 1, max_body, max_body + 1, 2 * max_body,
                  2 * max_body + 1, 5 * max_body + 7)
         for size in sizes:
-            # 251 is prime, and max_body leaves a different residue modulo 251.
+            # 251 does not divide max_body, so each fragment starts at a
+            # different point in the pattern and a reordering shows.
             body = bytes(i % 251 for i in range(size))
             expected = [
                 frame.Method(1, method).marshal(),

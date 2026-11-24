@@ -48,13 +48,13 @@ class FrameTests(unittest.TestCase):
         self.assertEqual(struct.unpack('>BHI', body[:7]), (3, 1, 3))
         self.assertEqual(body[7:-1], b'abc')
 
-    def test_marshal_body_accepts_memoryview(self):
+    def test_marshal_body_frame_accepts_memoryview(self):
         fragment = memoryview(b'xxI like it that soundxx')[2:-2]
         marshaled = frame._marshal_body_frame(1, fragment)
         self.assertIsInstance(marshaled, bytes)
         self.assertEqual(marshaled, self.BODY_FRAME)
 
-    def test_marshal_body_declares_memoryview_size_in_bytes(self):
+    def test_body_frame_declares_memoryview_size_in_bytes(self):
         fragment = memoryview(array('I', [1, 2, 3]))
 
         marshaled = frame.Body(1, fragment).marshal()
