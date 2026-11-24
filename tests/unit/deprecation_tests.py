@@ -67,11 +67,13 @@ class BlockingConnectionDeprecationTests(DeprecationTestCase):
 class TornadoConnectionDeprecationTests(DeprecationTestCase):
 
     def test_init_emits_deprecation_warning(self):
-        from pika.adapters import tornado_connection
+        from pika.adapters.tornado_connection import TornadoConnection
+        custom_ioloop = mock.Mock(READ=1, WRITE=2, ERROR=4)
         with mock.patch('pika.adapters.base_connection.BaseConnection.__init__',
                         return_value=None):
-            self.assert_deprecated('TornadoConnection',
-                                   tornado_connection.TornadoConnection)
+            self.assert_deprecated(
+                'TornadoConnection',
+                lambda: TornadoConnection(custom_ioloop=custom_ioloop))
 
 
 @unittest.skipUnless(HAS_GEVENT, 'gevent not installed')

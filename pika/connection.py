@@ -7,7 +7,6 @@ import ast
 import copy
 import functools
 import logging
-import math
 import numbers
 import platform
 import ssl
@@ -2559,7 +2558,13 @@ class Connection(abc.ABC):
         :param content: A content frame, which is tuple of properties and body.
         :returns: The marshaled frames, in sending order
         """
-        length = len(content[1])
+        body: bytes | memoryview
+        if type(content[1]) is bytes:
+            body = memoryview(content[1])
+            length = body.nbytes
+        else:
+            body = content[1]
+            length = len(body)
         marshaled_body_frames = []
 
         # Marshal everything before any of it is output, so a marshaling error
@@ -2570,13 +2575,11 @@ class Connection(abc.ABC):
         marshaled_body_frames.append(frame_header.marshal())
 
         if content[1]:
-            chunks = math.ceil(float(length) / self._body_max_length)
-            for chunk in range(chunks):
-                start = chunk * self._body_max_length
-                end = start + self._body_max_length
-                end = min(end, length)
-                frame_body = frame.Body(channel_number, content[1][start:end])
-                marshaled_body_frames.append(frame_body.marshal())
+            for start in range(0, length, self._body_max_length):
+                end = min(start + self._body_max_length, length)
+                fragment = body[start:end]
+                marshaled_body_frames.append(
+                    frame._marshal_body_frame(channel_number, fragment))
 
         return marshaled_body_frames
 

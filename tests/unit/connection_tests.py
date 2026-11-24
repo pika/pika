@@ -1523,29 +1523,126 @@ class ConnectionTests(unittest.TestCase):
         self.assertEqual(self.connection.frames_sent, frames_sent)
         self.assertEqual(self.connection.bytes_sent, bytes_sent)
 
-    def test_no_side_effects_from_message_marshal_error(self):
-        # Verify that frame buffer is empty on entry
-        self.assertEqual(b'', self.connection._frame_buffer)
+    @mock.patch.object(ConstructibleConnection,
+                       '_adapter_emit_data',
+                       spec_set=connection.Connection._adapter_emit_data)
+    def _published_frames(self,
+                          body,
+                          _adapter_emit_data,
+                          exchange='my-exchange',
+                          routing_key='my-route'):
+        """Return the wire frames `_send_method` writes for a Basic.Publish."""
+        method = spec.Basic.Publish(exchange=exchange, routing_key=routing_key)
+        self.connection._send_method(channel_number=1,
+                                     method=method,
+                                     content=(spec.BasicProperties(), body))
+        return [call[0][0] for call in _adapter_emit_data.call_args_list]
 
-        # Use Basic.Public with invalid body to trigger marshalling error
+    def test_publish_sends_the_body_in_frames_of_at_most_body_max_length(self):
+        frame_max = 8192
+        self.connection.params.frame_max = frame_max
+        self.connection._body_max_length = (
+            self.connection._get_body_frame_max_length())
+        max_body = frame_max - spec.FRAME_HEADER_SIZE - spec.FRAME_END_SIZE
+        self.assertEqual(frame_max - 8, max_body)
+
+        method = spec.Basic.Publish(exchange='my-exchange',
+                                    routing_key='my-route')
+        sizes = (0, 1, max_body - 1, max_body, max_body + 1, 2 * max_body,
+                 2 * max_body + 1, 5 * max_body + 7)
+        for size in sizes:
+            # 251 does not divide max_body, so each fragment starts at a
+            # different point in the pattern and a reordering shows.
+            body = bytes(i % 251 for i in range(size))
+            expected = [
+                frame.Method(1, method).marshal(),
+                frame.Header(1, size, spec.BasicProperties()).marshal()
+            ]
+            for start in range(0, size, max_body):
+                fragment = body[start:start + max_body]
+                expected.append(
+                    struct.pack('>BHI', spec.FRAME_BODY, 1, len(fragment)) +
+                    fragment + b'\xce')
+
+            with self.subTest(size=size):
+                frames = self._published_frames(body)
+                self.assertEqual(expected, frames)
+                self.assertTrue(all(isinstance(f, bytes) for f in frames))
+
+    @mock.patch.object(ConstructibleConnection,
+                       '_adapter_emit_data',
+                       spec_set=connection.Connection._adapter_emit_data)
+    def test_basic_publish_accepts_a_transparent_bytes_proxy(
+            self, _adapter_emit_data):
+
+        class BytesProxy:
+
+            __class__ = bytes
+
+            def __init__(self, value):
+                self.value = value
+
+            def __len__(self):
+                return len(self.value)
+
+            def __getitem__(self, key):
+                if isinstance(key, slice) and key.stop > len(self.value):
+                    raise IndexError(key)
+                return self.value[key]
+
+        self.connection.params.frame_max = 8192
+        self.connection._body_max_length = (
+            self.connection._get_body_frame_max_length())
+        max_body = self.connection._body_max_length
+        body = bytes(i % 251 for i in range(max_body + 3))
+        channel_obj = channel.Channel(self.connection, 1, None)
+        channel_obj._set_state(channel_obj.OPEN)
+
+        channel_obj.basic_publish('', 'routing-key', BytesProxy(body))
+
+        frames = [call[0][0] for call in _adapter_emit_data.call_args_list]
+        self.assertEqual(
+            self._published_frames(body, exchange='',
+                                   routing_key='routing-key'), frames)
+
+    @mock.patch.object(ConstructibleConnection,
+                       '_adapter_emit_data',
+                       spec_set=connection.Connection._adapter_emit_data)
+    def test_basic_publish_preserves_bytes_subclass_slicing(
+            self, _adapter_emit_data):
+
+        class MisreportedLength(bytes):
+
+            def __len__(self):
+                return 5
+
+            def __getitem__(self, key):
+                return b'abcde'[key]
+
+        channel_obj = channel.Channel(self.connection, 1, None)
+        channel_obj._set_state(channel_obj.OPEN)
+
+        channel_obj.basic_publish('', 'rk', MisreportedLength(b'abc'))
+
+        frames = [call[0][0] for call in _adapter_emit_data.call_args_list]
+        self.assertEqual(
+            self._published_frames(b'abcde', exchange='', routing_key='rk'),
+            frames)
+
+    @mock.patch.object(ConstructibleConnection,
+                       '_adapter_emit_data',
+                       spec_set=connection.Connection._adapter_emit_data)
+    def test_marshal_error_outputs_no_frames_or_counters(
+            self, _adapter_emit_data):
         method = spec.Basic.Publish()
         properties = spec.BasicProperties()
-        # Verify that marshalling of method and header won't trigger error
-        frame.Method(1, method).marshal()
-        frame.Header(1, body_size=10, props=properties).marshal()
-        # Create bogus body that should trigger an error during marshalling
         body = [1, 2, 3, 4]
-        # Verify that frame body can be created using the bogus body, but
-        # that marshalling will fail
-        frame.Body(1, body)
-        with self.assertRaises(TypeError):
-            frame.Body(1, body).marshal()
 
-        # Now, attempt to send the method with the bogus body
         with self.assertRaises(TypeError):
             self.connection._send_method(channel_number=1,
                                          method=method,
                                          content=(properties, body))
 
-        # Now make sure that nothing is enqueued on frame buffer
-        self.assertEqual(b'', self.connection._frame_buffer)
+        _adapter_emit_data.assert_not_called()
+        self.assertEqual(0, self.connection.frames_sent)
+        self.assertEqual(0, self.connection.bytes_sent)

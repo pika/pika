@@ -2,6 +2,7 @@
 
 import struct
 import unittest
+from array import array
 
 from pika import DeliveryMode, exceptions, frame, spec
 
@@ -34,6 +35,32 @@ class FrameTests(unittest.TestCase):
     def test_body_marshal(self):
         body = frame.Body(1, b'I like it that sound')
         self.assertEqual(body.marshal(), self.BODY_FRAME)
+
+    def test_body_marshal_uses_buffer_size_for_bytes_subclasses(self):
+
+        class MisreportedLength(bytes):
+
+            def __len__(self):
+                return 5
+
+        body = frame.Body(1, MisreportedLength(b'abc')).marshal()
+
+        self.assertEqual(struct.unpack('>BHI', body[:7]), (3, 1, 3))
+        self.assertEqual(body[7:-1], b'abc')
+
+    def test_marshal_body_frame_accepts_memoryview(self):
+        fragment = memoryview(b'xxI like it that soundxx')[2:-2]
+        marshaled = frame._marshal_body_frame(1, fragment)
+        self.assertIsInstance(marshaled, bytes)
+        self.assertEqual(marshaled, self.BODY_FRAME)
+
+    def test_body_frame_declares_memoryview_size_in_bytes(self):
+        fragment = memoryview(array('I', [1, 2, 3]))
+
+        marshaled = frame.Body(1, fragment).marshal()
+
+        self.assertEqual(struct.unpack('>BHI', marshaled[:7]), (3, 1, 12))
+        self.assertEqual(marshaled[7:-1], fragment.tobytes())
 
     def test_heartbeat_marshal(self):
         heartbeat = frame.Heartbeat()
