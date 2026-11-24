@@ -694,6 +694,10 @@ class _AsyncTransportBase(AbstractStreamTransport):
     # Max per consume call to prevent event starvation
     _MAX_CONSUME_BYTES = 1024 * 100
 
+    # Write flow control, with the Java client's defaults (Netty's) (#1859).
+    _WRITE_HIGH_WATER_BYTES = 64 * 1024
+    _WRITE_LOW_WATER_BYTES = 32 * 1024
+
     class RxEndOfFile(OSError):
         """We raise this internally when EOF (empty read) is detected on input."""
 
@@ -722,6 +726,7 @@ class _AsyncTransportBase(AbstractStreamTransport):
         self._tx_buffers: collections.deque[bytes] = collections.deque()
         self._tx_buffered_byte_count = 0
         self._tx_buffer_pinned = False
+        self._writing_paused = False
 
     @override
     def abort(self) -> None:
@@ -771,6 +776,11 @@ class _AsyncTransportBase(AbstractStreamTransport):
 
         self._tx_buffers.append(data)
         self._tx_buffered_byte_count += len(data)
+        if (not self._writing_paused and
+                self._tx_buffered_byte_count > self._WRITE_HIGH_WATER_BYTES):
+            self._writing_paused = True
+            if self._protocol is not None:
+                self._protocol.pause_writing()
 
     def _consume(self) -> None:
         """
@@ -843,6 +853,11 @@ class _AsyncTransportBase(AbstractStreamTransport):
             assert self._tx_buffered_byte_count >= 0, (
                 '_AsyncTransportBase._produce() tx buffer size underflow',
                 self._tx_buffered_byte_count, self._state)
+            if (self._writing_paused and self._tx_buffered_byte_count
+                    <= self._WRITE_LOW_WATER_BYTES):
+                self._writing_paused = False
+                if self._protocol is not None:
+                    self._protocol.resume_writing()
 
     def _coalesce_limit(self) -> int:
         """Return the most bytes to coalesce into one write: half the socket's reported `SO_SNDBUF`,

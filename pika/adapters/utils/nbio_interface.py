@@ -369,23 +369,21 @@ class AbstractStreamProtocol(abc.ABC):
         """
         ...
 
-    # TODO Undecided whether we need write flow-control yet, although it seems
-    #      like a good idea.
-    # @abc.abstractmethod
-    # def pause_writing(self):
-    #     """Called when the transport's write buffer size becomes greater than or
-    #     equal to the transport's high-water mark. It won't be called again until
-    #     the transport's write buffer gets back to its low-water mark and then
-    #     returns to/past the hight-water mark again.
-    #     """
-    #     raise NotImplementedError
-    #
-    # @abc.abstractmethod
-    # def resume_writing(self):
-    #     """Called when the transport's write buffer size becomes less than or
-    #     equal to the transport's low-water mark.
-    #     """
-    #     raise NotImplementedError
+    def pause_writing(self) -> None:
+        """
+        Called when the transport's write buffer grows past its high-water mark.
+
+        Not called again until `resume_writing()` has been. The default does nothing, as in
+        `asyncio.BaseProtocol`.
+        """
+
+    def resume_writing(self) -> None:
+        """
+        Called when the transport's write buffer drains to its low-water mark after
+        `pause_writing()`.
+
+        The default does nothing, as in `asyncio.BaseProtocol`.
+        """
 
 
 class AbstractStreamTransport(abc.ABC):
