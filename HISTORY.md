@@ -2,6 +2,16 @@
 
 Notes for each release are also published on the [GitHub releases page](https://github.com/pika/pika/releases), generated from the pull requests and issues the release contains.
 
+## Upgrading to 1.5.1
+
+One change is worth reading before you upgrade.
+
+### `pika.Connection` publishers now wait for the socket
+
+In 1.5.0, `basic_publish` on a `pika.Connection` channel queued without limit, so a publisher could run arbitrarily far ahead of the socket, and a `close()` whose timeout expired silently dropped the publishes still queued. In 1.5.1, `basic_publish` waits while 64 KiB of accepted publishes are still unsent, as the RabbitMQ Java and .NET clients make a publisher wait, so a `close()` has at most that much left to send (#1859).
+
+A publisher that outruns the network or the broker now blocks in `basic_publish` rather than growing the backlog. The wait has no time limit: during a broker resource alarm it lasts until the alarm clears, unless `blocked_connection_timeout` is set. Publishing from a consumer or confirm callback still works. Once `close()` has started, `basic_publish` raises `ConnectionWrongStateError`, and publishes a close still drops are logged in a WARNING saying how many.
+
 ## Upgrading to 1.5.0
 
 Twelve changes are worth reading before you upgrade. One adds `pika.Connection`, three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, one lets RabbitMQ close a channel sooner after a consumer timeout, one refuses messages larger than 64 MiB, one changes what the Twisted adapter reports when a connection closes, one closes the connection when a consumer or reply callback raises `BlockingIOError`, one changes the Python types that field-table numbers decode to, and one makes URL `ssl_options` verify the broker.
