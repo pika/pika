@@ -68,15 +68,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $rmq = (gh release view --repo rabbitmq/rabbitmq-server --json tagName --jq '.tagName | ltrimstr("v")')
-          if (-Not $rmq) { throw 'could not resolve RabbitMQ version' }
-          $otp_table = (gh api 'repos/erlang/otp/contents/otp_versions.table' -H 'Accept: application/vnd.github.raw')
-          $otp = ($otp_table -split "`n" `
-              | Select-String -Pattern '^OTP-27\.' `
-              | ForEach-Object { ($_.Line -split '\s+')[0] -replace '^OTP-','' } `
-              | Sort-Object -Property { [version]$_ } `
-              | Select-Object -Last 1)
-          if (-Not $otp) { throw 'could not resolve Erlang 27 version' }
+          . ./.ci/windows/versions.ps1
+          $rmq = Get-LatestRabbitMQVersion
+          $otp = Get-LatestErlang27Version
           "rabbitmq=$rmq" >> $env:GITHUB_OUTPUT
           "erlang=$otp"   >> $env:GITHUB_OUTPUT
           Write-Host "rabbitmq=$rmq erlang=$otp"
