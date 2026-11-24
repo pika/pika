@@ -404,6 +404,13 @@ class MainTests(unittest.TestCase):
         with contextlib.ExitStack() as stack:
             stack.enter_context(contextlib.redirect_stderr(stderr))
             stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            # The default `--timer-interval` is below ten ticks of Windows'
+            # clock before Python 3.13, so pin a fine clock for these tests.
+            stack.enter_context(
+                mock.patch.object(
+                    _BENCHMARK.time,
+                    'get_clock_info',
+                    return_value=types.SimpleNamespace(resolution=1e-09)))
             stack.enter_context(
                 mock.patch.object(_BENCHMARK, '_main_async', mock.Mock()))
             self.run = stack.enter_context(
