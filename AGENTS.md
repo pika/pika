@@ -23,6 +23,7 @@ tests/typing/           # type-checker fixtures (checked by hatch run typecheck)
 utils/codegen.py        # code generator for pika/spec.py
 utils/regen_spec.py     # regenerate/verify pika/spec.py (hatch run spec-regen)
 utils/measure_close_loss.py  # reproduces the close-loss figures in the docs
+utils/benchmark_prefilled_drain.py  # compares two pika sources draining a prefilled queue
 .ci/                    # release and docs helpers, plus the CI broker configs
 .ci/release.py          # the release CLI: one operation per step (see RELEASE.md)
 .ci/docs_site.py        # docs-site deploy helper (alias policy, verification)
