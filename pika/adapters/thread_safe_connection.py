@@ -14,6 +14,9 @@ multiple threads call basic_publish() on a shared connection directly
 
 from __future__ import annotations
 
+import collections
+import contextlib
+import enum
 import itertools
 import logging
 import queue
@@ -21,7 +24,7 @@ import threading
 import time
 import weakref
 from threading import Event
-from typing import TYPE_CHECKING, Any, Callable, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Iterator, TypeVar
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -32,6 +35,7 @@ if TYPE_CHECKING:
 
 from pika import frame, spec, validators
 from pika.adapters.select_connection import SelectConnection
+from pika.adapters.utils.io_services_utils import _AsyncTransportBase
 from pika.exceptions import ConnectionWrongStateError, WorkQueueFullError
 
 LOGGER = logging.getLogger(__name__)
@@ -230,6 +234,179 @@ def _submit_or_terminate(pool: _BoundedWorkPool, connection: SelectConnection,
         LOGGER.debug(drop_msg)
 
 
+class _GateState(enum.Enum):
+    """
+    Where a `_PublishGate` is in its connection's close.
+
+    CLOSING refuses new publishes while those already waiting keep their place; REJECTING refuses
+    those too, once the close has stopped waiting for them.
+    """
+
+    OPEN = enum.auto()
+    CLOSING = enum.auto()
+    REJECTING = enum.auto()
+    CLOSED = enum.auto()
+
+
+class _Admission:
+    """One publish counted in by `_PublishGate.admit`, so it is counted out exactly once."""
+
+    __slots__ = ('handed', 'nbytes')
+
+    def __init__(self, nbytes: int) -> None:
+        self.nbytes = nbytes
+        self.handed = False
+
+
+class _PublishGate:
+    """
+    Bound the publishes a `Connection` has accepted but not yet handed to the transport (#1859).
+
+    `basic_publish` counts each publish in with `admit` before queuing it on the IOLoop, and the
+    IOLoop counts it out with `handed` once the frames reach the transport.  A caller waits while
+    those bytes reach the transport's high-water mark or the transport has paused writing, as the
+    RabbitMQ Java and .NET clients make a publisher wait for the socket.
+
+    Two callers are not held, because the wait could not end: the IOLoop thread, which is what
+    drains the backlog, and a pool worker while the IOLoop is blocked feeding a full work queue,
+    since that worker is what has to make room (see `docs/internal/thread-safe-connection.md`).
+    """
+
+    def __init__(self, limit: int) -> None:
+        self._limit = limit
+        self._cond = threading.Condition()
+        self._pending_bytes = 0
+        self._pending_count = 0
+        self._writing_paused = False
+        self._ioloop_blocked = 0
+        # Blocked publishers by thread, so a close does not wait for one on its own thread, which a
+        # signal handler calling close() would otherwise do forever.
+        self._waiters: collections.Counter[int] = collections.Counter()
+        self._state = _GateState.OPEN
+
+    def _must_wait(self, worker: bool) -> bool:
+        if self._state in (_GateState.REJECTING, _GateState.CLOSED):
+            return False
+        if worker and self._ioloop_blocked:
+            return False
+        return self._writing_paused or self._pending_bytes >= self._limit
+
+    def _others_waiting(self) -> bool:
+        return sum(
+            self._waiters.values()) > self._waiters[threading.get_ident()]
+
+    def admit(self, nbytes: int, wait: bool, worker: bool) -> _Admission | None:
+        """
+        Count a publish in, first waiting for room if *wait* is true.
+
+        The caller queues the publish after this returns, outside the lock: the IOLoop takes the
+        lock too, so holding it any longer widens the window in which a signal handler that calls
+        close() on this thread deadlocks against the IOLoop (#1862).
+
+        :param nbytes: Size of the publish's marshaled frames.
+        :param wait: False on the IOLoop thread, which must never wait for itself.  Such a caller
+            is refused only once the connection is closed: what it queues before the close still
+            goes out first.
+        :param worker: True on one of the connection's pool workers.
+        :returns: The admission to pass to `handed`, or None if the publish must not be sent
+            because the connection is closing or closed.
+        """
+        admission = _Admission(nbytes)
+        with self._cond:
+            if self._state is _GateState.CLOSED or (wait and self._state
+                                                    is not _GateState.OPEN):
+                return None
+            if wait and self._must_wait(worker):
+                ident = threading.get_ident()
+                self._waiters[ident] += 1
+                try:
+                    while self._must_wait(worker):
+                        self._cond.wait()
+                finally:
+                    self._waiters[ident] -= 1
+                    if not self._waiters[ident]:
+                        del self._waiters[ident]
+                    if self._state is _GateState.CLOSING:
+                        self._cond.notify_all()  # for wait_for_waiters
+                if self._state in (_GateState.REJECTING, _GateState.CLOSED):
+                    return None
+            self._pending_bytes += nbytes
+            self._pending_count += 1
+            return admission
+
+    def _count_out(self, admission: _Admission) -> None:
+        if admission.handed:
+            return
+        admission.handed = True
+        self._pending_bytes -= admission.nbytes
+        self._pending_count -= 1
+        if self._waiters and not self._must_wait(False):
+            self._cond.notify_all()
+
+    def handed(self, admission: _Admission) -> None:
+        """Count *admission* out once the IOLoop has handed it to the transport, or failed to."""
+        with self._cond:
+            self._count_out(admission)
+
+    def set_writing_paused(self, paused: bool) -> None:
+        """Record that the transport paused or resumed writing; runs on the IOLoop thread."""
+        with self._cond:
+            self._writing_paused = paused
+            if not paused and self._waiters:
+                self._cond.notify_all()
+
+    @contextlib.contextmanager
+    def ioloop_blocked(self) -> Iterator[None]:
+        """Mark the IOLoop as blocked for the duration, releasing waiting pool workers."""
+        with self._cond:
+            self._ioloop_blocked += 1
+            if self._waiters:
+                self._cond.notify_all()
+        try:
+            yield
+        finally:
+            with self._cond:
+                self._ioloop_blocked -= 1
+
+    def start_closing(self) -> None:
+        """Refuse new publishes; those already waiting keep their place."""
+        with self._cond:
+            if self._state is _GateState.OPEN:
+                self._state = _GateState.CLOSING
+
+    def wait_for_waiters(self, deadline: float | None) -> None:
+        """
+        Wait until no other thread's publisher is blocked, then refuse any left at *deadline*.
+
+        :param deadline: A `time.monotonic` value, or ``None`` to wait for as long as it takes.
+        """
+        with self._cond:
+            while self._others_waiting() and self._state is _GateState.CLOSING:
+                remaining = _remaining(deadline)
+                if remaining is not None and remaining <= 0:
+                    break
+                self._cond.wait(remaining)
+        self.reject_waiters()
+
+    def reject_waiters(self) -> None:
+        """Refuse the publishers still waiting, for a close that cannot wait for them."""
+        with self._cond:
+            if self._state is _GateState.CLOSING:
+                self._state = _GateState.REJECTING
+                self._cond.notify_all()
+
+    def close(self) -> None:
+        """Release every waiter; nothing more is admitted."""
+        with self._cond:
+            self._state = _GateState.CLOSED
+            self._cond.notify_all()
+
+    def pending(self) -> tuple[int, int]:
+        """Return the number and total size of publishes accepted but not yet handed over."""
+        with self._cond:
+            return self._pending_count, self._pending_bytes
+
+
 class _BoundedWorkPool:
     """
     Single worker thread consuming from a bounded work queue.
@@ -303,11 +480,18 @@ class _BoundedWorkPool:
                 self._thread._pika_pool_owner = self._owner  # type: ignore[attr-defined]
                 self._thread.start()
         try:
-            self._queue.put((fn, args), timeout=self._put_timeout)
+            self._queue.put_nowait((fn, args))
         except queue.Full:
-            raise WorkQueueFullError(
-                f'work queue full for {self._put_timeout} seconds '
-                f'(maxsize={self._queue.maxsize})') from None
+            # A Connection owns every production pool; tests also build pools with stand-ins.
+            gate = getattr(self._owner(), '_publish_gate', None)
+            try:
+                with (contextlib.nullcontext()
+                      if gate is None else gate.ioloop_blocked()):
+                    self._queue.put((fn, args), timeout=self._put_timeout)
+            except queue.Full:
+                raise WorkQueueFullError(
+                    f'work queue full for {self._put_timeout} seconds '
+                    f'(maxsize={self._queue.maxsize})') from None
         # shutdown() may have run between the flag check above and this put:
         # it sets the flag and the worker exits once it finds the queue empty,
         # so an item enqueued in that window could be stranded in a queue no
@@ -932,9 +1116,16 @@ class Channel:
                       mandatory: bool = False,
                       on_publish=None) -> None:
         """
-        Schedule a publish in the IOLoop thread (fire-and-forget).
+        Encode a publish and hand it to the IOLoop thread to send.
 
         Safe to call from any thread simultaneously.
+
+        Waits while the publishes accepted but not yet handed to the transport reach 64 KiB, or the
+        socket is not taking more, as the RabbitMQ Java and .NET clients make a publisher wait
+        (#1859).  The wait has no time limit: it ends when there is room or the connection closes.
+        During a broker resource alarm only `blocked_connection_timeout`, which defaults to
+        ``None``, closes the connection.  It never waits on the IOLoop thread, nor on any callback
+        thread of this connection while the IOLoop is blocked for room in one of its work queues.
 
         :param exchange: The exchange to publish to.
         :param routing_key: The routing key to publish with.
@@ -942,7 +1133,8 @@ class Channel:
         :param properties: Properties for the message.
         :param mandatory: If True, return unroutable messages to the publisher
         :param on_publish: Optional callback invoked on the **IOLoop thread** immediately after the
-            publish frame is written successfully, with the delivery tag (int) as its sole argument.
+            publish frames are handed to the transport, which is before they reach the socket, with
+            the delivery tag (int) as its sole argument.
             Only meaningful when publisher confirms are enabled via [`confirm_delivery`][pika.adapters.thread_safe_connection.Channel.confirm_delivery];
             ignored otherwise. Must return quickly (same contract as any
             [`add_callback_threadsafe`][pika.adapters.thread_safe_connection.Connection.add_callback_threadsafe] callback). An exception raised by this
@@ -953,6 +1145,7 @@ class Channel:
             properties or body raises, such as `pika.exceptions.UnsupportedAMQPFieldException` for a
             header value with no field-table type. Both are raised here, before anything is
             scheduled.
+        :raises pika.exceptions.ConnectionWrongStateError: if [`Connection.close`][pika.adapters.thread_safe_connection.Connection.close] has started.
         """
         if on_publish is not None:
             validators.require_callback(on_publish, 'on_publish')
@@ -963,6 +1156,15 @@ class Channel:
         # IOLoop would encode whatever the caller's objects hold by the time it runs (#1827).
         frames = self._channel._marshal_publish(exchange, routing_key, body,
                                                 properties, mandatory)
+        wrapper = self._wrapper
+        gate = wrapper._publish_gate
+        admission = gate.admit(sum(len(f) for f in frames),
+                               wait=threading.current_thread()
+                               is not wrapper._ioloop_thread,
+                               worker=wrapper._is_pool_worker_thread())
+        if admission is None:
+            self._check_not_closed()
+            raise ConnectionWrongStateError('connection is closing or closed')
 
         def _publish() -> None:
             try:
@@ -971,6 +1173,8 @@ class Channel:
                 LOGGER.warning('basic_publish failed (channel may have closed)',
                                exc_info=True)
                 return
+            finally:
+                gate.handed(admission)
             if self._next_publish_seq_no is not None:
                 self._next_publish_seq_no += 1
                 if on_publish is not None:
@@ -986,7 +1190,12 @@ class Channel:
                     self._safe_dispatch('publish callback', on_publish,
                                         self._next_publish_seq_no)
 
-        self._wrapper._schedule_unchecked(_publish)
+        try:
+            wrapper._schedule_unchecked(_publish)
+        except BaseException:
+            # The callback may be queued even though waking the IOLoop failed; `handed` counts once.
+            gate.handed(admission)
+            raise
 
     def basic_ack(self, delivery_tag: int = 0, multiple: bool = False) -> None:
         """
@@ -2029,6 +2238,9 @@ class Connection:
         self._blocking_waiters: list[tuple[threading.Event,
                                            list[BaseException | None]]] = []
         self._channels: list[Channel] = []
+        self._publish_gate = _PublishGate(
+            _AsyncTransportBase._WRITE_HIGH_WATER_BYTES)
+        self._unsent_reported = False
 
         # Single-worker pool for connection-level event callbacks
         # (Connection.Blocked / Unblocked).  Bounded like the per-channel
@@ -2055,11 +2267,18 @@ class Connection:
             # worker thread.
             self._shutdown_connection_pool()
             raise
+        self._connection._on_writing_paused = (
+            self._publish_gate.set_writing_paused)
 
         def _run_ioloop() -> None:
             try:
                 self._connection.ioloop.start()
-            except Exception as exc:
+            except BaseException as exc:
+                # Not only Exception: a dead IOLoop must still release blocked publishers.
+                self._publish_gate.close()
+                if not isinstance(exc, Exception):
+                    self._warn_unsent_publishes(final=True)
+                    raise
                 # An unhandled exception in a callback killed the IOLoop.
                 # Wake every blocked caller so they do not hang forever.
                 LOGGER.exception('IOLoop thread crashed')
@@ -2075,6 +2294,9 @@ class Connection:
                 if not self._connected_event.is_set():
                     self._connect_error = exc
                     self._connected_event.set()
+            # Every close path ends here, so this is where a dropped publish is reported.
+            self._publish_gate.close()
+            self._warn_unsent_publishes(final=True)
             self._drain_pools_after_ioloop()
 
         self._ioloop_thread = threading.Thread(
@@ -2334,12 +2556,19 @@ class Connection:
         when ``close()`` is called from a pool worker or from the IOLoop thread, as described below,
         and on those paths the queued callbacks run after the teardown as they did before.
 
+        Then it refuses new publishes, which raise
+        [`ConnectionWrongStateError`][pika.exceptions.ConnectionWrongStateError], and waits within
+        *timeout* for other threads blocked in [`basic_publish`][pika.adapters.thread_safe_connection.Channel.basic_publish] to be let through, so they are sent ahead of
+        Connection.Close; any still blocked when the budget runs out raise instead (#1859).  From a
+        pool worker or the IOLoop thread it does not wait, and they raise at once.  A publish from
+        the IOLoop thread itself is refused only once the connection has closed.
+
         It then waits up to the remainder of *timeout* for the IOLoop thread to finish.  If the
         thread is still alive after the timeout (e.g. the broker never sends Connection.CloseOk),
         the IOLoop is force-stopped via ``add_callback_threadsafe`` and joined once more under a
         second *timeout* budget.  A worker still draining when that budget expires is left to finish
         on its own (it is a daemon thread), so a wedged delivery callback cannot hang ``close``
-        indefinitely.
+        indefinitely.  Publishes the close leaves unsent, by force-stopping or by racing it, are dropped and logged in a WARNING with how many.
 
         Safe to call from any thread including the IOLoop thread itself (e.g. from within a channel
         callback).  When called from the IOLoop thread the close is initiated synchronously and the
@@ -2366,6 +2595,9 @@ class Connection:
             run first, since a worker cannot wait for its own queue.
         """
         if threading.current_thread() is self._ioloop_thread:
+            # The IOLoop cannot wait for the publishers it would have to drain.
+            self._publish_gate.start_closing()
+            self._publish_gate.reject_waiters()
             try:
                 self._connection.close()
             except Exception:
@@ -2399,6 +2631,15 @@ class Connection:
             # away, so their acknowledgements still reach the broker (#1763).
             # Skipped on a pool worker: a worker cannot wait for its own queue.
             self._quiesce_all_pools(close_deadline)
+
+        # After the queued callbacks, which may still publish: refuse new publishes, and send
+        # those already waiting ahead of Connection.Close, as the Java client does (#1859).
+        self._publish_gate.start_closing()
+        if is_pool_worker:
+            # A close from a pool worker waits for nothing (#1686).
+            self._publish_gate.reject_waiters()
+        else:
+            self._publish_gate.wait_for_waiters(close_deadline)
 
         def _safe_close() -> None:
             try:
@@ -2447,6 +2688,8 @@ class Connection:
                 LOGGER.warning(
                     'Connection %s IOLoop thread did not exit within the close '
                     'timeout; abandoning it', self._instance_id)
+                # Unless it is wedged in its pool drain, its exit path has not reported yet.
+                self._warn_unsent_publishes(final=False)
             # _on_connection_closed may not have fired if the IOLoop was
             # force-stopped before the broker sent Connection.CloseOk.
             # Wake any threads still blocked so they do not hang forever.
@@ -2462,6 +2705,25 @@ class Connection:
             self._shutdown_all_consumer_pools(
                 timeout=_remaining(force_deadline))
             self._shutdown_connection_pool(timeout=_remaining(force_deadline))
+
+    def _warn_unsent_publishes(self, final: bool) -> None:
+        """
+        Log the publishes still counted, once (#1859).
+
+        :param final: True from the IOLoop thread's exit path, where those publishes are dropped.
+            False from a close abandoning a live IOLoop thread, which may still send them.
+        """
+        if self._unsent_reported:
+            return
+        count, _nbytes = self._publish_gate.pending()
+        transport = getattr(self._connection, '_transport', None)
+        unsent = 0 if transport is None else transport.get_write_buffer_size()
+        if count or unsent:
+            self._unsent_reported = True
+            LOGGER.warning(
+                'Connection %s closed without sending %d accepted publishes '
+                'and %d buffered bytes; they %s', self._instance_id, count,
+                unsent, 'were dropped' if final else 'may be dropped')
 
     def _record_forced_close(self, reason: str | None = None) -> bool:
         """
@@ -2576,6 +2838,7 @@ class Connection:
         """
         self._closed_reason = reason
         self._closed_reason_tb = getattr(reason, '__traceback__', None)
+        self._publish_gate.close()
 
     def _check_not_closed(self) -> None:
         """
