@@ -1,7 +1,9 @@
 """Tests for the loop lag measurement seam."""
 
 import asyncio
+import contextlib
 import importlib.util
+import io
 import time
 import unittest
 from pathlib import Path
@@ -361,3 +363,44 @@ class ValidationTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError,
                                             'shorter than the measurement'):
                     _BENCHMARK._validate_args(args)
+
+    def test_validation_rejects_a_timer_interval_the_clock_cannot_resolve(self):
+        coarse = _BENCHMARK.time.get_clock_info('monotonic')
+        coarse.resolution = 0.015625
+        with mock.patch.object(_BENCHMARK.time,
+                               'get_clock_info',
+                               return_value=coarse):
+            with self.assertRaisesRegex(ValueError, 'clock resolution'):
+                _BENCHMARK._validate_args(_valid_args(timer_interval=0.001))
+            _BENCHMARK._validate_args(_valid_args(timer_interval=0.2))
+
+
+class MainTests(unittest.TestCase):
+
+    def _main(self, argv):
+        """Run `main` without a broker; return its exit code and stderr."""
+        stderr = io.StringIO()
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(contextlib.redirect_stderr(stderr))
+            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            stack.enter_context(
+                mock.patch.object(_BENCHMARK, '_main_async', mock.Mock()))
+            stack.enter_context(
+                mock.patch.object(_BENCHMARK.asyncio, 'run', return_value=[]))
+            try:
+                code = _BENCHMARK.main(argv)
+            except SystemExit as error:
+                code = error.code
+        return code, stderr.getvalue()
+
+    def test_tls_options_without_tls_are_rejected(self):
+        code, stderr = self._main(['--ca-certs', 'ca.pem', '--client-key', 'k'])
+
+        self.assertEqual(code, 2)
+        self.assertIn('--ca-certs, --client-key requires --tls', stderr)
+
+    def test_tls_options_with_tls_are_accepted(self):
+        code, stderr = self._main(['--tls', '--ca-certs', 'ca.pem'])
+
+        self.assertEqual(code, 0)
+        self.assertEqual(stderr, '')

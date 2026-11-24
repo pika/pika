@@ -38,6 +38,7 @@ DEFAULT_MESSAGES = 500
 DEFAULT_DURATION = 10.0
 DEFAULT_RATE = 50.0
 DEFAULT_SMALL_BURSTS = (1, 50)
+MIN_INTERVAL_TO_CLOCK_RESOLUTION = 10
 
 
 class LoopLagSampler:
@@ -404,6 +405,14 @@ def _validate_args(args: argparse.Namespace) -> None:
     if now + args.timer_interval <= now:
         raise ValueError(
             'timer interval is too small to advance the event loop clock')
+    resolution = time.get_clock_info('monotonic').resolution
+    if args.timer_interval < MIN_INTERVAL_TO_CLOCK_RESOLUTION * resolution:
+        # asyncio runs a timer up to one clock tick early, so a coarser clock
+        # measures its own tick rather than loop lag.
+        raise ValueError(
+            f'timer interval must be at least '
+            f'{MIN_INTERVAL_TO_CLOCK_RESOLUTION} times the monotonic clock '
+            f'resolution of {resolution:g} s')
 
 
 async def _run_workload(args: argparse.Namespace,
@@ -471,6 +480,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--sync-work-ms', type=float, default=1.0)
     parser.add_argument('--timer-interval', type=float, default=0.001)
     args = parser.parse_args(argv)
+    tls_options = {
+        '--ca-certs': args.ca_certs,
+        '--client-cert': args.client_cert,
+        '--client-key': args.client_key,
+        '--server-hostname': args.server_hostname,
+    }
+    tls_only = [option for option, value in tls_options.items() if value]
+    if tls_only and not args.tls:
+        parser.error(f'{", ".join(tls_only)} requires --tls')
     if args.tls and args.client_cert and not args.client_key:
         parser.error('--client-key is required with --client-cert')
     try:
