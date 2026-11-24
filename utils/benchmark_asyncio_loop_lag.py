@@ -13,8 +13,9 @@ transport write buffer, sampled after each publish. Publish and delivery rates d
 counts by the fixed measurement window; the final delivery count also includes any drain after that
 window. The epoll selector rounds a timeout up to a whole millisecond, so on Linux even the `idle`
 workload reports about 1 ms of p99 lag and misses some 1 ms deadlines; read other workloads against
-it. The benchmark compares enabled and disabled batching and reports socket sends, publisher
-throughput, and peak traced memory. Memory tracing changes loop timing.
+it. `--write-batching` selects whether the transport batches writes, so two runs compare the modes;
+each reports socket sends, publisher throughput, and peak traced memory. Memory tracing changes loop
+timing.
 """
 
 from __future__ import annotations

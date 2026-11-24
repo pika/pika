@@ -164,6 +164,18 @@ class TransportWriteBatchTests(unittest.TestCase):
                 len(chunk) <= transport._MAX_COALESCED_WRITE_BYTES
                 for chunk in sent))
 
+    def test_a_batch_may_fill_the_cap_but_not_exceed_it(self):
+        cap = io_services_utils._AsyncTransportBase._MAX_COALESCED_WRITE_BYTES
+        for tail, expected_sends in ((b'b', 1), (b'bb', 2)):
+            with self.subTest(tail=tail):
+                transport = self.make_transport(
+                    io_services_utils._AsyncPlaintextTransport, socket.socket)
+                transport.write(b'a' * (cap - 1))
+                transport.write(tail)
+                self.sock.send.side_effect = lambda data: len(data)
+                transport._on_socket_writable()
+                self.assertEqual(self.sock.send.call_count, expected_sends)
+
     def test_legal_large_frame_is_sent_without_copying_or_splitting(self):
         transport = self.make_transport(
             io_services_utils._AsyncPlaintextTransport, socket.socket)
@@ -222,15 +234,17 @@ class TransportWriteBatchTests(unittest.TestCase):
                 transport._on_socket_writable()
                 self.assertEqual(transport.get_write_buffer_size(), 11)
                 transport.write(b'new')
-                self.assertEqual(transport.get_write_buffer_size(), 14)
+                transport.write(b'more')
+                self.assertEqual(transport.get_write_buffer_size(), 18)
 
                 if want == ssl.SSL_ERROR_WANT_READ:
                     transport._on_socket_readable()
                 else:
                     transport._on_socket_writable()
 
+                # The retry repeats its buffer; batching then resumes.
                 self.assertEqual(attempts,
-                                 [b'firstsecond', b'firstsecond', b'new'])
+                                 [b'firstsecond', b'firstsecond', b'newmore'])
                 self.assertEqual(transport.get_write_buffer_size(), 0)
 
 

@@ -840,11 +840,8 @@ class _AsyncTransportBase(AbstractStreamTransport):
                 self._tx_buffered_byte_count, self._state)
 
     def _coalesce_tx_buffers(self) -> None:
-        """Coalesce queued chunks without splitting an existing frame."""
+        """Coalesce queued chunks without splitting an existing chunk."""
         first = self._tx_buffers[0]
-        if len(first) > self._MAX_COALESCED_WRITE_BYTES:
-            return
-
         chunks = [first]
         byte_count = len(first)
         buffers = iter(self._tx_buffers)
@@ -1317,6 +1314,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
         except ssl.SSLError as error:
             if error.errno == ssl.SSL_ERROR_WANT_READ:
                 # Looks like SSL re-negotiation
+                # OpenSSL requires a retried SSL_write to repeat the same bytes and length.
                 self._tx_buffer_pinned = True
                 _LOGGER.debug('SSL emitter wants read: %s', self._sock)
                 next_produce_on_writable = False
