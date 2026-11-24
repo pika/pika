@@ -5,6 +5,7 @@ import contextlib
 import importlib.util
 import io
 import time
+import types
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -377,7 +378,7 @@ class ValidationTests(unittest.TestCase):
 
 class MainTests(unittest.TestCase):
 
-    def _main(self, argv):
+    def _main(self, argv, platform=None):
         """Run `main` without a broker; return its exit code and stderr."""
         stderr = io.StringIO()
         with contextlib.ExitStack() as stack:
@@ -385,8 +386,20 @@ class MainTests(unittest.TestCase):
             stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
             stack.enter_context(
                 mock.patch.object(_BENCHMARK, '_main_async', mock.Mock()))
-            stack.enter_context(
+            self.run = stack.enter_context(
                 mock.patch.object(_BENCHMARK.asyncio, 'run', return_value=[]))
+            self.set_policy = stack.enter_context(
+                mock.patch.object(_BENCHMARK.asyncio, 'set_event_loop_policy'))
+            if platform is not None:
+                stack.enter_context(
+                    mock.patch.object(
+                        _BENCHMARK, 'sys',
+                        types.SimpleNamespace(platform=platform[0],
+                                              version_info=platform[1])))
+                stack.enter_context(
+                    mock.patch.object(_BENCHMARK.asyncio,
+                                      'WindowsSelectorEventLoopPolicy',
+                                      create=True))
             try:
                 code = _BENCHMARK.main(argv)
             except SystemExit as error:
@@ -404,3 +417,16 @@ class MainTests(unittest.TestCase):
 
         self.assertEqual(code, 0)
         self.assertEqual(stderr, '')
+
+    def test_windows_runs_a_selector_loop_without_a_policy_from_3_12(self):
+        self._main(['--workload', 'idle'], platform=('win32', (3, 12)))
+
+        self.assertIs(self.run.call_args[1]['loop_factory'],
+                      _BENCHMARK.asyncio.SelectorEventLoop)
+        self.assertFalse(self.set_policy.called)
+
+    def test_windows_before_3_12_selects_the_loop_with_a_policy(self):
+        self._main(['--workload', 'idle'], platform=('win32', (3, 11)))
+
+        self.assertNotIn('loop_factory', self.run.call_args[1])
+        self.assertTrue(self.set_policy.called)

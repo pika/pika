@@ -495,9 +495,16 @@ def main(argv: list[str] | None = None) -> int:
         _validate_args(args)
     except ValueError as error:
         parser.error(str(error))
-    if sys.platform == 'win32':
+    if sys.platform != 'win32':
+        results = asyncio.run(_main_async(args))
+    elif sys.version_info >= (3, 12):
+        # Pika needs `add_reader`, which Windows' default proactor loop lacks.
+        results = asyncio.run(_main_async(args),
+                              loop_factory=asyncio.SelectorEventLoop)
+    else:
+        # Event loop policies are deprecated from 3.14, after `loop_factory`.
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    results = asyncio.run(_main_async(args))
+        results = asyncio.run(_main_async(args))
     print(json.dumps(results, indent=2, sort_keys=True))
     return 0 if all(
         item['published'] == item['delivered'] for item in results) else 1
