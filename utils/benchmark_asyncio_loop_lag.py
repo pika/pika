@@ -11,7 +11,9 @@ seconds; requested messages are capped by the measurement window. To compare 500
 `--rate 25000`, and `--small-bursts 500,50`. Peak queued bytes measure Pika's local asyncio
 transport write buffer, sampled after each publish. Publish and delivery rates divide in-window
 counts by the fixed measurement window; the final delivery count also includes any drain after that
-window.
+window. The epoll selector rounds a timeout up to a whole millisecond, so on Linux even the `idle`
+workload reports about 1 ms of p99 lag and misses some 1 ms deadlines; read other workloads against
+it.
 """
 
 from __future__ import annotations
