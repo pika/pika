@@ -241,20 +241,29 @@ class SetupTests(unittest.TestCase):
 
 class RunTests(unittest.TestCase):
 
-    def _install_connection(self, on_publish):
-        """Replace `AsyncioConnection` with a stub whose channel calls `on_publish(consumer)`."""
+    def _install_connection(self, on_publish, declare_error=None):
+        """
+        Replace `AsyncioConnection` with a stub whose channel calls `on_publish(consumer)`.
+
+        With `declare_error`, the channel closes with it instead of declaring the queue.
+        """
         connections = []
 
         class Channel:
 
             def __init__(self):
                 self.consumer = None
+                self.close_callback = None
 
-            def add_on_close_callback(self, _callback):
-                pass
+            def add_on_close_callback(self, callback):
+                self.close_callback = callback
 
             def queue_declare(self, **kwargs):
-                asyncio.get_running_loop().call_soon(kwargs['callback'], None)
+                loop = asyncio.get_running_loop()
+                if declare_error is None:
+                    loop.call_soon(kwargs['callback'], None)
+                else:
+                    loop.call_soon(self.close_callback, self, declare_error)
 
             def basic_consume(self, _queue, consumer, auto_ack, callback):
                 assert auto_ack
@@ -295,6 +304,17 @@ class RunTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'publish failed'):
             _run_benchmark(1, 100.0, 0.1, 0.02)
 
+        self.assertIs(connections[0].is_open, False)
+
+    def test_run_surfaces_a_broker_refusal_and_closes_connection(self):
+        refusal = RuntimeError('queue declaration was refused')
+        connections = self._install_connection(_publish_failure,
+                                               declare_error=refusal)
+
+        with self.assertRaises(RuntimeError) as raised:
+            _run_benchmark(1, 100.0, 0.1, 0.02)
+
+        self.assertIs(raised.exception, refusal)
         self.assertIs(connections[0].is_open, False)
 
     def test_delivery_before_the_cutoff_finishes_within_the_window_when_the_publisher_wakes_late(
