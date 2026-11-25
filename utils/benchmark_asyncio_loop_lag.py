@@ -246,7 +246,7 @@ class _Run:
             await self._wait_or_fail(self.ready)
             self._count_socket_writes()
             if self.write_batching == 'disabled':
-                self.connection._transport._coalesce_tx_buffers = lambda: None
+                self.connection._transport._coalesce_tx_buffers = lambda _limit: None
             if self.measure_allocations and not tracemalloc.is_tracing():
                 tracemalloc.start()
                 self._owns_allocation_trace = True

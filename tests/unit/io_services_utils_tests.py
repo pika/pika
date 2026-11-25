@@ -97,6 +97,7 @@ class TransportFailureIsLoggedOnceTests(unittest.TestCase):
                                           sock))
 
     def writable_failure_records(self, transport_class, sock):
+        sock.getsockopt.return_value = 2626560
         protocol = mock.Mock()
         nbio = mock.Mock()
         transport = transport_class(sock, protocol, nbio)
@@ -104,7 +105,8 @@ class TransportFailureIsLoggedOnceTests(unittest.TestCase):
         transport.write(b'frame')
         with self.assertLogs('pika', level='ERROR') as logs:
             transport._on_socket_writable()
-        protocol.connection_lost.assert_called_once()
+        # The send's own error, so a failure earlier in the write path cannot stand in for it.
+        protocol.connection_lost.assert_called_once_with(sock.send.side_effect)
         return logs.records
 
     def test_plaintext_send_failure(self):
@@ -124,8 +126,12 @@ class TransportFailureIsLoggedOnceTests(unittest.TestCase):
 
 class TransportWriteBatchTests(unittest.TestCase):
 
+    # What a default Linux loopback socket reports, so the 64 KiB cap applies.
+    DEFAULT_SNDBUF = 2626560
+
     def make_transport(self, transport_class, sock_spec):
         self.sock = mock.Mock(spec=sock_spec)
+        self.sock.getsockopt.return_value = self.DEFAULT_SNDBUF
         self.protocol = mock.Mock()
         self.nbio = mock.Mock()
         return transport_class(self.sock, self.protocol, self.nbio)
@@ -163,6 +169,37 @@ class TransportWriteBatchTests(unittest.TestCase):
             all(
                 len(chunk) <= transport._MAX_COALESCED_WRITE_BYTES
                 for chunk in sent))
+
+    def test_batches_are_capped_at_half_the_reported_send_buffer(self):
+        """Linux reports twice the SO_SNDBUF that was set; that set value is the cap (#1864)."""
+        transport = self.make_transport(
+            io_services_utils._AsyncPlaintextTransport, socket.socket)
+        self.sock.getsockopt.return_value = 8192
+        chunks = [bytes([65 + i]) * 1000 for i in range(10)]
+        for chunk in chunks:
+            transport.write(chunk)
+        sent = []
+        self.sock.send.side_effect = lambda data: sent.append(data) or len(data)
+
+        transport._on_socket_writable()
+
+        self.sock.getsockopt.assert_called_with(socket.SOL_SOCKET,
+                                                socket.SO_SNDBUF)
+        self.assertEqual(b''.join(sent), b''.join(chunks))
+        self.assertEqual([len(data) for data in sent], [4000, 4000, 2000])
+
+    def test_the_cap_follows_the_send_buffer_as_it_changes(self):
+        transport = self.make_transport(
+            io_services_utils._AsyncPlaintextTransport, socket.socket)
+        self.sock.send.side_effect = lambda data: len(data)
+        for sndbuf, expected in ((4096, 2), (self.DEFAULT_SNDBUF, 1)):
+            with self.subTest(sndbuf=sndbuf):
+                self.sock.send.reset_mock()
+                self.sock.getsockopt.return_value = sndbuf
+                transport.write(b'a' * 1500)
+                transport.write(b'b' * 1500)
+                transport._on_socket_writable()
+                self.assertEqual(self.sock.send.call_count, expected)
 
     def test_a_batch_may_fill_the_cap_but_not_exceed_it(self):
         cap = io_services_utils._AsyncTransportBase._MAX_COALESCED_WRITE_BYTES

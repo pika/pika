@@ -823,9 +823,10 @@ class _AsyncTransportBase(AbstractStreamTransport):
         """
         assert self._sock is not None
 
+        limit = self._coalesce_limit()
         while self._tx_buffers:
             if not self._tx_buffer_pinned:
-                self._coalesce_tx_buffers()
+                self._coalesce_tx_buffers(limit)
             num_bytes_sent = self._sock.send(self._tx_buffers[0])
             self._tx_buffer_pinned = False
             chunk = self._tx_buffers.popleft()
@@ -839,15 +840,27 @@ class _AsyncTransportBase(AbstractStreamTransport):
                 '_AsyncTransportBase._produce() tx buffer size underflow',
                 self._tx_buffered_byte_count, self._state)
 
-    def _coalesce_tx_buffers(self) -> None:
-        """Coalesce queued chunks without splitting an existing chunk."""
+    def _coalesce_limit(self) -> int:
+        """Return the most bytes to coalesce into one write: half the socket's reported `SO_SNDBUF`,
+        at most 64 KiB, read on each produce because TCP autotuning resizes the buffer (#1864).
+        """
+        assert self._sock is not None
+        sndbuf = self._sock.getsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF)
+        return min(self._MAX_COALESCED_WRITE_BYTES, sndbuf // 2)
+
+    def _coalesce_tx_buffers(self, limit: int) -> None:
+        """
+        Coalesce queued chunks, up to *limit* bytes, without splitting an existing chunk.
+
+        :param limit: Most bytes to coalesce into one write; see `_coalesce_limit`.
+        """
         first = self._tx_buffers[0]
         chunks = [first]
         byte_count = len(first)
         buffers = iter(self._tx_buffers)
         next(buffers)
         for next_chunk in buffers:
-            if byte_count + len(next_chunk) > self._MAX_COALESCED_WRITE_BYTES:
+            if byte_count + len(next_chunk) > limit:
                 break
             chunks.append(next_chunk)
             byte_count += len(next_chunk)
