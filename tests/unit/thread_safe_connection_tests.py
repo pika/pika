@@ -16,6 +16,8 @@ from pika.adapters.thread_safe_connection import (
     Channel,
     Connection,
     _BoundedWorkPool,
+    _GateState,
+    _PublishGate,
     _reraisable,
     _submit_or_terminate,
     _validate_shutdown_drain_timeout,
@@ -262,19 +264,239 @@ class CloseTracebackHelperTests(unittest.TestCase):
             _reraisable(own, reason, reason.__traceback__).__traceback__)
 
 
+def _admit(gate, nbytes=10, wait=True, worker=False):
+    """Admit a publish; return whether it was admitted."""
+    return gate.admit(nbytes, wait, worker)
+
+
+def _admit_in_thread(gate, nbytes=10, worker=False):
+    """Call `_admit` on a new thread; return the thread and a list that gets its result."""
+    result = []
+    thread = threading.Thread(
+        target=lambda: result.append(_admit(gate, nbytes, worker=worker)),
+        daemon=True)
+    thread.start()
+    return thread, result
+
+
+def _wait_for_waiters(gate, count=1, timeout=5.0):
+    """Wait until *count* callers are blocked in *gate*, failing after *timeout*."""
+    deadline = time.monotonic() + timeout
+    while sum(gate._waiters.values()) < count:
+        if time.monotonic() > deadline:
+            raise AssertionError(f'{count} waiter(s) never blocked')
+        time.sleep(0.001)
+
+
+class PublishGateTests(unittest.TestCase):
+    """`_PublishGate` bounds the publishes accepted but not yet sent (#1859)."""
+
+    def assert_admitted(self, thread, result, expected=True):
+        thread.join(timeout=5)
+        self.assertFalse(thread.is_alive(), 'admit() never returned')
+        self.assertEqual(result, [expected])
+
+    def test_admits_below_the_limit_without_waiting(self):
+        gate = _PublishGate(100)
+        self.assertTrue(_admit(gate, 99))
+        self.assertEqual(gate.pending(), (1, 99))
+
+    def test_a_body_larger_than_the_limit_is_admitted_when_nothing_is_pending(
+            self):
+        gate = _PublishGate(100)
+        self.assertTrue(_admit(gate, 1000))
+
+    def test_waits_at_the_limit_until_a_publish_is_handed_over(self):
+        gate = _PublishGate(100)
+        gate._RECHECK_INTERVAL = 60  # only a wakeup can release the waiter in time
+        _admit(gate, 100)
+        thread, result = _admit_in_thread(gate)
+        _wait_for_waiters(gate)
+        self.assertEqual(result, [])
+        gate.handed(100)
+        self.assert_admitted(thread, result)
+        self.assertEqual(gate.pending(), (1, 10))
+
+    def test_a_waiter_is_woken_only_once_half_the_limit_has_drained(self):
+        gate = _PublishGate(100)
+        gate._RECHECK_INTERVAL = 60  # only a wakeup can release the waiter in time
+        _admit(gate, 40)
+        _admit(gate, 60)
+        thread, result = _admit_in_thread(gate)
+        _wait_for_waiters(gate)
+        with patch.object(gate, '_wake', wraps=gate._wake) as wake:
+            gate.handed(40)  # 60 left: above half the limit
+            wake.assert_not_called()
+            gate.handed(60)  # 0 left
+            wake.assert_called_once_with()
+        self.assert_admitted(thread, result)
+
+    def test_waits_while_writing_is_paused_until_resumed(self):
+        gate = _PublishGate(100)
+        gate._RECHECK_INTERVAL = 60  # only a wakeup can release the waiter in time
+        gate.set_writing_paused(True)
+        thread, result = _admit_in_thread(gate)
+        _wait_for_waiters(gate)
+        gate.set_writing_paused(False)
+        self.assert_admitted(thread, result)
+
+    def test_does_not_wait_when_told_not_to(self):
+        gate = _PublishGate(100)
+        gate.set_writing_paused(True)
+        _admit(gate, 100, wait=False)
+        self.assertTrue(_admit(gate, 10, wait=False))
+        self.assertEqual(gate.pending(), (2, 110))
+
+    def test_a_waiter_leaves_no_entry_behind(self):
+        gate = _PublishGate(100)
+        gate.set_writing_paused(True)
+        thread, result = _admit_in_thread(gate)
+        _wait_for_waiters(gate)
+        gate.set_writing_paused(False)
+        self.assert_admitted(thread, result)
+        self.assertEqual(dict(gate._waiters), {})
+
+    def test_releases_a_pool_worker_while_the_ioloop_is_blocked(self):
+        gate = _PublishGate(100)
+        gate._RECHECK_INTERVAL = 60  # only a wakeup can release the waiter in time
+        gate.set_writing_paused(True)
+        thread, result = _admit_in_thread(gate, worker=True)
+        _wait_for_waiters(gate)
+        with gate.ioloop_blocked():
+            self.assert_admitted(thread, result)
+
+    def test_keeps_holding_other_threads_while_the_ioloop_is_blocked(self):
+        gate = _PublishGate(100)
+        gate.set_writing_paused(True)
+        thread, result = _admit_in_thread(gate, worker=False)
+        _wait_for_waiters(gate)
+        with gate.ioloop_blocked():
+            thread.join(timeout=0.1)
+            self.assertTrue(thread.is_alive())
+        gate.set_writing_paused(False)
+        self.assert_admitted(thread, result)
+
+    def test_a_worker_waits_again_once_the_ioloop_is_unblocked(self):
+        gate = _PublishGate(100)
+        gate.set_writing_paused(True)
+        with gate.ioloop_blocked():
+            pass
+        thread, result = _admit_in_thread(gate, worker=True)
+        _wait_for_waiters(gate)
+        gate.set_writing_paused(False)
+        self.assert_admitted(thread, result)
+
+    def test_closing_refuses_new_publishes_and_admits_those_waiting(self):
+        gate = _PublishGate(100)
+        gate.set_writing_paused(True)
+        thread, result = _admit_in_thread(gate)
+        _wait_for_waiters(gate)
+        gate.start_closing()
+        self.assertFalse(_admit(gate))
+        gate.set_writing_paused(False)
+        self.assert_admitted(thread, result)
+
+    def test_wait_for_waiters_returns_once_they_are_admitted(self):
+        gate = _PublishGate(100)
+        gate.set_writing_paused(True)
+        thread, result = _admit_in_thread(gate)
+        _wait_for_waiters(gate)
+        gate.start_closing()
+        resumer = threading.Timer(0.05, lambda: gate.set_writing_paused(False))
+        resumer.start()
+        self.addCleanup(resumer.cancel)
+        gate.wait_for_waiters(time.monotonic() + 5)
+        self.assert_admitted(thread, result)
+
+    def test_waiters_still_blocked_at_the_deadline_are_refused(self):
+        gate = _PublishGate(100)
+        gate.set_writing_paused(True)
+        thread, result = _admit_in_thread(gate)
+        _wait_for_waiters(gate)
+        gate.start_closing()
+        gate.wait_for_waiters(time.monotonic() + 0.05)
+        self.assert_admitted(thread, result, expected=False)
+        self.assertEqual(gate.pending(), (0, 0))
+
+    def test_reject_waiters_refuses_them_at_once(self):
+        gate = _PublishGate(100)
+        gate.set_writing_paused(True)
+        thread, result = _admit_in_thread(gate)
+        _wait_for_waiters(gate)
+        gate.start_closing()
+        gate.reject_waiters()
+        self.assert_admitted(thread, result, expected=False)
+
+    def test_ioloop_side_calls_never_block_on_the_publishers_locks(self):
+        """A publisher lock left held by an interrupted thread must not stall the IOLoop (#1862)."""
+        gate = _PublishGate(100)
+        _admit(gate, 10)
+        done = threading.Event()
+
+        def ioloop_side():
+            gate.handed(10)
+            gate.set_writing_paused(True)
+            gate.set_writing_paused(False)
+            with gate.ioloop_blocked():
+                pass
+            gate.close()
+            done.set()
+
+        with gate._admit_lock, gate._cond:
+            gate._waiters[0] += 1  # so the calls try to wake someone
+            thread = threading.Thread(target=ioloop_side, daemon=True)
+            thread.start()
+            self.assertTrue(done.wait(timeout=5),
+                            'an IOLoop-side call blocked on a publisher lock')
+        thread.join(timeout=5)
+
+    def test_a_waiter_proceeds_when_its_wakeup_could_not_be_delivered(self):
+        gate = _PublishGate(100)
+        gate.set_writing_paused(True)
+        thread, result = _admit_in_thread(gate)
+        _wait_for_waiters(gate)
+        with gate._cond:
+            gate.set_writing_paused(False)  # cannot notify: the lock is held
+        self.assert_admitted(thread, result)
+
+    def test_a_publish_counted_in_after_the_close_is_taken_back(self):
+        """Otherwise the close's exit-path report would have missed it."""
+        gate = _PublishGate(100)
+        gate._state = _GateState.CLOSED  # as if the close ran between the check and the count
+        self.assertFalse(gate._count_in(10))
+        self.assertEqual(gate.pending(), (0, 0))
+
+    def test_the_state_only_moves_forward(self):
+        gate = _PublishGate(100)
+        gate.close()
+        gate.reject_waiters()
+        gate.start_closing()
+        self.assertFalse(_admit(gate, wait=False))
+
+    def test_close_refuses_waiters_and_new_publishes(self):
+        gate = _PublishGate(100)
+        gate.set_writing_paused(True)
+        thread, result = _admit_in_thread(gate)
+        _wait_for_waiters(gate)
+        gate.close()
+        self.assert_admitted(thread, result, expected=False)
+        self.assertFalse(_admit(gate, wait=False))
+
+
 class BoundedWorkPoolTests(unittest.TestCase):
     """Tests for the bounded work queue backing the dispatch pools."""
 
     def _make_blocked_pool(self,
                            maxsize,
-                           put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT):
+                           put_timeout=DEFAULT_WORK_QUEUE_PUT_TIMEOUT,
+                           owner=STANDALONE):
         """Return (pool, release) where the pool's worker is stuck in its first work item until
         *release* is set.
         """
         pool = _BoundedWorkPool(maxsize=maxsize,
                                 put_timeout=put_timeout,
                                 thread_name='test-pool',
-                                owner=STANDALONE)
+                                owner=owner)
         release = threading.Event()
         started = threading.Event()
 
@@ -317,6 +539,35 @@ class BoundedWorkPoolTests(unittest.TestCase):
         release.set()
         self.assertTrue(submitted.wait(timeout=5))
         producer.join(timeout=5)
+        pool.shutdown(wait=True)
+
+    def test_a_blocked_submit_marks_the_ioloop_blocked_for_the_publish_gate(
+            self):
+        """
+        While submit() waits for room, a publisher on a pool worker must not wait for the IOLoop.
+
+        That worker is what makes the room, so holding it would deadlock the two (#1859).
+        """
+        owner = type('GatedOwner', (), {})()
+        owner._publish_gate = _PublishGate(100)
+        pool, release = self._make_blocked_pool(maxsize=1, owner=owner)
+        pool.submit(lambda: None)  # fills the queue
+        self.assertEqual(
+            owner._publish_gate._ioloop_blocked, 0,
+            'a submit that did not wait marked the IOLoop blocked')
+        producer = threading.Thread(target=pool.submit,
+                                    args=(lambda: None,),
+                                    daemon=True)
+        producer.start()
+        deadline = time.monotonic() + 5
+        while owner._publish_gate._ioloop_blocked != 1:
+            self.assertLess(time.monotonic(), deadline,
+                            'the blocked submit never marked the IOLoop')
+            time.sleep(0.001)
+        release.set()
+        producer.join(timeout=5)
+        self.assertFalse(producer.is_alive())
+        self.assertEqual(owner._publish_gate._ioloop_blocked, 0)
         pool.shutdown(wait=True)
 
     def test_shutdown_drains_pending_work(self):
@@ -793,6 +1044,8 @@ class ChannelTests(unittest.TestCase):
         # A healthy connection has no pending error; _submit_or_terminate
         # short-circuits when _error is set, so it must be None here.
         wrapper._connection._error = None
+        # A real gate, since a mock's admit() would never queue the publish.
+        wrapper._publish_gate = _PublishGate(1 << 30)
         return Channel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_invalid_callbacks_are_rejected_before_scheduling(self):
@@ -1048,6 +1301,101 @@ class ChannelTests(unittest.TestCase):
 
         self.assertIs(ctx.exception, reason)
         wrapper._schedule_unchecked.assert_not_called()
+
+    def _gated_channel(self):
+        """A channel whose wrapper has a real publish gate and a thread that is not the IOLoop."""
+        ch, raw_ch, wrapper = self._make_channel()
+        wrapper._publish_gate = _PublishGate(1000)
+        wrapper._ioloop_thread = object()
+        wrapper._is_pool_worker_thread.return_value = False
+        return ch, raw_ch, wrapper
+
+    def test_basic_publish_counts_the_publish_until_the_ioloop_sends_it(self):
+        ch, _raw_ch, wrapper = self._gated_channel()
+        ch.basic_publish('ex', 'rk', b'body')
+        count, nbytes = wrapper._publish_gate.pending()
+        self.assertEqual(count, 1)
+        self.assertGreater(nbytes, len(b'body'))
+        wrapper._schedule_unchecked.call_args[0][0]()
+        self.assertEqual(wrapper._publish_gate.pending(), (0, 0))
+
+    def test_basic_publish_counts_out_a_publish_the_ioloop_fails_to_send(self):
+        ch, raw_ch, wrapper = self._gated_channel()
+        raw_ch._publish_marshaled.side_effect = ConnectionWrongStateError()
+        ch.basic_publish('ex', 'rk', b'body')
+        wrapper._schedule_unchecked.call_args[0][0]()
+        self.assertEqual(wrapper._publish_gate.pending(), (0, 0))
+
+    def test_basic_publish_raises_once_close_has_started(self):
+        ch, raw_ch, wrapper = self._gated_channel()
+        wrapper._publish_gate.start_closing()
+        with self.assertRaises(ConnectionWrongStateError):
+            ch.basic_publish('ex', 'rk', b'body')
+        wrapper._schedule_unchecked.assert_not_called()
+        raw_ch._publish_marshaled.assert_not_called()
+
+    def test_basic_publish_raises_the_close_reason_once_closed(self):
+        ch, _raw_ch, wrapper = self._gated_channel()
+        reason = Exception('closed')
+        wrapper._publish_gate.close()
+        wrapper._closed_reason = reason
+        with self.assertRaises(Exception) as ctx:
+            ch.basic_publish('ex', 'rk', b'body')
+        self.assertIs(ctx.exception, reason)
+
+    def test_basic_publish_on_a_pool_worker_is_released_while_the_ioloop_is_blocked(
+            self):
+        ch, _raw_ch, wrapper = self._gated_channel()
+        wrapper._is_pool_worker_thread.return_value = True
+        gate = wrapper._publish_gate
+        gate.set_writing_paused(True)
+        self.addCleanup(gate.close)  # releases the publisher if the test fails
+        with gate.ioloop_blocked():
+            publisher = threading.Thread(target=ch.basic_publish,
+                                         args=('ex', 'rk', b'body'),
+                                         daemon=True)
+            publisher.start()
+            publisher.join(timeout=5)
+            self.assertFalse(publisher.is_alive(),
+                             'a pool worker waited for a blocked IOLoop')
+        wrapper._schedule_unchecked.assert_called_once()
+
+    def test_basic_publish_counts_out_once_when_queued_but_the_wakeup_fails(
+            self):
+        ch, _raw_ch, wrapper = self._gated_channel()
+        queued = []
+
+        def queue_then_fail(callback):
+            queued.append(callback)
+            raise OSError('wakeup failed')
+
+        wrapper._schedule_unchecked.side_effect = queue_then_fail
+        with self.assertRaises(OSError):
+            ch.basic_publish('ex', 'rk', b'body')
+        queued[0]()  # the IOLoop still runs what was queued
+        self.assertEqual(wrapper._publish_gate.pending(), (0, 0))
+
+    def test_basic_publish_does_not_wait_on_the_ioloop_thread(self):
+        ch, _raw_ch, wrapper = self._gated_channel()
+        wrapper._ioloop_thread = threading.current_thread()
+        wrapper._publish_gate.set_writing_paused(True)
+        ch.basic_publish('ex', 'rk', b'body')
+        wrapper._schedule_unchecked.assert_called_once()
+
+    def test_basic_publish_waits_while_writing_is_paused(self):
+        ch, _raw_ch, wrapper = self._gated_channel()
+        gate = wrapper._publish_gate
+        gate.set_writing_paused(True)
+        publisher = threading.Thread(target=ch.basic_publish,
+                                     args=('ex', 'rk', b'body'),
+                                     daemon=True)
+        publisher.start()
+        _wait_for_waiters(gate)
+        wrapper._schedule_unchecked.assert_not_called()
+        gate.set_writing_paused(False)
+        publisher.join(timeout=5)
+        self.assertFalse(publisher.is_alive())
+        wrapper._schedule_unchecked.assert_called_once()
 
     def test_basic_publish_does_not_grow_close_reason_traceback(self):
         """
@@ -1574,6 +1922,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         # A healthy connection has no pending error; _submit_or_terminate
         # short-circuits when _error is set, so it must be None here.
         wrapper._connection._error = None
+        wrapper._publish_gate = _PublishGate(1 << 30)
         return Channel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_callback_runs_on_worker_thread_not_ioloop(self):
@@ -2158,6 +2507,7 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
         # A healthy connection has no pending error; _submit_or_terminate
         # short-circuits when _error is set, so it must be None here.
         wrapper._connection._error = None
+        wrapper._publish_gate = _PublishGate(1 << 30)
         return Channel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_queue_declare_raises_timeout_error(self):
@@ -2331,6 +2681,7 @@ class BlockingRPCPassthroughTests(unittest.TestCase):
         # A healthy connection has no pending error; _submit_or_terminate
         # short-circuits when _error is set, so it must be None here.
         wrapper._connection._error = None
+        wrapper._publish_gate = _PublishGate(1 << 30)
         return Channel(raw_ch, wrapper), raw_ch, wrapper
 
     def _run_immediate_rpc(self, raw_method, *call_args, **call_kwargs):
@@ -2435,6 +2786,7 @@ class BlockingRPCErrorPathTests(unittest.TestCase):
         # A healthy connection has no pending error; _submit_or_terminate
         # short-circuits when _error is set, so it must be None here.
         wrapper._connection._error = None
+        wrapper._publish_gate = _PublishGate(1 << 30)
         return Channel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_method_raise_propagates_to_caller(self):
@@ -2540,6 +2892,7 @@ class BasicGetTests(unittest.TestCase):
         # A healthy connection has no pending error; _submit_or_terminate
         # short-circuits when _error is set, so it must be None here.
         wrapper._connection._error = None
+        wrapper._publish_gate = _PublishGate(1 << 30)
         return Channel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_basic_get_returns_message_tuple(self):
@@ -2632,6 +2985,7 @@ class PerRPCCallbackReleaseTests(unittest.TestCase):
         # A healthy connection has no pending error; _submit_or_terminate
         # short-circuits when _error is set, so it must be None here.
         wrapper._connection._error = None
+        wrapper._publish_gate = _PublishGate(1 << 30)
         return Channel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_blocking_rpc_removes_the_close_callback_it_registered(self):
@@ -2732,6 +3086,7 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
         # A healthy connection has no pending error; _submit_or_terminate
         # short-circuits when _error is set, so it must be None here.
         wrapper._connection._error = None
+        wrapper._publish_gate = _PublishGate(1 << 30)
         return Channel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_close_propagates_broker_initiated_close_reason(self):
@@ -3039,6 +3394,7 @@ class CallbackRegistrationFailureTests(unittest.TestCase):
         # A healthy connection has no pending error; _submit_or_terminate
         # short-circuits when _error is set, so it must be None here.
         wrapper._connection._error = None
+        wrapper._publish_gate = _PublishGate(1 << 30)
         return Channel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_add_on_cancel_callback_logs_when_raw_register_raises(self):
@@ -4205,6 +4561,205 @@ class ConnectionTests(_ConnectionHarness, unittest.TestCase):
             'not exercise the drain at all')
         self.assertEqual(observed, [False, False, False],
                          'a queued callback ran after the close was scheduled')
+
+    def _block_a_publisher(self, conn):
+        """Pause writing and block a publisher at the gate; return its thread and result."""
+        conn._publish_gate.set_writing_paused(True)
+        thread, result = _admit_in_thread(conn._publish_gate)
+        _wait_for_waiters(conn._publish_gate)
+        return thread, result
+
+    def test_close_sends_blocked_publishers_ahead_of_the_close(self):
+        """Publishers already waiting when close() starts go out before Connection.Close (#1859)."""
+        conn, _mock_conn, mock_ioloop = self._make_connection()
+        conn._ioloop_thread = MagicMock()
+        conn._ioloop_thread.is_alive.return_value = False
+        thread, result = self._block_a_publisher(conn)
+        closer = threading.Thread(target=conn.close, daemon=True)
+        closer.start()
+        closer.join(timeout=0.1)
+        self.assertTrue(closer.is_alive(),
+                        'close() did not wait for the blocked publisher')
+        mock_ioloop.add_callback_threadsafe.assert_not_called()
+        conn._publish_gate.set_writing_paused(False)
+        closer.join(timeout=5)
+        self.assertFalse(closer.is_alive())
+        thread.join(timeout=5)
+        self.assertEqual(result, [True])
+        mock_ioloop.add_callback_threadsafe.assert_called_once()
+        self.assertFalse(_admit(conn._publish_gate),
+                         'a publish after close() started was admitted')
+
+    def test_close_lets_its_queued_callbacks_publish(self):
+        """The callbacks close() runs first may still publish, as they could before #1859."""
+        conn, _mock_conn, _mock_ioloop = self._make_connection()
+        conn._ioloop_thread = MagicMock()
+        conn._ioloop_thread.is_alive.return_value = False
+        admitted = []
+        conn._connection_work_pool.submit(
+            lambda: admitted.append(_admit(conn._publish_gate, worker=True)))
+        conn.close()
+        self.assertEqual(admitted, [True])
+
+    def test_close_refuses_blocked_publishers_still_waiting_at_its_deadline(
+            self):
+        conn, _mock_conn, mock_ioloop = self._make_connection()
+        conn._ioloop_thread = MagicMock()
+        conn._ioloop_thread.is_alive.return_value = False
+        thread, result = self._block_a_publisher(conn)
+        conn.close(timeout=0.05)
+        thread.join(timeout=5)
+        self.assertEqual(result, [False])
+        mock_ioloop.add_callback_threadsafe.assert_called()
+
+    def test_close_from_the_ioloop_thread_refuses_blocked_publishers(self):
+        conn, mock_conn, _mock_ioloop = self._make_connection()
+        thread, result = self._block_a_publisher(conn)
+        real_ioloop_thread = conn._ioloop_thread
+        conn._ioloop_thread = threading.current_thread()
+        try:
+            conn.close()
+        finally:
+            conn._ioloop_thread = real_ioloop_thread
+        thread.join(timeout=5)
+        self.assertEqual(result, [False])
+        mock_conn.close.assert_called_once()
+
+    def test_close_from_a_pool_worker_refuses_blocked_publishers(self):
+        conn, _mock_conn, _mock_ioloop = self._make_connection()
+        thread, result = self._block_a_publisher(conn)
+        closed = threading.Event()
+
+        def close_from_worker():
+            conn.close()
+            closed.set()
+
+        conn._connection_work_pool.submit(close_from_worker)
+        self.assertTrue(closed.wait(timeout=5))
+        thread.join(timeout=5)
+        self.assertEqual(result, [False])
+
+    def test_a_recorded_close_reason_releases_blocked_publishers(self):
+        conn, _mock_conn, _mock_ioloop = self._make_connection()
+        thread, result = self._block_a_publisher(conn)
+        with conn._channel_waiters_lock:
+            conn._record_closed_reason(Exception('closed'))
+        thread.join(timeout=5)
+        self.assertEqual(result, [False])
+
+    def test_forced_close_warns_about_the_publishes_it_drops(self):
+        conn, mock_conn, _mock_ioloop = self._make_connection()
+        conn._ioloop_thread = MagicMock()
+        conn._ioloop_thread.is_alive.return_value = True
+        _admit(conn._publish_gate, wait=False)
+        mock_conn._transport.get_write_buffer_size.return_value = 7
+        with self.assertLogs('pika.adapters.thread_safe_connection',
+                             'WARNING') as logs:
+            conn.close(timeout=0.01)
+        self.assertTrue(
+            any('without sending 1 accepted publishes and 7 buffered bytes' in
+                line for line in logs.output), logs.output)
+
+    @staticmethod
+    def _run_ioloop_body_again(conn, mock_ioloop, start_effect=None):
+        """Re-run the IOLoop thread's body with a start() that returns or raises at once."""
+        mock_ioloop.start.side_effect = start_effect
+        return conn._ioloop_thread._target()
+
+    def test_ioloop_exit_reports_the_publishes_it_drops(self):
+        """Every close path ends with the IOLoop exiting, so that is where a drop is reported."""
+        conn, mock_conn, mock_ioloop = self._make_connection()
+        mock_conn._transport.get_write_buffer_size.return_value = 7
+        _admit(conn._publish_gate, wait=False)
+        with self.assertLogs('pika.adapters.thread_safe_connection',
+                             'WARNING') as logs:
+            self._run_ioloop_body_again(conn, mock_ioloop)
+        self.assertTrue(
+            any('without sending 1 accepted publishes and 7 buffered bytes' in
+                line for line in logs.output), logs.output)
+        self.assertFalse(_admit(conn._publish_gate, wait=False),
+                         'the gate stayed open after the IOLoop exited')
+
+    def test_ioloop_death_by_base_exception_reports_the_publishes_it_drops(
+            self):
+        conn, mock_conn, mock_ioloop = self._make_connection()
+        mock_conn._transport = None
+        _admit(conn._publish_gate, wait=False)
+        with contextlib.ExitStack() as stack:
+            logs = stack.enter_context(
+                self.assertLogs('pika.adapters.thread_safe_connection',
+                                'WARNING'))
+            stack.enter_context(self.assertRaises(SystemExit))
+            self._run_ioloop_body_again(conn, mock_ioloop, SystemExit(3))
+        self.assertTrue(
+            any('without sending 1 accepted publishes' in line
+                for line in logs.output), logs.output)
+
+    def test_dropped_publishes_are_reported_once(self):
+        """An abandoned IOLoop that later exits must not report the same publishes again."""
+        conn, mock_conn, mock_ioloop = self._make_connection()
+        mock_conn._transport = None
+        _admit(conn._publish_gate, wait=False)
+        with patch('pika.adapters.thread_safe_connection.LOGGER') as logger:
+            conn._warn_unsent_publishes(final=False)
+            self._run_ioloop_body_again(conn, mock_ioloop)
+        reports = [
+            c for c in logger.warning.call_args_list
+            if 'accepted publishes' in c[0][0]
+        ]
+        self.assertEqual(len(reports), 1, reports)
+        self.assertEqual(reports[0][0][-1], 'may be dropped')
+
+    def test_ioloop_exit_with_nothing_dropped_does_not_warn(self):
+        conn, mock_conn, mock_ioloop = self._make_connection()
+        mock_conn._transport = None  # as after a clean close
+        with patch('pika.adapters.thread_safe_connection.LOGGER') as logger:
+            self._run_ioloop_body_again(conn, mock_ioloop)
+        self.assertFalse(
+            [c for c in logger.warning.call_args_list if 'dropped' in c[0][0]])
+
+    def test_close_does_not_wait_for_a_publisher_on_its_own_thread(self):
+        """A signal handler that calls close() runs on the thread it interrupted, maybe a
+        publisher.
+        """
+        conn, _mock_conn, mock_ioloop = self._make_connection()
+        conn._ioloop_thread = MagicMock()
+        conn._ioloop_thread.is_alive.return_value = False
+        gate = conn._publish_gate
+        self.addCleanup(gate.close)  # releases close() if the test fails
+
+        def close_as_if_interrupting_a_publish():
+            # As if this thread were suspended inside admit() when the handler ran.
+            with gate._cond:
+                gate._waiters[threading.get_ident()] += 1
+            conn.close(timeout=None)
+
+        closer = threading.Thread(target=close_as_if_interrupting_a_publish,
+                                  daemon=True)
+        closer.start()
+        closer.join(timeout=5)
+        self.assertFalse(closer.is_alive(), 'close() waited for its own thread')
+        mock_ioloop.add_callback_threadsafe.assert_called_once()
+
+    def test_ioloop_thread_may_publish_while_close_is_in_progress(self):
+        """A callback on the IOLoop thread still publishes ahead of the close it precedes."""
+        conn, _mock_conn, _mock_ioloop = self._make_connection()
+        conn._publish_gate.start_closing()
+        self.assertTrue(_admit(conn._publish_gate, wait=False))
+        conn._publish_gate.reject_waiters()
+        self.assertTrue(_admit(conn._publish_gate, wait=False))
+        conn._publish_gate.close()
+        self.assertFalse(_admit(conn._publish_gate, wait=False))
+
+    def test_a_dead_ioloop_releases_blocked_publishers(self):
+        """An IOLoop killed by a BaseException records no close reason; the gate must still open."""
+        conn, _mock_conn, mock_ioloop = self._make_connection()
+        thread, result = self._block_a_publisher(conn)
+        with self.assertRaises(SystemExit):
+            # Dies the way sys.exit() in an IOLoop callback would.
+            self._run_ioloop_body_again(conn, mock_ioloop, SystemExit(3))
+        thread.join(timeout=5)
+        self.assertEqual(result, [False])
 
     def test_close_schedules_close_and_joins_thread(self):
         conn, mock_conn, mock_ioloop = self._make_connection()

@@ -70,6 +70,9 @@ class BaseConnection(connection.Connection):
 
         self._got_eof: bool = False  # transport indicated EOF (connection reset)
 
+        # Told when the transport pauses and resumes writing; see `_proto_writing_paused`.
+        self._on_writing_paused: Callable[[bool], None] | None = None
+
         super().__init__(
             parameters,
             on_open_callback,
@@ -500,6 +503,19 @@ class BaseConnection(connection.Connection):
         """
         self._on_data_available(data)
 
+    def _proto_writing_paused(self, paused: bool) -> None:
+        """
+        Called when the transport pauses or resumes writing.
+
+        `AbstractStreamProtocol` implementation.  `pika.Connection` uses it to bound the publishes
+        waiting to be sent (#1859); the other adapters set no listener.
+
+        :param paused: True once the write buffer passes its high-water mark, False once it drains
+            to its low-water mark.
+        """
+        if self._on_writing_paused is not None:
+            self._on_writing_paused(paused)
+
 
 class _StreamingProtocolShim(nbio_interface.AbstractStreamProtocol):
     """Shim for callbacks from transport so that we BaseConnection can delegate to private methods,
@@ -555,6 +571,16 @@ class _StreamingProtocolShim(nbio_interface.AbstractStreamProtocol):
         :raises Exception: Exception-based exception on error
         """
         self.conn._proto_data_received(data)
+
+    @override
+    def pause_writing(self) -> None:
+        """Called when the transport's write buffer grows past its high-water mark."""
+        self.conn._proto_writing_paused(True)
+
+    @override
+    def resume_writing(self) -> None:
+        """Called when the transport's write buffer drains to its low-water mark."""
+        self.conn._proto_writing_paused(False)
 
     def __getattr__(self, attr: str) -> Any:
         """

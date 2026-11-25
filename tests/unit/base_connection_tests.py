@@ -116,3 +116,26 @@ class BaseConnectionTests(unittest.TestCase):
         keepalive_call = mock.call.setsockopt(socket.SOL_SOCKET,
                                               socket.SO_KEEPALIVE, 1)
         self.assertNotIn(keepalive_call, sock_mock.method_calls)
+
+
+class WritingPausedTests(unittest.TestCase):
+    """The protocol shim tells the connection's listener when writing pauses (#1859)."""
+
+    def test_shim_forwards_pause_and_resume_to_the_connection(self):
+        conn = mock.Mock()
+        shim = base_connection._StreamingProtocolShim(conn)
+        shim.pause_writing()
+        shim.resume_writing()
+        self.assertEqual(conn._proto_writing_paused.call_args_list,
+                         [mock.call(True), mock.call(False)])
+
+    def test_connection_calls_its_listener(self):
+        conn = mock.Mock(spec=base_connection.BaseConnection)
+        conn._on_writing_paused = mock.Mock()
+        base_connection.BaseConnection._proto_writing_paused(conn, True)
+        conn._on_writing_paused.assert_called_once_with(True)
+
+    def test_connection_without_a_listener_ignores_it(self):
+        conn = mock.Mock(spec=base_connection.BaseConnection)
+        conn._on_writing_paused = None
+        base_connection.BaseConnection._proto_writing_paused(conn, False)

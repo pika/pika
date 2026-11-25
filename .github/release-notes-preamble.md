@@ -1,106 +1,13 @@
-[GitHub Milestone](https://github.com/pika/pika/milestone/24?closed=1)
+[GitHub Milestone](https://github.com/pika/pika/milestone/28?closed=1)
 
-## Upgrading to 1.5.0
+## Upgrading to 1.5.1
 
-Twelve changes are worth reading before you upgrade. One adds `pika.Connection`, three can turn a passing build red, two change what a working application observes when it cancels a consumer or closes a channel, one lets RabbitMQ close a channel sooner after a consumer timeout, one refuses messages larger than 64 MiB, one changes what the Twisted adapter reports when a connection closes, one closes the connection when a consumer or reply callback raises `BlockingIOError`, one changes the Python types that field-table numbers decode to, and one makes URL `ssl_options` verify the broker.
+One change is worth reading before you upgrade.
 
-### `pika.Connection` is new, and is the connection to use
+### `pika.Connection` publishers now wait for the socket
 
-1.5.0 introduces `pika.Connection` and its `Channel`, a connection that runs its own IOLoop on a background thread and offers a thread-safe blocking API that does not stall heartbeats while your code processes a message. There is nothing to migrate *from*: these classes are new in this release, and `pika.Connection` is the documented import.
+In 1.5.0, `basic_publish` on a `pika.Connection` channel queued without limit, so a publisher could run arbitrarily far ahead of the socket, and a `close()` whose timeout expired silently dropped the publishes still queued. In 1.5.1, `basic_publish` waits while 256 KiB of accepted publishes are still unsent, as the RabbitMQ Java and .NET clients make a publisher wait, so a `close()` has at most that much left to send (#1859).
 
-`from pika.adapters.thread_safe_connection import Connection` also works, though the module moves in 2.0 (see #1681). `Channel` is not exported from `pika`, because channels come from `Connection.channel()`.
-
-If you are starting new code, use `pika.Connection`. If you have existing code on one of the adapters below, it keeps working in 1.5.0 and the deprecation notice tells you where it is going.
-
-### The other adapters now emit a `DeprecationWarning`, which may fail your tests
-
-`BlockingConnection`, `TornadoConnection`, `TwistedProtocolConnection` and `GeventConnection` each warn from their constructor that they will be removed in Pika 2.0. They all still work.
-
-The upgrade risk is that **a `DeprecationWarning` raised from a constructor is a hard error for anyone running with warnings-as-errors**, which is a common test configuration. It fires at construction, before any I/O, so it does not depend on reaching a broker:
-
-```
-E       DeprecationWarning: BlockingConnection is deprecated and will be removed in Pika 2.0. ...
-pika/adapters/blocking_connection.py:367: DeprecationWarning
-```
-
-The same happens under `python -W error` and `warnings.simplefilter('error')`. `BlockingConnection` is pika's most widely used entry point, so this is both likely and likely to be misread as pika being broken rather than as an intentional notice. Outside a test runner it is usually invisible, because Python's default filters hide `DeprecationWarning` unless it is triggered from `__main__`; pytest is what turns it back on.
-
-Either filter it or migrate. The warning uses `stacklevel=2`, so it is reported against the line that constructs the connection rather than against pika, and a filter scoped to the pika module does not match. Match on the message instead:
-
-```toml
-# pyproject.toml, for pytest
-filterwarnings = [
-    "ignore:.*will be removed in Pika 2\\.0:DeprecationWarning",
-]
-```
-
-```bash
-python -W 'ignore:BlockingConnection is deprecated' your_app.py
-```
-
-The two forms are not interchangeable. In `filterwarnings` the message is a regular expression, while `-W` on the command line, for `python` and for `pytest` alike, matches it as a literal prefix, so the `pyproject.toml` pattern given as a `-W` argument matches nothing and the warning still fails the run.
-
-### Cancelling a consumer no longer rejects the messages still arriving for it
-
-A `Basic.Cancel` does not stop the broker immediately: the specification allows it to keep dispatching until it sends `Basic.CancelOk`, and pika used to reject every delivery that arrived in that window, or discard it outright for an `auto_ack` consumer. Discarding loses the message, because an `auto_ack` delivery has no copy left at the broker, and rejecting is a decision pika was making on your behalf that no other client makes. Measured on RabbitMQ 4.3.6, closing a channel with an `auto_ack` consumer half a second after its first delivery, 400 messages, `work_queue_maxsize=50` and a 50 ms callback. At 8 KiB bodies with `close(timeout=10)`: 339 of 400 lost before this change, 179 to 189 across five runs after it. `close(timeout=None)` loses none after the change, at either body size, and lost the same 339 before it, because that loss was the cancel window rather than the budget. At 64 bytes the deliveries still queued when a bounded close returns fit in the work queue, so the worker finishes them and nothing is lost; at 8 KiB they do not fit and the excess is discarded when the pool shuts. Quote the whole configuration with any figure from this area, because the message count, body size, queue size, callback cost and timeout all move it. `utils/measure_close_loss.py` in the repository reproduces each of them.
-
-Those deliveries are now passed to your callback instead, which is what the Java client does, as long as the channel is still open.
-
-One thing follows for existing code: a consumer callback can now run for a message that arrives after you called `basic_cancel`, so a callback that assumed cancellation was immediate may see further deliveries. `BlockingChannel.basic_cancel` still rejects them for an `auto_ack=False` consumer, so they return to the queue at once as before, and its return value is unchanged; the channel no longer does that rejecting, the wrapper does. The generator-style `BlockingChannel.cancel` discards them instead, which #1767 covers.
-
-### `channel.close()` on an asynchronous adapter still discards those deliveries
-
-A channel that is closing discards them, because a callback could not acknowledge one anyway and the attempt would abort the connection; the Java client discards them at the same point. `Channel.close` cancels each consumer without waiting for the broker to confirm, so this is what a bare `channel.close()` does on `SelectConnection`, `AsyncioConnection`, `TornadoConnection` and `GeventConnection`. A discarded delivery is redelivered to the next consumer with `auto_ack=False` and lost with `auto_ack=True`. Pika now logs a warning naming the count as the channel closes.
-
-`pika.Connection` and `BlockingConnection` are unaffected and keep every delivery across a close, since both cancel their consumers and wait for the broker to confirm before closing anything. To get the same guarantee from an asynchronous adapter, cancel each consumer with a callback and close the channel from the last `Basic.CancelOk`; the [channel documentation](https://pika.github.io/pika/latest/modules/channel/#closing-a-channel-with-active-consumers) has the pattern. Pika 2.0 removes these adapters, which leaves `Connection` and its `Channel` as the only close path and so retires the gap rather than fixing it.
-
-### A consumer RabbitMQ cancels for a timeout is released at once, so its channel can close sooner
-
-On RabbitMQ 4.3 and later, a consumer on a quorum queue whose delivery exceeds the [consumer timeout](https://www.rabbitmq.com/docs/consumers#acknowledgement-timeout) is cancelled with `Basic.Cancel` instead of having its channel closed. pika now confirms that cancellation with `Basic.CancelOk`, as the Java, .NET and Go clients do, so the broker releases the consumer at once instead of after its own 10 second wait.
-
-If the consumer still holds another unacknowledged delivery, the broker closes the channel with 406 `PRECONDITION_FAILED` when that delivery times out as well. With 1.4.x that happened only when the second delivery timed out more than 10 seconds after the first; it now happens whenever it times out after the cancellation. Code that handles the cancellation should also expect the channel to close, or acknowledge within the timeout, raise `consumer-timeout`, or lower the prefetch. The broker side is discussed in [rabbitmq/rabbitmq-server#18207](https://github.com/rabbitmq/rabbitmq-server/discussions/18207).
-
-### Messages larger than 64 MiB now close the connection
-
-pika now refuses an inbound message whose body is larger than `max_inbound_message_body_size`, 64 MiB by default, and a frame larger than that limit or 128 KiB, whichever is greater. Either closes the connection with `MessageBodyTooLargeError` or `FrameTooLargeError`, both subclasses of `AMQPConnectionError`. The Java and .NET clients use the same 64 MiB default. RabbitMQ refuses messages above its own `max_message_size`, 16 MiB by default, so the limit is reached only when the broker is configured to allow larger messages.
-
-If you consume larger messages, raise the limit with `ConnectionParameters(max_inbound_message_body_size=...)` or `?max_inbound_message_body_size=` in a URL, up to 512 MiB, RabbitMQ's own maximum. A refused message delivered without `auto_ack` is requeued, so a consumer that reconnects is closed again: raise the limit, or dead-letter or remove the message on the broker. With `auto_ack` the broker has already discarded it. Returned messages and `basic_get` replies are checked too, so a publisher can be closed by its own oversized mandatory message coming back.
-
-### `TwistedProtocolConnection` reports why it closed, not `ConnectionDone`
-
-When pika closes a Twisted connection, the reason now reaches the `closed` deferred, the `on_close_callback`, and pending channel and queue deferreds, as on the other adapters, instead of `twisted.internet.error.ConnectionDone`: `ConnectionClosedByClient` after `close()`, which is also what `yield connection.close()` returns; `ConnectionClosedByBroker` when the broker closes it; `AMQPHeartbeatTimeout`; `ConnectionBlockedTimeout`; and the size errors above. Code that traps or tests for `ConnectionDone` must handle these instead. A peer that drops the connection without pika closing it still reports `ConnectionDone`.
-
-### A `BlockingIOError` from a consumer or reply callback now closes the connection
-
-On a connection without TLS, `SelectConnection`, `AsyncioConnection`, `TornadoConnection` and `GeventConnection` used to treat a `BlockingIOError`, or any `OSError` with a would-block errno, raised by a callback pika runs for a received frame (a consumer, RPC-reply or close callback) as the socket having no more data: pika logged it at ERROR with a traceback, kept the connection open, and left the frames after it unprocessed until the next read. It now closes the connection with `StreamLostError`, as any other exception from those callbacks does. A callback that does its own non-blocking I/O should catch the error itself.
-
-### `pika.compat` is gone
-
-The module is removed. It held Python 2 compatibility shims and platform checks, was never documented as public API, and nothing in pika imports it any more. It had no leading underscore, though, so it has been importable for years and an upgrade turns `import pika.compat` into `ModuleNotFoundError`.
-
-Twelve of its names moved to `pika._utils`: `ON_LINUX`, `ON_OSX`, `ON_WINDOWS`, `LINUX_VERSION`, `SOL_TCP`, `HAVE_SIGNAL`, `RE_NUM`, `time_now()`, `as_bytes()`, `to_digit()`, `get_linux_version()` and `nonblocking_socketpair()`. That module is private, so it is not a migration target; copy what you need instead. Four that are gone were Python 2 artefacts, and the standard library covers each: `byte()` (`bytes((n,))`), `SOCKET_ERROR` (`OSError`), `AbstractBase` (`abc.ABC`), `str_or_bytes` (`(str, bytes)`). `pika.spec.str`, which was `str = bytes`, goes with them. `long` is gone too; in a field table, `pika.data.LongLong` replaces it, as the next section describes.
-
-### 64-bit field-table integers keep their type, and floats decode as `float`
-
-An `l` or `L` field-table value now decodes as `pika.data.LongLong`, an `int` subclass that is always sent as `l`, so a header passed on keeps its 64-bit type, as it did with 1.4.x's `long`. Wrap an `int` in `LongLong` to send it as `l`, which is what a Java consumer reads as `Long`; a plain `int` is still sent as `I` when it fits a signed 32 bits. An `f` or `d` value now decodes as a `float`, where 1.4.x truncated it to an integer.
-
-### URL `ssl_options` now always verify the broker
-
-A URL whose `ssl_options` set `protocol` to anything other than `PROTOCOL_TLS_CLIENT` used to build a context that accepted any certificate for any host, because `ssl.SSLContext` starts at `CERT_NONE` for those protocols. Every URL `ssl_options` context now requires a certificate that chains to the named CA, or to the system CAs when none is named, and checks the host name, as `ssl.create_default_context()` does. A connection that only worked because nothing was checked now fails at the TLS handshake. No URL key turns verification off; to connect without it, build an `ssl.SSLContext` yourself and pass it in `pika.SSLOptions`.
-
-### `pika.spec` is now annotated, which may fail your type checker
-
-Pika ships a `py.typed` marker, so a type checker reads pika's own annotations. `pika.spec` is generated code and was previously excluded from pika's `mypy` configuration, which left every field of a decoded frame typed as `Any`. `Any` silences all checking, so a downstream `mypy` run that was clean can go red on upgrade without any change on your end. The most common line in every pika tutorial is affected:
-
-```
-error: Argument "delivery_tag" to "basic_ack" of "BlockingChannel" has incompatible type "int | None"; expected "int"  [arg-type]
-error: Argument "routing_key" to "basic_publish" of "BlockingChannel" has incompatible type "str | bytes | None"; expected "str"  [arg-type]
-```
-
-Two properties of the generated code account for it. Every generated constructor defaults its arguments to `None`, so fields are optional even though a frame off the wire always carries them. And AMQP `shortstr` has no declared encoding, so pika falls back to raw `bytes` on invalid UTF-8, making `routing_key`, `exchange` and `consumer_tag` all `str | bytes | None`.
-
-The errors are accurate and the annotations are an improvement, so nothing here should be reverted. The FAQ covers the narrowing idioms: https://pika.github.io/pika/latest/faq/
-
-`pyright` users see little change, since it reported most of these already.
+A publisher that outruns the network or the broker now blocks in `basic_publish` rather than growing the backlog. The wait has no time limit: during a broker resource alarm it lasts until the alarm clears, unless `blocked_connection_timeout` is set. Publishing from a consumer or confirm callback still works. Once `close()` has started, `basic_publish` raises `ConnectionWrongStateError`, and publishes a close still drops are logged in a WARNING saying how many.
 
 The same notes are in the changelog, which also carries the full version history: https://pika.github.io/pika/latest/changelog/

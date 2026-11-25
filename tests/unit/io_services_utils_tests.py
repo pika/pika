@@ -9,7 +9,7 @@ import unittest
 from unittest import mock
 
 import pika.frame
-from pika.adapters.utils import io_services_utils
+from pika.adapters.utils import io_services_utils, nbio_interface
 
 
 class PlaintextTransportReadableTests(unittest.TestCase):
@@ -443,6 +443,94 @@ class TransportWriteBatchTests(unittest.TestCase):
                 self.assertEqual(attempts,
                                  [b'firstsecond', b'firstsecond', b'newmore'])
                 self.assertEqual(transport.get_write_buffer_size(), 0)
+
+
+class WriteFlowControlTests(unittest.TestCase):
+    """The transport pauses and resumes writing at its watermarks (#1859)."""
+
+    HIGH = io_services_utils._AsyncTransportBase._WRITE_HIGH_WATER_BYTES
+    LOW = io_services_utils._AsyncTransportBase._WRITE_LOW_WATER_BYTES
+
+    def make_transport(self, cls=io_services_utils._AsyncPlaintextTransport):
+        self.protocol = mock.Mock()
+        self.sock = mock.Mock(spec=ssl.SSLSocket if cls is io_services_utils.
+                              _AsyncSSLTransport else socket.socket)
+        self.sock.fileno.return_value = 99
+        self.sock.getsockopt.return_value = 2626560  # a default send buffer (#1864)
+        return cls(self.sock, self.protocol, mock.Mock())
+
+    def test_pause_writing_is_called_once_past_the_high_water_mark(self):
+        for cls in (io_services_utils._AsyncPlaintextTransport,
+                    io_services_utils._AsyncSSLTransport):
+            with self.subTest(transport=cls.__name__):
+                transport = self.make_transport(cls)
+                transport.write(b'x' * self.HIGH)
+                self.protocol.pause_writing.assert_not_called()
+                transport.write(b'x')
+                self.protocol.pause_writing.assert_called_once_with()
+                transport.write(b'x' * self.HIGH)
+                self.protocol.pause_writing.assert_called_once_with()
+
+    def test_resume_writing_is_called_once_drained_to_the_low_water_mark(self):
+        transport = self.make_transport()
+        transport.write(b'x' * (self.HIGH + 1))
+        backlog = self.HIGH + 1
+        # Send one byte too few to reach the low-water mark, then the rest.
+        self.sock.send.side_effect = [
+            backlog - self.LOW - 1, 1,
+            BlockingIOError(errno.EAGAIN, 'full')
+        ]
+        with self.assertRaises(BlockingIOError):
+            transport._produce()
+        self.protocol.resume_writing.assert_called_once_with()
+        self.assertEqual(transport.get_write_buffer_size(), self.LOW)
+
+    def test_resume_writing_is_not_called_above_the_low_water_mark(self):
+        transport = self.make_transport()
+        transport.write(b'x' * (self.HIGH + 1))
+        self.sock.send.side_effect = [
+            self.HIGH - self.LOW,
+            BlockingIOError(errno.EAGAIN, 'full')
+        ]
+        with self.assertRaises(BlockingIOError):
+            transport._produce()
+        self.assertEqual(transport.get_write_buffer_size(), self.LOW + 1)
+        self.protocol.resume_writing.assert_not_called()
+
+    def test_writing_pauses_again_after_a_resume(self):
+        transport = self.make_transport()
+        transport.write(b'x' * (self.HIGH + 1))
+        self.sock.send.side_effect = [self.HIGH + 1]
+        transport._produce()
+        self.protocol.resume_writing.assert_called_once_with()
+        transport.write(b'x' * (self.HIGH + 1))
+        self.assertEqual(self.protocol.pause_writing.call_count, 2)
+
+    def test_resume_writing_is_not_called_without_a_pause(self):
+        transport = self.make_transport()
+        transport.write(b'x' * 10)
+        self.sock.send.side_effect = [10]
+        transport._produce()
+        self.protocol.resume_writing.assert_not_called()
+
+    def test_stream_protocol_defaults_do_nothing(self):
+
+        class Protocol(nbio_interface.AbstractStreamProtocol):
+
+            def connection_made(self, transport):
+                pass
+
+            def connection_lost(self, error):
+                pass
+
+            def eof_received(self):
+                return None
+
+            def data_received(self, data):
+                pass
+
+        self.assertIsNone(Protocol().pause_writing())
+        self.assertIsNone(Protocol().resume_writing())
 
 
 if __name__ == '__main__':
