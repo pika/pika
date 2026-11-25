@@ -13,7 +13,7 @@ pika is a pure-Python implementation of the AMQP 0-9-1 protocol.
 ```
 pika/                   # library source
 pika/adapters/          # connection adapters (asyncio, blocking, gevent,
-                        #   select, tornado, twisted)
+                        #   select, thread_safe, tornado, twisted)
 pika/adapters/utils/    # adapter internals (io_services_utils, nbio_interface,
                         #   connection_workflow, selector_ioloop_adapter)
 pika/spec.py            # auto-generated AMQP spec (see below)
@@ -45,7 +45,7 @@ Record each piece of rationale once and link to it from elsewhere.
 
 These rules govern text a change adds or edits. Existing text is in scope only
 for a dedicated cleanup pass, and such a pass states which pull requests it
-covers. This file is the first such pass, over itself.
+covers.
 
 ### Pull requests, commits, and replies
 
@@ -284,8 +284,7 @@ Read the file for detail.
   unconditionally also catches a hand-edited `spec.py`.
 - `docs.yaml` - `hatch run docs:build`; `workflow_call` only.
 - `deploy-docs.yaml` - manual entry point for publishing the site. The
-  automated paths do not go through it, whatever `_deploy-docs.yaml`'s header
-  comment says.
+  automated paths call `_deploy-docs.yaml` directly.
 - `validate-docs-deploy`, a job in `main.yaml` - exercises the publish path on
   every pull request without pushing, and is in the `tests-passed` needs list,
   so it can fail a pull request from `_deploy-docs.yaml` rather than from
