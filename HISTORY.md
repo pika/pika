@@ -18,7 +18,7 @@ A publisher that outruns the network or the broker now blocks in `basic_publish`
 
 ### A closed channel's number can be reused from its close callback
 
-On an asynchronous connection, `connection.channel(channel_number=n)` called from channel `n`'s on-close callback, including `TwistedChannel.on_closed` and an errback of a call the close failed, raised `ValueError` in 1.5.0, so the reopen had to be scheduled on the IOLoop. It now opens the new channel while the connection remains open. The number of a channel that is still opening, open or closing still raises `ValueError` (#1841).
+On an asynchronous connection, `connection.channel(channel_number=n)` called from channel `n`'s on-close callback, including `TwistedChannel.on_closed` and an errback of a pending call the close failed, raised `ValueError` in 1.5.0, so the reopen had to be scheduled for later. It now opens the new channel while the connection remains open. The number of a channel that is still opening, open or closing still raises `ValueError` (#1841).
 
 ## Upgrading to 1.5.0
 

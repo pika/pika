@@ -1439,7 +1439,7 @@ class Connection(abc.ABC):
         manage the channel numbers.
 
         A closed channel's number may be reused from its on-close callback while the connection
-        remains open.
+        remains open; the old channel's remaining on-close callbacks still run.
 
         :param channel_number: The channel number to use, defaults to the next available.
         :param on_open_callback: The callback when the channel is opened. The callback will be
