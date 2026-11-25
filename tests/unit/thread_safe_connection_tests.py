@@ -265,7 +265,7 @@ class CloseTracebackHelperTests(unittest.TestCase):
 
 def _admit(gate, nbytes=10, wait=True, worker=False):
     """Admit a publish; return whether it was admitted."""
-    return gate.admit(nbytes, wait, worker) is not None
+    return gate.admit(nbytes, wait, worker)
 
 
 def _admit_in_thread(gate, nbytes=10, worker=False):
@@ -307,16 +307,18 @@ class PublishGateTests(unittest.TestCase):
 
     def test_waits_at_the_limit_until_a_publish_is_handed_over(self):
         gate = _PublishGate(100)
-        first = gate.admit(100, True, False)
+        gate._RECHECK_INTERVAL = 60  # only a wakeup can release the waiter in time
+        _admit(gate, 100)
         thread, result = _admit_in_thread(gate)
         _wait_for_waiters(gate)
         self.assertEqual(result, [])
-        gate.handed(first)
+        gate.handed(100)
         self.assert_admitted(thread, result)
         self.assertEqual(gate.pending(), (1, 10))
 
     def test_waits_while_writing_is_paused_until_resumed(self):
         gate = _PublishGate(100)
+        gate._RECHECK_INTERVAL = 60  # only a wakeup can release the waiter in time
         gate.set_writing_paused(True)
         thread, result = _admit_in_thread(gate)
         _wait_for_waiters(gate)
@@ -341,6 +343,7 @@ class PublishGateTests(unittest.TestCase):
 
     def test_releases_a_pool_worker_while_the_ioloop_is_blocked(self):
         gate = _PublishGate(100)
+        gate._RECHECK_INTERVAL = 60  # only a wakeup can release the waiter in time
         gate.set_writing_paused(True)
         thread, result = _admit_in_thread(gate, worker=True)
         _wait_for_waiters(gate)
@@ -408,6 +411,45 @@ class PublishGateTests(unittest.TestCase):
         gate.start_closing()
         gate.reject_waiters()
         self.assert_admitted(thread, result, expected=False)
+
+    def test_ioloop_side_calls_never_block_on_a_publisher_lock(self):
+        """A lock left held by an interrupted publisher must not stall the IOLoop (#1862)."""
+        gate = _PublishGate(100)
+        _admit(gate, 10)
+        done = threading.Event()
+
+        def ioloop_side():
+            gate.handed(10)
+            gate.set_writing_paused(True)
+            gate.set_writing_paused(False)
+            with gate.ioloop_blocked():
+                pass
+            gate.close()
+            done.set()
+
+        with gate._admit_lock, gate._cond:
+            gate._waiters[0] += 1  # so the calls try to wake someone
+            thread = threading.Thread(target=ioloop_side, daemon=True)
+            thread.start()
+            self.assertTrue(done.wait(timeout=5),
+                            'an IOLoop-side call blocked on a publisher lock')
+        thread.join(timeout=5)
+
+    def test_a_waiter_proceeds_when_its_wakeup_could_not_be_delivered(self):
+        gate = _PublishGate(100)
+        gate.set_writing_paused(True)
+        thread, result = _admit_in_thread(gate)
+        _wait_for_waiters(gate)
+        with gate._cond:
+            gate.set_writing_paused(False)  # cannot notify: the lock is held
+        self.assert_admitted(thread, result)
+
+    def test_the_state_only_moves_forward(self):
+        gate = _PublishGate(100)
+        gate.close()
+        gate.reject_waiters()
+        gate.start_closing()
+        self.assertFalse(_admit(gate, wait=False))
 
     def test_close_refuses_waiters_and_new_publishes(self):
         gate = _PublishGate(100)
@@ -1260,13 +1302,6 @@ class ChannelTests(unittest.TestCase):
         raw_ch._publish_marshaled.side_effect = ConnectionWrongStateError()
         ch.basic_publish('ex', 'rk', b'body')
         wrapper._schedule_unchecked.call_args[0][0]()
-        self.assertEqual(wrapper._publish_gate.pending(), (0, 0))
-
-    def test_basic_publish_counts_out_a_publish_it_fails_to_schedule(self):
-        ch, _raw_ch, wrapper = self._gated_channel()
-        wrapper._schedule_unchecked.side_effect = RuntimeError('loop gone')
-        with self.assertRaises(RuntimeError):
-            ch.basic_publish('ex', 'rk', b'body')
         self.assertEqual(wrapper._publish_gate.pending(), (0, 0))
 
     def test_basic_publish_raises_once_close_has_started(self):

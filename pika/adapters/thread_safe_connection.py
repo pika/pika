@@ -248,16 +248,6 @@ class _GateState(enum.Enum):
     CLOSED = enum.auto()
 
 
-class _Admission:
-    """One publish counted in by `_PublishGate.admit`, so it is counted out exactly once."""
-
-    __slots__ = ('handed', 'nbytes')
-
-    def __init__(self, nbytes: int) -> None:
-        self.nbytes = nbytes
-        self.handed = False
-
-
 class _PublishGate:
     """
     Bound the publishes a `Connection` has accepted but not yet handed to the transport (#1859).
@@ -270,109 +260,139 @@ class _PublishGate:
     Two callers are not held, because the wait could not end: the IOLoop thread, which is what
     drains the backlog, and a pool worker while the IOLoop is blocked feeding a full work queue,
     since that worker is what has to make room (see `docs/internal/thread-safe-connection.md`).
+
+    The IOLoop never blocks on a lock a publisher can hold (#1862): each counter has one writer, so
+    it is read without a lock, and the IOLoop only tries the waiters' lock to wake them.
     """
+
+    #: How often a blocked publisher re-checks, so a wakeup the IOLoop could not deliver costs at
+    #: most this long.
+    _RECHECK_INTERVAL = 0.1
 
     def __init__(self, limit: int) -> None:
         self._limit = limit
-        self._cond = threading.Condition()
-        self._pending_bytes = 0
-        self._pending_count = 0
-        self._writing_paused = False
-        self._ioloop_blocked = 0
-        # Blocked publishers by thread, so a close does not wait for one on its own thread, which a
-        # signal handler calling close() would otherwise do forever.
+        # Taken only by publisher threads, to add to the admitted counters.
+        self._admit_lock = threading.Lock()
+        # Taken by blocked publishers and closes; the IOLoop only ever tries it.
+        self._cond = threading.Condition(threading.Lock())
+        # Taken by closes, briefly, so the state only moves forward.
+        self._state_lock = threading.Lock()
+        self._admitted_bytes = 0  # publisher threads, under _admit_lock
+        self._admitted_count = 0
+        self._ioloop_bytes = 0  # the IOLoop thread's own publishes
+        self._ioloop_count = 0
+        self._handed_bytes = 0  # the IOLoop thread
+        self._handed_count = 0
+        self._writing_paused = False  # the IOLoop thread
+        self._ioloop_blocked = 0  # the IOLoop thread
+        # Blocked publishers by thread, under _cond, so a close does not wait for one on its own
+        # thread, which a signal handler calling close() would otherwise do forever.
         self._waiters: collections.Counter[int] = collections.Counter()
         self._state = _GateState.OPEN
+
+    def _in_state(self, *states: _GateState) -> bool:
+        # A method, not an inline test, because another thread changes the state between reads.
+        return self._state in states
+
+    def _pending_bytes(self) -> int:
+        return self._admitted_bytes + self._ioloop_bytes - self._handed_bytes
 
     def _must_wait(self, worker: bool) -> bool:
         if self._state in (_GateState.REJECTING, _GateState.CLOSED):
             return False
         if worker and self._ioloop_blocked:
             return False
-        return self._writing_paused or self._pending_bytes >= self._limit
+        return self._writing_paused or self._pending_bytes() >= self._limit
 
     def _others_waiting(self) -> bool:
         return sum(
             self._waiters.values()) > self._waiters[threading.get_ident()]
 
-    def admit(self, nbytes: int, wait: bool, worker: bool) -> _Admission | None:
+    def _advance(self, state: _GateState) -> None:
+        with self._state_lock:
+            if self._state.value < state.value:
+                self._state = state
+        self._wake()
+
+    def _wake(self) -> None:
+        """Wake blocked publishers if the lock is free; otherwise their re-check covers it."""
+        if self._waiters and self._cond.acquire(blocking=False):
+            try:
+                self._cond.notify_all()
+            finally:
+                self._cond.release()
+
+    def admit(self, nbytes: int, wait: bool, worker: bool) -> bool:
         """
         Count a publish in, first waiting for room if *wait* is true.
-
-        The caller queues the publish after this returns, outside the lock: the IOLoop takes the
-        lock too, so holding it any longer widens the window in which a signal handler that calls
-        close() on this thread deadlocks against the IOLoop (#1862).
 
         :param nbytes: Size of the publish's marshaled frames.
         :param wait: False on the IOLoop thread, which must never wait for itself.  Such a caller
             is refused only once the connection is closed: what it queues before the close still
             goes out first.
         :param worker: True on one of the connection's pool workers.
-        :returns: The admission to pass to `handed`, or None if the publish must not be sent
-            because the connection is closing or closed.
+        :returns: False if the publish must not be sent because the connection is closing or
+            closed.
         """
-        admission = _Admission(nbytes)
+        if not wait:
+            if self._state is _GateState.CLOSED:
+                return False
+            self._ioloop_bytes += nbytes
+            self._ioloop_count += 1
+            return True
+        if self._state is _GateState.OPEN and not self._must_wait(worker):
+            self._count_in(nbytes)
+            return True
         with self._cond:
-            if self._state is _GateState.CLOSED or (wait and self._state
-                                                    is not _GateState.OPEN):
-                return None
-            if wait and self._must_wait(worker):
+            if self._state is not _GateState.OPEN:
+                return False
+            if self._must_wait(worker):
                 ident = threading.get_ident()
                 self._waiters[ident] += 1
                 try:
                     while self._must_wait(worker):
-                        self._cond.wait()
+                        self._cond.wait(self._RECHECK_INTERVAL)
                 finally:
                     self._waiters[ident] -= 1
                     if not self._waiters[ident]:
                         del self._waiters[ident]
-                    if self._state is _GateState.CLOSING:
+                    if self._in_state(_GateState.CLOSING):
                         self._cond.notify_all()  # for wait_for_waiters
-                if self._state in (_GateState.REJECTING, _GateState.CLOSED):
-                    return None
-            self._pending_bytes += nbytes
-            self._pending_count += 1
-            return admission
+                if self._in_state(_GateState.REJECTING, _GateState.CLOSED):
+                    return False
+            self._count_in(nbytes)
+            return True
 
-    def _count_out(self, admission: _Admission) -> None:
-        if admission.handed:
-            return
-        admission.handed = True
-        self._pending_bytes -= admission.nbytes
-        self._pending_count -= 1
-        if self._waiters and not self._must_wait(False):
-            self._cond.notify_all()
+    def _count_in(self, nbytes: int) -> None:
+        with self._admit_lock:
+            self._admitted_bytes += nbytes
+            self._admitted_count += 1
 
-    def handed(self, admission: _Admission) -> None:
-        """Count *admission* out once the IOLoop has handed it to the transport, or failed to."""
-        with self._cond:
-            self._count_out(admission)
+    def handed(self, nbytes: int) -> None:
+        """Count a publish out once the IOLoop has handed it to the transport, or failed to."""
+        self._handed_bytes += nbytes
+        self._handed_count += 1
+        self._wake()
 
     def set_writing_paused(self, paused: bool) -> None:
         """Record that the transport paused or resumed writing; runs on the IOLoop thread."""
-        with self._cond:
-            self._writing_paused = paused
-            if not paused and self._waiters:
-                self._cond.notify_all()
+        self._writing_paused = paused
+        if not paused:
+            self._wake()
 
     @contextlib.contextmanager
     def ioloop_blocked(self) -> Iterator[None]:
         """Mark the IOLoop as blocked for the duration, releasing waiting pool workers."""
-        with self._cond:
-            self._ioloop_blocked += 1
-            if self._waiters:
-                self._cond.notify_all()
+        self._ioloop_blocked += 1
+        self._wake()
         try:
             yield
         finally:
-            with self._cond:
-                self._ioloop_blocked -= 1
+            self._ioloop_blocked -= 1
 
     def start_closing(self) -> None:
         """Refuse new publishes; those already waiting keep their place."""
-        with self._cond:
-            if self._state is _GateState.OPEN:
-                self._state = _GateState.CLOSING
+        self._advance(_GateState.CLOSING)
 
     def wait_for_waiters(self, deadline: float | None) -> None:
         """
@@ -385,26 +405,22 @@ class _PublishGate:
                 remaining = _remaining(deadline)
                 if remaining is not None and remaining <= 0:
                     break
-                self._cond.wait(remaining)
+                self._cond.wait(self._RECHECK_INTERVAL if remaining is None else
+                                min(remaining, self._RECHECK_INTERVAL))
         self.reject_waiters()
 
     def reject_waiters(self) -> None:
         """Refuse the publishers still waiting, for a close that cannot wait for them."""
-        with self._cond:
-            if self._state is _GateState.CLOSING:
-                self._state = _GateState.REJECTING
-                self._cond.notify_all()
+        self._advance(_GateState.REJECTING)
 
     def close(self) -> None:
         """Release every waiter; nothing more is admitted."""
-        with self._cond:
-            self._state = _GateState.CLOSED
-            self._cond.notify_all()
+        self._advance(_GateState.CLOSED)
 
     def pending(self) -> tuple[int, int]:
         """Return the number and total size of publishes accepted but not yet handed over."""
-        with self._cond:
-            return self._pending_count, self._pending_bytes
+        return (self._admitted_count + self._ioloop_count - self._handed_count,
+                self._pending_bytes())
 
 
 class _BoundedWorkPool:
@@ -1158,11 +1174,11 @@ class Channel:
                                                 properties, mandatory)
         wrapper = self._wrapper
         gate = wrapper._publish_gate
-        admission = gate.admit(sum(len(f) for f in frames),
-                               wait=threading.current_thread()
-                               is not wrapper._ioloop_thread,
-                               worker=wrapper._is_pool_worker_thread())
-        if admission is None:
+        nbytes = sum(len(f) for f in frames)
+        if not gate.admit(nbytes,
+                          wait=threading.current_thread()
+                          is not wrapper._ioloop_thread,
+                          worker=wrapper._is_pool_worker_thread()):
             self._check_not_closed()
             raise ConnectionWrongStateError('connection is closing or closed')
 
@@ -1174,7 +1190,7 @@ class Channel:
                                exc_info=True)
                 return
             finally:
-                gate.handed(admission)
+                gate.handed(nbytes)
             if self._next_publish_seq_no is not None:
                 self._next_publish_seq_no += 1
                 if on_publish is not None:
@@ -1190,12 +1206,9 @@ class Channel:
                     self._safe_dispatch('publish callback', on_publish,
                                         self._next_publish_seq_no)
 
-        try:
-            wrapper._schedule_unchecked(_publish)
-        except BaseException:
-            # The callback may be queued even though waking the IOLoop failed; `handed` counts once.
-            gate.handed(admission)
-            raise
+        # add_callback_threadsafe queues before the wakeup that can fail, so `_publish` always
+        # counts this out, and only the IOLoop writes that counter.
+        wrapper._schedule_unchecked(_publish)
 
     def basic_ack(self, delivery_tag: int = 0, multiple: bool = False) -> None:
         """
