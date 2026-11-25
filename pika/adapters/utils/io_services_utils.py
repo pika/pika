@@ -694,9 +694,10 @@ class _AsyncTransportBase(AbstractStreamTransport):
     # Max per consume call to prevent event starvation
     _MAX_CONSUME_BYTES = 1024 * 100
 
-    # Write flow control, with the Java client's defaults (Netty's) (#1859).
-    _WRITE_HIGH_WATER_BYTES = 64 * 1024
-    _WRITE_LOW_WATER_BYTES = 32 * 1024
+    # Write flow control (#1859): four times Netty's defaults, since a Python publisher pays more
+    # to wait and wake; docs/internal/thread-safe-connection.md has the measurements.
+    _WRITE_HIGH_WATER_BYTES = 256 * 1024
+    _WRITE_LOW_WATER_BYTES = 128 * 1024
 
     class RxEndOfFile(OSError):
         """We raise this internally when EOF (empty read) is detected on input."""

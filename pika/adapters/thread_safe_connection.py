@@ -1139,7 +1139,7 @@ class Channel:
 
         Safe to call from any thread simultaneously.
 
-        Waits while the publishes accepted but not yet handed to the transport reach 64 KiB, or the
+        Waits while the publishes accepted but not yet handed to the transport reach 256 KiB, or the
         socket is not taking more, as the RabbitMQ Java and .NET clients make a publisher wait
         (#1859).  The wait has no time limit: it ends when there is room or the connection closes.
         During a broker resource alarm only `blocked_connection_timeout`, which defaults to
