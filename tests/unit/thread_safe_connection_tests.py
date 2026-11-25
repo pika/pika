@@ -3140,6 +3140,8 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
             # A real basic_cancel records the tag before sending the frame, and
             # the wrapper checks that to tell a sent cancel from a no-op one.
             raw_ch._cancelled.add(kw['consumer_tag'])
+            # And drops it from _consumers on Basic.CancelOk, which close() waits for.
+            raw_ch._consumers.pop(kw['consumer_tag'])
             kw['callback'](_cancel_ok(kw['consumer_tag']))
 
         raw_ch.basic_cancel.side_effect = answer_cancel
