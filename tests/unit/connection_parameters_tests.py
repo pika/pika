@@ -510,9 +510,7 @@ class ConnectionParametersTests(ParametersTestsBase):
         self.assertEqual(params.port, params.DEFAULT_SSL_PORT)
 
     def test_deepcopy_with_ssl_options(self):
-        # gh-1845: ssl.SSLContext cannot be copied, so deepcopying
-        # parameters that carry SSLOptions must not raise; the copy
-        # shares the one SSLOptions instance.
+        # ssl.SSLContext cannot be copied, so the copy shares the SSLOptions (#1845).
         ssl_options = connection.SSLOptions(ssl.create_default_context())
         params = connection.ConnectionParameters(ssl_options=ssl_options)
 
@@ -758,9 +756,7 @@ class URLParametersTests(ParametersTestsBase):
         self.assertEqual(params.port, params.DEFAULT_PORT)
 
     def test_deepcopy_with_ssl_options(self):
-        # gh-1845: an amqps URL builds SSLOptions with a real SSLContext;
-        # deepcopying the parameters must not raise, and the copy shares
-        # the one SSLOptions instance.
+        # An amqps URL builds SSLOptions around a real SSLContext (#1845).
         params = connection.URLParameters('amqps://guest:guest@localhost/%2F')
         assert params.ssl_options is not None
 
