@@ -4,7 +4,7 @@ Notes for each release are also published on the [GitHub releases page](https://
 
 ## Upgrading to 1.5.1
 
-Two changes are worth reading before you upgrade.
+Three changes are worth reading before you upgrade.
 
 ### `pika.Connection` publishers now wait for the socket
 
@@ -15,6 +15,10 @@ A publisher that outruns the network or the broker now blocks in `basic_publish`
 ### Connection parameters that carry TLS options can be deep-copied
 
 `copy.deepcopy` of a parameters object holding `SSLOptions`, including `URLParameters('amqps://...')`, raised `TypeError: cannot pickle 'SSLContext' object`, because `ssl.SSLContext` cannot be copied. Now `copy.deepcopy` of an `SSLOptions` returns the same instance, so parameters with TLS options copy cleanly and the copy shares the original's `SSLOptions` (#1845).
+
+### A closed channel's number can be reused from its close callback
+
+On an asynchronous connection, `connection.channel(channel_number=n)` called from channel `n`'s on-close callback, including `TwistedChannel.on_closed` and an errback of a pending call the close failed, raised `ValueError` in 1.5.0, so the reopen had to be scheduled for later. It now opens the new channel while the connection remains open. The number of a channel that is still opening, open or closing still raises `ValueError` (#1841).
 
 ## Upgrading to 1.5.0
 

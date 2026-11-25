@@ -21,6 +21,64 @@ class TestA_Connect(AsyncTestCase, AsyncAdapters):
         self.stop()
 
 
+class TestReopenChannelFromCloseCallback(AsyncTestCase, AsyncAdapters):
+    DESCRIPTION = 'Reuse a channel number from its close callback and exchange messages'
+
+    def begin(self, channel):
+        self.reopened = 0
+        self.close_observations = []
+        self.close_channel(channel)
+
+    def close_channel(self, channel):
+        channel.add_on_close_callback(self.on_channel_closed)
+        channel.add_on_close_callback(self.after_channel_closed)
+        self.request_close(channel)
+
+    def request_close(self, channel):
+        channel.close()
+
+    @async_test_base.stop_on_error_in_async_test_case_method
+    def on_channel_closed(self, channel, reason):
+        self.assertTrue(channel.is_closed)
+        self.assertTrue(self.connection.is_open)
+        self.previous = channel
+        self.channel = self.connection.channel(channel.channel_number,
+                                               self.on_reopened)
+
+    def after_channel_closed(self, channel, reason):
+        self.close_observations.append(channel)
+
+    @async_test_base.stop_on_error_in_async_test_case_method
+    def on_reopened(self, channel):
+        self.assertIs(channel, self.channel)
+        self.assertIsNot(channel, self.previous)
+        self.assertEqual(channel.channel_number, self.previous.channel_number)
+        self.assertIs(self.close_observations[-1], self.previous)
+        self.reopened += 1
+        channel.queue_declare('', exclusive=True, callback=self.on_queue)
+
+    def on_queue(self, method_frame):
+        queue = method_frame.method.queue
+        self.channel.basic_publish('', queue, b'reopened channel')
+        self.channel.basic_get(queue, self.on_message, auto_ack=True)
+
+    @async_test_base.stop_on_error_in_async_test_case_method
+    def on_message(self, channel, method, properties, body):
+        self.assertEqual(body, b'reopened channel')
+        if self.reopened == 2:
+            self.stop()
+        else:
+            self.close_channel(channel)
+
+
+class TestReopenChannelFromBrokerCloseCallback(
+        TestReopenChannelFromCloseCallback):
+    DESCRIPTION = 'Reuse a broker-closed channel from its close callback'
+
+    def request_close(self, channel):
+        channel.queue_declare('missing-' + uuid.uuid4().hex, passive=True)
+
+
 class TestConstructAndImmediatelyCloseConnection(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = 'Construct and immediately close connection.'
 
