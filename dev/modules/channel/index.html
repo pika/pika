@@ -6111,7 +6111,7 @@ method.</p>
 </span><span id="pika.channel.Channel--source--__span-0-553"><span class="linenos" data-linenos=" 553 "></span>    <span class="k">def</span><span class="w"> </span><span class="nf">basic_publish</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
 </span><span id="pika.channel.Channel--source--__span-0-554"><span class="linenos" data-linenos=" 554 "></span>                      <span class="n">exchange</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
 </span><span id="pika.channel.Channel--source--__span-0-555"><span class="linenos" data-linenos=" 555 "></span>                      <span class="n">routing_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-</span><span id="pika.channel.Channel--source--__span-0-556"><span class="linenos" data-linenos=" 556 "></span>                      <span class="n">body</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span>
+</span><span id="pika.channel.Channel--source--__span-0-556"><span class="linenos" data-linenos=" 556 "></span>                      <span class="n">body</span><span class="p">:</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span>
 </span><span id="pika.channel.Channel--source--__span-0-557"><span class="linenos" data-linenos=" 557 "></span>                      <span class="n">properties</span><span class="p">:</span> <span class="n">spec</span><span class="o">.</span><span class="n">BasicProperties</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span id="pika.channel.Channel--source--__span-0-558"><span class="linenos" data-linenos=" 558 "></span>                      <span class="n">mandatory</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="pika.channel.Channel--source--__span-0-559"><span class="linenos" data-linenos=" 559 "></span><span class="w">        </span><span class="sd">"""</span>
@@ -8905,7 +8905,7 @@ lettered.</p>
 <div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">basic_publish</span><span class="p">(</span>
 </span><span id="__span-0-2">    <span class="n">exchange</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
 </span><span id="__span-0-3">    <span class="n">routing_key</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
-</span><span id="__span-0-4">    <span class="n">body</span><span class="p">:</span> <span class="n"><span title="bytes">bytes</span></span><span class="p">,</span>
+</span><span id="__span-0-4">    <span class="n">body</span><span class="p">:</span> <span class="n"><span title="bytes">bytes</span></span> <span class="o">|</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
 </span><span id="__span-0-5">    <span class="n">properties</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;BasicProperties&lt;/span&gt; (&lt;code&gt;pika.spec.BasicProperties&lt;/code&gt;)" href="../spec/#pika.spec.BasicProperties">BasicProperties</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span id="__span-0-6">    <span class="n">mandatory</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 </span><span id="__span-0-7"><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
@@ -8969,7 +8969,7 @@ lettered.</p>
               <p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
-                      <code><span title="bytes">bytes</span></code>
+                      <code><span title="bytes">bytes</span> | <span title="str">str</span></code>
                   </span>
               </p>
             </td>
@@ -9047,7 +9047,7 @@ lettered.</p>
               <div class="highlight"><pre><span></span><code><span id="pika.channel.Channel.basic_publish--source--__span-0-553"><span class="linenos" data-linenos="553 "></span><span class="k">def</span><span class="w"> </span><span class="nf">basic_publish</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
 </span><span id="pika.channel.Channel.basic_publish--source--__span-0-554"><span class="linenos" data-linenos="554 "></span>                  <span class="n">exchange</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
 </span><span id="pika.channel.Channel.basic_publish--source--__span-0-555"><span class="linenos" data-linenos="555 "></span>                  <span class="n">routing_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-</span><span id="pika.channel.Channel.basic_publish--source--__span-0-556"><span class="linenos" data-linenos="556 "></span>                  <span class="n">body</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span>
+</span><span id="pika.channel.Channel.basic_publish--source--__span-0-556"><span class="linenos" data-linenos="556 "></span>                  <span class="n">body</span><span class="p">:</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span>
 </span><span id="pika.channel.Channel.basic_publish--source--__span-0-557"><span class="linenos" data-linenos="557 "></span>                  <span class="n">properties</span><span class="p">:</span> <span class="n">spec</span><span class="o">.</span><span class="n">BasicProperties</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span id="pika.channel.Channel.basic_publish--source--__span-0-558"><span class="linenos" data-linenos="558 "></span>                  <span class="n">mandatory</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="pika.channel.Channel.basic_publish--source--__span-0-559"><span class="linenos" data-linenos="559 "></span><span class="w">    </span><span class="sd">"""</span>
@@ -13605,7 +13605,7 @@ method.</p>
 </span><span id="pika.channel.Channel--source--__span-0-553"><span class="linenos" data-linenos=" 553 "></span>    <span class="k">def</span><span class="w"> </span><span class="nf">basic_publish</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
 </span><span id="pika.channel.Channel--source--__span-0-554"><span class="linenos" data-linenos=" 554 "></span>                      <span class="n">exchange</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
 </span><span id="pika.channel.Channel--source--__span-0-555"><span class="linenos" data-linenos=" 555 "></span>                      <span class="n">routing_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-</span><span id="pika.channel.Channel--source--__span-0-556"><span class="linenos" data-linenos=" 556 "></span>                      <span class="n">body</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span>
+</span><span id="pika.channel.Channel--source--__span-0-556"><span class="linenos" data-linenos=" 556 "></span>                      <span class="n">body</span><span class="p">:</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span>
 </span><span id="pika.channel.Channel--source--__span-0-557"><span class="linenos" data-linenos=" 557 "></span>                      <span class="n">properties</span><span class="p">:</span> <span class="n">spec</span><span class="o">.</span><span class="n">BasicProperties</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span id="pika.channel.Channel--source--__span-0-558"><span class="linenos" data-linenos=" 558 "></span>                      <span class="n">mandatory</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="pika.channel.Channel--source--__span-0-559"><span class="linenos" data-linenos=" 559 "></span><span class="w">        </span><span class="sd">"""</span>
@@ -17668,7 +17668,7 @@ lettered.</p>
 <div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">basic_publish</span><span class="p">(</span>
 </span><span id="__span-0-2">    <span class="n">exchange</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
 </span><span id="__span-0-3">    <span class="n">routing_key</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
-</span><span id="__span-0-4">    <span class="n">body</span><span class="p">:</span> <span class="n"><span title="bytes">bytes</span></span><span class="p">,</span>
+</span><span id="__span-0-4">    <span class="n">body</span><span class="p">:</span> <span class="n"><span title="bytes">bytes</span></span> <span class="o">|</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
 </span><span id="__span-0-5">    <span class="n">properties</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;BasicProperties&lt;/span&gt; (&lt;code&gt;pika.spec.BasicProperties&lt;/code&gt;)" href="../spec/#pika.spec.BasicProperties">BasicProperties</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span id="__span-0-6">    <span class="n">mandatory</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 </span><span id="__span-0-7"><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
@@ -17732,7 +17732,7 @@ lettered.</p>
               <p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
-                      <code><span title="bytes">bytes</span></code>
+                      <code><span title="bytes">bytes</span> | <span title="str">str</span></code>
                   </span>
               </p>
             </td>
@@ -17810,7 +17810,7 @@ lettered.</p>
               <div class="highlight"><pre><span></span><code><span id="pika.channel.Channel.basic_publish--source--__span-0-553"><span class="linenos" data-linenos="553 "></span><span class="k">def</span><span class="w"> </span><span class="nf">basic_publish</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
 </span><span id="pika.channel.Channel.basic_publish--source--__span-0-554"><span class="linenos" data-linenos="554 "></span>                  <span class="n">exchange</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
 </span><span id="pika.channel.Channel.basic_publish--source--__span-0-555"><span class="linenos" data-linenos="555 "></span>                  <span class="n">routing_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-</span><span id="pika.channel.Channel.basic_publish--source--__span-0-556"><span class="linenos" data-linenos="556 "></span>                  <span class="n">body</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span>
+</span><span id="pika.channel.Channel.basic_publish--source--__span-0-556"><span class="linenos" data-linenos="556 "></span>                  <span class="n">body</span><span class="p">:</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span>
 </span><span id="pika.channel.Channel.basic_publish--source--__span-0-557"><span class="linenos" data-linenos="557 "></span>                  <span class="n">properties</span><span class="p">:</span> <span class="n">spec</span><span class="o">.</span><span class="n">BasicProperties</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span id="pika.channel.Channel.basic_publish--source--__span-0-558"><span class="linenos" data-linenos="558 "></span>                  <span class="n">mandatory</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="pika.channel.Channel.basic_publish--source--__span-0-559"><span class="linenos" data-linenos="559 "></span><span class="w">    </span><span class="sd">"""</span>
