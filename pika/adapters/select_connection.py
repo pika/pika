@@ -628,7 +628,7 @@ class _PollerBase(abc.ABC):
         # Reentrancy tracker of the `start` method
         self._running = False
 
-        # The thread running `start`, which wakes without the mutex.
+        # Set while `start` runs; see `wake_threadsafe`.
         self._thread: threading.Thread | None = None
 
         self._stopping = False
@@ -649,8 +649,7 @@ class _PollerBase(abc.ABC):
         """
         # Unregister and close ioloop-interrupt socket pair; mutual exclusion is
         # necessary to avoid race condition with `wake_threadsafe` executing in
-        # another thread's context. The IOLoop thread's wakeups skip the mutex
-        # only while `start()` runs, which this assertion excludes.
+        # another thread's context
         assert not self._running, 'Cannot call close() before start() unwinds.'
 
         with self._waking_mutex:
@@ -677,7 +676,7 @@ class _PollerBase(abc.ABC):
         As the name indicates, this method is thread-safe.
         """
         if self._running and threading.current_thread() is self._thread:
-            # `close()` cannot run while the loop does, and the mutex's holder
+            # `close()` asserts the loop is not running, and the mutex's holder
             # may be the thread a signal handler interrupted to wait on us (#1863).
             self._send_wakeup()
             return
@@ -830,8 +829,8 @@ class _PollerBase(abc.ABC):
             raise RuntimeError('IOLoop is not reentrant and is already running')
 
         LOGGER.debug('Entering IOLoop')
-        self._running = True
         self._thread = threading.current_thread()
+        self._running = True
         self.activate_poller()
 
         try:
@@ -846,6 +845,7 @@ class _PollerBase(abc.ABC):
             finally:
                 self._stopping = False
                 self._running = False
+                self._thread = None
 
     def stop(self) -> None:
         """
