@@ -16,6 +16,7 @@ from pika.adapters.thread_safe_connection import (
     Channel,
     Connection,
     _BoundedWorkPool,
+    _GateState,
     _PublishGate,
     _reraisable,
     _submit_or_terminate,
@@ -426,8 +427,8 @@ class PublishGateTests(unittest.TestCase):
         gate.reject_waiters()
         self.assert_admitted(thread, result, expected=False)
 
-    def test_ioloop_side_calls_never_block_on_a_publisher_lock(self):
-        """A lock left held by an interrupted publisher must not stall the IOLoop (#1862)."""
+    def test_ioloop_side_calls_never_block_on_the_publishers_locks(self):
+        """A publisher lock left held by an interrupted thread must not stall the IOLoop (#1862)."""
         gate = _PublishGate(100)
         _admit(gate, 10)
         done = threading.Event()
@@ -457,6 +458,13 @@ class PublishGateTests(unittest.TestCase):
         with gate._cond:
             gate.set_writing_paused(False)  # cannot notify: the lock is held
         self.assert_admitted(thread, result)
+
+    def test_a_publish_counted_in_after_the_close_is_taken_back(self):
+        """Otherwise the close's exit-path report would have missed it."""
+        gate = _PublishGate(100)
+        gate._state = _GateState.CLOSED  # as if the close ran between the check and the count
+        self.assertFalse(gate._count_in(10))
+        self.assertEqual(gate.pending(), (0, 0))
 
     def test_the_state_only_moves_forward(self):
         gate = _PublishGate(100)

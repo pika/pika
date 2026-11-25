@@ -271,12 +271,14 @@ class _PublishGate:
 
     def __init__(self, limit: int) -> None:
         self._limit = limit
+        # All three are re-entrant, because a signal handler that publishes or closes runs on the
+        # thread it interrupted, which may hold one of them.
         # Taken only by publisher threads, to add to the admitted counters.
-        self._admit_lock = threading.Lock()
+        self._admit_lock = threading.RLock()
         # Taken by blocked publishers and closes; the IOLoop only ever tries it.
-        self._cond = threading.Condition(threading.Lock())
+        self._cond = threading.Condition()
         # Taken by closes, briefly, so the state only moves forward.
-        self._state_lock = threading.Lock()
+        self._state_lock = threading.RLock()
         self._admitted_bytes = 0  # publisher threads, under _admit_lock
         self._admitted_count = 0
         self._ioloop_bytes = 0  # the IOLoop thread's own publishes
@@ -341,8 +343,7 @@ class _PublishGate:
             self._ioloop_count += 1
             return True
         if self._state is _GateState.OPEN and not self._must_wait(worker):
-            self._count_in(nbytes)
-            return True
+            return self._count_in(nbytes)
         with self._cond:
             if self._state is not _GateState.OPEN:
                 return False
@@ -360,13 +361,24 @@ class _PublishGate:
                         self._cond.notify_all()  # for wait_for_waiters
                 if self._in_state(_GateState.REJECTING, _GateState.CLOSED):
                     return False
-            self._count_in(nbytes)
-            return True
+            return self._count_in(nbytes)
 
-    def _count_in(self, nbytes: int) -> None:
+    def _count_in(self, nbytes: int) -> bool:
+        """
+        Count a publish in, then take it back if the gate closed meanwhile.
+
+        Counting first means a close either sees this publish in `pending`, so its exit-path WARNING
+        reports it, or this sees the close and refuses the publish.
+        """
         with self._admit_lock:
             self._admitted_bytes += nbytes
             self._admitted_count += 1
+        if self._in_state(_GateState.CLOSED):
+            with self._admit_lock:
+                self._admitted_bytes -= nbytes
+                self._admitted_count -= 1
+            return False
+        return True
 
     def handed(self, nbytes: int) -> None:
         """Count a publish out once the IOLoop has handed it to the transport, or failed to."""
@@ -1209,8 +1221,8 @@ class Channel:
                     self._safe_dispatch('publish callback', on_publish,
                                         self._next_publish_seq_no)
 
-        # add_callback_threadsafe queues before the wakeup that can fail, so `_publish` always
-        # counts this out, and only the IOLoop writes that counter.
+        # add_callback_threadsafe queues before the wakeup that can fail, so `_publish` counts this
+        # out when the IOLoop runs it; if the IOLoop has stopped, its exit path reports it.
         wrapper._schedule_unchecked(_publish)
 
     def basic_ack(self, delivery_tag: int = 0, multiple: bool = False) -> None:
