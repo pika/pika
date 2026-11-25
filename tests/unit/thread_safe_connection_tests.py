@@ -316,6 +316,20 @@ class PublishGateTests(unittest.TestCase):
         self.assert_admitted(thread, result)
         self.assertEqual(gate.pending(), (1, 10))
 
+    def test_a_waiter_is_woken_only_once_half_the_limit_has_drained(self):
+        gate = _PublishGate(100)
+        gate._RECHECK_INTERVAL = 60  # only a wakeup can release the waiter in time
+        _admit(gate, 40)
+        _admit(gate, 60)
+        thread, result = _admit_in_thread(gate)
+        _wait_for_waiters(gate)
+        with patch.object(gate, '_wake', wraps=gate._wake) as wake:
+            gate.handed(40)  # 60 left: above half the limit
+            wake.assert_not_called()
+            gate.handed(60)  # 0 left
+            wake.assert_called_once_with()
+        self.assert_admitted(thread, result)
+
     def test_waits_while_writing_is_paused_until_resumed(self):
         gate = _PublishGate(100)
         gate._RECHECK_INTERVAL = 60  # only a wakeup can release the waiter in time
