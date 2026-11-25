@@ -67,6 +67,8 @@ If the budget runs out before the backlog is done, the close proceeds and a warn
 
 Two cases skip this and behave as they did before 1.5.0, running queued callbacks after the teardown instead: `close()` called from the connection's own IOLoop thread, and `close()` called from inside a delivery or event callback, where waiting for the queue would mean waiting for the calling callback to return. Neither can be fixed on the close path, since the guarantee needs a queue to drain and the caller is sitting in it, so a callback that wants to shut the connection down should set a flag the thread that owns the connection watches and close from there. #1770 covers whether pika should refuse the call instead.
 
+Until #1867 is fixed, do not call `close()` from a signal handler. Python runs the handler on the main thread, in the middle of whatever that thread was doing, which may include holding a lock the close needs, and the close can then hang. Have the handler set a flag, or let `KeyboardInterrupt` propagate, and close from the thread that owns the connection.
+
 ## Work queue bounds and back-pressure
 
 Each worker thread consumes from a bounded queue holding at most `work_queue_maxsize` pending dispatches (default 1000, matching the RabbitMQ Java client). When a slow callback lets the queue fill up, further enqueues block the IOLoop thread, which stops reading from the socket and applies back-pressure to the broker through TCP flow control instead of buffering events in memory without limit.

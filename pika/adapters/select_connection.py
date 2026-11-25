@@ -609,7 +609,9 @@ class _PollerBase(abc.ABC):
 
         # We guard access to the waking file descriptors to avoid races from
         # closing them while another thread is calling our `wake()` method.
-        self._waking_mutex = threading.Lock()
+        # Re-entrant: a signal handler that schedules a callback re-enters it on
+        # the thread it interrupted (#1863).
+        self._waking_mutex = threading.RLock()
 
         # fd-to-handler function mappings
         self._fd_handlers: dict[int, Callable[..., None]] | None = {}
@@ -625,6 +627,9 @@ class _PollerBase(abc.ABC):
 
         # Reentrancy tracker of the `start` method
         self._running = False
+
+        # The thread running `start`, which wakes without the mutex.
+        self._thread: threading.Thread | None = None
 
         self._stopping = False
 
@@ -644,17 +649,20 @@ class _PollerBase(abc.ABC):
         """
         # Unregister and close ioloop-interrupt socket pair; mutual exclusion is
         # necessary to avoid race condition with `wake_threadsafe` executing in
-        # another thread's context
+        # another thread's context. The IOLoop thread's wakeups skip the mutex
+        # only while `start()` runs, which this assertion excludes.
         assert not self._running, 'Cannot call close() before start() unwinds.'
 
         with self._waking_mutex:
             if self._w_interrupt is not None:
                 assert self._r_interrupt is not None
                 self.remove_handler(self._r_interrupt.fileno())
-                self._r_interrupt.close()
-                self._r_interrupt = None
-                self._w_interrupt.close()
-                self._w_interrupt = None
+                # Cleared before closing, so a wakeup re-entering from a signal
+                # handler returns instead of sending on a closed socket.
+                r_interrupt, w_interrupt = self._r_interrupt, self._w_interrupt
+                self._r_interrupt = self._w_interrupt = None
+                r_interrupt.close()
+                w_interrupt.close()
 
         self.deactivate_poller()
 
@@ -668,22 +676,36 @@ class _PollerBase(abc.ABC):
 
         As the name indicates, this method is thread-safe.
         """
-        with self._waking_mutex:
-            if self._w_interrupt is None:
-                return
+        if self._running and threading.current_thread() is self._thread:
+            # `close()` cannot run while the loop does, and the mutex's holder
+            # may be the thread a signal handler interrupted to wait on us (#1863).
+            self._send_wakeup()
+            return
 
-            try:
-                # Send byte to interrupt the poll loop, use send() instead of
-                # os.write for Windows compatibility
-                self._w_interrupt.send(b'X')
-            except OSError as err:
-                if err.errno not in pika._utils.TRY_IO_AGAIN_SOCK_ERROR_CODES:
-                    raise
-            except Exception as err:
-                # There's nothing sensible to do here, we'll exit the interrupt
-                # loop after POLL_TIMEOUT secs in worst case anyway.
-                LOGGER.warning('Failed to send interrupt to poller: %s', err)
+        with self._waking_mutex:
+            self._send_wakeup()
+
+    def _send_wakeup(self) -> None:
+        """Write a byte to the interrupt socket, if it is still open."""
+        w_interrupt = self._w_interrupt
+        if w_interrupt is None:
+            return
+
+        try:
+            # Send byte to interrupt the poll loop, use send() instead of
+            # os.write for Windows compatibility
+            w_interrupt.send(b'X')
+        except OSError as err:
+            if self._w_interrupt is None:
+                # A signal handler on this thread closed the poller mid-send.
+                return
+            if err.errno not in pika._utils.TRY_IO_AGAIN_SOCK_ERROR_CODES:
                 raise
+        except Exception as err:
+            # There's nothing sensible to do here, we'll exit the interrupt
+            # loop after POLL_TIMEOUT secs in worst case anyway.
+            LOGGER.warning('Failed to send interrupt to poller: %s', err)
+            raise
 
     def _get_max_wait(self) -> float:
         """
@@ -809,6 +831,7 @@ class _PollerBase(abc.ABC):
 
         LOGGER.debug('Entering IOLoop')
         self._running = True
+        self._thread = threading.current_thread()
         self.activate_poller()
 
         try:
