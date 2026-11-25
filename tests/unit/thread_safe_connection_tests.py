@@ -3153,10 +3153,15 @@ class ChannelCloseErrorPathTests(unittest.TestCase):
 
         raw_ch.close.side_effect = on_close
 
-        # A queued callback records what had happened by the time it ran, so
-        # draining before cancelling is visible rather than inferred.
-        ch._consumer_work_pool.submit(lambda: order.append(
-            ('drained', raw_ch.basic_cancel.called)))
+        # Record what had happened when the close asked the pool to drain. A
+        # queued callback cannot show it: the worker may run it before close().
+        drain = ch._consumer_work_pool.drain
+
+        def recording_drain(*args, **kwargs):
+            order.append(('drained', raw_ch.basic_cancel.called))
+            return drain(*args, **kwargs)
+
+        ch._consumer_work_pool.drain = recording_drain
 
         ch.close(timeout=5)
 
