@@ -3990,11 +3990,12 @@ class ConsumerPoolConnectionIntegrationTests(_ConnectionHarness,
             mock_ioloop = MagicMock()
             mock_conn.ioloop = mock_ioloop
             stop_event = threading.Event()
+            created = []
 
             def slow_start():
                 # Block until __init__ raises and signals us; then exit so
                 # _run_ioloop's cleanup tail runs.
-                stop_event.wait(timeout=2)
+                stop_event.wait(timeout=10)
 
             def stop_signal(_cb):
                 # The post-timeout add_callback_threadsafe(stop) lands here.
@@ -4005,29 +4006,24 @@ class ConsumerPoolConnectionIntegrationTests(_ConnectionHarness,
 
             def fake_init(parameters, on_open_callback, on_open_error_callback,
                           on_close_callback):
+                # The connect wait expires at once, so the join gets the whole
+                # timeout and a slow exit tail cannot fail the test (#1869).
+                conn = on_open_callback.__self__
+                conn._connected_event = MagicMock()
+                conn._connected_event.wait.return_value = False
+                conn._connected_event.is_set.return_value = False
+                created.append(conn)
                 return mock_conn
 
             MockSelectConn.side_effect = fake_init
             MockSelectConn.return_value = mock_conn
 
-            try:
-                Connection(parameters='params', timeout=0.05)
-            except TimeoutError as exc:
-                # By the time the TimeoutError reaches us, the IOLoop
-                # thread must have been joined - i.e., it is no longer
-                # alive.  Find it via thread enumeration; the daemon flag
-                # is set, so it would otherwise outlive __init__.
-                live_ioloop_threads = [
-                    t for t in threading.enumerate()
-                    if t.name.startswith('pika-ioloop-') and t.is_alive()
-                ]
-                self.assertEqual(
-                    live_ioloop_threads, [],
-                    msg=f'IOLoop thread still alive after TimeoutError: '
-                    f'{live_ioloop_threads}')
-                self.assertIn('timed out', str(exc))
-            else:
-                self.fail('Expected TimeoutError')
+            with self.assertRaises(TimeoutError) as ctx:
+                Connection(parameters='params', timeout=10)
+            # By the time the TimeoutError reaches us, the IOLoop thread must
+            # have been joined, or its daemon thread would outlive __init__.
+            self.assertFalse(created[0]._ioloop_thread.is_alive())
+            self.assertIn('timed out', str(ctx.exception))
 
     def test_channel_raises_timeout_error(self):
         """Channel() must raise TimeoutError if Channel.OpenOk never arrives."""
