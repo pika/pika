@@ -1049,6 +1049,15 @@ class SSLOptions:
         self.context = context
         self.server_hostname = server_hostname
 
+    def __deepcopy__(self, memo: dict) -> SSLOptions:
+        """
+        Return this instance, so a deep copy of parameters shares it (#1845).
+
+        `ssl.SSLContext` cannot be copied, and pika does not modify the context or
+        `server_hostname`.
+        """
+        return self
+
 
 class Connection(abc.ABC):
     """
