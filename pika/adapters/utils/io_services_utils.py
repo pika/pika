@@ -688,7 +688,7 @@ class _AsyncTransportBase(AbstractStreamTransport):
     _STATE_ABORTED_BY_USER = 3  # cancel() called
     _STATE_COMPLETED = 4  # done with connection
 
-    _MAX_RECV_BYTES = 4096  # per socket.recv() documentation recommendation
+    _MAX_RECV_BYTES = 1024 * 64
     _MAX_COALESCED_WRITE_BYTES = 1024 * 64
 
     # Max per consume call to prevent event starvation
@@ -794,7 +794,11 @@ class _AsyncTransportBase(AbstractStreamTransport):
         while (self._state == self._STATE_ACTIVE and
                bytes_consumed < self._MAX_CONSUME_BYTES):
             try:
-                data = self._sock.recv(self._MAX_RECV_BYTES)
+                # Never ask for more than the budget has left, so a turn
+                # stays within `_MAX_CONSUME_BYTES`.
+                data = self._sock.recv(
+                    min(self._MAX_RECV_BYTES,
+                        self._MAX_CONSUME_BYTES - bytes_consumed))
             except OSError as error:
                 # Checked here, not by callers, so a "try again" error raised by
                 # data_received() is not mistaken for one from recv() (#1819).
