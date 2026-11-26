@@ -269,8 +269,8 @@ def decode_table(encoded: bytes,
 
     :param encoded: The binary encoded data to decode
     :param offset: The starting byte offset
-    :raises: pika.exceptions.InvalidFrameError: if tables and arrays nest more than 32 deep,
-        counting this table.
+    :raises: pika.exceptions.InvalidFrameError: if tables and arrays nest more than 32 deep, below
+        this table.
     """
     return _decode_table(encoded, offset, 0)
 
@@ -278,7 +278,7 @@ def decode_table(encoded: bytes,
 def _decode_table(encoded: bytes, offset: int,
                   depth: int) -> tuple[dict[str | bytes, Any], int]:
     """Decode a table enclosed by *depth* tables and arrays."""
-    if depth >= _MAX_FIELD_NESTING_DEPTH:
+    if depth > _MAX_FIELD_NESTING_DEPTH:
         raise _nesting_error()
     result = {}
     tablesize = _PACK_UINT.unpack_from(encoded, offset)[0]
@@ -311,8 +311,8 @@ def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:
     :returns: tuple of (decoded value, new offset). A `timestamp` is a u64, so one outside the range
         `datetime` can hold decodes to its raw integer seconds.
     :raises: pika.exceptions.InvalidFieldTypeException
-    :raises: pika.exceptions.InvalidFrameError: if tables and arrays nest more than 32 deep,
-        counting this value.
+    :raises: pika.exceptions.InvalidFrameError: if tables and arrays nest more than 32 deep, below
+        this value.
     """
     return _decode_value(encoded, offset, 0)
 
@@ -374,7 +374,7 @@ def _decode_value(encoded: bytes, offset: int, depth: int) -> tuple[Any, int]:
 
     # Field Array
     elif kind == _FIELD_ARRAY:
-        if depth >= _MAX_FIELD_NESTING_DEPTH:
+        if depth > _MAX_FIELD_NESTING_DEPTH:
             raise _nesting_error()
         length = _PACK_UINT.unpack_from(encoded, offset)[0]
         offset += 4

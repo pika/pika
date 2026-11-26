@@ -510,6 +510,9 @@ class TwistedChannel:
 
         https://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
 
+        A message whose headers nest tables and arrays more than 32 deep closes the connection, as
+        any malformed frame does, before it reaches the caller.
+
         This method wraps
         [`Channel.basic_get`][pika.channel.Channel.basic_get].
 

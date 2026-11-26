@@ -215,6 +215,9 @@ class Channel:
         Pass a callback function that will be called when basic_publish is sent a message that has
         been rejected and returned by the server.
 
+        A returned message whose headers nest tables and arrays more than 32 deep closes the
+        connection, as any malformed frame does, before it reaches *callback*.
+
         :param callback: The function to call, having the signature
                                 callback(channel, method, properties, body)
                                 where
@@ -512,6 +515,9 @@ class Channel:
         basic_get and its parameters, see:
 
         https://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
+
+        A message whose headers nest tables and arrays more than 32 deep closes the connection, as
+        any malformed frame does, before it reaches the caller.
 
         :param queue: The queue from which to get a message. Use the empty
             string to specify the most recent server-named queue for this
@@ -1463,8 +1469,10 @@ class Channel:
             delivery_tag = method_frame.method.delivery_tag
             auto_ack = consumer_tag in self._auto_ack_consumers
             LOGGER.error(
-                'Discarding delivery %s to consumer %s on channel %i%s: %s',
-                delivery_tag, consumer_tag, self.channel_number,
+                'Discarding delivery %s to consumer %s on channel %i from '
+                'exchange %r with routing key %r%s: %s', delivery_tag,
+                consumer_tag, self.channel_number, method_frame.method.exchange,
+                method_frame.method.routing_key,
                 '' if auto_ack else ', rejected without requeueing',
                 header_frame.decode_error)
             if not auto_ack:

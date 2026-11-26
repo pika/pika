@@ -436,14 +436,14 @@ class DataTests(unittest.TestCase):
     def test_decode_table_decodes_nesting_at_the_limit(self):
         for kinds in ('F', 'A', 'FA', 'AF'):
             with self.subTest(kinds=kinds):
-                encoded = _nested_table(32, kinds)
+                encoded = _nested_table(33, kinds)
                 value, offset = data.decode_table(encoded, 0)
                 self.assertEqual(offset, len(encoded))
-                self.assertEqual(_containers(value), (32, 1))
+                self.assertEqual(_containers(value), (33, 1))
 
     def test_decode_table_rejects_nesting_past_the_limit(self):
         for kinds in ('F', 'A', 'FA', 'AF'):
-            for containers in (33, 2000):
+            for containers in (34, 2000):
                 with self.subTest(
                         kinds=kinds,
                         containers=containers), self.assertRaisesRegex(
@@ -451,13 +451,13 @@ class DataTests(unittest.TestCase):
                     data.decode_table(_nested_table(containers, kinds), 0)
 
     def test_decode_value_counts_a_top_level_container(self):
-        for containers, decodes in ((31, True), (32, False)):
+        for containers, decodes in ((32, True), (33, False)):
             inner = _nested_table(containers)
             encoded = b'A' + struct.pack('>I', len(inner) + 1) + b'F' + inner
             with self.subTest(containers=containers + 1):
                 if decodes:
                     value, _ = data.decode_value(encoded, 0)
-                    self.assertEqual(_containers(value), (32, 1))
+                    self.assertEqual(_containers(value), (33, 1))
                 else:
                     with self.assertRaises(exceptions.InvalidFrameError):
                         data.decode_value(encoded, 0)
@@ -482,9 +482,9 @@ class DataTests(unittest.TestCase):
         for kinds in ('F', 'FA'):
             with self.subTest(kinds=kinds):
                 _, decoded = frame.decode_frame(
-                    self._start_frame(_nested_table(32, kinds)), 0)
+                    self._start_frame(_nested_table(33, kinds)), 0)
                 self.assertIsInstance(decoded.method, spec.Connection.Start)
-                for containers in (33, 2000):
+                for containers in (34, 2000):
                     with self.assertRaisesRegex(exceptions.InvalidFrameError,
                                                 'more than 32 deep'):
                         frame.decode_frame(
@@ -494,13 +494,13 @@ class DataTests(unittest.TestCase):
     def test_decode_frame_marks_deep_headers_and_keeps_body_size(self):
         for kinds in ('F', 'FA'):
             with self.subTest(kinds=kinds):
-                encoded = self._header_frame(_nested_table(32, kinds))
+                encoded = self._header_frame(_nested_table(33, kinds))
                 consumed, decoded = frame.decode_frame(encoded, 0)
                 self.assertEqual(consumed, len(encoded))
                 self.assertIsNone(decoded.decode_error)
                 self.assertEqual(_containers(decoded.properties.headers),
-                                 (32, 1))
-                for containers in (33, 2000):
+                                 (33, 1))
+                for containers in (34, 2000):
                     encoded = self._header_frame(_nested_table(
                         containers, kinds),
                                                  body_size=7)

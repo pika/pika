@@ -1339,6 +1339,9 @@ class Channel:
         Returns a ``(method, properties, body)`` tuple if a message is available, or ``(None, None,
         None)`` if the queue is empty.
 
+        A message whose headers nest tables and arrays more than 32 deep closes the connection, as
+        any malformed frame does, before it reaches the caller.
+
         Safe to call from any thread.
 
         :param queue: The queue to get a message from.
@@ -1448,6 +1451,9 @@ class Channel:
         When a message is published with ``mandatory=True`` and cannot be routed to any queue, the
         broker returns it via a [`pika.spec.Basic.Return`][pika.spec.Basic.Return].  The *callback* receives the
         returned message.
+
+        A returned message whose headers nest tables and arrays more than 32 deep closes the
+        connection, as any malformed frame does, before it reaches *callback*.
 
         Dispatched on the per-channel worker thread (same as delivery callbacks), so the callback
         may safely call any [`Channel`][pika.adapters.thread_safe_connection.Channel] method and heartbeats keep flowing while it works. The
