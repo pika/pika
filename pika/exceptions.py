@@ -361,8 +361,8 @@ class FrameTooLargeError(AMQPConnectionError):
     @override
     def __repr__(self) -> str:
         return (
-            f'{self.__class__.__name__}: Received a frame of {self.args[0]} bytes, above the '
-            f'limit of {self.args[1]} bytes{self._host_port_suffix()}')
+            f'{self.__class__.__name__}: Received a frame with a {self.args[0]}-byte payload, above '
+            f'the limit of {self.args[1]} bytes{self._host_port_suffix()}')
 
 
 class MessageBodyTooLargeError(AMQPConnectionError):

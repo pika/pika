@@ -103,6 +103,40 @@ class TestThreadSafeConnection(InboundSizeLimitTestBase):
         self.assertTrue(consumer.is_open)
 
 
+class TestFrameMax(InboundSizeLimitTestBase):
+
+    def test_properties_larger_than_frame_max_are_delivered(self):
+        # RabbitMQ sends the content header frame whole, larger than the
+        # consumer's frame_max, and splits the body to fit it.
+        headers = {'big': 'x' * 50000}
+        ch = self.publisher.channel()
+        ch.basic_publish(exchange='',
+                         routing_key=self.queue,
+                         body=b'y' * 50000,
+                         properties=pika.BasicProperties(headers=headers))
+        ch.close()
+        consumer = Connection(
+            pika.ConnectionParameters(host=DEFAULT_PARAMS.host,
+                                      port=DEFAULT_PARAMS.port,
+                                      credentials=DEFAULT_PARAMS.credentials,
+                                      frame_max=pika.spec.FRAME_MIN_SIZE))
+        self.addCleanup(safe_close, consumer)
+        got = threading.Event()
+        received = []
+
+        def on_message(_ch, _method, props, body):
+            received.append((props.headers, body))
+            got.set()
+
+        consumer.channel().basic_consume(queue=self.queue,
+                                         on_message_callback=on_message,
+                                         auto_ack=True)
+
+        self.assertTrue(got.wait(WAIT), 'the message was not delivered')
+        self.assertEqual([(headers, b'y' * 50000)], received)
+        self.assertTrue(consumer.is_open)
+
+
 class TestBlockingConnection(InboundSizeLimitTestBase):
 
     def test_a_body_above_the_limit_raises_from_the_next_call(self):
