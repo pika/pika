@@ -530,8 +530,8 @@ class ConnectionTests(unittest.TestCase):
             0, self.connection.ON_CONNECTION_ERROR, dummy_callback, False)
 
     def test_on_data_available_propagates_overly_nested_table(self):
-        # The adapter then reports `StreamLostError` with this as its cause, as
-        # for any malformed frame.
+        # The adapter ends the stream, as for any malformed frame; before Start
+        # is processed, the open error is `IncompatibleProtocolError`.
         server_properties = {}
         for _ in range(33):
             server_properties = {'k': server_properties}
