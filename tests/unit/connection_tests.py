@@ -887,6 +887,9 @@ class ConnectionTests(unittest.TestCase):
                          self.connection.connection_state)
         self.assertEqual(20, self.connection.params.channel_max)
         self.assertEqual(10000, self.connection.params.frame_max)
+        self.assertTrue(self.connection._frame_max_tuned)
+        self.assertEqual((10000 - 8, 64 * 1024 * 1024),
+                         self.connection._inbound_frame_limits())
         self.assertEqual(20, self.connection.params.heartbeat)
         self.assertEqual(9992, self.connection._body_max_length)
         heartbeat_checker.assert_called_once_with(self.connection, 20)
@@ -1118,14 +1121,16 @@ class ConnectionTests(unittest.TestCase):
 
     def test_oversized_frame_ends_the_connection_before_its_payload_arrives(
             self):
-        claimed = 64 * 1024 * 1024 + 1
+        # The broker tuned 16 KiB, then declares a 50 MiB frame.
+        self._tune(16384)
+        claimed = 50 * 1024 * 1024
         frame_header = struct.pack('>BHI', spec.FRAME_BODY, 1, claimed)
 
         self._feed_with_real_terminate(frame_header)
 
         error = self.connection._error
         self.assertIsInstance(error, exceptions.FrameTooLargeError)
-        self.assertEqual((claimed, 64 * 1024 * 1024), error.args)
+        self.assertEqual((claimed, 16384 - 8), error.args)
         self.assertFalse(self.channel._handle_content_frame.called)
         # Data arriving before the transport finishes closing is not buffered.
         buffered = len(self.connection._frame_buffer)
@@ -1153,8 +1158,12 @@ class ConnectionTests(unittest.TestCase):
             self.connection._on_data_available(close_ok)
         self.assertEqual(1, process_frame.call_count)
 
-    def test_small_body_limit_admits_large_properties_up_to_the_floor(self):
-        self.connection.params.frame_max = spec.FRAME_MIN_SIZE
+    def _tune(self, frame_max):
+        self.connection.params.frame_max = frame_max
+        self.connection._frame_max_tuned = True
+
+    def test_a_header_frame_larger_than_frame_max_is_accepted(self):
+        self._tune(spec.FRAME_MIN_SIZE)
         self.connection.params.max_inbound_message_body_size = 1
         properties = spec.BasicProperties(headers={'big': 'x' * 100000})
         header = frame.Header(1, 1, properties).marshal()
@@ -1164,6 +1173,53 @@ class ConnectionTests(unittest.TestCase):
 
         self.assertIsNone(self.connection._error)
         self.assertEqual(1, self.channel._handle_content_frame.call_count)
+
+    def test_a_header_frame_above_the_body_limit_ends_the_connection(self):
+        self._tune(spec.FRAME_MAX_SIZE)
+        claimed = 64 * 1024 * 1024 + 1
+        frame_header = struct.pack('>BHI', spec.FRAME_HEADER, 1, claimed)
+
+        self._feed_with_real_terminate(frame_header)
+
+        error = self.connection._error
+        self.assertIsInstance(error, exceptions.FrameTooLargeError)
+        self.assertEqual((claimed, 64 * 1024 * 1024), error.args)
+
+    def test_a_frame_at_the_negotiated_frame_max_is_accepted(self):
+        self._tune(16384)
+        body = frame.Body(1, b'x' * (16384 - 8)).marshal()
+        self.assertEqual(16384, len(body))
+
+        self._feed_with_real_terminate(body)
+
+        self.assertIsNone(self.connection._error)
+        self.assertEqual(1, self.channel._handle_content_frame.call_count)
+
+    def test_frames_after_tune_in_the_same_read_use_its_frame_max(self):
+        heartbeat = frame.Heartbeat().marshal()
+        body = frame.Body(1, b'x' * 100000).marshal()
+        processed = []
+
+        def process(value):
+            processed.append(type(value))
+            if len(processed) == 1:
+                self._tune(spec.FRAME_MAX_SIZE)
+
+        with mock.patch.object(self.connection, '_process_frame', process):
+            self._feed_with_real_terminate(heartbeat + body)
+
+        self.assertIsNone(self.connection._error)
+        self.assertEqual([frame.Heartbeat, frame.Body], processed)
+
+    def test_a_frame_before_tune_is_limited_to_the_minimum_frame_size(self):
+        claimed = spec.FRAME_MIN_SIZE - 8 + 1
+        frame_header = struct.pack('>BHI', spec.FRAME_METHOD, 0, claimed)
+
+        self._feed_with_real_terminate(frame_header)
+
+        error = self.connection._error
+        self.assertIsInstance(error, exceptions.FrameTooLargeError)
+        self.assertEqual((claimed, spec.FRAME_MIN_SIZE - 8), error.args)
 
     def test_size_errors_name_the_connection(self):
         self.connection.params.max_inbound_message_body_size = 1024

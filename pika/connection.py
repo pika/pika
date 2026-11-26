@@ -42,6 +42,8 @@ PRODUCT = 'Pika Python Client Library'
 
 LOGGER = logging.getLogger(__name__)
 
+_FRAME_OVERHEAD = spec.FRAME_HEADER_SIZE + spec.FRAME_END_SIZE
+
 
 class Parameters:
     """Base connection parameters class definition."""
@@ -292,7 +294,9 @@ class Parameters:
     def frame_max(self) -> int:
         """
         :returns: desired maximum AMQP frame size to use. Defaults to
-            `DEFAULT_FRAME_MAX`.
+            `DEFAULT_FRAME_MAX`. An inbound frame larger than the negotiated value closes the
+            connection; see
+            [`max_inbound_message_body_size`][pika.connection.Parameters.max_inbound_message_body_size].
 
         """
         return self._frame_max
@@ -324,11 +328,15 @@ class Parameters:
         `DEFAULT_MAX_INBOUND_MESSAGE_BODY_SIZE` (64 MiB).
 
         A message with a larger body closes the connection with
-        `pika.exceptions.MessageBodyTooLargeError`. A frame whose payload is larger than this or
-        `spec.FRAME_MAX_SIZE` (128 KiB), whichever is greater, closes it with
-        `pika.exceptions.FrameTooLargeError`; a message's properties count towards its header
-        frame. Every message pika receives is checked, including returned messages and
-        `basic_get` replies.
+        `pika.exceptions.MessageBodyTooLargeError`. Every message pika receives is checked,
+        including returned messages and `basic_get` replies.
+
+        A content header frame, which carries a message's properties, whose payload is larger than
+        this or `spec.FRAME_MAX_SIZE` (128 KiB), whichever is greater, closes the connection with
+        `pika.exceptions.FrameTooLargeError`. Any other frame is held to the negotiated
+        [`frame_max`][pika.connection.Parameters.frame_max] instead, and to
+        `spec.FRAME_MIN_SIZE` before `Connection.Tune` arrives; the limit is on the payload, 8
+        bytes less than the frame.
 
         :returns: the limit in bytes
         """
@@ -1207,6 +1215,9 @@ class Connection(abc.ABC):
 
         # Negotiated server properties
         self.server_properties = None
+
+        # Until Connection.Tune, inbound frames are held to `spec.FRAME_MIN_SIZE`.
+        self._frame_max_tuned = False
 
         # Inbound buffer for decoding frames
         self._frame_buffer = bytearray()
@@ -2152,6 +2163,7 @@ class Connection(abc.ABC):
             self.params.channel_max, method_frame.method.channel_max)
         self.params.frame_max = Connection._negotiate_integer_value(
             self.params.frame_max, method_frame.method.frame_max)
+        self._frame_max_tuned = True
 
         if callable(self.params.heartbeat):
             ret_heartbeat = self.params.heartbeat(self,
@@ -2181,6 +2193,18 @@ class Connection(abc.ABC):
         # Send the Connection.Open RPC call for the vhost
         self._send_connection_open()
 
+    def _inbound_frame_limits(self) -> tuple[int, int]:
+        """Return the largest frame payload and content header payload, in bytes, to accept now."""
+        if self._frame_max_tuned:
+            frame_limit = self.params.frame_max - _FRAME_OVERHEAD
+        else:
+            frame_limit = spec.FRAME_MIN_SIZE - _FRAME_OVERHEAD
+        # RabbitMQ sends a header frame as large as the message's properties, whatever its
+        # frame_max; the floor keeps a small body limit from refusing ordinary properties.
+        header_limit = max(self.params.max_inbound_message_body_size,
+                           spec.FRAME_MAX_SIZE)
+        return frame_limit, header_limit
+
     def _on_data_available(self, data_in: bytes) -> None:
         """
         This is called by our Adapter, passing in the data from the socket.
@@ -2208,14 +2232,17 @@ class Connection(abc.ABC):
         # when one read contains many frames.
         self._processing_frame_buffer = True
         offset = 0
-        # The floor keeps a small body limit from refusing ordinary method frames.
-        frame_limit = max(self.params.max_inbound_message_body_size,
-                          spec.FRAME_MAX_SIZE)
+        tuned = self._frame_max_tuned
+        frame_limit, header_limit = self._inbound_frame_limits()
         try:
             while offset < len(buffer):
+                if tuned is not self._frame_max_tuned:
+                    # Connection.Tune arrived in this read; later frames use its frame_max.
+                    tuned = self._frame_max_tuned
+                    frame_limit, header_limit = self._inbound_frame_limits()
                 try:
                     consumed_count, frame_value = frame.decode_frame(
-                        buffer, offset, frame_limit)
+                        buffer, offset, frame_limit, header_limit)
                     if not frame_value:
                         break
                     offset += consumed_count
