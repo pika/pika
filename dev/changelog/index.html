@@ -2002,6 +2002,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#a-frame-larger-than-the-negotiated-frame_max-closes-the-connection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A frame larger than the negotiated frame_max closes the connection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#connection-parameters-that-carry-tls-options-can-be-deep-copied" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2645,6 +2656,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#a-frame-larger-than-the-negotiated-frame_max-closes-the-connection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A frame larger than the negotiated frame_max closes the connection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#connection-parameters-that-carry-tls-options-can-be-deep-copied" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3265,10 +3287,12 @@
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <p>Notes for each release are also published on the <a href="https://github.com/pika/pika/releases">GitHub releases page</a>, generated from the pull requests and issues the release contains.</p>
 <h2 id="upgrading-to-151">Upgrading to 1.5.1<a class="headerlink" href="#upgrading-to-151" title="Permanent link">&para;</a></h2>
-<p>Three changes are worth reading before you upgrade.</p>
+<p>Four changes are worth reading before you upgrade.</p>
 <h3 id="pikaconnection-publishers-now-wait-for-the-socket"><code>pika.Connection</code> publishers now wait for the socket<a class="headerlink" href="#pikaconnection-publishers-now-wait-for-the-socket" title="Permanent link">&para;</a></h3>
 <p>In 1.5.0, <code>basic_publish</code> on a <code>pika.Connection</code> channel queued without limit, so a publisher could run arbitrarily far ahead of the socket, and a <code>close()</code> whose timeout expired silently dropped the publishes still queued. In 1.5.1, <code>basic_publish</code> waits while 256 KiB of accepted publishes are still unsent, as the RabbitMQ Java and .NET clients make a publisher wait, so a <code>close()</code> has at most that much left to send (#1859).</p>
 <p>A publisher that outruns the network or the broker now blocks in <code>basic_publish</code> rather than growing the backlog. The wait has no time limit: during a broker resource alarm it lasts until the alarm clears, unless <code>blocked_connection_timeout</code> is set. Publishing from a consumer or confirm callback still works. Once <code>close()</code> has started, <code>basic_publish</code> raises <code>ConnectionWrongStateError</code>, and publishes a close still drops are logged in a WARNING saying how many.</p>
+<h3 id="a-frame-larger-than-the-negotiated-frame_max-closes-the-connection">A frame larger than the negotiated <code>frame_max</code> closes the connection<a class="headerlink" href="#a-frame-larger-than-the-negotiated-frame_max-closes-the-connection" title="Permanent link">&para;</a></h3>
+<p>In 1.5.0, pika accepted an inbound frame up to <code>max_inbound_message_body_size</code> (64 MiB by default) whatever <code>frame_max</code> the connection negotiated. In 1.5.1, a method, body or heartbeat frame larger than the negotiated <code>frame_max</code>, or larger than <code>FRAME_MIN_SIZE</code> (8 KiB) before <code>Connection.Tune</code> arrives, closes the connection with <code>FrameTooLargeError</code>; the RabbitMQ Java and Go clients also follow the negotiated <code>frame_max</code>. A content header frame, which carries a message's properties, keeps the 1.5.0 limit, because RabbitMQ sends one as large as the properties whatever its <code>frame_max</code>.</p>
 <h3 id="connection-parameters-that-carry-tls-options-can-be-deep-copied">Connection parameters that carry TLS options can be deep-copied<a class="headerlink" href="#connection-parameters-that-carry-tls-options-can-be-deep-copied" title="Permanent link">&para;</a></h3>
 <p><code>copy.deepcopy</code> of a parameters object holding <code>SSLOptions</code>, including <code>URLParameters('amqps://...')</code>, raised <code>TypeError: cannot pickle 'SSLContext' object</code>, because <code>ssl.SSLContext</code> cannot be copied. Now <code>copy.deepcopy</code> of an <code>SSLOptions</code> returns the same instance, so parameters with TLS options copy cleanly and the copy shares the original's <code>SSLOptions</code> (#1845).</p>
 <h3 id="a-closed-channels-number-can-be-reused-from-its-close-callback">A closed channel's number can be reused from its close callback<a class="headerlink" href="#a-closed-channels-number-can-be-reused-from-its-close-callback" title="Permanent link">&para;</a></h3>
