@@ -35,6 +35,8 @@ utils/benchmark_prefilled_drain.py  # compares two pika sources draining a prefi
 .ci/run_examples.py     # runs every example against a live broker
 docs/                   # the mkdocs source tree; `site/` is what publishes
 docs/internal/          # long-form notes, excluded from the site (see below)
+design/                 # design working areas, not built into the docs site;
+                        #   design/README.md states the rules for them
 examples/               # usage examples
 ```
 
