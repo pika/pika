@@ -1,10 +1,15 @@
 import unittest
 from unittest.mock import MagicMock
 
+from pika import spec
 from pika.channel import Channel
 from pika.connection import Connection
 from pika.exceptions import DuplicateGetOkCallback
 from pika.frame import Header, Method
+
+
+def _header():
+    return Header(0, 0, spec.BasicProperties())
 
 
 class OnlyOneBasicGetTestCase(unittest.TestCase):
@@ -16,9 +21,9 @@ class OnlyOneBasicGetTestCase(unittest.TestCase):
 
     def test_two_basic_get_with_callback(self):
         self.channel.basic_get('test-queue', self.callback)
-        self.channel._on_getok(MagicMock(Method)(), MagicMock(Header)(), b'')
+        self.channel._on_getok(MagicMock(Method)(), _header(), b'')
         self.channel.basic_get('test-queue', self.callback)
-        self.channel._on_getok(MagicMock(Method)(), MagicMock(Header)(), b'')
+        self.channel._on_getok(MagicMock(Method)(), _header(), b'')
         self.assertEqual(self.callback.call_count, 2)
 
     def test_two_basic_get_without_callback(self):
