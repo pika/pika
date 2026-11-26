@@ -529,6 +529,18 @@ class ConnectionTests(unittest.TestCase):
         self.connection.callbacks.add.assert_called_once_with(
             0, self.connection.ON_CONNECTION_ERROR, dummy_callback, False)
 
+    def test_on_data_available_propagates_overly_nested_table(self):
+        # The adapter ends the stream, as for any malformed frame; before Start
+        # is processed, the open error is `IncompatibleProtocolError`.
+        server_properties = {}
+        for _ in range(33):
+            server_properties = {'k': server_properties}
+        method = spec.Connection.Start(server_properties=server_properties)
+        with self.assertRaisesRegex(exceptions.InvalidFrameError,
+                                    'more than 32 deep'):
+            self.connection._on_data_available(
+                frame.Method(0, method).marshal())
+
     def test_channel(self):
         """Test the channel method."""
         self.connection._next_channel_number = mock.Mock(return_value=42)

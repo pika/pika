@@ -9,7 +9,7 @@ import warnings
 from typing import cast
 from unittest import mock
 
-from pika import callback, channel, connection, exceptions, frame, spec
+from pika import callback, channel, connection, data, exceptions, frame, spec
 
 
 class ConnectionTemplate(connection.Connection):
@@ -312,6 +312,94 @@ class ChannelTests(unittest.TestCase):
             received, [], 'the delivery reached a callback that cannot '
             'acknowledge it')
         reject.assert_not_called()
+
+    def _undecodable_header(self):
+        header = frame.Header(self.obj.channel_number, 4,
+                              spec.BasicProperties())
+        header.decode_error = data._FieldNestingError('too deep')
+        return header
+
+    def test_undecodable_delivery_is_rejected_without_requeue(self):
+        self.obj._set_state(self.obj.OPEN)
+        received = []
+        with mock.patch.object(self.obj, '_rpc'):
+            self.obj.basic_consume('q',
+                                   lambda *args: received.append(args),
+                                   consumer_tag='ctag0')
+        method = frame.Method(self.obj.channel_number,
+                              spec.Basic.Deliver('ctag0', 7))
+        with mock.patch.object(self.obj,
+                               'basic_reject') as reject, self.assertLogs(
+                                   'pika.channel', 'ERROR') as logs:
+            self.obj._on_deliver(method, self._undecodable_header(), b'body')
+        reject.assert_called_once_with(7, requeue=False)
+        self.assertEqual(received, [])
+        self.assertIn('rejected without requeueing', logs.output[0])
+
+    def test_undecodable_delivery_to_auto_ack_consumer_is_only_discarded(self):
+        self.obj._set_state(self.obj.OPEN)
+        received = []
+        with mock.patch.object(self.obj, '_rpc'):
+            self.obj.basic_consume('q',
+                                   lambda *args: received.append(args),
+                                   auto_ack=True,
+                                   consumer_tag='ctag0')
+        method = frame.Method(self.obj.channel_number,
+                              spec.Basic.Deliver('ctag0', 7))
+        with mock.patch.object(self.obj,
+                               'basic_reject') as reject, self.assertLogs(
+                                   'pika.channel', 'ERROR') as logs:
+            self.obj._on_deliver(method, self._undecodable_header(), b'body')
+        reject.assert_not_called()
+        self.assertEqual(received, [])
+        self.assertNotIn('rejected', logs.output[0])
+
+    def test_reused_consumer_tag_forgets_auto_ack(self):
+        self.obj._set_state(self.obj.OPEN)
+        with mock.patch.object(self.obj, '_rpc'):
+            self.obj.basic_consume('q',
+                                   mock.Mock(),
+                                   auto_ack=True,
+                                   consumer_tag='ctag0')
+            self.obj._cleanup_consumer_ref('ctag0')
+            self.obj.basic_consume('q', mock.Mock(), consumer_tag='ctag0')
+        method = frame.Method(self.obj.channel_number,
+                              spec.Basic.Deliver('ctag0', 7))
+        with mock.patch.object(self.obj,
+                               'basic_reject') as reject, self.assertLogs(
+                                   'pika.channel', 'ERROR'):
+            self.obj._on_deliver(method, self._undecodable_header(), b'body')
+        reject.assert_called_once_with(7, requeue=False)
+
+    def test_decodable_delivery_still_reaches_the_consumer(self):
+        self.obj._set_state(self.obj.OPEN)
+        received = []
+        with mock.patch.object(self.obj, '_rpc'):
+            self.obj.basic_consume('q',
+                                   lambda *args: received.append(args),
+                                   consumer_tag='ctag0')
+        method = frame.Method(self.obj.channel_number,
+                              spec.Basic.Deliver('ctag0', 7))
+        header = frame.Header(self.obj.channel_number, 4,
+                              spec.BasicProperties())
+        with mock.patch.object(self.obj, 'basic_reject') as reject:
+            self.obj._on_deliver(method, header, b'body')
+        reject.assert_not_called()
+        self.assertEqual(len(received), 1)
+
+    def test_undecodable_getok_and_return_raise_the_decode_error(self):
+        self.obj._set_state(self.obj.OPEN)
+        self.obj._on_getok_callback = callback = mock.Mock()
+        header = self._undecodable_header()
+        for handler, method in (
+            (self.obj._on_getok, spec.Basic.GetOk(7, False, '', 'q', 0)),
+            (self.obj._on_return, spec.Basic.Return(312, 'NO_ROUTE', '', 'q')),
+        ):
+            with self.subTest(method=method.NAME), self.assertRaises(
+                    data._FieldNestingError):
+                handler(frame.Method(self.obj.channel_number, method), header,
+                        b'body')
+        callback.assert_not_called()
 
     def test_discarded_deliveries_are_reported_once_on_close(self):
         self.obj._set_state(self.obj.CLOSING)

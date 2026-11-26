@@ -348,6 +348,9 @@ class TwistedChannel:
         Pass a callback function that will be called when a published message is rejected and
         returned by the server via `Basic.Return`.
 
+        A returned message whose headers nest tables and arrays more than 32 deep closes the
+        connection, as any malformed frame does, before it reaches *callback*.
+
         :param callback: The method to call on callback with the
             message as only argument. The message is a named tuple with
             the following attributes
@@ -424,6 +427,11 @@ class TwistedChannel:
         messages for the consumer_tag to a
         [`ClosableDeferredQueue`][pika.adapters.twisted_connection.ClosableDeferredQueue]. If you do not pass in a
         consumer_tag, one will be automatically generated for you.
+
+        A delivery whose headers nest tables and arrays more than 32 deep never reaches the queue.
+        While the consumer is active on an open channel, the delivery is logged and, unless
+        *auto_ack* is set, rejected without requeueing, so the queue's dead-letter exchange receives
+        it if one is configured.
 
         For more information on basic_consume, see:
         Tutorial 2 at https://www.rabbitmq.com/getstarted.html
@@ -509,6 +517,9 @@ class TwistedChannel:
         basic_get and its parameters, see:
 
         https://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
+
+        A message whose headers nest tables and arrays more than 32 deep closes the connection, as
+        any malformed frame does, before it reaches the caller.
 
         This method wraps
         [`Channel.basic_get`][pika.channel.Channel.basic_get].

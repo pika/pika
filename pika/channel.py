@@ -120,6 +120,7 @@ class Channel:
         # them `_cancelled` retains; see `_retain_cancelled_tag`.
         self._nowait_cancelled: deque = deque()
         self._consumers: dict = {}
+        self._auto_ack_consumers: set[str] = set()
         self._on_flowok_callback: Callable[..., Any] | None = None
         self._on_getok_callback: Callable[..., Any] | None = None
         self._on_ack_nack_callback: _OnAckNackCallback | None = None
@@ -213,6 +214,9 @@ class Channel:
         """
         Pass a callback function that will be called when basic_publish is sent a message that has
         been rejected and returned by the server.
+
+        A returned message whose headers nest tables and arrays more than 32 deep closes the
+        connection, as any malformed frame does, before it reaches *callback*.
 
         :param callback: The function to call, having the signature
                                 callback(channel, method, properties, body)
@@ -424,6 +428,11 @@ class Channel:
         consumer_tag to the consumer callback. If you do not pass in a consumer_tag, one will be
         automatically generated for you. Returns the consumer tag.
 
+        A delivery whose headers nest tables and arrays more than 32 deep never reaches
+        *on_message_callback*. While the consumer is active on an open channel, the delivery is
+        logged and, unless *auto_ack* is set, rejected without requeueing, so the queue's
+        dead-letter exchange receives it if one is configured.
+
         For more information on basic_consume, see:
         Tutorial 2 at https://www.rabbitmq.com/getstarted.html
         https://www.rabbitmq.com/confirms.html
@@ -463,6 +472,8 @@ class Channel:
             raise exceptions.DuplicateConsumerTag(consumer_tag)
 
         self._consumers[consumer_tag] = on_message_callback
+        if auto_ack:
+            self._auto_ack_consumers.add(consumer_tag)
 
         rpc_callback: Callable[
             ...,
@@ -504,6 +515,9 @@ class Channel:
         basic_get and its parameters, see:
 
         https://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
+
+        A message whose headers nest tables and arrays more than 32 deep closes the connection, as
+        any malformed frame does, before it reaches the caller.
 
         :param queue: The queue from which to get a message. Use the empty
             string to specify the most recent server-named queue for this
@@ -1204,6 +1218,7 @@ class Channel:
                               self._ON_CHANNEL_CLEANUP_CB_KEY, self, self)
         finally:
             self._consumers = {}
+            self._auto_ack_consumers = set()
             self._cancelled = set()
             self._nowait_cancelled = deque()
             callbacks.cleanup(str(self.channel_number))
@@ -1216,6 +1231,7 @@ class Channel:
         :param consumer_tag: The consumer tag to cleanup
         """
         self._consumers.pop(consumer_tag, None)
+        self._auto_ack_consumers.discard(consumer_tag)
         self._cancelled.discard(consumer_tag)
 
     def _retain_cancelled_tag(self, consumer_tag: str) -> None:
@@ -1448,6 +1464,22 @@ class Channel:
             LOGGER.error('Unexpected delivery: %r', method_frame)
             return
 
+        if header_frame.decode_error is not None:
+            # Requeueing would redeliver it to every consumer of the queue in turn.
+            delivery_tag = method_frame.method.delivery_tag
+            auto_ack = consumer_tag in self._auto_ack_consumers
+            LOGGER.error(
+                'Discarding delivery %s to consumer %s on channel %i from '
+                'exchange %r with routing key %r%s: %s', delivery_tag,
+                consumer_tag, self.channel_number, method_frame.method.exchange,
+                method_frame.method.routing_key,
+                '' if auto_ack else ', rejected without requeueing',
+                header_frame.decode_error)
+            if not auto_ack:
+                assert delivery_tag is not None
+                self.basic_reject(delivery_tag, requeue=False)
+            return
+
         self._consumers[consumer_tag](self, method_frame.method,
                                       header_frame.properties, body)
 
@@ -1503,6 +1535,8 @@ class Channel:
         :param header_frame: The header frame received
         :param body: The body received
         """
+        if header_frame.decode_error is not None:
+            raise header_frame.decode_error
         if self._on_getok_callback is not None:
             callback = self._on_getok_callback
             self._on_getok_callback = None
@@ -1539,6 +1573,8 @@ class Channel:
         :param header_frame: The content header frame
         :param body: The message body
         """
+        if header_frame.decode_error is not None:
+            raise header_frame.decode_error
         if not self.callbacks.process(self.channel_number, '_on_return', self,
                                       self, method_frame.method,
                                       header_frame.properties, body):
