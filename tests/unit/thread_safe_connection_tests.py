@@ -4152,12 +4152,13 @@ class ConnectionTests(_ConnectionHarness, unittest.TestCase):
 
     def _make_connection_with_crashed_ioloop(self, exc, start=None, join=True):
         """
-        Construct a Connection whose IOLoop thread exits on *exc*.
+        Construct a Connection whose IOLoop thread exits on *exc*, or by running *start*.
 
         ``ioloop.start`` raising is what an exception escaping a callback on the IOLoop thread looks
         like to ``_run_ioloop``.  ``on_open_callback`` fires while ``SelectConnection`` is
         constructed, before the thread starts, so ``__init__`` still completes and the crash happens
-        afterwards.
+        afterwards.  *start*, if given, replaces *exc* as ``ioloop.start``; with *join* false the
+        caller joins the IOLoop thread.
         """
         with patch('pika.adapters.thread_safe_connection.SelectConnection'
                   ) as MockSelectConn:
@@ -4254,6 +4255,21 @@ class ConnectionTests(_ConnectionHarness, unittest.TestCase):
         self.assertTrue(conn.is_closed)
         with self.assertRaises(RuntimeError):
             conn._connection_work_pool.submit(lambda: None)
+
+    def test_system_exit_before_the_open_ends_init_with_a_connection_error(
+            self):
+        with patch('pika.adapters.thread_safe_connection.SelectConnection'
+                  ) as MockSelectConn, patch('threading.excepthook',
+                                             lambda args: None,
+                                             create=True):
+            mock_conn = MagicMock()
+            mock_conn.ioloop.start.side_effect = SystemExit(3)
+            MockSelectConn.return_value = mock_conn
+            started = time.monotonic()
+            with self.assertRaises(AMQPConnectionError) as raised:
+                Connection(parameters='params', timeout=10)
+        self.assertLess(time.monotonic() - started, 5)
+        self.assertIsInstance(raised.exception.__cause__, SystemExit)
 
     def test_add_callback_threadsafe_delegates(self):
         conn, _mock_conn, mock_ioloop = self._make_connection()
@@ -4797,7 +4813,7 @@ class ConnectionTests(_ConnectionHarness, unittest.TestCase):
         self.assertFalse(_admit(conn._publish_gate, wait=False))
 
     def test_a_dead_ioloop_releases_blocked_publishers(self):
-        """An IOLoop killed by a BaseException records no close reason; the gate must still open."""
+        """An IOLoop killed by a BaseException still opens the gate."""
         conn, _mock_conn, mock_ioloop = self._make_connection()
         thread, result = self._block_a_publisher(conn)
         with self.assertRaises(SystemExit):

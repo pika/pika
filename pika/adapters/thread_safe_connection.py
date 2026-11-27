@@ -2320,8 +2320,8 @@ class Connection:
                 if isinstance(exc, Exception):
                     LOGGER.exception('IOLoop thread crashed')
                 else:
-                    # Raised on a caller's thread, SystemExit or KeyboardInterrupt would end or
-                    # interrupt that thread instead of reporting the closed connection.
+                    # Raised on a caller's thread, a BaseException such as SystemExit would end
+                    # or interrupt that thread instead of reporting the closed connection.
                     reason = AMQPConnectionError(
                         f'IOLoop thread ended by {exc!r}')
                     reason.__cause__ = exc
@@ -2338,8 +2338,13 @@ class Connection:
                     self._connect_error = reason
                     self._connected_event.set()
                 if not isinstance(exc, Exception):
-                    self._warn_unsent_publishes(final=True)
-                    self._drain_pools_after_ioloop()
+                    try:
+                        self._warn_unsent_publishes(final=True)
+                        self._drain_pools_after_ioloop()
+                    except Exception:
+                        # Re-raising `exc` matters more than this cleanup.
+                        LOGGER.exception(
+                            'Cleanup after the IOLoop thread ended failed')
                     raise
             # Every close path ends here, so this is where a dropped publish is reported.
             self._publish_gate.close()
