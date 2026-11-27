@@ -1383,6 +1383,28 @@ class ChannelTests(unittest.TestCase):
                              'a pool worker waited for a blocked IOLoop')
         wrapper._schedule_unchecked.assert_called_once()
 
+    def test_basic_publish_on_another_connections_worker_follows_that_ioloop(
+            self):
+        ch, _raw_ch, wrapper = self._gated_channel()
+        gate = wrapper._publish_gate
+        gate.set_writing_paused(True)
+        self.addCleanup(gate.close)  # releases the publisher if the test fails
+        own = MagicMock(_publish_gate=_PublishGate(1000))
+
+        def publish_as_other_worker():
+            threading.current_thread()._pika_pool_owner = lambda: own
+            ch.basic_publish('ex', 'rk', b'body')
+
+        with own._publish_gate.ioloop_blocked():
+            publisher = threading.Thread(target=publish_as_other_worker,
+                                         daemon=True)
+            publisher.start()
+            publisher.join(timeout=5)
+            self.assertFalse(
+                publisher.is_alive(),
+                'a worker waited while its own IOLoop was blocked')
+        wrapper._schedule_unchecked.assert_called_once()
+
     def test_basic_publish_counts_out_once_when_queued_but_the_wakeup_fails(
             self):
         ch, _raw_ch, wrapper = self._gated_channel()

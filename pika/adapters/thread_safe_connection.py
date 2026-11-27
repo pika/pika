@@ -446,7 +446,8 @@ def _pool_owner_gate() -> _PublishGate | None:
     """Return the publish gate of the connection whose pool runs the calling thread, if any."""
     owner = getattr(threading.current_thread(), '_pika_pool_owner', None)
     connection = owner() if owner is not None else None
-    return connection._publish_gate if connection is not None else None
+    # `getattr`, as in `_BoundedWorkPool.submit`: tests build pools with stand-in owners.
+    return getattr(connection, '_publish_gate', None)
 
 
 class _BoundedWorkPool:
