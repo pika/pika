@@ -45,7 +45,7 @@ amqps://www-data:rabbit_pwd@rabbit1/web_messages?heartbeat=30
 Options that are available as query string values:
 
 - channel_max: Alter the default channel maximum by passing in a 32-bit integer value here.
-- client_properties: A dictionary of client properties to override:
+- client_properties: A dictionary of client properties to override. A `capabilities` dictionary is merged into pika's default capabilities rather than replacing them:
 
 ```text
 amqps://www-data:rabbit_pwd@rabbit1/web_messages?client_properties=%7B%27connection_name%27%3A+%27My+Unique+Connection+Name%27%7D
