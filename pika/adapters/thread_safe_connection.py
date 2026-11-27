@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 from pika import frame, spec, validators
 from pika.adapters.select_connection import SelectConnection
 from pika.adapters.utils.io_services_utils import _AsyncTransportBase
-from pika.exceptions import ConnectionWrongStateError, WorkQueueFullError
+from pika.exceptions import AMQPConnectionError, ConnectionWrongStateError, WorkQueueFullError
 
 LOGGER = logging.getLogger(__name__)
 
@@ -2313,17 +2313,21 @@ class Connection:
             try:
                 self._connection.ioloop.start()
             except BaseException as exc:
-                # Not only Exception: a dead IOLoop must still release blocked publishers.
+                # Not only Exception: whatever killed the IOLoop, every blocked caller is woken so
+                # it does not hang forever (#1873).
                 self._publish_gate.close()
-                if not isinstance(exc, Exception):
-                    self._warn_unsent_publishes(final=True)
-                    raise
-                # An unhandled exception in a callback killed the IOLoop.
-                # Wake every blocked caller so they do not hang forever.
-                LOGGER.exception('IOLoop thread crashed')
+                reason: BaseException = exc
+                if isinstance(exc, Exception):
+                    LOGGER.exception('IOLoop thread crashed')
+                else:
+                    # Raised on a caller's thread, a BaseException such as SystemExit would end
+                    # or interrupt that thread instead of reporting the closed connection.
+                    reason = AMQPConnectionError(
+                        f'IOLoop thread ended by {exc!r}')
+                    reason.__cause__ = exc
                 with self._channel_waiters_lock:
                     if self._closed_reason is None:
-                        self._record_closed_reason(exc)
+                        self._record_closed_reason(reason)
                     for evt, err in self._blocking_waiters:
                         if err[0] is None:
                             err[0] = self._closed_reason
@@ -2331,8 +2335,17 @@ class Connection:
                     self._blocking_waiters.clear()
                 # Wake __init__ if it crashed before the connection opened.
                 if not self._connected_event.is_set():
-                    self._connect_error = exc
+                    self._connect_error = reason
                     self._connected_event.set()
+                if not isinstance(exc, Exception):
+                    try:
+                        self._warn_unsent_publishes(final=True)
+                        self._drain_pools_after_ioloop()
+                    except Exception:
+                        # Re-raising `exc` matters more than this cleanup.
+                        LOGGER.exception(
+                            'Cleanup after the IOLoop thread ended failed')
+                    raise
             # Every close path ends here, so this is where a dropped publish is reported.
             self._publish_gate.close()
             self._warn_unsent_publishes(final=True)
