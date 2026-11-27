@@ -4150,7 +4150,7 @@ class ConnectionTests(_ConnectionHarness, unittest.TestCase):
         _conn, _, mock_ioloop = self._make_connection()
         mock_ioloop.start.assert_called_once()
 
-    def _make_connection_with_crashed_ioloop(self, exc):
+    def _make_connection_with_crashed_ioloop(self, exc, start=None, join=True):
         """
         Construct a Connection whose IOLoop thread exits on *exc*.
 
@@ -4170,7 +4170,7 @@ class ConnectionTests(_ConnectionHarness, unittest.TestCase):
             mock_conn.is_closed = False
             mock_conn.is_closing = False
             mock_conn._error = None
-            mock_ioloop.start.side_effect = exc
+            mock_ioloop.start.side_effect = start or exc
 
             def fake_init(parameters, on_open_callback, on_open_error_callback,
                           on_close_callback):
@@ -4181,8 +4181,9 @@ class ConnectionTests(_ConnectionHarness, unittest.TestCase):
             MockSelectConn.return_value = mock_conn
 
             conn = Connection(parameters='params')
-            conn._ioloop_thread.join(timeout=5)
-            self.assertFalse(conn._ioloop_thread.is_alive())
+            if join:
+                conn._ioloop_thread.join(timeout=5)
+                self.assertFalse(conn._ioloop_thread.is_alive())
 
         return conn, mock_conn
 
@@ -4224,6 +4225,35 @@ class ConnectionTests(_ConnectionHarness, unittest.TestCase):
         exc = RuntimeError('from a callback')
         conn, _mock_conn = self._make_connection_with_crashed_ioloop(exc)
         self.assertIs(conn._closed_reason, exc)
+
+    def test_a_waiter_is_woken_when_system_exit_ends_the_ioloop_thread(self):
+        go = threading.Event()
+
+        def start():
+            go.wait(timeout=5)
+            raise SystemExit(3)
+
+        raised = []
+        # The thread still ends on SystemExit; record it instead of reporting it.
+        with patch('threading.excepthook',
+                   lambda args: raised.append(args.exc_type),
+                   create=True):
+            conn, _mock_conn = self._make_connection_with_crashed_ioloop(
+                None, start=start, join=False)
+            woken, err = threading.Event(), [None]
+            with conn._channel_waiters_lock:
+                conn._blocking_waiters.append((woken, err))
+            go.set()
+
+            self.assertTrue(woken.wait(timeout=5), 'the waiter was never woken')
+            conn._ioloop_thread.join(timeout=5)
+        if hasattr(threading, 'excepthook'):  # 3.8+; 3.7 drops SystemExit
+            self.assertEqual(raised, [SystemExit])
+        self.assertIsInstance(err[0], AMQPConnectionError)
+        self.assertIsInstance(err[0].__cause__, SystemExit)
+        self.assertTrue(conn.is_closed)
+        with self.assertRaises(RuntimeError):
+            conn._connection_work_pool.submit(lambda: None)
 
     def test_add_callback_threadsafe_delegates(self):
         conn, _mock_conn, mock_ioloop = self._make_connection()
