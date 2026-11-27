@@ -385,7 +385,7 @@ class _PublishGate:
         self._handed_bytes += nbytes
         self._handed_count += 1
         # Wake waiters only once half the limit has drained, as Netty's writability resumes at
-        # its low-water mark: waking them on every publish handed over cost 16% at 1 KiB.
+        # its low-water mark; see docs/internal/thread-safe-connection.md.
         if self._pending_bytes() <= self._limit // 2:
             self._wake()
 
@@ -1176,7 +1176,8 @@ class Channel:
             properties or body raises, such as `pika.exceptions.UnsupportedAMQPFieldException` for a
             header value with no field-table type. Both are raised here, before anything is
             scheduled.
-        :raises pika.exceptions.ConnectionWrongStateError: if [`Connection.close`][pika.adapters.thread_safe_connection.Connection.close] has started.
+        :raises pika.exceptions.ConnectionWrongStateError: while [`Connection.close`][pika.adapters.thread_safe_connection.Connection.close] is in
+            progress, as its documentation describes. After the close, the close reason is raised.
         """
         if on_publish is not None:
             validators.require_callback(on_publish, 'on_publish')
