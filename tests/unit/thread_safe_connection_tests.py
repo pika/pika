@@ -4256,6 +4256,35 @@ class ConnectionTests(_ConnectionHarness, unittest.TestCase):
         with self.assertRaises(RuntimeError):
             conn._connection_work_pool.submit(lambda: None)
 
+    def test_a_failed_cleanup_after_system_exit_keeps_the_system_exit(self):
+        go = threading.Event()
+
+        def start():
+            go.wait(timeout=5)
+            raise SystemExit(3)
+
+        raised = []
+        with patch('threading.excepthook',
+                   lambda args: raised.append(args.exc_type),
+                   create=True):
+            conn, _mock_conn = self._make_connection_with_crashed_ioloop(
+                None, start=start, join=False)
+            with contextlib.ExitStack() as stack:
+                stack.enter_context(
+                    patch.object(conn,
+                                 '_drain_pools_after_ioloop',
+                                 side_effect=RuntimeError('drain failed')))
+                logs = stack.enter_context(
+                    self.assertLogs('pika.adapters.thread_safe_connection',
+                                    'ERROR'))
+                go.set()
+                conn._ioloop_thread.join(timeout=5)
+        self.assertFalse(conn._ioloop_thread.is_alive())
+        self.assertIn('Cleanup after the IOLoop thread ended failed',
+                      logs.output[-1])
+        if hasattr(threading, 'excepthook'):  # 3.8+; 3.7 drops SystemExit
+            self.assertEqual(raised, [SystemExit])
+
     def test_system_exit_before_the_open_ends_init_with_a_connection_error(
             self):
         with patch('pika.adapters.thread_safe_connection.SelectConnection'
