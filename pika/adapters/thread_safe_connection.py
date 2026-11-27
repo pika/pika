@@ -299,10 +299,12 @@ class _PublishGate:
     def _pending_bytes(self) -> int:
         return self._admitted_bytes + self._ioloop_bytes - self._handed_bytes
 
-    def _must_wait(self, worker: bool) -> bool:
+    def _must_wait(self, owner: _PublishGate | None) -> bool:
         if self._state in (_GateState.REJECTING, _GateState.CLOSED):
             return False
-        if worker and self._ioloop_blocked:
+        # The worker's own IOLoop, not necessarily this one: it may be blocked handing that
+        # worker work while the worker publishes on another connection (#1872).
+        if owner is not None and owner._ioloop_blocked:
             return False
         return self._writing_paused or self._pending_bytes() >= self._limit
 
@@ -324,7 +326,8 @@ class _PublishGate:
             finally:
                 self._cond.release()
 
-    def admit(self, nbytes: int, wait: bool, worker: bool) -> bool:
+    def admit(self, nbytes: int, wait: bool,
+              owner: _PublishGate | None) -> bool:
         """
         Count a publish in, first waiting for room if *wait* is true.
 
@@ -332,7 +335,8 @@ class _PublishGate:
         :param wait: False on the IOLoop thread, which must never wait for itself.  Such a caller
             is refused only once the connection is closed: what it queues before the close still
             goes out first.
-        :param worker: True on one of the connection's pool workers.
+        :param owner: On a pool worker thread, the gate of the connection that owns the pool,
+            which need not be this one; otherwise None.
         :returns: False if the publish must not be sent because the connection is closing or
             closed.
         """
@@ -342,16 +346,16 @@ class _PublishGate:
             self._ioloop_bytes += nbytes
             self._ioloop_count += 1
             return True
-        if self._state is _GateState.OPEN and not self._must_wait(worker):
+        if self._state is _GateState.OPEN and not self._must_wait(owner):
             return self._count_in(nbytes)
         with self._cond:
             if self._state is not _GateState.OPEN:
                 return False
-            if self._must_wait(worker):
+            if self._must_wait(owner):
                 ident = threading.get_ident()
                 self._waiters[ident] += 1
                 try:
-                    while self._must_wait(worker):
+                    while self._must_wait(owner):
                         self._cond.wait(self._RECHECK_INTERVAL)
                 finally:
                     self._waiters[ident] -= 1
@@ -438,6 +442,14 @@ class _PublishGate:
                 self._pending_bytes())
 
 
+def _pool_owner_gate() -> _PublishGate | None:
+    """Return the publish gate of the connection whose pool runs the calling thread, if any."""
+    owner = getattr(threading.current_thread(), '_pika_pool_owner', None)
+    connection = owner() if owner is not None else None
+    # `getattr`, as in `_BoundedWorkPool.submit`: tests build pools with stand-in owners.
+    return getattr(connection, '_publish_gate', None)
+
+
 class _BoundedWorkPool:
     """
     Single worker thread consuming from a bounded work queue.
@@ -507,7 +519,7 @@ class _BoundedWorkPool:
                     name=self._thread_name,
                     daemon=True,
                 )
-                # Read back by Connection._is_pool_worker_thread (#1761).
+                # Read back by Connection._is_pool_worker_thread and _pool_owner_gate (#1761).
                 self._thread._pika_pool_owner = self._owner  # type: ignore[attr-defined]
                 self._thread.start()
         try:
@@ -1193,7 +1205,7 @@ class Channel:
         if not gate.admit(nbytes,
                           wait=threading.current_thread()
                           is not wrapper._ioloop_thread,
-                          worker=wrapper._is_pool_worker_thread()):
+                          owner=_pool_owner_gate()):
             self._check_not_closed()
             raise ConnectionWrongStateError('connection is closing or closed')
 
